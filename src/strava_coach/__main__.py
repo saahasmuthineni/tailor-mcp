@@ -217,16 +217,18 @@ def cmd_uninstall():
 
 
 def main():
-    if len(sys.argv) < 2:
-        print(__doc__)
-        sys.exit(1)
-
     commands = {
         "serve": cmd_serve,
         "setup": cmd_setup,
         "status": cmd_status,
         "uninstall": cmd_uninstall,
     }
+
+    if len(sys.argv) < 2 or sys.argv[1] in ("--help", "-h", "help"):
+        print(__doc__)
+        print(f"Commands: {', '.join(commands)}")
+        sys.exit(0)
+
     cmd = sys.argv[1]
     if cmd in commands:
         commands[cmd]()

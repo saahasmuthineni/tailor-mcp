@@ -507,6 +507,10 @@ class RouterMCP:
     # SERVER LIFECYCLE
     # ══════════════════════════════════════════════════════════
 
+    def close(self):
+        """Release resources (SQLite connections). Required on Windows to release file locks."""
+        self._audit.close()
+
     def run(self):
         """Start the MCP server via stdio transport."""
         import asyncio

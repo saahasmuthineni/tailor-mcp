@@ -28,14 +28,15 @@ class TestHRZones:
 
     def test_zone_boundaries(self):
         # Test each zone boundary at max_hr=200
-        # Zone 1: <=60% (<=120), Zone 2: <=70% (<=140), etc.
-        hr = [100, 130, 155, 185, 200]
+        # Zone 1: <=60% (<=120), Zone 2: 60-70% (120-140),
+        # Zone 3: 70-80% (140-160), Zone 4: 80-90% (160-180), Zone 5: >90% (>180)
+        hr = [100, 130, 155, 175, 195]
         result = RunningProcessing.compute_hr_zones(hr, max_hr=200)
         assert result["zone_seconds"][1] == 1  # 100 → 50% → Z1
         assert result["zone_seconds"][2] == 1  # 130 → 65% → Z2
         assert result["zone_seconds"][3] == 1  # 155 → 77.5% → Z3
-        assert result["zone_seconds"][4] == 1  # 185 → 92.5% → Z4
-        assert result["zone_seconds"][5] == 1  # 200 → 100% → Z5
+        assert result["zone_seconds"][4] == 1  # 175 → 87.5% → Z4
+        assert result["zone_seconds"][5] == 1  # 195 → 97.5% → Z5
 
     def test_empty_data(self):
         result = RunningProcessing.compute_hr_zones([], max_hr=195)

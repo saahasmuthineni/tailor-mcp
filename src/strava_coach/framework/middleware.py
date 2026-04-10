@@ -228,6 +228,12 @@ class AuditLog:
             self._local.conn.execute("PRAGMA journal_mode=WAL")
         return self._local.conn
 
+    def close(self):
+        """Close the thread-local connection. Required on Windows to release file lock."""
+        if hasattr(self._local, "conn") and self._local.conn is not None:
+            self._local.conn.close()
+            self._local.conn = None
+
     def record(self, domain: str, tool_name: str, tier: int, params: dict,
                token_estimate: int, outcome: str, duration_ms: int,
                error: str = None):

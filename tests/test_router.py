@@ -91,7 +91,7 @@ class MockFailingChild(MockChild):
 
 def _run(coro):
     """Helper to run async code in tests."""
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 class TestChildRegistration:
@@ -102,6 +102,7 @@ class TestChildRegistration:
             router.register_child(child)
             assert "alpha" in router.registered_domains
             assert "alpha_free_tool" in router.registered_tools
+            router.close()
 
     def test_duplicate_domain_rejected(self):
         with TemporaryDirectory() as tmpdir:
@@ -109,6 +110,7 @@ class TestChildRegistration:
             router.register_child(MockChild("alpha"))
             with pytest.raises(ValueError, match="already registered"):
                 router.register_child(MockChild("alpha"))
+            router.close()
 
     def test_duplicate_tool_name_rejected(self):
         """A child whose tool names collide with an existing child must be rejected."""
@@ -136,6 +138,7 @@ class TestChildRegistration:
             # beta has different domain but a tool name that collides with alpha
             with pytest.raises(ValueError, match="already registered"):
                 router.register_child(CollidingChild("beta"))
+            router.close()
 
 
 class TestTier1Dispatch:
@@ -149,6 +152,7 @@ class TestTier1Dispatch:
             data = _loads(result[0].text)
             assert data["result"] == "ok"
             assert data["_meta"]["tier"] == 1
+            router.close()
 
     def test_invalid_params_rejected(self):
         with TemporaryDirectory() as tmpdir:
@@ -157,6 +161,7 @@ class TestTier1Dispatch:
             result = _run(router._dispatch("alpha_free_tool", {}))
             data = _loads(result[0].text)
             assert "error" in data
+            router.close()
 
     def test_unknown_tool_rejected(self):
         with TemporaryDirectory() as tmpdir:
@@ -164,6 +169,7 @@ class TestTier1Dispatch:
             result = _run(router._dispatch("nonexistent", {}))
             data = _loads(result[0].text)
             assert "Unknown tool" in data["error"]
+            router.close()
 
 
 class TestTier2ConsentGate:
@@ -177,6 +183,7 @@ class TestTier2ConsentGate:
             data = _loads(result[0].text)
             assert data["gate"] == "consent_required"
             assert data["domain"] == "alpha"
+            router.close()
 
     def test_passes_after_consent(self):
         with TemporaryDirectory() as tmpdir:
@@ -188,6 +195,7 @@ class TestTier2ConsentGate:
             result = _run(router._dispatch("alpha_gated_tool", {"value": 1}))
             data = _loads(result[0].text)
             assert data["result"] == "ok"
+            router.close()
 
     def test_consent_is_per_domain(self):
         with TemporaryDirectory() as tmpdir:
@@ -202,6 +210,7 @@ class TestTier2ConsentGate:
             # Beta gated blocked
             r2 = _run(router._dispatch("beta_gated_tool", {"value": 1}))
             assert _loads(r2[0].text)["gate"] == "consent_required"
+            router.close()
 
 
 class TestTier3CostGate:
@@ -215,6 +224,7 @@ class TestTier3CostGate:
             result = _run(router._dispatch("alpha_expensive_tool", {"value": 1}))
             data = _loads(result[0].text)
             assert data["result"] == "ok"
+            router.close()
 
     def test_expensive_triggers_gate(self):
         with TemporaryDirectory() as tmpdir:
@@ -226,6 +236,7 @@ class TestTier3CostGate:
             assert data["gate"] == "cost_approval_required"
             assert data["options"]["full"]["tokens"] == 50_000
             assert "downsampled" in data["options"]
+            router.close()
 
 
 class TestCircuitBreakerIntegration:
@@ -244,6 +255,7 @@ class TestCircuitBreakerIntegration:
             result = _run(router._dispatch("alpha_free_tool", {"value": 1}))
             data = _loads(result[0].text)
             assert "Circuit open" in data["error"]
+            router.close()
 
 
 class TestConsentApproval:
@@ -257,6 +269,7 @@ class TestConsentApproval:
             data = _loads(result[0].text)
             assert data["approved"] is True
             assert data["domain"] == "alpha"
+            router.close()
 
     def test_approve_unknown_domain(self):
         with TemporaryDirectory() as tmpdir:
@@ -264,3 +277,4 @@ class TestConsentApproval:
             result = _run(router._dispatch("approve_consent_unknown", {}))
             data = _loads(result[0].text)
             assert "error" in data
+            router.close()

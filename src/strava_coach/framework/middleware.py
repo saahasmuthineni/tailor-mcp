@@ -1,0 +1,364 @@
+"""
+Biosensor-to-LLM Framework — Security Middleware
+=================================================
+Cross-cutting concerns owned by the parent router.
+Domain-agnostic: these work identically regardless of data source.
+
+Pipeline order (cheapest checks first):
+1. ParamValidator  — reject bad input before any work
+2. CircuitBreaker  — block if upstream is failing
+3. ConsentGate     — per-domain biometric consent
+4. CostGate        — pre-estimate tokens, gate if expensive
+5. AuditLog        — log every call for transparency
+6. TokenLedger     — track cumulative session spend
+"""
+
+import re
+import time
+import sqlite3
+import logging
+import threading
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from .interfaces import ValidationSchema
+
+# ── JSON backend (orjson with stdlib fallback) ──
+
+try:
+    import orjson as _orjson
+
+    def _dumps(obj, **kw) -> str:
+        return _orjson.dumps(obj, default=str).decode()
+
+    def _loads(s):
+        return _orjson.loads(s)
+
+    JSON_BACKEND = "orjson"
+except ImportError:
+    import json as _json
+
+    def _dumps(obj, **kw) -> str:
+        return _json.dumps(obj, default=str)
+
+    def _loads(s):
+        return _json.loads(s)
+
+    JSON_BACKEND = "json (orjson not installed)"
+
+
+log = logging.getLogger("biosensor-mcp")
+
+
+# ═══════════════════════════════════════════════════════════════
+# CIRCUIT BREAKER
+# ═══════════════════════════════════════════════════════════════
+
+class CircuitBreaker:
+    """
+    Auto-block after N consecutive failures. Scoped per key (typically per child domain).
+
+    Prevents cascading failures when an upstream API (Strava, CGM provider, etc.) is down.
+    Resets automatically after a cooldown period.
+    """
+
+    def __init__(self, threshold: int = 3, reset_after: float = 300):
+        self.threshold = threshold
+        self.reset_after = reset_after
+        self._failures: dict[str, list[float]] = {}
+        self._tripped: dict[str, float] = {}
+
+    def check(self, key: str) -> tuple[bool, str]:
+        """Returns (ok, error_message). ok=False means circuit is open."""
+        if key in self._tripped:
+            elapsed = time.time() - self._tripped[key]
+            if elapsed < self.reset_after:
+                remaining = int(self.reset_after - elapsed)
+                return False, f"Circuit open for {key} — {remaining}s until reset"
+            del self._tripped[key]
+            self._failures.pop(key, None)
+        return True, ""
+
+    def record_success(self, key: str):
+        self._failures.pop(key, None)
+
+    def record_failure(self, key: str):
+        now = time.time()
+        fails = self._failures.setdefault(key, [])
+        fails.append(now)
+        fails[:] = [f for f in fails if now - f < self.reset_after]
+        if len(fails) >= self.threshold:
+            self._tripped[key] = now
+            log.warning(f"Circuit breaker TRIPPED for {key} after {self.threshold} failures")
+
+
+# ═══════════════════════════════════════════════════════════════
+# CONSENT GATE
+# ═══════════════════════════════════════════════════════════════
+
+class ConsentGate:
+    """
+    Per-domain biometric consent. Session-scoped, revocable.
+
+    'I consent to share my running data' does NOT auto-approve
+    CGM or sleep data. Each biosensor domain requires separate consent.
+    Consent does not persist across sessions.
+
+    Revocability closes the consent loop: "yes" is no longer functionally
+    irreversible for the conversation. Users can revoke at any time.
+    """
+
+    def __init__(self):
+        self._approved: dict[str, bool] = {}
+
+    def check(self, domain: str) -> tuple[bool, str]:
+        """Returns (ok, error_key). ok=False means consent needed."""
+        if self._approved.get(domain, False):
+            return True, ""
+        return False, f"CONSENT_REQUIRED:{domain}"
+
+    def approve(self, domain: str):
+        self._approved[domain] = True
+        log.info(f"Biometric consent GRANTED for domain: {domain}")
+
+    def revoke(self, domain: str) -> bool:
+        """
+        Revoke consent for a domain. Returns True if was previously approved.
+
+        After revocation, subsequent Tier 2+ calls to this domain will
+        trigger the consent gate again. Does not affect Tier 1 (free) tools.
+        """
+        was_approved = self._approved.pop(domain, False)
+        if was_approved:
+            log.info(f"Biometric consent REVOKED for domain: {domain}")
+        return was_approved
+
+    def is_approved(self, domain: str) -> bool:
+        return self._approved.get(domain, False)
+
+    @property
+    def approved_domains(self) -> list[str]:
+        return [d for d, v in self._approved.items() if v]
+
+
+# ═══════════════════════════════════════════════════════════════
+# COST GATE
+# ═══════════════════════════════════════════════════════════════
+
+class CostGate:
+    """
+    Token cost gate. Fires when pre-estimated cost exceeds threshold.
+
+    Uses the child's estimate_cost() — no wasted computation.
+    Shows the user full vs. cheaper alternative costs before proceeding.
+    Generates human-relatable context so raw token counts aren't presented alone.
+    """
+
+    # Baseline for "typical call" comparison (~800 tokens for a run report)
+    TYPICAL_CALL_TOKENS = 800
+
+    def __init__(self, threshold: int = 35_000):
+        self.threshold = threshold
+
+    def should_gate(self, estimated_tokens: int) -> bool:
+        return estimated_tokens >= self.threshold
+
+    def humanize(self, tokens: int, alternative_tokens: int = 0) -> dict:
+        """
+        Build a CostContext dict with human-relatable anchors.
+
+        Returns a plain dict (not CostContext dataclass) for zero-import
+        serialization in the router. Keeps the interface minimal.
+        """
+        multiple = round(tokens / self.TYPICAL_CALL_TOKENS)
+        ctx: dict = {
+            "tokens": tokens,
+            "relative_to_typical": f"~{multiple}x a typical analysis call",
+        }
+        if alternative_tokens > 0:
+            ratio = round(tokens / max(alternative_tokens, 1))
+            ctx["relative_to_cheaper_pct"] = (
+                f"~{ratio}x more than the downsampled alternative"
+            )
+        return ctx
+
+
+# ═══════════════════════════════════════════════════════════════
+# AUDIT LOG
+# ═══════════════════════════════════════════════════════════════
+
+class AuditLog:
+    """
+    Every tool call logged to SQLite for transparency.
+    Includes domain, tool name, tier, params, token estimate, outcome, timing.
+
+    Uses threading.local() so each thread gets its own SQLite connection —
+    sqlite3 connections must not be shared across threads (check_same_thread
+    defaults to True for good reason). The schema is created once on the
+    first connection from any thread, and WAL mode allows concurrent readers.
+    """
+
+    def __init__(self, db_path: Path):
+        self.db_path = db_path
+        self._local = threading.local()
+        # Eagerly create the schema from the constructing thread
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute("""
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                domain TEXT NOT NULL,
+                tool_name TEXT NOT NULL,
+                tier INTEGER NOT NULL,
+                params TEXT,
+                token_estimate INTEGER,
+                outcome TEXT NOT NULL,
+                duration_ms INTEGER,
+                error TEXT
+            )
+        """)
+        self._conn.commit()
+
+    @property
+    def _conn(self) -> sqlite3.Connection:
+        """Return (or lazily create) the per-thread SQLite connection."""
+        if not hasattr(self._local, "conn") or self._local.conn is None:
+            self._local.conn = sqlite3.connect(str(self.db_path))
+            self._local.conn.execute("PRAGMA journal_mode=WAL")
+        return self._local.conn
+
+    def record(self, domain: str, tool_name: str, tier: int, params: dict,
+               token_estimate: int, outcome: str, duration_ms: int,
+               error: str = None):
+        self._conn.execute(
+            "INSERT INTO audit_log"
+            " (timestamp, domain, tool_name, tier, params, token_estimate,"
+            "  outcome, duration_ms, error)"
+            " VALUES (?,?,?,?,?,?,?,?,?)",
+            (datetime.now(timezone.utc).isoformat(), domain, tool_name, tier,
+             _dumps(params), token_estimate, outcome, duration_ms, error),
+        )
+        self._conn.commit()
+        log.info(
+            f"AUDIT | {domain}.{tool_name} | tier={tier} "
+            f"| tokens~{token_estimate} | {outcome} | {duration_ms}ms"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
+# TOKEN LEDGER
+# ═══════════════════════════════════════════════════════════════
+
+class TokenLedger:
+    """Track cumulative token spend per session, broken down by domain."""
+
+    def __init__(self):
+        self._entries: list[dict] = []
+        self.session_start = datetime.now(timezone.utc)
+
+    def add(self, domain: str, tool_name: str, tokens: int):
+        self._entries.append({
+            "domain": domain,
+            "tool": tool_name,
+            "tokens": tokens,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+
+    @property
+    def total(self) -> int:
+        return sum(e["tokens"] for e in self._entries)
+
+    def by_domain(self) -> dict[str, int]:
+        domains: dict[str, int] = {}
+        for e in self._entries:
+            domains[e["domain"]] = domains.get(e["domain"], 0) + e["tokens"]
+        return domains
+
+    def summary(self) -> dict:
+        return {
+            "session_total_tokens": self.total,
+            "call_count": len(self._entries),
+            "by_domain": self.by_domain(),
+        }
+
+
+# ═══════════════════════════════════════════════════════════════
+# PARAM VALIDATION
+# ═══════════════════════════════════════════════════════════════
+
+class ParamValidator:
+    """Validate and sanitize tool parameters against ValidationSchema."""
+
+    @staticmethod
+    def validate(schemas: dict[str, ValidationSchema], params: dict) -> tuple[bool, str, dict]:
+        """
+        Validate params against schemas.
+        Returns (ok, error_msg, cleaned_params).
+        """
+        if not schemas:
+            return True, "", params
+
+        cleaned = {}
+        for key, schema in schemas.items():
+            value = params.get(key)
+
+            # Required check
+            if schema.required and value is None:
+                return False, f"Missing required parameter: {key}", {}
+
+            # Apply default
+            if value is None:
+                if schema.default is not None:
+                    cleaned[key] = schema.default
+                continue
+
+            # Type-specific validation
+            if schema.type == int:
+                try:
+                    value = int(value)
+                except (ValueError, TypeError):
+                    return False, f"Parameter {key} must be an integer", {}
+                if schema.min is not None and value < schema.min:
+                    return False, f"Parameter {key} must be >= {schema.min}", {}
+                if schema.max is not None and value > schema.max:
+                    return False, f"Parameter {key} must be <= {schema.max}", {}
+
+            elif schema.type == str:
+                value = str(value)
+                if schema.pattern and not re.match(schema.pattern, value):
+                    return False, f"Parameter {key} format invalid (expected {schema.pattern})", {}
+
+            elif schema.type == list:
+                if not isinstance(value, list):
+                    return False, f"Parameter {key} must be a list", {}
+                if schema.min_len is not None and len(value) < schema.min_len:
+                    return False, f"Parameter {key} must have at least {schema.min_len} items", {}
+                if schema.max_len is not None and len(value) > schema.max_len:
+                    return False, f"Parameter {key} must have at most {schema.max_len} items", {}
+                if schema.allowed_values:
+                    invalid = [v for v in value if v not in schema.allowed_values]
+                    if invalid:
+                        return False, (
+                            f"Invalid values for {key}: {invalid}. "
+                            f"Allowed: {schema.allowed_values}"
+                        ), {}
+
+            cleaned[key] = value
+
+        # Pass through extra params not in schema
+        for key, value in params.items():
+            if key not in cleaned:
+                cleaned[key] = value
+
+        return True, "", cleaned
+
+
+# ═══════════════════════════════════════════════════════════════
+# UTILITY
+# ═══════════════════════════════════════════════════════════════
+
+def estimate_tokens(data: Any) -> int:
+    """Rough token estimate: ~4 chars per token for JSON payloads."""
+    text = _dumps(data) if not isinstance(data, str) else data
+    return len(text) // 4

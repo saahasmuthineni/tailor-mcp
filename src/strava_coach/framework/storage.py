@@ -1,0 +1,77 @@
+"""
+Biosensor-to-LLM Framework — Base Storage
+==========================================
+Thread-safe SQLite-backed local cache with WAL mode and connection pooling.
+
+Children extend this for domain-specific tables by overriding _schema_sql().
+Each thread gets its own persistent connection via threading.local(),
+avoiding connect/close overhead while respecting SQLite's thread safety.
+"""
+
+import sqlite3
+import threading
+import logging
+from pathlib import Path
+from typing import Optional
+
+log = logging.getLogger("biosensor-mcp")
+
+
+class BaseStorage:
+    """
+    Thread-safe SQLite storage base class.
+
+    Usage:
+        class MyStorage(BaseStorage):
+            def _schema_sql(self) -> str:
+                return '''
+                    CREATE TABLE IF NOT EXISTS my_data (
+                        id INTEGER PRIMARY KEY,
+                        payload TEXT NOT NULL
+                    );
+                '''
+    """
+
+    def __init__(self, db_path: Path):
+        self.db_path = db_path
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._local = threading.local()
+        self._ensure_db()
+
+    def _get_conn(self) -> sqlite3.Connection:
+        """Return (or lazily create) a per-thread connection."""
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = sqlite3.connect(str(self.db_path))
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+            conn.execute("PRAGMA cache_size=-8000")  # 8 MB page cache
+            self._local.conn = conn
+        return conn
+
+    def _ensure_db(self):
+        """Create tables defined by _schema_sql()."""
+        sql = self._schema_sql()
+        if sql:
+            conn = self._get_conn()
+            conn.executescript(sql)
+            conn.commit()
+
+    def _schema_sql(self) -> str:
+        """Override in children to define domain-specific tables."""
+        return ""
+
+    def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
+        return self._get_conn().execute(sql, params)
+
+    def executemany(self, sql: str, params_list: list[tuple]):
+        self._get_conn().executemany(sql, params_list)
+
+    def commit(self):
+        self._get_conn().commit()
+
+    def fetchone(self, sql: str, params: tuple = ()) -> Optional[tuple]:
+        return self._get_conn().execute(sql, params).fetchone()
+
+    def fetchall(self, sql: str, params: tuple = ()) -> list[tuple]:
+        return self._get_conn().execute(sql, params).fetchall()

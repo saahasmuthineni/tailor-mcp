@@ -60,6 +60,45 @@ def cmd_serve():
     running = RunningChild(config_dir=CONFIG_DIR, data_dir=DATA_DIR)
     router.register_child(running)
 
+    # Vault integration (opt-in — requires vault_path in user_config.json)
+    _ucfg_path = CONFIG_DIR / "user_config.json"
+    _vault_path = None
+    if _ucfg_path.exists():
+        try:
+            _ucfg = json.loads(_ucfg_path.read_text())
+            if "vault_path" in _ucfg:
+                _vault_path = Path(_ucfg["vault_path"]).expanduser()
+        except Exception:
+            pass
+
+    if _vault_path:
+        import logging as _log_mod
+        _vlog = _log_mod.getLogger("biosensor-mcp")
+        _vlog.warning(
+            f"Vault enabled: run analytics will be written to {_vault_path}. "
+            f"If this path is cloud-synced, computed fitness data will leave this machine."
+        )
+        from strava_coach.vault import VaultWriter, VaultChild
+        vaultable: set[str] = set()
+        for _child in [running]:
+            vaultable.update(getattr(_child, "vaultable_tools", []))
+        vault_writer = VaultWriter(
+            vault_path=_vault_path,
+            data_dir=DATA_DIR,
+            running_storage=running._storage,
+            vaultable_tools=vaultable,
+            max_hr=running._max_hr,
+        )
+        router.register_post_execute_hook(vault_writer)
+        router.register_child(VaultChild(
+            vault_path=_vault_path,
+            vault_writer=vault_writer,
+            running_storage=running._storage,
+            running_processing=running._processing,
+            max_hr=running._max_hr,
+            resting_hr=running._resting_hr,
+        ))
+
     # Future children would register here:
     # cgm = CGMChild(config_dir=CONFIG_DIR, data_dir=DATA_DIR)
     # router.register_child(cgm)
@@ -135,6 +174,32 @@ def cmd_status():
             print(f"  Cached activities: {count}")
             stream_count = conn.execute("SELECT COUNT(*) FROM streams").fetchone()[0]
             print(f"  Cached streams: {stream_count}")
+
+    # Vault integration
+    user_config_2 = CONFIG_DIR / "user_config.json"
+    vault_path_cfg = None
+    if user_config_2.exists():
+        try:
+            _cfg2 = json.loads(user_config_2.read_text())
+            if "vault_path" in _cfg2:
+                vault_path_cfg = Path(_cfg2["vault_path"]).expanduser()
+        except Exception:
+            pass
+    print(f"\nVault integration:")
+    if vault_path_cfg:
+        print(f"  Enabled: Yes → {vault_path_cfg}")
+        print(f"  Vault exists: {vault_path_cfg.exists()}")
+        vault_db = DATA_DIR / "vault.db"
+        if vault_db.exists():
+            import sqlite3 as _sq
+            try:
+                with _sq.connect(str(vault_db)) as _vc:
+                    _n = _vc.execute("SELECT COUNT(*) FROM vault_notes").fetchone()[0]
+                print(f"  Notes indexed: {_n}")
+            except Exception:
+                print("  Notes indexed: (db not yet initialised)")
+    else:
+        print("  Enabled: No (add vault_path to user_config.json to enable)")
 
     # Audit log
     audit_path = DATA_DIR / "audit.db"

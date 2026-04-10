@@ -195,6 +195,11 @@ class RunningChild(ChildMCP):
         return "Running (Strava)"
 
     @property
+    def vaultable_tools(self) -> list[str]:
+        """Tools whose results should be archived to the Obsidian vault."""
+        return ["strava_run_report", "strava_trend_report", "strava_compare_runs"]
+
+    @property
     def consent_info(self) -> ConsentInfo:
         return ConsentInfo(
             data_types=["heart rate", "GPS location", "pace", "elevation"],

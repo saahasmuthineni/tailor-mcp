@@ -74,6 +74,7 @@ class RouterMCP:
         self._audit = AuditLog(data_dir / "audit.db")
         self._ledger = TokenLedger()
         self._validator = ParamValidator()
+        self._post_execute_hooks: list[callable] = []
 
         log.info(f"Router MCP '{name}' initialized (JSON backend: {JSON_BACKEND})")
 
@@ -105,6 +106,15 @@ class RouterMCP:
             f"Registered child '{domain}' ({child.display_name}) "
             f"with {len(child.tool_definitions)} tools"
         )
+
+    def register_post_execute_hook(self, hook: callable) -> None:
+        """
+        Register a callable that fires after every successful tool execution.
+
+        Signature: hook(domain: str, tool_name: str, result: dict) -> None
+        Errors are swallowed — a hook failure never breaks the MCP session.
+        """
+        self._post_execute_hooks.append(hook)
 
     @property
     def registered_domains(self) -> list[str]:
@@ -403,6 +413,13 @@ class RouterMCP:
             self._audit.record(
                 domain, tool_name, tier, cleaned, tokens, "SUCCESS", duration_ms
             )
+
+            # ── Post-execute hooks (e.g. VaultWriter) ──
+            for hook in self._post_execute_hooks:
+                try:
+                    hook(domain, tool_name, result)
+                except Exception as _hook_exc:
+                    log.warning(f"Post-execute hook failed silently: {_hook_exc}")
 
             # Attach metadata to response
             if isinstance(result, dict):

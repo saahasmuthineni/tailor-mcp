@@ -9,4 +9,4 @@ The running child (strava_coach.children.running) is the first
 concrete implementation, using Strava as the data source.
 """
 
-__version__ = "3.0.0"
+__version__ = "4.0.0"

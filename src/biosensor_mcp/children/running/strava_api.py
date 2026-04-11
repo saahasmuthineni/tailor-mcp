@@ -68,7 +68,7 @@ class StravaAPI:
     def tokens(self) -> dict:
         if self._tokens is None:
             if not self.token_file.exists():
-                raise RuntimeError("Not authenticated. Run: strava-coach setup")
+                raise RuntimeError("Not authenticated. Run: biosensor-mcp setup")
             self._tokens = _loads(self.token_file.read_text())
         return self._tokens
 

@@ -39,4 +39,4 @@ jobs:
 
       # 5. Verify the CLI entry point works
       - name: Smoke test CLI
-        run: strava-coach --help
+        run: biosensor-mcp --help

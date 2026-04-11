@@ -20,7 +20,7 @@ from .middleware import (
 from .storage import BaseStorage
 
 # RouterMCP import deferred — requires 'mcp' package at runtime
-# Use: from strava_coach.framework.router import RouterMCP
+# Use: from biosensor_mcp.framework.router import RouterMCP
 
 __all__ = [
     "ChildMCP", "ToolDefinition", "CostEstimate", "ValidationSchema",

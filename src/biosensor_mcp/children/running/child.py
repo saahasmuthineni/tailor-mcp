@@ -148,7 +148,7 @@ class RunningChild(ChildMCP):
     Owns: Strava API, running-specific storage, running analytics.
     Exposes: 13 tools across 3 tiers.
 
-    User-configurable settings (via ~/.strava-coach/user_config.json):
+    User-configurable settings (via ~/.biosensor-mcp/user_config.json):
       - max_hr: Maximum heart rate (default 195)
       - resting_hr: Resting heart rate (default 60)
     """
@@ -167,7 +167,7 @@ class RunningChild(ChildMCP):
 
     def _load_user_config(self) -> dict:
         """
-        Load user-specific settings from ~/.strava-coach/user_config.json.
+        Load user-specific settings from ~/.biosensor-mcp/user_config.json.
 
         Kept here (not in StravaAPI) because user preferences are a child-layer
         concern — the API layer should only handle HTTP transport and tokens.

@@ -82,7 +82,7 @@ tests/
 
 ~90% of questions are answered at Tier 1 with zero raw biometric data leaving the machine.
 
-## Running Child — 13 Tools
+## Running Child — 12 Tools
 
 | Tool | Tier | Description |
 |------|------|-------------|
@@ -144,7 +144,7 @@ biosensor-mcp serve
 
 User config at `~/.biosensor-mcp/user_config.json`:
 ```json
-{ "max_hr": 185, "resting_hr": 55, "home_coords": [42.360, -71.058] }
+{ "max_hr": 185, "resting_hr": 55, "home_lat": 42.360, "home_lng": -71.058 }
 ```
 
 ## Claude Desktop Integration

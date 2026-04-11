@@ -160,6 +160,7 @@ Add `vault_path` to `~/.biosensor-mcp/user_config.json`:
 | `vault_list_notes` | Browse notes by date, type, or coaching status |
 | `vault_read_note` | Read full body of a specific run note |
 | `vault_search_notes` | Full-text search across all notes |
+| `vault_list_anomalies` | Find runs with detected anomalies (HR spikes, etc.) |
 | `vault_annotate_run` | Save coaching insights back to a note |
 | `vault_backfill` | Generate notes for all cached historical runs |
 

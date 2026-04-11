@@ -134,7 +134,7 @@ def cmd_setup():
 
 def cmd_status():
     """Check configuration and connectivity."""
-    print("Strava Run Coach — Status Check")
+    print("Biosensor MCP — Status Check")
     print("=" * 40)
 
     # Config dir
@@ -264,7 +264,7 @@ def cmd_status():
 
 def cmd_uninstall():
     """Clean removal."""
-    print("Strava Run Coach — Uninstall")
+    print("Biosensor MCP — Uninstall")
     print("This will remove:")
     print(f"  - Config directory: {CONFIG_DIR}")
     print(f"  - Claude Desktop MCP registration")
@@ -283,7 +283,8 @@ def cmd_uninstall():
 
     if config_path.exists():
         try:
-            config = json.loads(config_path.read_text())
+            raw = config_path.read_bytes().lstrip(b"\xef\xbb\xbf").decode("utf-8")
+            config = json.loads(raw)
             if "biosensor-mcp" in config.get("mcpServers", {}):
                 del config["mcpServers"]["biosensor-mcp"]
                 config_path.write_text(json.dumps(config, indent=2))

@@ -11,3 +11,4 @@ tokens.json
 *.db
 *.log
 .DS_Store
+.pytest_cache/

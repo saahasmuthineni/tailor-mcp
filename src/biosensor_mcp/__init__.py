@@ -1,6 +1,6 @@
 """
-Strava Run Coach — Biosensor-to-LLM Reference Implementation
-==============================================================
+Biosensor MCP — Biosensor-to-LLM Middleware Framework
+======================================================
 MCP server demonstrating the parent/child pattern for efficiently
 piping high-frequency biosensor data into LLM context windows.
 

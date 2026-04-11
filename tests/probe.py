@@ -53,7 +53,7 @@ def _make_mcp_mock():
 _make_mcp_mock()
 
 # ── Now import the real framework ──
-sys.path.insert(0, str(Path(__file__).parent / "mnt/Biosensor to LLM optimization/strava-run-coach/src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from biosensor_mcp.framework.middleware import (
     CircuitBreaker, ConsentGate, CostGate, ParamValidator, TokenLedger, estimate_tokens, _loads,

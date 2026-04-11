@@ -1,6 +1,6 @@
 # Biosensor → LLM Middleware
 
-[![CI](https://github.com/saahasmuthineni/strava-run-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/saahasmuthineni/strava-run-coach/actions/workflows/ci.yml)
+[![CI](https://github.com/saahasmuthineni/biosensor-to-llm-middleware/actions/workflows/ci.yml/badge.svg)](https://github.com/saahasmuthineni/biosensor-to-llm-middleware/actions/workflows/ci.yml)
 
 A framework for piping high-frequency biosensor data into LLM context windows efficiently, privately, and cheaply. Raw biometric streams are compressed server-side before any data reaches the model.
 
@@ -118,12 +118,12 @@ The reference implementation connects Strava running data to Claude Desktop via 
 
 **Mac / Linux:**
 ```bash
-curl -sSL https://raw.githubusercontent.com/saahasmuthineni/strava-run-coach/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/saahasmuthineni/biosensor-to-llm-middleware/main/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
-irm https://raw.githubusercontent.com/saahasmuthineni/strava-run-coach/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/saahasmuthineni/biosensor-to-llm-middleware/main/install.ps1 | iex
 ```
 
 Restart Claude Desktop after install. Then ask Claude to sync and analyze your runs.

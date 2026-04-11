@@ -1,6 +1,6 @@
 # ═══════════════════════════════════════════════════════════════
-# Strava Run Coach — One-Click Installer (Windows)
-# Usage: irm https://raw.githubusercontent.com/saahasmuthineni/strava-run-coach/main/install.ps1 | iex
+# Biosensor MCP — One-Click Installer (Windows)
+# Usage: irm https://raw.githubusercontent.com/saahasmuthineni/biosensor-to-llm-middleware/main/install.ps1 | iex
 # ═══════════════════════════════════════════════════════════════
 
 $ErrorActionPreference = "Stop"
@@ -12,15 +12,15 @@ if ($policy -eq "Restricted" -or $policy -eq "AllSigned") {
     exit 1
 }
 
-$REPO = "saahasmuthineni/strava-run-coach"
+$REPO = "saahasmuthineni/biosensor-to-llm-middleware"
 
 $INSTALL_DIR = Join-Path $env:USERPROFILE ".biosensor-mcp"
 $VENV_DIR = Join-Path $INSTALL_DIR "venv"
 $SRC_DIR = Join-Path $INSTALL_DIR "src"
 
 Write-Host ""
-Write-Host "  Strava Run Coach - Installer v3.0" -ForegroundColor Cyan
-Write-Host "  ===================================" -ForegroundColor Cyan
+Write-Host "  Biosensor MCP - Installer v4.0" -ForegroundColor Cyan
+Write-Host "  ================================" -ForegroundColor Cyan
 Write-Host ""
 
 # --- Check Python ---
@@ -63,7 +63,7 @@ Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
 if (Test-Path $extractPath) { Remove-Item $extractPath -Recurse -Force }
 Expand-Archive -Path $zipPath -DestinationPath $extractPath
 if (Test-Path $SRC_DIR) { Remove-Item $SRC_DIR -Recurse -Force }
-Move-Item -Path (Join-Path $extractPath "strava-run-coach-main") -Destination $SRC_DIR
+Move-Item -Path (Join-Path $extractPath "biosensor-to-llm-middleware-main") -Destination $SRC_DIR
 Remove-Item $zipPath -Force
 Remove-Item $extractPath -Recurse -Force
 Write-Host "  Source downloaded" -ForegroundColor Green

@@ -2,18 +2,18 @@
 set -euo pipefail
 
 # ═══════════════════════════════════════════════════════════════
-# Strava Run Coach — One-Click Installer (Mac/Linux)
-# Usage: curl -sSL https://raw.githubusercontent.com/saahasmuthineni/strava-run-coach/main/install.sh | bash
+# Biosensor MCP — One-Click Installer (Mac/Linux)
+# Usage: curl -sSL https://raw.githubusercontent.com/saahasmuthineni/biosensor-to-llm-middleware/main/install.sh | bash
 # ═══════════════════════════════════════════════════════════════
 
-REPO="saahasmuthineni/strava-run-coach"
+REPO="saahasmuthineni/biosensor-to-llm-middleware"
 
 INSTALL_DIR="$HOME/.biosensor-mcp"
 VENV_DIR="$INSTALL_DIR/venv"
 SRC_DIR="$INSTALL_DIR/src"
 
 echo "╔══════════════════════════════════════╗"
-echo "║  Strava Run Coach — Installer v3.0   ║"
+echo "║  Biosensor MCP — Installer v4.0       ║"
 echo "╚══════════════════════════════════════╝"
 echo ""
 
@@ -62,7 +62,7 @@ if command -v git &>/dev/null; then
 else
     curl -sSL "https://github.com/$REPO/archive/main.tar.gz" | tar -xz -C "$INSTALL_DIR"
     rm -rf "$SRC_DIR"
-    mv "$INSTALL_DIR/strava-run-coach-main" "$SRC_DIR"
+    mv "$INSTALL_DIR/biosensor-to-llm-middleware-main" "$SRC_DIR"
 fi
 echo "✓ Source downloaded"
 

@@ -141,7 +141,7 @@ class TestRenderRunNote:
         assert 'date: "2025-04-10"' in content
         assert 'week: "2025-W15"' in content
         assert "aerobic_grade: coupled" in content
-        assert "has_coaching_notes: false" in content
+        assert "has_insight_notes: false" in content
 
     def test_frontmatter_decoupling(self):
         _, content = render_run_note(
@@ -162,11 +162,11 @@ class TestRenderRunNote:
         )
         assert "Morning Run" in content
 
-    def test_body_has_coaching_notes_section(self):
+    def test_body_has_insight_notes_section(self):
         _, content = render_run_note(
             _minimal_run_result(), _minimal_activity_data()
         )
-        assert "## Coaching Notes" in content
+        assert "## Insights" in content
 
     def test_body_has_mile_splits(self):
         _, content = render_run_note(
@@ -194,7 +194,7 @@ class TestRenderRunNote:
         minimal = {"activity_id": 99, "data_points": 100}
         filename, content = render_run_note(minimal, {"id": 99, "start_date": "2025-06-01"})
         assert "running/2025-06-01-activity-99.md" == filename
-        assert "has_coaching_notes: false" in content
+        assert "has_insight_notes: false" in content
 
     def test_decoupled_run_grade(self):
         result = _minimal_run_result()
@@ -240,7 +240,7 @@ class TestRenderTrendNote:
         _, content = render_trend_note(self._minimal_trend_result())
         assert "note_type: trend_report" in content
         assert "total_runs: 12" in content
-        assert "has_coaching_notes: false" in content
+        assert "has_insight_notes: false" in content
 
     def test_body_has_weekly_table(self):
         _, content = render_trend_note(self._minimal_trend_result())
@@ -253,9 +253,9 @@ class TestRenderTrendNote:
         _, content = render_trend_note(self._minimal_trend_result())
         assert "2025-W16" in content
 
-    def test_coaching_notes_section(self):
+    def test_insight_notes_section(self):
         _, content = render_trend_note(self._minimal_trend_result())
-        assert "## Coaching Notes" in content
+        assert "## Insights" in content
 
 
 # ── render_compare_note ──
@@ -306,7 +306,7 @@ class TestRenderCompareNote:
         _, content = render_compare_note(self._minimal_compare_result())
         assert "note_type: compare_runs" in content
         assert "run_count: 2" in content
-        assert "has_coaching_notes: false" in content
+        assert "has_insight_notes: false" in content
 
     def test_body_has_table(self):
         _, content = render_compare_note(self._minimal_compare_result())
@@ -319,9 +319,9 @@ class TestRenderCompareNote:
         assert "[[" in content
         assert "2025-04-10-activity-111" in content
 
-    def test_coaching_notes_section(self):
+    def test_insight_notes_section(self):
         _, content = render_compare_note(self._minimal_compare_result())
-        assert "## Coaching Notes" in content
+        assert "## Insights" in content
 
     def test_empty_comparisons_no_crash(self):
         filename, content = render_compare_note({"comparisons": []})

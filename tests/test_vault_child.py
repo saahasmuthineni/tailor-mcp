@@ -146,10 +146,10 @@ class TestVaultListNotes:
                 assert note["note_type"] == "run_report"
             writer.close()
 
-    def test_filter_has_coaching_notes_false(self):
+    def test_filter_has_insight_notes_false(self):
         with TemporaryDirectory() as v, TemporaryDirectory() as d:
             child, writer, _, _date = _setup_vault(v, d)
-            result = _run(child.execute("vault_list_notes", {"has_coaching_notes": False}))
+            result = _run(child.execute("vault_list_notes", {"has_insight_notes": False}))
             assert result["count"] >= 1
             writer.close()
 
@@ -160,7 +160,7 @@ class TestVaultReadNote:
             child, writer, filename, _date = _setup_vault(v, d)
             result = _run(child.execute("vault_read_note", {"filename": filename}))
             assert "content" in result
-            assert "has_coaching_notes" in result
+            assert "has_insight_notes" in result
             assert "Morning Run" in result["content"]
             writer.close()
 

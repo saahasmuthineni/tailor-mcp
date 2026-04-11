@@ -106,7 +106,7 @@ The router handles consent prompting, cost gating, circuit breaking, audit loggi
 
 ## Working Example: Strava Running + Claude Desktop
 
-The reference implementation connects Strava running data to Claude Desktop via MCP. Thirteen tools across three tiers, with an optional Obsidian vault for persistent coaching memory.
+The reference implementation connects Strava running data to Claude Desktop via MCP. Thirteen tools across three tiers, with an optional Obsidian vault for persistent analytical memory.
 
 ### Prerequisites
 
@@ -143,7 +143,7 @@ Restart Claude Desktop after install. Then ask Claude to sync and analyze your r
 
 ### Obsidian Vault (Optional)
 
-Claude can write run notes into an Obsidian vault and read them back in future sessions — persistent coaching memory across conversations.
+Claude can write run notes into an Obsidian vault and read them back in future sessions — persistent analytical memory across conversations.
 
 Add `vault_path` to `~/.biosensor-mcp/user_config.json`:
 ```json
@@ -157,11 +157,11 @@ Add `vault_path` to `~/.biosensor-mcp/user_config.json`:
 | Vault Tool | What It Does |
 |------------|-------------|
 | `vault_get_fitness_summary` | 8-week aggregate snapshot — orient at session start |
-| `vault_list_notes` | Browse notes by date, type, or coaching status |
+| `vault_list_notes` | Browse notes by date, type, or insight status |
 | `vault_read_note` | Read full body of a specific run note |
 | `vault_search_notes` | Full-text search across all notes |
 | `vault_list_anomalies` | Find runs with detected anomalies (HR spikes, etc.) |
-| `vault_annotate_run` | Save coaching insights back to a note |
+| `vault_annotate_run` | Save analytical insights back to a note |
 | `vault_backfill` | Generate notes for all cached historical runs |
 
 > **Privacy:** If your vault is in a cloud-synced folder (iCloud, OneDrive, Dropbox), the server warns you and computed analytics will be uploaded. Use a local path to keep data on-device.
@@ -190,4 +190,4 @@ biosensor-mcp uninstall  — Clean removal
 
 ## License
 
-MIT
+Apache-2.0

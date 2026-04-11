@@ -34,7 +34,7 @@ class VaultStorage(BaseStorage):
                 activity_id INTEGER,
                 date TEXT,
                 week TEXT,
-                has_coaching_notes INTEGER NOT NULL DEFAULT 0,
+                has_insight_notes INTEGER NOT NULL DEFAULT 0,
                 frontmatter_json TEXT NOT NULL,
                 written_at TEXT NOT NULL
             );
@@ -56,27 +56,27 @@ class VaultStorage(BaseStorage):
         activity_id: Optional[int] = None,
         date: Optional[str] = None,
         week: Optional[str] = None,
-        has_coaching_notes: bool = False,
+        has_insight_notes: bool = False,
     ):
         """Insert or replace a note index entry."""
         self.execute(
             "INSERT OR REPLACE INTO vault_notes"
             " (filename, domain, note_type, activity_id, date, week,"
-            "  has_coaching_notes, frontmatter_json, written_at)"
+            "  has_insight_notes, frontmatter_json, written_at)"
             " VALUES (?,?,?,?,?,?,?,?,?)",
             (
                 filename, domain, note_type, activity_id, date, week,
-                int(has_coaching_notes),
+                int(has_insight_notes),
                 _dumps(frontmatter),
                 datetime.now(timezone.utc).isoformat(),
             ),
         )
         self.commit()
 
-    def set_has_coaching_notes(self, filename: str):
-        """Mark a note as having coaching notes appended."""
+    def set_has_insight_notes(self, filename: str):
+        """Mark a note as having insight notes appended."""
         self.execute(
-            "UPDATE vault_notes SET has_coaching_notes=1 WHERE filename=?",
+            "UPDATE vault_notes SET has_insight_notes=1 WHERE filename=?",
             (filename,),
         )
         self.commit()
@@ -87,7 +87,7 @@ class VaultStorage(BaseStorage):
         """Return index row for a specific file, or None."""
         row = self.fetchone(
             "SELECT filename, domain, note_type, activity_id, date, week,"
-            "       has_coaching_notes, frontmatter_json, written_at"
+            "       has_insight_notes, frontmatter_json, written_at"
             " FROM vault_notes WHERE filename=?",
             (filename,),
         )
@@ -100,7 +100,7 @@ class VaultStorage(BaseStorage):
         date_from: Optional[str] = None,
         date_to: Optional[str] = None,
         week: Optional[str] = None,
-        has_coaching_notes: Optional[bool] = None,
+        has_insight_notes: Optional[bool] = None,
         limit: int = 50,
     ) -> list[dict]:
         """Filtered list of notes, newest first."""
@@ -122,15 +122,15 @@ class VaultStorage(BaseStorage):
         if week:
             clauses.append("week=?")
             params.append(week)
-        if has_coaching_notes is not None:
-            clauses.append("has_coaching_notes=?")
-            params.append(int(has_coaching_notes))
+        if has_insight_notes is not None:
+            clauses.append("has_insight_notes=?")
+            params.append(int(has_insight_notes))
 
         where = " WHERE " + " AND ".join(clauses) if clauses else ""
         params.append(limit)
         rows = self.fetchall(
             f"SELECT filename, domain, note_type, activity_id, date, week,"
-            f"       has_coaching_notes, frontmatter_json, written_at"
+            f"       has_insight_notes, frontmatter_json, written_at"
             f" FROM vault_notes{where}"
             f" ORDER BY written_at DESC LIMIT ?",
             tuple(params),
@@ -146,7 +146,7 @@ class VaultStorage(BaseStorage):
         """
         rows = self.fetchall(
             "SELECT filename, domain, note_type, activity_id, date, week,"
-            "       has_coaching_notes, frontmatter_json, written_at"
+            "       has_insight_notes, frontmatter_json, written_at"
             " FROM vault_notes"
             " WHERE note_type='run_report'"
             "   AND json_extract(frontmatter_json, '$.anomaly_count') > 0"
@@ -179,7 +179,7 @@ class VaultStorage(BaseStorage):
     @staticmethod
     def _row_to_dict(row: tuple) -> dict:
         filename, domain, note_type, activity_id, date, week, \
-            has_coaching_notes, frontmatter_json, written_at = row
+            has_insight_notes, frontmatter_json, written_at = row
         fm = {}
         try:
             fm = _loads(frontmatter_json) if frontmatter_json else {}
@@ -192,7 +192,7 @@ class VaultStorage(BaseStorage):
             "activity_id": activity_id,
             "date": date,
             "week": week,
-            "has_coaching_notes": bool(has_coaching_notes),
+            "has_insight_notes": bool(has_insight_notes),
             "frontmatter": fm,
             "written_at": written_at,
         }

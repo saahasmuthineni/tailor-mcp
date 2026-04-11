@@ -13,7 +13,7 @@ Tools:
   vault_read_note             Read full body of a specific note.
   vault_search_notes          Full-text search across note bodies.
   vault_list_anomalies        Runs with anomaly_count > 0.
-  vault_annotate_run          Write coaching conclusions back to a note.
+  vault_annotate_run          Write analytical insights back to a note.
   vault_backfill              Generate notes for all cached activities.
 """
 
@@ -88,7 +88,7 @@ class VaultChild(ChildMCP):
             ToolDefinition(
                 "vault_list_notes", 1,
                 "Browse vault notes with optional filters. Shows filename, date, "
-                "type, and whether coaching notes exist.",
+                "type, and whether insight notes exist.",
                 {
                     "note_type": {
                         "type": "string",
@@ -105,9 +105,9 @@ class VaultChild(ChildMCP):
                         "description": "Latest date (YYYY-MM-DD)",
                         "required": False,
                     },
-                    "has_coaching_notes": {
+                    "has_insight_notes": {
                         "type": "boolean",
-                        "description": "If true, only return notes with coaching annotations",
+                        "description": "If true, only return notes with insight annotations",
                         "required": False,
                     },
                     "limit": {
@@ -119,7 +119,7 @@ class VaultChild(ChildMCP):
             ),
             ToolDefinition(
                 "vault_read_note", 1,
-                "Read the full body of a vault note, including any coaching annotations "
+                "Read the full body of a vault note, including any insight annotations "
                 "from prior sessions.",
                 {
                     "filename": {
@@ -132,7 +132,7 @@ class VaultChild(ChildMCP):
             ToolDefinition(
                 "vault_search_notes", 1,
                 "Full-text search across vault note bodies. "
-                "Useful for finding runs that match a keyword or coaching observation.",
+                "Useful for finding runs that match a keyword or analytical observation.",
                 {
                     "query": {
                         "type": "string",
@@ -170,9 +170,9 @@ class VaultChild(ChildMCP):
             ),
             ToolDefinition(
                 "vault_annotate_run", 1,
-                "Write coaching conclusions back to a run note so they're available "
+                "Write analytical insights back to a run note so they're available "
                 "in future sessions. Max 2000 characters. "
-                "Use this to persist insights that would otherwise be lost when the "
+                "Use this to persist observations that would otherwise be lost when the "
                 "conversation ends.",
                 {
                     "filename": {
@@ -182,7 +182,7 @@ class VaultChild(ChildMCP):
                     },
                     "notes": {
                         "type": "string",
-                        "description": "Coaching observations and conclusions (max 2000 chars)",
+                        "description": "Analytical observations and insights (max 2000 chars)",
                         "required": True,
                     },
                 },
@@ -215,7 +215,7 @@ class VaultChild(ChildMCP):
                 ),
                 "date_from": ValidationSchema(type=str, pattern=r"^\d{4}-\d{2}-\d{2}$"),
                 "date_to": ValidationSchema(type=str, pattern=r"^\d{4}-\d{2}-\d{2}$"),
-                "has_coaching_notes": ValidationSchema(type=bool),
+                "has_insight_notes": ValidationSchema(type=bool),
                 "limit": ValidationSchema(type=int, min=1, max=100, default=20),
             },
             "vault_read_note": {
@@ -292,7 +292,7 @@ class VaultChild(ChildMCP):
         from collections import defaultdict
         weeks: dict = defaultdict(lambda: {
             "runs": 0, "total_miles": 0.0, "total_minutes": 0.0,
-            "hrs": [], "anomaly_count": 0, "has_coaching": 0,
+            "hrs": [], "anomaly_count": 0, "has_insights": 0,
         })
 
         for n in notes:
@@ -305,8 +305,8 @@ class VaultChild(ChildMCP):
             if fm.get("avg_hr"):
                 w["hrs"].append(int(fm["avg_hr"]))
             w["anomaly_count"] += int(fm.get("anomaly_count", 0) or 0)
-            if n.get("has_coaching_notes"):
-                w["has_coaching"] += 1
+            if n.get("has_insight_notes"):
+                w["has_insights"] += 1
 
         rows = []
         for week_key in sorted(weeks.keys(), reverse=True):
@@ -319,7 +319,7 @@ class VaultChild(ChildMCP):
                 "total_minutes": round(w["total_minutes"], 1),
                 "avg_hr": avg_hr,
                 "anomalies": w["anomaly_count"],
-                "coaching_notes": w["has_coaching"],
+                "insight_notes": w["has_insights"],
             })
 
         return {
@@ -328,7 +328,7 @@ class VaultChild(ChildMCP):
             "weekly_summary": rows,
             "note": (
                 "Aggregated from vault note frontmatter. "
-                "Coaching columns show how many notes in each week have annotations."
+                "Insight columns show how many notes in each week have annotations."
             ),
         }
 
@@ -338,7 +338,7 @@ class VaultChild(ChildMCP):
             note_type=params.get("note_type"),
             date_from=params.get("date_from"),
             date_to=params.get("date_to"),
-            has_coaching_notes=params.get("has_coaching_notes"),
+            has_insight_notes=params.get("has_insight_notes"),
             limit=params.get("limit", 20),
         )
         return {
@@ -350,7 +350,7 @@ class VaultChild(ChildMCP):
                     "date": n["date"],
                     "week": n["week"],
                     "activity_id": n["activity_id"],
-                    "has_coaching_notes": n["has_coaching_notes"],
+                    "has_insight_notes": n["has_insight_notes"],
                 }
                 for n in notes
             ],
@@ -381,7 +381,7 @@ class VaultChild(ChildMCP):
             "filename": filename,
             "note_type": index_entry["note_type"],
             "date": index_entry["date"],
-            "has_coaching_notes": index_entry["has_coaching_notes"],
+            "has_insight_notes": index_entry["has_insight_notes"],
             "content": content,
         }
 
@@ -442,7 +442,7 @@ class VaultChild(ChildMCP):
                     "activity_id": n["activity_id"],
                     "anomaly_count": (n.get("frontmatter") or {}).get("anomaly_count", 0),
                     "anomaly_types": (n.get("frontmatter") or {}).get("anomaly_types", []),
-                    "has_coaching_notes": n["has_coaching_notes"],
+                    "has_insight_notes": n["has_insight_notes"],
                 }
                 for n in notes
             ],
@@ -458,14 +458,14 @@ class VaultChild(ChildMCP):
             return {"error": f"Note not found in vault index: {filename}"}
 
         try:
-            self._writer.append_coaching_notes(filename, notes)
+            self._writer.append_insight_notes(filename, notes)
         except (ValueError, FileNotFoundError) as exc:
             return {"error": str(exc)}
 
         return {
             "annotated": True,
             "filename": filename,
-            "note": "Coaching notes appended. They will be visible in future sessions.",
+            "note": "Insight notes appended. They will be visible in future sessions.",
         }
 
     async def _handle_backfill(self, params: dict) -> dict:

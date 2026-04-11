@@ -42,8 +42,8 @@ def _is_relative_to(path: Path, parent: Path) -> bool:
             return False
 
 
-# Max chars for a single coaching annotation block
-_MAX_COACHING_CHARS = 2000
+# Max chars for a single insight annotation block
+_MAX_INSIGHT_CHARS = 2000
 
 # Non-printable control chars (except tab, newline, CR) that must not be stored
 _CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -103,19 +103,19 @@ class VaultWriter:
         self._index_note(filename, tool_name, result, content)
         return filename
 
-    def append_coaching_notes(self, filename: str, notes: str) -> None:
+    def append_insight_notes(self, filename: str, notes: str) -> None:
         """
-        Append a timestamped coaching section to an existing note.
-        Updates the SQLite index to reflect has_coaching_notes=True.
+        Append a timestamped insight section to an existing note.
+        Updates the SQLite index to reflect has_insight_notes=True.
 
         Raises ValueError on bad input, FileNotFoundError if note missing.
         """
         notes = _sanitize(notes.strip())
         if not notes:
-            raise ValueError("Coaching notes must not be empty.")
-        if len(notes) > _MAX_COACHING_CHARS:
+            raise ValueError("Insight notes must not be empty.")
+        if len(notes) > _MAX_INSIGHT_CHARS:
             raise ValueError(
-                f"Coaching notes too long: {len(notes)} chars (max {_MAX_COACHING_CHARS})."
+                f"Insight notes too long: {len(notes)} chars (max {_MAX_INSIGHT_CHARS})."
             )
 
         # Path traversal check
@@ -128,20 +128,20 @@ class VaultWriter:
 
         # Replace the placeholder stub if present; otherwise append
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        block = f"\n\n### Coaching Note — {timestamp}\n\n{notes}\n"
+        block = f"\n\n### Insight — {timestamp}\n\n{notes}\n"
 
-        stub = "*(No coaching notes yet.)*"
+        stub = "*(No insight notes yet.)*"
         if stub in existing:
             updated = existing.replace(stub, notes, 1)
         else:
             updated = existing.rstrip() + block
 
-        # Update has_coaching_notes: false → true in frontmatter
-        updated = updated.replace("has_coaching_notes: false", "has_coaching_notes: true", 1)
+        # Update has_insight_notes: false → true in frontmatter
+        updated = updated.replace("has_insight_notes: false", "has_insight_notes: true", 1)
 
         self._atomic_write_abs(abs_path, updated)
-        self._storage.set_has_coaching_notes(filename)
-        log.info(f"VaultWriter: coaching notes appended to {filename}")
+        self._storage.set_has_insight_notes(filename)
+        log.info(f"VaultWriter: insight notes appended to {filename}")
 
     def close(self):
         """Release SQLite connection (required on Windows)."""

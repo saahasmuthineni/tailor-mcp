@@ -90,7 +90,7 @@ class TestVaultWriterWriteNote:
             filename = writer.write_note("strava_run_report", _minimal_run_result())
             content = (Path(vault_dir) / filename).read_text(encoding="utf-8")
             assert content.startswith("---\n")
-            assert "has_coaching_notes: false" in content
+            assert "has_insight_notes: false" in content
             writer.close()
 
     def test_note_indexed_in_storage(self):
@@ -144,32 +144,32 @@ class TestVaultWriterHook:
             writer.close()
 
 
-class TestVaultWriterAppendCoachingNotes:
+class TestVaultWriterAppendInsightNotes:
     def test_appends_notes_to_existing_file(self):
         with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
             writer = _make_writer(Path(vault_dir), Path(data_dir))
             filename = writer.write_note("strava_run_report", _minimal_run_result())
-            writer.append_coaching_notes(filename, "Great aerobic base run. Heart rate well controlled.")
+            writer.append_insight_notes(filename, "Great aerobic base run. Heart rate well controlled.")
             content = (Path(vault_dir) / filename).read_text(encoding="utf-8")
             assert "Great aerobic base run" in content
             writer.close()
 
-    def test_updates_has_coaching_notes_in_frontmatter(self):
+    def test_updates_has_insight_notes_in_frontmatter(self):
         with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
             writer = _make_writer(Path(vault_dir), Path(data_dir))
             filename = writer.write_note("strava_run_report", _minimal_run_result())
-            writer.append_coaching_notes(filename, "Test coaching notes.")
+            writer.append_insight_notes(filename, "Test insight notes.")
             content = (Path(vault_dir) / filename).read_text(encoding="utf-8")
-            assert "has_coaching_notes: true" in content
+            assert "has_insight_notes: true" in content
             writer.close()
 
-    def test_updates_index_has_coaching_notes(self):
+    def test_updates_index_has_insight_notes(self):
         with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
             writer = _make_writer(Path(vault_dir), Path(data_dir))
             filename = writer.write_note("strava_run_report", _minimal_run_result())
-            writer.append_coaching_notes(filename, "Test coaching notes.")
+            writer.append_insight_notes(filename, "Test insight notes.")
             row = writer._storage.get_note(filename)
-            assert row["has_coaching_notes"] is True
+            assert row["has_insight_notes"] is True
             writer.close()
 
     def test_rejects_empty_notes(self):
@@ -177,7 +177,7 @@ class TestVaultWriterAppendCoachingNotes:
             writer = _make_writer(Path(vault_dir), Path(data_dir))
             filename = writer.write_note("strava_run_report", _minimal_run_result())
             with pytest.raises(ValueError, match="empty"):
-                writer.append_coaching_notes(filename, "   ")
+                writer.append_insight_notes(filename, "   ")
             writer.close()
 
     def test_rejects_notes_too_long(self):
@@ -185,14 +185,14 @@ class TestVaultWriterAppendCoachingNotes:
             writer = _make_writer(Path(vault_dir), Path(data_dir))
             filename = writer.write_note("strava_run_report", _minimal_run_result())
             with pytest.raises(ValueError, match="too long"):
-                writer.append_coaching_notes(filename, "x" * 2001)
+                writer.append_insight_notes(filename, "x" * 2001)
             writer.close()
 
     def test_rejects_missing_file(self):
         with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
             writer = _make_writer(Path(vault_dir), Path(data_dir))
             with pytest.raises(FileNotFoundError):
-                writer.append_coaching_notes("running/nonexistent.md", "Notes.")
+                writer.append_insight_notes("running/nonexistent.md", "Notes.")
             writer.close()
 
 

@@ -145,7 +145,7 @@ def render_run_note(
         f"anomaly_count: {anomaly_count}",
         f"anomaly_types: {_yaml_list(anomaly_types)}",
         f"phases: {_yaml_list(phase_names)}",
-        "has_coaching_notes: false",
+        "has_insight_notes: false",
         f'generated_at: "{now_iso}"',
         f"strava_id: {activity_id}",
         "tags:",
@@ -253,11 +253,11 @@ def render_run_note(
             body_parts.append(f"- **{a.get('type', 'unknown')}**{sev_label}: {a.get('description', '')}")
         body_parts.append("")
 
-    # Coaching notes placeholder
+    # Insight notes placeholder
     body_parts += [
-        "## Coaching Notes",
+        "## Insights",
         "",
-        "*(No coaching notes yet.)*",
+        "*(No insight notes yet.)*",
         "",
     ]
 
@@ -311,7 +311,7 @@ def render_trend_note(result: dict) -> tuple[str, str]:
     if overall_avg_hr is not None:
         frontmatter_lines.append(f"avg_hr: {overall_avg_hr}")
     frontmatter_lines += [
-        "has_coaching_notes: false",
+        "has_insight_notes: false",
         f'generated_at: "{now_iso}"',
         "tags:",
         "  - running",
@@ -344,7 +344,7 @@ def render_trend_note(result: dict) -> tuple[str, str]:
         )
         run_note_links.append(w.get("week", ""))
 
-    body_parts += ["", "## Coaching Notes", "", "*(No coaching notes yet.)*", ""]
+    body_parts += ["", "## Insights", "", "*(No insight notes yet.)*", ""]
 
     body = "\n".join(body_parts)
     content = frontmatter + "\n" + body
@@ -377,7 +377,7 @@ def render_compare_note(result: dict) -> tuple[str, str]:
         "note_type: compare_runs",
         f"activity_ids: [{', '.join(str(i) for i in activity_ids)}]",
         f"run_count: {len(comparisons)}",
-        "has_coaching_notes: false",
+        "has_insight_notes: false",
         f'generated_at: "{now_iso}"',
         "tags:",
         "  - running",
@@ -428,9 +428,9 @@ def render_compare_note(result: dict) -> tuple[str, str]:
         "",
     ] + [f"- {lnk}" for lnk in wikilinks] + [
         "",
-        "## Coaching Notes",
+        "## Insights",
         "",
-        "*(No coaching notes yet.)*",
+        "*(No insight notes yet.)*",
         "",
     ]
 

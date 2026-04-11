@@ -1,11 +1,11 @@
 """
-CLI for Strava Run Coach.
+CLI for Biosensor MCP.
 
 Usage:
-    strava-coach serve      # Start MCP server (Claude Desktop calls this)
-    strava-coach setup      # Run Strava OAuth setup wizard
-    strava-coach status     # Diagnostic check
-    strava-coach uninstall  # Clean removal
+    biosensor-mcp serve      # Start MCP server (Claude Desktop calls this)
+    biosensor-mcp setup      # Run Strava OAuth setup wizard
+    biosensor-mcp status     # Diagnostic check
+    biosensor-mcp uninstall  # Clean removal
 """
 
 import json
@@ -13,8 +13,8 @@ import os
 import sys
 from pathlib import Path
 
-CONFIG_DIR = Path(os.environ.get("STRAVA_CONFIG_DIR", Path.home() / ".strava-coach"))
-DATA_DIR = Path(os.environ.get("STRAVA_DATA_DIR", CONFIG_DIR / "data"))
+CONFIG_DIR = Path(os.environ.get("BIOSENSOR_CONFIG_DIR", Path.home() / ".biosensor-mcp"))
+DATA_DIR = Path(os.environ.get("BIOSENSOR_DATA_DIR", CONFIG_DIR / "data"))
 LOG_DIR = CONFIG_DIR / "logs"
 
 
@@ -44,12 +44,12 @@ def cmd_serve():
     """Start the MCP server via stdio."""
     _setup_logging()
 
-    from strava_coach.framework.router import RouterMCP
-    from strava_coach.children.running import RunningChild
+    from biosensor_mcp.framework.router import RouterMCP
+    from biosensor_mcp.children.running import RunningChild
 
     # Create parent router
     router = RouterMCP(
-        name="strava-coaching",
+        name="biosensor-mcp",
         data_dir=DATA_DIR,
         cost_threshold=35_000,
         circuit_threshold=3,
@@ -96,7 +96,7 @@ def cmd_serve():
                 f"Vault enabled: run analytics will be written to {_vault_path}. "
                 f"If this path is cloud-synced, computed fitness data will leave this machine."
             )
-        from strava_coach.vault import VaultWriter, VaultChild
+        from biosensor_mcp.vault import VaultWriter, VaultChild
         vaultable: set[str] = set()
         for _child in [running]:
             vaultable.update(getattr(_child, "vaultable_tools", []))
@@ -126,9 +126,9 @@ def cmd_serve():
 
 def cmd_setup():
     """Run the OAuth setup wizard."""
-    # Wizard is bundled inside the package (strava_coach.wizard) so it works
+    # Wizard is bundled inside the package (biosensor_mcp.wizard) so it works
     # after pip install — the old path-walk approach broke in site-packages.
-    from strava_coach.wizard import main as wizard_main
+    from biosensor_mcp.wizard import main as wizard_main
     wizard_main()
 
 
@@ -248,11 +248,11 @@ def cmd_status():
             raw = config_path.read_bytes().lstrip(b"\xef\xbb\xbf").decode("utf-8")
             config = json.loads(raw)
             servers = config.get("mcpServers", {})
-            if "strava-coaching" in servers:
+            if "biosensor-mcp" in servers:
                 print("  Registered: Yes")
-                print(f"  Command: {servers['strava-coaching'].get('command', 'N/A')}")
+                print(f"  Command: {servers['biosensor-mcp'].get('command', 'N/A')}")
             else:
-                print("  Registered: No — run 'strava-coach setup' or add manually")
+                print("  Registered: No — run 'biosensor-mcp setup' or add manually")
         except Exception as e:
             print(f"  Error reading: {e}")
     else:
@@ -284,8 +284,8 @@ def cmd_uninstall():
     if config_path.exists():
         try:
             config = json.loads(config_path.read_text())
-            if "strava-coaching" in config.get("mcpServers", {}):
-                del config["mcpServers"]["strava-coaching"]
+            if "biosensor-mcp" in config.get("mcpServers", {}):
+                del config["mcpServers"]["biosensor-mcp"]
                 config_path.write_text(json.dumps(config, indent=2))
                 print("Removed from Claude Desktop config.")
         except Exception as e:

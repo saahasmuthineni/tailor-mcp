@@ -14,7 +14,7 @@ if ($policy -eq "Restricted" -or $policy -eq "AllSigned") {
 
 $REPO = "saahasmuthineni/strava-run-coach"
 
-$INSTALL_DIR = Join-Path $env:USERPROFILE ".strava-coach"
+$INSTALL_DIR = Join-Path $env:USERPROFILE ".biosensor-mcp"
 $VENV_DIR = Join-Path $INSTALL_DIR "venv"
 $SRC_DIR = Join-Path $INSTALL_DIR "src"
 
@@ -56,8 +56,8 @@ New-Item -ItemType Directory -Force -Path $INSTALL_DIR, "$INSTALL_DIR\data", "$I
 # --- Download ---
 Write-Host "  Downloading latest source..." -ForegroundColor Cyan
 $zipUrl = "https://github.com/$REPO/archive/main.zip"
-$zipPath = Join-Path $env:TEMP "strava-coach.zip"
-$extractPath = Join-Path $env:TEMP "strava-coach-extract"
+$zipPath = Join-Path $env:TEMP "biosensor-mcp.zip"
+$extractPath = Join-Path $env:TEMP "biosensor-mcp-extract"
 
 Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
 if (Test-Path $extractPath) { Remove-Item $extractPath -Recurse -Force }
@@ -86,7 +86,7 @@ if (-not (Test-Path $tokenFile)) {
     Write-Host "  2. Create an app ('localhost' as callback)"
     Write-Host "  3. Note your Client ID and Client Secret"
     Write-Host ""
-    & $venvPython -m strava_coach setup
+    & $venvPython -m biosensor_mcp setup
 } else {
     Write-Host "  Existing tokens found" -ForegroundColor Green
 }
@@ -111,10 +111,10 @@ if (-not (Test-Path $claudeDir)) { New-Item -ItemType Directory -Force -Path $cl
 
 $mcpEntry = @{
     command = $venvPython
-    args = @("-m", "strava_coach", "serve")
+    args = @("-m", "biosensor_mcp", "serve")
     env = @{
-        STRAVA_CONFIG_DIR = $INSTALL_DIR
-        STRAVA_DATA_DIR = "$INSTALL_DIR\data"
+        BIOSENSOR_CONFIG_DIR = $INSTALL_DIR
+        BIOSENSOR_DATA_DIR = "$INSTALL_DIR\data"
     }
 }
 
@@ -125,9 +125,9 @@ if (Test-Path $claudeConfig) {
     if (-not $config.mcpServers) {
         $config | Add-Member -NotePropertyName "mcpServers" -NotePropertyValue @{}
     }
-    $config.mcpServers | Add-Member -NotePropertyName "strava-coaching" -NotePropertyValue $mcpEntry -Force
+    $config.mcpServers | Add-Member -NotePropertyName "biosensor-mcp" -NotePropertyValue $mcpEntry -Force
 } else {
-    $config = @{ mcpServers = @{ "strava-coaching" = $mcpEntry } }
+    $config = @{ mcpServers = @{ "biosensor-mcp" = $mcpEntry } }
 }
 
 $config | ConvertTo-Json -Depth 10 | Set-Content $claudeConfig -Encoding UTF8

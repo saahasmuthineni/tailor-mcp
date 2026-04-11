@@ -34,8 +34,8 @@ def _make_running_storage_mock(activity_id=12345678):
 
 def _setup_vault(vault_dir, data_dir, activity_id=12345678):
     """Create a VaultChild and pre-write one run note."""
-    from strava_coach.vault.writer import VaultWriter
-    from strava_coach.vault.child import VaultChild
+    from biosensor_mcp.vault.writer import VaultWriter
+    from biosensor_mcp.vault.child import VaultChild
 
     vault_path = Path(vault_dir)
     data_path = Path(data_dir)
@@ -115,8 +115,8 @@ class TestVaultGetFitnessSummary:
                 writer.close()
 
     def test_empty_vault_returns_note(self):
-        from strava_coach.vault.writer import VaultWriter
-        from strava_coach.vault.child import VaultChild
+        from biosensor_mcp.vault.writer import VaultWriter
+        from biosensor_mcp.vault.child import VaultChild
         with TemporaryDirectory() as v, TemporaryDirectory() as d:
             mock = _make_running_storage_mock()
             writer = VaultWriter(Path(v), Path(d), mock, set())

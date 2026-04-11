@@ -3,7 +3,7 @@ Tests for vault/renderer.py — pure functions, no I/O.
 """
 
 import pytest
-from strava_coach.vault.renderer import (
+from biosensor_mcp.vault.renderer import (
     render_run_note,
     render_trend_note,
     render_compare_note,

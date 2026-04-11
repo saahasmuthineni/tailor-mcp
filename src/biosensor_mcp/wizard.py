@@ -4,8 +4,8 @@ Strava OAuth Setup Wizard
 Runs a temporary localhost server to capture the OAuth callback.
 
 Bundled inside the package so it works after pip install:
-    python -m strava_coach setup     # via CLI entry point
-    python -m strava_coach.wizard    # direct invocation
+    python -m biosensor_mcp setup     # via CLI entry point
+    python -m biosensor_mcp.wizard    # direct invocation
 
 Previously lived at the project root (setup_wizard.py), which broke
 for pip-installed users because the path walked three levels above
@@ -23,7 +23,7 @@ from pathlib import Path
 
 import requests
 
-CONFIG_DIR = Path(os.environ.get("STRAVA_CONFIG_DIR", Path.home() / ".strava-coach"))
+CONFIG_DIR = Path(os.environ.get("BIOSENSOR_CONFIG_DIR", Path.home() / ".biosensor-mcp"))
 TOKEN_FILE = CONFIG_DIR / "tokens.json"
 CALLBACK_PORT = 8189
 REDIRECT_URI = f"http://localhost:{CALLBACK_PORT}/callback"

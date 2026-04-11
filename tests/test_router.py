@@ -10,14 +10,14 @@ import pytest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from strava_coach.framework.interfaces import (
+from biosensor_mcp.framework.interfaces import (
     ChildMCP,
     ToolDefinition,
     CostEstimate,
     ValidationSchema,
 )
-from strava_coach.framework.router import RouterMCP
-from strava_coach.framework.middleware import _loads
+from biosensor_mcp.framework.router import RouterMCP
+from biosensor_mcp.framework.middleware import _loads
 
 
 # ── Mock Child ──

@@ -8,7 +8,7 @@ set -euo pipefail
 
 REPO="saahasmuthineni/strava-run-coach"
 
-INSTALL_DIR="$HOME/.strava-coach"
+INSTALL_DIR="$HOME/.biosensor-mcp"
 VENV_DIR="$INSTALL_DIR/venv"
 SRC_DIR="$INSTALL_DIR/src"
 
@@ -86,7 +86,7 @@ if [ ! -f "$TOKEN_FILE" ]; then
     echo "  2. Create an app ('localhost' as callback)"
     echo "  3. Note your Client ID and Client Secret"
     echo ""
-    "$VENV_DIR/bin/python" -m strava_coach setup
+    "$VENV_DIR/bin/python" -m biosensor_mcp setup
 else
     echo "✓ Existing Strava tokens found"
 fi
@@ -111,10 +111,10 @@ config_path, venv_python, install_dir = sys.argv[1], sys.argv[2], sys.argv[3]
 with open(config_path) as f:
     config = json.load(f)
 config.setdefault('mcpServers', {})
-config['mcpServers']['strava-coaching'] = {
+config['mcpServers']['biosensor-mcp'] = {
     'command': venv_python,
-    'args': ['-m', 'strava_coach', 'serve'],
-    'env': {'STRAVA_CONFIG_DIR': install_dir, 'STRAVA_DATA_DIR': install_dir + '/data'}
+    'args': ['-m', 'biosensor_mcp', 'serve'],
+    'env': {'BIOSENSOR_CONFIG_DIR': install_dir, 'BIOSENSOR_DATA_DIR': install_dir + '/data'}
 }
 with open(config_path, 'w') as f:
     json.dump(config, f, indent=2)
@@ -124,12 +124,12 @@ else
     cat > "$CLAUDE_CONFIG" << JSONEOF
 {
   "mcpServers": {
-    "strava-coaching": {
+    "biosensor-mcp": {
       "command": "$VENV_PYTHON",
-      "args": ["-m", "strava_coach", "serve"],
+      "args": ["-m", "biosensor_mcp", "serve"],
       "env": {
-        "STRAVA_CONFIG_DIR": "$INSTALL_DIR",
-        "STRAVA_DATA_DIR": "$INSTALL_DIR/data"
+        "BIOSENSOR_CONFIG_DIR": "$INSTALL_DIR",
+        "BIOSENSOR_DATA_DIR": "$INSTALL_DIR/data"
       }
     }
   }

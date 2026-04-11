@@ -55,13 +55,13 @@ _make_mcp_mock()
 # ── Now import the real framework ──
 sys.path.insert(0, str(Path(__file__).parent / "mnt/Biosensor to LLM optimization/strava-run-coach/src"))
 
-from strava_coach.framework.middleware import (
+from biosensor_mcp.framework.middleware import (
     CircuitBreaker, ConsentGate, CostGate, ParamValidator, TokenLedger, estimate_tokens, _loads,
 )
-from strava_coach.framework.interfaces import (
+from biosensor_mcp.framework.interfaces import (
     ChildMCP, ToolDefinition, CostEstimate, ValidationSchema,
 )
-from strava_coach.framework.router import RouterMCP
+from biosensor_mcp.framework.router import RouterMCP
 
 
 # ═══════════════════════════════════════════════════════════════

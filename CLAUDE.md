@@ -26,7 +26,7 @@ Claude Desktop <--> RouterMCP (validate → circuit break → consent → cost �
 ## File Structure
 
 ```
-src/strava_coach/
+src/biosensor_mcp/
   __init__.py              # Package metadata (v4.0.0)
   __main__.py              # CLI: serve | setup | status | uninstall | --help
   wizard.py                # OAuth setup wizard (localhost callback server)
@@ -77,7 +77,7 @@ tests/
 | Tier | What Claude Sees | Tokens | Gate |
 |------|-----------------|--------|------|
 | 1 — Free | Server-computed reports (splits, zones, drift, decoupling, EF, trends) | 200–1,500 | None |
-| 2 — Consent | Downsampled streams at 10–15s for visualisation | 3,000–7,000 | Biometric consent |
+| 2 — Consent | Downsampled streams at 5–30s for visualisation | 3,000–7,000 | Biometric consent |
 | 3 — Cost | Per-second streams with precision reduction | 25,000–60,000 | Consent + cost approval |
 
 ~90% of questions are answered at Tier 1 with zero raw biometric data leaving the machine.
@@ -96,7 +96,7 @@ tests/
 | `strava_run_report` | 1 | Comprehensive: decoupling, EF, drift, phases, GAP |
 | `strava_trend_report` | 1 | Rolling weekly volume, avg pace, avg HR |
 | `strava_compare_runs` | 1 | Side-by-side comparison of 2–5 runs |
-| `strava_downsampled_streams` | 2 | HR, pace, GPS at 10–15s intervals |
+| `strava_downsampled_streams` | 2 | HR, pace, GPS at 5–30s intervals |
 | `strava_full_streams` | 3 | Per-second data with precision reduction |
 
 ## Running and Testing
@@ -109,13 +109,13 @@ pip install -e ".[dev]"
 pytest -v
 
 # CLI smoke test
-strava-coach --help
+biosensor-mcp --help
 
 # OAuth setup
-strava-coach setup
+biosensor-mcp setup
 
 # Start MCP server
-strava-coach serve
+biosensor-mcp serve
 ```
 
 ## Key Design Decisions
@@ -138,11 +138,11 @@ strava-coach serve
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `STRAVA_CONFIG_DIR` | `~/.strava-coach` | Token, user config, rate limit files |
-| `STRAVA_DATA_DIR` | `~/.strava-coach/data` | SQLite databases |
+| `BIOSENSOR_CONFIG_DIR` | `~/.biosensor-mcp` | Token, user config, rate limit files |
+| `BIOSENSOR_DATA_DIR` | `~/.biosensor-mcp/data` | SQLite databases |
 | `STRAVA_STREAM_CACHE_TTL_DAYS` | `7` | Stream cache eviction |
 
-User config at `~/.strava-coach/user_config.json`:
+User config at `~/.biosensor-mcp/user_config.json`:
 ```json
 { "max_hr": 185, "resting_hr": 55, "home_coords": [42.360, -71.058] }
 ```
@@ -152,12 +152,12 @@ User config at `~/.strava-coach/user_config.json`:
 ```json
 {
   "mcpServers": {
-    "strava-coaching": {
-      "command": "~/.strava-coach/venv/bin/python",
-      "args": ["-m", "strava_coach", "serve"],
+    "biosensor-mcp": {
+      "command": "~/.biosensor-mcp/venv/bin/python",
+      "args": ["-m", "biosensor_mcp", "serve"],
       "env": {
-        "STRAVA_CONFIG_DIR": "~/.strava-coach",
-        "STRAVA_DATA_DIR": "~/.strava-coach/data"
+        "BIOSENSOR_CONFIG_DIR": "~/.biosensor-mcp",
+        "BIOSENSOR_DATA_DIR": "~/.biosensor-mcp/data"
       }
     }
   }
@@ -169,7 +169,7 @@ User config at `~/.strava-coach/user_config.json`:
 Implement 4 abstract items and register:
 
 ```python
-from strava_coach.framework import ChildMCP, ToolDefinition, CostEstimate, ValidationSchema, ConsentInfo
+from biosensor_mcp.framework import ChildMCP, ToolDefinition, CostEstimate, ValidationSchema, ConsentInfo
 
 class CGMChild(ChildMCP):
     @property
@@ -203,4 +203,4 @@ router.register_child(CGMChild(config_dir, data_dir))
 
 ## CI
 
-`.github/workflows/ci.yml` runs on push/PR to `main` across Ubuntu, Windows, macOS × Python 3.10/3.11/3.12. Steps: install deps → `pytest -v` → `strava-coach --help`.
+`.github/workflows/ci.yml` runs on push/PR to `main` across Ubuntu, Windows, macOS × Python 3.10/3.11/3.12. Steps: install deps → `pytest -v` → `biosensor-mcp --help`.

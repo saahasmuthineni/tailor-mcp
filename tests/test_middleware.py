@@ -7,7 +7,7 @@ between Claude and any biosensor child MCP.
 
 import time
 import pytest
-from strava_coach.framework.middleware import (
+from biosensor_mcp.framework.middleware import (
     CircuitBreaker,
     ConsentGate,
     CostGate,
@@ -15,7 +15,7 @@ from strava_coach.framework.middleware import (
     TokenLedger,
     estimate_tokens,
 )
-from strava_coach.framework.interfaces import ValidationSchema
+from biosensor_mcp.framework.interfaces import ValidationSchema
 
 
 class TestCircuitBreaker:

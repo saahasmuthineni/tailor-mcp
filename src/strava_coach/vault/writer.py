@@ -17,6 +17,7 @@ Atomic writes use tempfile + os.replace() so Obsidian never sees a partial file.
 import logging
 import os
 import re
+import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,6 +27,20 @@ from .renderer import render_run_note, render_trend_note, render_compare_note
 from .storage import VaultStorage
 
 log = logging.getLogger("biosensor-mcp.vault")
+
+
+def _is_relative_to(path: Path, parent: Path) -> bool:
+    """Path.is_relative_to() was added in Python 3.9; use it when available."""
+    try:
+        return path.is_relative_to(parent)
+    except AttributeError:
+        # Fallback for Python < 3.9
+        try:
+            path.relative_to(parent)
+            return True
+        except ValueError:
+            return False
+
 
 # Max chars for a single coaching annotation block
 _MAX_COACHING_CHARS = 2000
@@ -188,7 +203,7 @@ class VaultWriter:
         """
         resolved = (self._vault_path / relative_filename).resolve()
         vault_resolved = self._vault_path.resolve()
-        if not resolved.is_relative_to(vault_resolved):
+        if not _is_relative_to(resolved, vault_resolved):
             raise ValueError(f"Path traversal detected: {relative_filename}")
         return resolved
 

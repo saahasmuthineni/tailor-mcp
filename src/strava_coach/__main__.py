@@ -74,10 +74,28 @@ def cmd_serve():
     if _vault_path:
         import logging as _log_mod
         _vlog = _log_mod.getLogger("biosensor-mcp")
-        _vlog.warning(
-            f"Vault enabled: run analytics will be written to {_vault_path}. "
-            f"If this path is cloud-synced, computed fitness data will leave this machine."
+
+        # Detect common cloud-sync providers by path components
+        _CLOUD_MARKERS = (
+            "onedrive", "icloud", "dropbox", "google drive", "googledrive",
+            "box sync", "boxsync", "nextcloud", "mega",
         )
+        _vault_str = str(_vault_path).lower().replace("\\", "/")
+        _cloud_provider = next(
+            (m for m in _CLOUD_MARKERS if m in _vault_str), None
+        )
+        if _cloud_provider:
+            _vlog.warning(
+                f"PRIVACY WARNING: vault_path appears to be inside a cloud-synced folder "
+                f"({_cloud_provider} detected in path: {_vault_path}). "
+                f"Computed biometric analytics WILL be uploaded to the cloud. "
+                f"Set vault_path to a local folder if you want data to stay on this machine."
+            )
+        else:
+            _vlog.warning(
+                f"Vault enabled: run analytics will be written to {_vault_path}. "
+                f"If this path is cloud-synced, computed fitness data will leave this machine."
+            )
         from strava_coach.vault import VaultWriter, VaultChild
         vaultable: set[str] = set()
         for _child in [running]:

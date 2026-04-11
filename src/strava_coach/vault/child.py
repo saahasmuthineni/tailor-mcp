@@ -23,7 +23,7 @@ from typing import Optional
 
 from ..framework.interfaces import ChildMCP, ToolDefinition, CostEstimate, ValidationSchema
 from .storage import VaultStorage
-from .writer import VaultWriter
+from .writer import VaultWriter, _is_relative_to
 
 log = logging.getLogger("biosensor-mcp.vault")
 
@@ -367,7 +367,7 @@ class VaultChild(ChildMCP):
         try:
             abs_path = (self._vault_path / filename).resolve()
             vault_resolved = self._vault_path.resolve()
-            if not abs_path.is_relative_to(vault_resolved):
+            if not _is_relative_to(abs_path, vault_resolved):
                 return {"error": "Invalid filename (path traversal detected)"}
         except Exception:
             return {"error": "Invalid filename"}
@@ -482,6 +482,7 @@ class VaultChild(ChildMCP):
         skipped = 0
         errors = 0
         filenames = []
+        failed_ids: list[dict] = []
 
         for activity in activities:
             activity_id = activity.get("id")
@@ -537,11 +538,14 @@ class VaultChild(ChildMCP):
             except Exception as exc:
                 log.warning(f"vault_backfill: failed for activity {activity_id}: {exc}")
                 errors += 1
+                failed_ids.append({"activity_id": activity_id, "error": str(exc)})
 
         return {
             "written": written,
             "skipped": skipped,
             "errors": errors,
             "filenames": filenames[:20],  # cap response size
-            "note": f"Generated {written} new notes. {skipped} already existed or had no streams.",
+            "failed": failed_ids,
+            "note": f"Generated {written} new notes. {skipped} already existed or had no streams."
+            + (f" {errors} failed — see 'failed' for details." if errors else ""),
         }

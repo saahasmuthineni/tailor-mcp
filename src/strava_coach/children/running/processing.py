@@ -14,6 +14,9 @@ This is the running domain's Processing class. Other biosensor domains
 import math
 from typing import Optional
 
+DEFAULT_MAX_HR = 195
+DEFAULT_RESTING_HR = 60
+
 
 class RunningProcessing:
     """
@@ -133,7 +136,7 @@ class RunningProcessing:
 
     @staticmethod
     def compute_hr_zones(
-        hr_data: list[int], max_hr: int = 195, resting_hr: int = 60
+        hr_data: list[int], max_hr: int = DEFAULT_MAX_HR, resting_hr: int = DEFAULT_RESTING_HR
     ) -> dict:
         """
         Zone distribution from per-second HR data.
@@ -335,6 +338,8 @@ class RunningProcessing:
     @staticmethod
     def detect_run_phases(velocity: list, time_arr: list) -> list[dict]:
         """Detect warmup / steady / tempo / cooldown phases from velocity."""
+        if not velocity or not time_arr:
+            return [{"phase": "no_data", "note": "No velocity or time data available"}]
         if len(velocity) < 120:
             return [
                 {"phase": "too_short", "note": "Activity too short for phase detection"}

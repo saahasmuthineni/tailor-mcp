@@ -312,11 +312,16 @@ class RunningChild(ChildMCP):
             # ── Tier 2: Consent-gated (downsampled streams) ──
             ToolDefinition(
                 "strava_downsampled_streams", 2,
-                "Downsampled streams at 10-15s intervals for visualization. ~3000-7000 tokens. "
+                "Downsampled streams at 5-30s intervals for visualization. ~3000-7000 tokens. "
                 "Requires biometric consent.",
                 {
                     "activity_id": {"type": "integer", "description": "Strava activity ID", "required": True},
                     "interval_seconds": {"type": "integer", "description": "Sample interval: 5-30s (default 10)", "required": False},
+                    "streams": {
+                        "type": "array",
+                        "description": f"Which streams to include: {', '.join(ALL_STREAM_TYPES)}. Default: all.",
+                        "required": False,
+                    },
                 },
             ),
             # ── Tier 3: Cost-gated (full per-second streams) ──
@@ -377,6 +382,7 @@ class RunningChild(ChildMCP):
             "strava_downsampled_streams": {
                 "activity_id": ValidationSchema(type=int, min=1, required=True),
                 "interval_seconds": ValidationSchema(type=int, min=5, max=30, default=10),
+                "streams": ValidationSchema(type=list, allowed_values=ALL_STREAM_TYPES),
             },
             "strava_full_streams": {
                 "activity_id": ValidationSchema(type=int, min=1, required=True),
@@ -415,7 +421,7 @@ class RunningChild(ChildMCP):
             tokens=full_tokens,
             has_cheaper_alternative=True,
             alternative_tokens=ds_tokens,
-            alternative_description="10s intervals — preserves curve shape, ~85% cheaper",
+            alternative_description="strava_downsampled_streams (5-30s intervals) — preserves curve shape, ~85% cheaper",
         )
 
     # ══════════════════════════════════════════════════════════
@@ -772,13 +778,16 @@ class RunningChild(ChildMCP):
         if not streams:
             return {"error": "No stream data available"}
         interval = params.get("interval_seconds", 10)
+        requested = params.get("streams")
         downsampled = self._processing.downsample(streams, interval=interval)
-        reduced = self._processing.reduce_precision(downsampled)
+        filtered = self._processing.filter_streams(downsampled, requested)
+        reduced = self._processing.reduce_precision(filtered)
         original = len(next(iter(streams.values()), []))
         new = len(next(iter(reduced.values()), []))
         return {
             "activity_id": params["activity_id"],
             "interval_seconds": interval,
+            "streams_included": list(reduced.keys()),
             "original_points": original,
             "downsampled_points": new,
             "reduction_pct": round((1 - new / max(original, 1)) * 100, 1),

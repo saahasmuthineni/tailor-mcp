@@ -124,19 +124,26 @@ class StravaAPI:
         """Raise before hitting Strava's rate limit. Timestamps are persisted
         across restarts so the counter does not reset when the process exits."""
         now = time.time()
-        self._request_timestamps = [
-            t for t in self._request_timestamps if now - t < 900
-        ]
-        remaining = self.RATE_LIMIT_15MIN - len(self._request_timestamps)
-        if remaining <= 5:
-            oldest = (
-                min(self._request_timestamps) if self._request_timestamps else now
-            )
+
+        # 15-minute window check
+        recent_15min = [t for t in self._request_timestamps if now - t < 900]
+        self._request_timestamps = recent_15min
+        if self.RATE_LIMIT_15MIN - len(recent_15min) <= 5:
+            oldest = min(recent_15min) if recent_15min else now
             wait = int(900 - (now - oldest))
             raise RuntimeError(
                 f"Approaching Strava rate limit "
-                f"({len(self._request_timestamps)}/{self.RATE_LIMIT_15MIN} "
+                f"({len(recent_15min)}/{self.RATE_LIMIT_15MIN} "
                 f"in 15min window). Try again in {wait}s."
+            )
+
+        # Daily limit check (1,000 req/day)
+        daily_count = sum(1 for t in self._request_timestamps if now - t < 86400)
+        if self.RATE_LIMIT_DAILY - daily_count <= 50:
+            raise RuntimeError(
+                f"Approaching Strava daily rate limit "
+                f"({daily_count}/{self.RATE_LIMIT_DAILY} today). "
+                f"Limit resets at midnight Pacific time."
             )
 
     def get(self, endpoint: str, **params) -> Any:

@@ -27,7 +27,7 @@ Claude Desktop <--> RouterMCP (validate → circuit break → consent → cost �
 
 ```
 src/strava_coach/
-  __init__.py              # Package metadata (v3.0.0)
+  __init__.py              # Package metadata (v4.0.0)
   __main__.py              # CLI: serve | setup | status | uninstall | --help
   wizard.py                # OAuth setup wizard (localhost callback server)
   framework/
@@ -45,11 +45,20 @@ src/strava_coach/
       child.py             # RunningChild(ChildMCP) — 13 tools, 3 tiers
       processing.py        # RunningProcessing — stateless analytics
       strava_api.py        # OAuth + rate-limited Strava API client
+  vault/
+    __init__.py            # Exports VaultWriter, VaultChild
+    child.py               # VaultChild(ChildMCP) — 7 read/write tools
+    writer.py              # Post-execute hook; atomic file writes → Obsidian
+    renderer.py            # Pure markdown generation (run/trend/compare notes)
+    storage.py             # VaultStorage — SQLite index of vault notes
 
 tests/
   test_processing.py       # Pure-function analytics tests (no I/O)
   test_middleware.py       # Framework security component tests
   test_router.py           # Router pipeline integration tests (mock child)
+  test_vault_child.py      # VaultChild handler tests
+  test_vault_renderer.py   # Markdown renderer tests
+  test_vault_writer.py     # VaultWriter atomic write + frontmatter tests
   probe.py                 # Ad-hoc local exploration (not in CI)
 ```
 
@@ -191,10 +200,6 @@ class CGMChild(ChildMCP):
 router.register_child(CGMChild(config_dir, data_dir))
 # Router auto-generates approve_consent_cgm + revoke_consent_cgm
 ```
-
-## Known Open Issue
-
-Issue #2: GitHub username placeholders in remote install scripts (`install.sh`, `install.ps1`). Local ZIP install works; the GitHub-hosted URL needs a real username substituted before publishing.
 
 ## CI
 

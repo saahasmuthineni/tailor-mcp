@@ -1,5 +1,7 @@
 # Biosensor-to-LLM Optimization — Strava Running Coach
 
+[![CI](https://github.com/saahasmuthineni/strava-run-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/saahasmuthineni/strava-run-coach/actions/workflows/ci.yml)
+
 An MCP server that gives Claude Desktop the ability to analyze your running data from Strava with scientific precision, while keeping your biometric data private and token costs minimal.
 
 ## What This Does
@@ -32,14 +34,12 @@ All analysis happens **server-side** on your machine. Claude only sees computed 
 
 **Mac / Linux** — open Terminal:
 ```bash
-cd strava-run-coach
-bash install.sh
+curl -sSL https://raw.githubusercontent.com/saahasmuthineni/strava-run-coach/main/install.sh | bash
 ```
 
 **Windows** — open PowerShell:
 ```powershell
-cd strava-run-coach
-.\install.ps1
+irm https://raw.githubusercontent.com/saahasmuthineni/strava-run-coach/main/install.ps1 | iex
 ```
 
 The installer will:
@@ -82,8 +82,40 @@ Claude Desktop ←→ Parent Router (security pipeline) ←→ Running Child (St
 | `strava_hr_analysis` | Zone distribution, drift, anomalies | ~300 |
 | `strava_pace_analysis` | Mile splits, run/walk classification | ~300 |
 | `strava_stop_analysis` | Pause detection with GPS locations | ~200 |
-| `strava_downsampled_streams` | HR, pace, GPS at 10-15s intervals | 3,000-7,000 |
+| `strava_downsampled_streams` | HR, pace, GPS at 5-30s intervals | 3,000-7,000 |
 | `strava_full_streams` | Per-second data (selective streams) | 25,000-60,000 |
+
+## Obsidian Vault Integration (Optional)
+
+If you use [Obsidian](https://obsidian.md/), Claude can automatically write run analysis notes into your vault and read them back in future sessions — giving it a persistent memory of your training history across conversations.
+
+**What it does:**
+- After each `strava_run_report`, a markdown note is written to your vault with YAML frontmatter (date, distance, HR, decoupling, efficiency factor, anomaly flags, Obsidian tags)
+- In a new session, Claude reads vault notes instead of re-syncing Strava — no extra API calls
+- Claude can annotate notes with coaching insights that persist across sessions
+
+**Vault tools:**
+
+| Tool | What It Does |
+|------|-------------|
+| `vault_get_fitness_summary` | 8-week aggregate snapshot — start every session here |
+| `vault_list_notes` | Browse notes by date, type, or coaching status |
+| `vault_read_note` | Read the full body of a specific run note |
+| `vault_search_notes` | Full-text search across all notes |
+| `vault_list_anomalies` | Find runs with sensor issues |
+| `vault_annotate_run` | Save coaching insights back to a note |
+| `vault_backfill` | Generate notes for all cached historical runs |
+
+**Setup:** Add `vault_path` to `~/.strava-coach/user_config.json`:
+```json
+{
+  "max_hr": 185,
+  "resting_hr": 52,
+  "vault_path": "/path/to/your/obsidian/vault"
+}
+```
+
+> **Privacy note:** If your vault is inside a cloud-synced folder (iCloud, OneDrive, Dropbox), computed fitness data will be uploaded to that service. The server will warn you if it detects a cloud path.
 
 ## Customize
 

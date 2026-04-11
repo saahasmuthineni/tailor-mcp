@@ -1,8 +1,6 @@
 # ═══════════════════════════════════════════════════════════════
 # Strava Run Coach — One-Click Installer (Windows)
-# ────────────────────────────────────────────────────────────────
-# BEFORE PUBLISHING: Replace YOUR_GITHUB_USERNAME below.
-# Usage: irm https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/strava-run-coach/main/install.ps1 | iex
+# Usage: irm https://raw.githubusercontent.com/saahasmuthineni/strava-run-coach/main/install.ps1 | iex
 # ═══════════════════════════════════════════════════════════════
 
 $ErrorActionPreference = "Stop"
@@ -14,12 +12,7 @@ if ($policy -eq "Restricted" -or $policy -eq "AllSigned") {
     exit 1
 }
 
-$REPO = "YOUR_GITHUB_USERNAME/strava-run-coach"
-
-if ($REPO -match "YOUR_GITHUB_USERNAME") {
-    Write-Host "  Replace YOUR_GITHUB_USERNAME in install.ps1 before publishing." -ForegroundColor Red
-    exit 1
-}
+$REPO = "saahasmuthineni/strava-run-coach"
 
 $INSTALL_DIR = Join-Path $env:USERPROFILE ".strava-coach"
 $VENV_DIR = Join-Path $INSTALL_DIR "venv"

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "strava-run-coach"
-version = "3.0.0"
+version = "4.0.0"
 description = "Biosensor-to-LLM optimization: parent/child MCP architecture for efficient biosensor data analysis with Claude"
 readme = "README.md"
 requires-python = ">=3.10"

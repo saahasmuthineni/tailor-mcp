@@ -539,4 +539,7 @@ class RouterMCP:
             async with stdio_server() as (read_stream, write_stream):
                 await server.run(read_stream, write_stream)
 
-        asyncio.run(main())
+        try:
+            asyncio.run(main())
+        finally:
+            self.close()  # Release SQLite WAL locks (required on Windows)

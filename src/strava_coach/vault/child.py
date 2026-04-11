@@ -215,6 +215,7 @@ class VaultChild(ChildMCP):
                 ),
                 "date_from": ValidationSchema(type=str, pattern=r"^\d{4}-\d{2}-\d{2}$"),
                 "date_to": ValidationSchema(type=str, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+                "has_coaching_notes": ValidationSchema(type=bool),
                 "limit": ValidationSchema(type=int, min=1, max=100, default=20),
             },
             "vault_read_note": {

@@ -3,18 +3,10 @@ set -euo pipefail
 
 # ═══════════════════════════════════════════════════════════════
 # Strava Run Coach — One-Click Installer (Mac/Linux)
-# ────────────────────────────────────────────────────────────────
-# BEFORE PUBLISHING: Replace YOUR_GITHUB_USERNAME below.
-# Usage: curl -sSL https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/strava-run-coach/main/install.sh | bash
+# Usage: curl -sSL https://raw.githubusercontent.com/saahasmuthineni/strava-run-coach/main/install.sh | bash
 # ═══════════════════════════════════════════════════════════════
 
-REPO="YOUR_GITHUB_USERNAME/strava-run-coach"
-
-# Guard: catch unfilled placeholder
-if [[ "$REPO" == *"YOUR_GITHUB_USERNAME"* ]]; then
-    echo "❌ Replace YOUR_GITHUB_USERNAME in install.sh with your actual GitHub username before publishing."
-    exit 1
-fi
+REPO="saahasmuthineni/strava-run-coach"
 
 INSTALL_DIR="$HOME/.strava-coach"
 VENV_DIR="$INSTALL_DIR/venv"

@@ -5,6 +5,7 @@ Usage:
     biosensor-mcp serve      # Start MCP server (Claude Desktop calls this)
     biosensor-mcp setup      # Run Strava OAuth setup wizard
     biosensor-mcp status     # Diagnostic check
+    biosensor-mcp demo       # Run analytics on synthetic data (no Strava needed)
     biosensor-mcp uninstall  # Clean removal
 """
 
@@ -262,6 +263,12 @@ def cmd_status():
     print("Done.")
 
 
+def cmd_demo():
+    """Run analytics on synthetic data — no Strava account needed."""
+    from biosensor_mcp.demo import run_demo
+    run_demo()
+
+
 def cmd_uninstall():
     """Clean removal."""
     print("Biosensor MCP — Uninstall")
@@ -305,6 +312,7 @@ def main():
         "serve": cmd_serve,
         "setup": cmd_setup,
         "status": cmd_status,
+        "demo": cmd_demo,
         "uninstall": cmd_uninstall,
     }
 

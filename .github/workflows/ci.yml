@@ -33,10 +33,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      # 4. Run the test suite
+      # 4. Run the test suite with coverage
       - name: Run tests
-        run: pytest -v
+        run: pytest -v --cov=biosensor_mcp --cov-report=term-missing
 
-      # 5. Verify the CLI entry point works
+      # 5. Run standalone security probe
+      - name: Security probe
+        run: python tests/security_probe.py
+
+      # 6. Verify the CLI entry point works
       - name: Smoke test CLI
         run: biosensor-mcp --help

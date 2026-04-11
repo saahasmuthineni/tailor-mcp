@@ -28,7 +28,7 @@ Claude Desktop <--> RouterMCP (validate → circuit break → consent → cost �
 ```
 src/biosensor_mcp/
   __init__.py              # Package metadata (v4.0.0)
-  __main__.py              # CLI: serve | setup | status | uninstall | --help
+  __main__.py              # CLI: serve | setup | status | demo | uninstall | --help
   wizard.py                # OAuth setup wizard (localhost callback server)
   framework/
     __init__.py            # Public API exports
@@ -45,6 +45,10 @@ src/biosensor_mcp/
       child.py             # RunningChild(ChildMCP) — 13 tools, 3 tiers
       processing.py        # RunningProcessing — stateless analytics
       strava_api.py        # OAuth + rate-limited Strava API client
+  demo/
+    __init__.py            # Exports run_demo
+    sample_data.py         # Synthetic 60-minute run data (reproducible, stdlib-only)
+    runner.py              # Demo runner — execute analytics on synthetic data
   vault/
     __init__.py            # Exports VaultWriter, VaultChild
     child.py               # VaultChild(ChildMCP) — 7 read/write tools
@@ -59,7 +63,7 @@ tests/
   test_vault_child.py      # VaultChild handler tests
   test_vault_renderer.py   # Markdown renderer tests
   test_vault_writer.py     # VaultWriter atomic write + frontmatter tests
-  probe.py                 # Ad-hoc local exploration (not in CI)
+  security_probe.py        # Standalone security probe (runs in CI, no pytest needed)
 ```
 
 ## Security Pipeline (5 Layers, Cheapest First)
@@ -110,6 +114,9 @@ pytest -v
 
 # CLI smoke test
 biosensor-mcp --help
+
+# Demo mode (no Strava account needed)
+biosensor-mcp demo
 
 # OAuth setup
 biosensor-mcp setup

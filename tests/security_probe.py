@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """
-Security + Correctness Probe
-============================
-Tests the biosensor-to-LLM framework WITHOUT network, MCP library, or pytest.
+Standalone Security Probe
+=========================
+Verifies the biosensor-to-LLM security pipeline WITHOUT network, MCP library,
+or pytest. Runs as a standalone script -- no external dependencies beyond the
+framework itself.
 
-Runs as a standalone script. Tests:
+Tests gate bypass, adversarial inputs, multi-domain isolation, and audit
+integrity:
   A. Middleware unit tests (CircuitBreaker, ConsentGate, CostGate, ParamValidator, TokenLedger)
   B. Router security pipeline (via MockChild, mocking the mcp module)
   C. Gate bypass attempts (adversarial tool names, domain injection)
@@ -13,7 +16,7 @@ Runs as a standalone script. Tests:
   F. Multi-domain isolation
   G. Audit log integrity
 
-Each test prints PASS / FAIL with a clear reason.
+Exit code: 0 = all passed, 1 = failures detected.
 """
 
 import sys
@@ -23,7 +26,7 @@ import tempfile
 import traceback
 from pathlib import Path
 
-# ── Mock the MCP library so we can import router.py without installing it ──
+# -- Mock the MCP library so we can import router.py without installing it --
 import types
 
 def _make_mcp_mock():
@@ -52,7 +55,7 @@ def _make_mcp_mock():
 
 _make_mcp_mock()
 
-# ── Now import the real framework ──
+# -- Now import the real framework --
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from biosensor_mcp.framework.middleware import (
@@ -64,9 +67,9 @@ from biosensor_mcp.framework.interfaces import (
 from biosensor_mcp.framework.router import RouterMCP
 
 
-# ═══════════════════════════════════════════════════════════════
+# ===============================================================
 # TEST INFRASTRUCTURE
-# ═══════════════════════════════════════════════════════════════
+# ===============================================================
 
 passed = failed = 0
 
@@ -76,21 +79,23 @@ def check(name, condition, detail=""):
         print(f"  PASS  {name}")
         passed += 1
     else:
-        print(f"  FAIL  {name}" + (f"\n        → {detail}" if detail else ""))
+        print(f"  FAIL  {name}" + (f"\n        -> {detail}" if detail else ""))
         failed += 1
 
 def section(title):
-    print(f"\n{'═'*60}")
+    print(f"\n{'='*60}")
     print(f"  {title}")
-    print(f"{'═'*60}")
+    print(f"{'='*60}")
+
+_loop = asyncio.new_event_loop()
 
 def run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return _loop.run_until_complete(coro)
 
 
-# ═══════════════════════════════════════════════════════════════
+# ===============================================================
 # MOCK CHILD
-# ═══════════════════════════════════════════════════════════════
+# ===============================================================
 
 class MockChild(ChildMCP):
     def __init__(self, domain_name="test", cost=100):
@@ -132,11 +137,11 @@ class FailingChild(MockChild):
         raise RuntimeError("Simulated upstream failure")
 
 
-# ═══════════════════════════════════════════════════════════════
+# ===============================================================
 # A. MIDDLEWARE UNIT TESTS
-# ═══════════════════════════════════════════════════════════════
+# ===============================================================
 
-section("A. Middleware — CircuitBreaker")
+section("A. Middleware -- CircuitBreaker")
 
 cb = CircuitBreaker(threshold=3, reset_after=60)
 ok, _ = cb.check("domain1")
@@ -161,7 +166,7 @@ ok, _ = cb3.check("y")
 check("success resets failure window", ok)
 
 
-section("B. Middleware — ConsentGate")
+section("B. Middleware -- ConsentGate")
 
 gate = ConsentGate()
 ok, err = gate.check("running")
@@ -178,7 +183,7 @@ gate.approve("sleep")
 check("approved_domains list", set(gate.approved_domains) == {"running", "sleep"})
 
 
-section("C. Middleware — CostGate")
+section("C. Middleware -- CostGate")
 
 cg = CostGate(threshold=35_000)
 check("below threshold passes", not cg.should_gate(34_999))
@@ -187,7 +192,7 @@ check("above threshold gates", cg.should_gate(100_000))
 check("custom threshold", CostGate(10_000).should_gate(9_999) is False and CostGate(10_000).should_gate(10_000) is True)
 
 
-section("D. Middleware — ParamValidator")
+section("D. Middleware -- ParamValidator")
 
 pv = ParamValidator
 
@@ -215,12 +220,12 @@ ok, err, _ = pv.validate(avs, {"streams": ["hr","INVALID"]}); check("disallowed 
 ok, _, c = pv.validate(schema, {"n": 5, "extra": "whatever"})
 check("extra params passed through", ok and c["extra"] == "whatever")
 
-# Empty schema — anything passes
+# Empty schema -- anything passes
 ok, _, c = pv.validate({}, {"anything": "value"})
 check("empty schema passes anything", ok)
 
 
-section("E. Middleware — TokenLedger + estimate_tokens")
+section("E. Middleware -- TokenLedger + estimate_tokens")
 
 ledger = TokenLedger()
 ledger.add("running", "report", 800)
@@ -233,14 +238,14 @@ check("summary call_count", s["call_count"] == 2)
 check("estimate_tokens dict", estimate_tokens({"key": "value"}) > 0)
 small = estimate_tokens({"a": 1})
 large = estimate_tokens({"data": list(range(1000))})
-check("larger data → more tokens", large > small)
+check("larger data -> more tokens", large > small)
 
 
-# ═══════════════════════════════════════════════════════════════
-# F. ROUTER — SECURITY PIPELINE
-# ═══════════════════════════════════════════════════════════════
+# ===============================================================
+# F. ROUTER -- SECURITY PIPELINE
+# ===============================================================
 
-section("F. Router — Basic Dispatch")
+section("F. Router -- Basic Dispatch")
 
 with tempfile.TemporaryDirectory() as tmpdir:
     router = RouterMCP("test", Path(tmpdir))
@@ -251,24 +256,25 @@ with tempfile.TemporaryDirectory() as tmpdir:
     d = _loads(r[0].text)
     check("unknown tool returns error", "error" in d and "Unknown" in d["error"])
 
-    # Tier 1 — free tool executes
+    # Tier 1 -- free tool executes
     r = run(router._dispatch("alpha_free", {"val": 5}))
     d = _loads(r[0].text)
     check("tier1 free tool executes", d.get("result") == "ok")
     check("tier1 meta attached", "_meta" in d and d["_meta"]["tier"] == 1)
 
-    # Tier 1 — bad param
+    # Tier 1 -- bad param
     r = run(router._dispatch("alpha_free", {}))
     d = _loads(r[0].text)
     check("tier1 missing required param rejected", "error" in d)
 
-    # Tier 1 — param below min
+    # Tier 1 -- param below min
     r = run(router._dispatch("alpha_free", {"val": 0}))
     d = _loads(r[0].text)
     check("tier1 param below min rejected", "error" in d)
+    router.close()
 
 
-section("G. Router — Consent Gate (Tier 2)")
+section("G. Router -- Consent Gate (Tier 2)")
 
 with tempfile.TemporaryDirectory() as tmpdir:
     router = RouterMCP("test", Path(tmpdir))
@@ -286,9 +292,9 @@ with tempfile.TemporaryDirectory() as tmpdir:
     has_user_prompt = "user_prompt" in d
     has_llm_instr = "llm_instruction" in d
     check("gate includes user_prompt for LLM UX", has_user_prompt,
-          "Missing 'user_prompt' — LLM has no text to show user for consent")
+          "Missing 'user_prompt' -- LLM has no text to show user for consent")
     check("gate includes llm_instruction to prevent auto-approve", has_llm_instr,
-          "Missing 'llm_instruction' — LLM may auto-approve without asking user")
+          "Missing 'llm_instruction' -- LLM may auto-approve without asking user")
     if has_llm_instr:
         instr = d["llm_instruction"]
         if isinstance(instr, dict):
@@ -307,9 +313,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
     r = run(router._dispatch("alpha_gated", {"val": 1}))
     d = _loads(r[0].text)
     check("tier2 passes after consent", d.get("result") == "ok")
-
-    # Consent is per-domain
-    router2 = RouterMCP("test2", Path(tmpdir + "2") if Path(tmpdir + "2").mkdir() or True else Path(tmpdir))
+    router.close()
 
 with tempfile.TemporaryDirectory() as tmpdir:
     router = RouterMCP("test", Path(tmpdir))
@@ -318,16 +322,17 @@ with tempfile.TemporaryDirectory() as tmpdir:
     run(router._dispatch("approve_consent_alpha", {}))
     r1 = run(router._dispatch("alpha_gated", {"val": 1}))
     r2 = run(router._dispatch("beta_gated", {"val": 1}))
-    check("consent alpha → alpha passes", _loads(r1[0].text).get("result") == "ok")
-    check("consent alpha → beta still blocked", _loads(r2[0].text).get("gate") == "consent_required")
+    check("consent alpha -> alpha passes", _loads(r1[0].text).get("result") == "ok")
+    check("consent alpha -> beta still blocked", _loads(r2[0].text).get("gate") == "consent_required")
 
     # Approve unknown domain
     r = run(router._dispatch("approve_consent_UNKNOWN", {}))
     d = _loads(r[0].text)
     check("approve unknown domain returns error", "error" in d)
+    router.close()
 
 
-section("H. Router — Cost Gate (Tier 3)")
+section("H. Router -- Cost Gate (Tier 3)")
 
 with tempfile.TemporaryDirectory() as tmpdir:
     router = RouterMCP("test", Path(tmpdir), cost_threshold=35_000)
@@ -338,6 +343,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
     r = run(router._dispatch("alpha_expensive", {"val": 1}))
     d = _loads(r[0].text)
     check("cheap tier3 passes cost gate", d.get("result") == "ok")
+    router.close()
 
 with tempfile.TemporaryDirectory() as tmpdir:
     router = RouterMCP("test", Path(tmpdir), cost_threshold=35_000)
@@ -354,25 +360,27 @@ with tempfile.TemporaryDirectory() as tmpdir:
     has_user_prompt = "user_prompt" in d
     has_llm_instr = "llm_instruction" in d
     check("cost gate includes user_prompt", has_user_prompt,
-          "Missing 'user_prompt' — LLM has no text to show user for cost approval")
+          "Missing 'user_prompt' -- LLM has no text to show user for cost approval")
     check("cost gate includes llm_instruction", has_llm_instr,
-          "Missing 'llm_instruction' — LLM may auto-proceed without asking user")
+          "Missing 'llm_instruction' -- LLM may auto-proceed without asking user")
+    router.close()
 
 
-section("I. Router — Circuit Breaker Integration")
+section("I. Router -- Circuit Breaker Integration")
 
 with tempfile.TemporaryDirectory() as tmpdir:
     router = RouterMCP("test", Path(tmpdir), circuit_threshold=2, circuit_reset=60)
     router.register_child(FailingChild("alpha"))
 
     run(router._dispatch("alpha_free", {"val": 1}))  # fail 1
-    run(router._dispatch("alpha_free", {"val": 1}))  # fail 2 → trips
+    run(router._dispatch("alpha_free", {"val": 1}))  # fail 2 -> trips
     r = run(router._dispatch("alpha_free", {"val": 1}))  # should be blocked
     d = _loads(r[0].text)
     check("circuit trips after failures", "Circuit open" in d.get("error", ""), d.get("error"))
+    router.close()
 
 
-section("J. SECURITY — Gate Bypass Attempts")
+section("J. SECURITY -- Gate Bypass Attempts")
 
 with tempfile.TemporaryDirectory() as tmpdir:
     router = RouterMCP("test", Path(tmpdir))
@@ -412,13 +420,12 @@ with tempfile.TemporaryDirectory() as tmpdir:
     ok, err, _ = ParamValidator.validate(schema_neg, {"activity_id": None})
     check("None for required param rejected", not ok)
 
-    # Attempt 7: list injection — try to pass a non-list for list param
+    # Attempt 7: list injection -- try to pass a non-list for list param
     ls_schema = {"ids": ValidationSchema(type=list, required=True, min_len=1)}
     ok, err, _ = ParamValidator.validate(ls_schema, {"ids": "not-a-list"})
     check("string where list expected rejected", not ok)
 
-    # Attempt 8: Calling tier-2 tool without consent then approving a DIFFERENT domain
-    router2 = RouterMCP("bypass_test", Path(tmpdir + "b") if True else Path(tmpdir))
+    router.close()
 
 with tempfile.TemporaryDirectory() as tmpdir:
     router = RouterMCP("bypass_test", Path(tmpdir))
@@ -430,9 +437,10 @@ with tempfile.TemporaryDirectory() as tmpdir:
     d = _loads(r[0].text)
     check("approving beta does NOT unlock alpha (domain isolation)", d.get("gate") == "consent_required",
           f"Got: {d}")
+    router.close()
 
 
-section("K. Router — Child Registration Safety")
+section("K. Router -- Child Registration Safety")
 
 with tempfile.TemporaryDirectory() as tmpdir:
     router = RouterMCP("test", Path(tmpdir))
@@ -445,9 +453,10 @@ with tempfile.TemporaryDirectory() as tmpdir:
         check("duplicate domain rejected", False, "Expected ValueError, got none")
     except ValueError as e:
         check("duplicate domain rejected", True)
+    router.close()
 
 
-section("L. Audit Log — Writes on Every Call")
+section("L. Audit Log -- Writes on Every Call")
 
 with tempfile.TemporaryDirectory() as tmpdir:
     import sqlite3
@@ -464,19 +473,20 @@ with tempfile.TemporaryDirectory() as tmpdir:
           f"rows: {rows}")
     check("consent block audited", any(r[0] == "alpha_gated" and r[1] == "CONSENT_BLOCKED" for r in rows),
           f"rows: {rows}")
+    router.close()
 
 
-# ═══════════════════════════════════════════════════════════════
+# ===============================================================
 # SUMMARY
-# ═══════════════════════════════════════════════════════════════
+# ===============================================================
 
 total = passed + failed
-print(f"\n{'═'*60}")
+print(f"\n{'='*60}")
 print(f"  RESULTS: {passed}/{total} passed", end="")
 if failed:
     print(f"  ({failed} FAILED)")
 else:
-    print("  — ALL CLEAR")
-print(f"{'═'*60}\n")
+    print("  -- ALL CLEAR")
+print(f"{'='*60}\n")
 
 sys.exit(0 if failed == 0 else 1)

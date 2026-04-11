@@ -1,6 +1,8 @@
 # Biosensor → LLM Middleware
 
 [![CI](https://github.com/saahasmuthineni/biosensor-to-llm-middleware/actions/workflows/ci.yml/badge.svg)](https://github.com/saahasmuthineni/biosensor-to-llm-middleware/actions/workflows/ci.yml)
+[![Python 3.10 | 3.11 | 3.12](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/downloads/)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 
 A framework for piping high-frequency biosensor data into LLM context windows efficiently, privately, and cheaply. Raw biometric streams are compressed server-side before any data reaches the model.
 
@@ -24,13 +26,28 @@ Server-side analytics compute what the LLM actually needs — zones, splits, tre
 
 ## Architecture
 
-```
-Any LLM Client (Claude Desktop, API, etc.)
-        ↓
-  RouterMCP  ←  security pipeline (5 layers, cheapest first)
-        ↓
-  ChildMCP   ←  domain-specific analytics + data access
-  (Running | CGM | Sleep | ECG | ...)
+```mermaid
+flowchart TD
+    Client["Any LLM Client\n(Claude Desktop, API, etc.)"]
+    Client --> Router
+
+    subgraph Router["RouterMCP — Security Pipeline"]
+        direction TB
+        L1["1 · ParamValidator\nType / Range / Pattern"] --> L2["2 · CircuitBreaker\n3 failures → 5 min block"]
+        L2 --> L3["3 · ConsentGate\nPer-domain · Session-scoped"]
+        L3 --> L4["4 · CostGate\nPre-estimate · Gate > 35k tokens"]
+        L4 --> L5["5 · AuditLog + TokenLedger\nSQLite · Cumulative spend"]
+    end
+
+    Router --> Children
+
+    subgraph Children["Child MCPs — Domain Analytics"]
+        Running["RunningChild\n(Strava)"]
+        CGM["CGMChild\n(future)"]
+        Sleep["SleepChild\n(future)"]
+    end
+
+    Running -.-> Vault["VaultChild\n(Obsidian)"]
 ```
 
 The router owns all cross-cutting concerns. Children own domain logic. Any LLM client gets identical security enforcement — behavioral rules live server-side, not in prompts.
@@ -106,7 +123,7 @@ The router handles consent prompting, cost gating, circuit breaking, audit loggi
 
 ## Working Example: Strava Running + Claude Desktop
 
-The reference implementation connects Strava running data to Claude Desktop via MCP. Thirteen tools across three tiers, with an optional Obsidian vault for persistent analytical memory.
+The reference implementation connects Strava running data to Claude Desktop via MCP. Twelve running tools across three tiers, plus seven vault tools for persistent analytical memory in Obsidian.
 
 ### Prerequisites
 
@@ -132,14 +149,56 @@ Restart Claude Desktop after install. Then ask Claude to sync and analyze your r
 
 | Tool | Tier | What It Does | ~Tokens |
 |------|------|-------------|---------|
+| `strava_sync` | 1 | Pull recent activities from Strava into local cache | ~50 |
+| `strava_list_runs` | 1 | List recent runs with summary stats | ~400 |
+| `strava_activity_detail` | 1 | Full details for a single activity | ~200 |
 | `strava_run_report` | 1 | Full run analysis: decoupling, EF, drift, phases, GAP splits | ~800 |
 | `strava_trend_report` | 1 | Weekly volume, pace, HR trends | ~600 |
 | `strava_compare_runs` | 1 | Side-by-side comparison of 2–5 runs | ~1,500 |
 | `strava_hr_analysis` | 1 | Zone distribution, drift, anomalies | ~300 |
 | `strava_pace_analysis` | 1 | Mile splits, run/walk classification | ~300 |
 | `strava_stop_analysis` | 1 | Pause detection with GPS locations | ~200 |
+| `strava_label_stop` | 1 | Persist stop labels across sessions (e.g. "Gel 1/3") | ~50 |
 | `strava_downsampled_streams` | 2 | HR, pace, GPS at 5–30s intervals | 3,000–7,000 |
 | `strava_full_streams` | 3 | Per-second data with selective stream filtering | 25,000–60,000 |
+
+<details>
+<summary>Example: strava_run_report response (~800 tokens)</summary>
+
+```json
+{
+  "activity_id": 12345678,
+  "data_points": 5420,
+  "decoupling": {
+    "decoupling_pct": 4.2,
+    "first_half": {"avg_hr": 152, "avg_velocity": 2.95},
+    "second_half": {"avg_hr": 159, "avg_velocity": 2.88},
+    "interpretation": "well coupled"
+  },
+  "efficiency_factor": {"ef": 1.34, "avg_hr": 155, "avg_velocity_ms": 2.91},
+  "hr_drift": {
+    "first_half_avg": 152,
+    "second_half_avg": 159,
+    "drift_pct": 4.6,
+    "interpretation": "aerobic"
+  },
+  "hr_zones": {
+    "zone_seconds": {1: 114, 2: 996, 3: 2833, 4: 1344, 5: 133},
+    "zone_pct": {1: 2.1, 2: 18.4, 3: 52.3, 4: 24.8, 5: 2.4},
+    "avg_hr": 156,
+    "max_hr_observed": 178,
+    "max_hr_setting": 185
+  },
+  "mile_splits": [
+    {"mile": 1, "elapsed_seconds": 552, "pace": "9:12", "avg_velocity_ms": 2.91},
+    {"mile": 2, "elapsed_seconds": 540, "pace": "9:00", "avg_velocity_ms": 2.98}
+  ],
+  "anomalies": [],
+  "note": "Full report computed server-side from per-second data. Raw streams not transmitted."
+}
+```
+
+</details>
 
 ### Obsidian Vault (Optional)
 
@@ -164,6 +223,65 @@ Add `vault_path` to `~/.biosensor-mcp/user_config.json`:
 | `vault_annotate_run` | Save analytical insights back to a note |
 | `vault_backfill` | Generate notes for all cached historical runs |
 
+<details>
+<summary>Example: vault run note (Obsidian markdown)</summary>
+
+```markdown
+---
+domain: running
+note_type: run_report
+activity_id: 12345678
+date: "2026-04-10"
+week: "2026-W15"
+distance_miles: 10.12
+duration_min: 87.3
+avg_hr: 156
+max_hr_observed: 178
+decoupling_pct: 4.2
+efficiency_factor: 1.34
+hr_drift_pct: 4.6
+aerobic_grade: coupled
+anomaly_count: 0
+tags:
+  - running
+  - aerobic/coupled
+  - week/2026-W15
+---
+
+# Thursday Recovery Run
+
+## Summary
+
+| Field | Value |
+|-------|-------|
+| Date | 2026-04-10 |
+| Distance | 10.12 mi |
+| Duration | 87.3 min |
+| Avg HR | 156 bpm |
+| Aerobic Grade | coupled |
+| Decoupling | 4.2% |
+| Efficiency Factor | 1.34 |
+| HR Drift | 4.6% |
+
+## HR Analysis
+
+Avg HR: **156 bpm** · Max: **178 bpm** · Setting: 185 bpm
+
+| Zone | % Time | Seconds |
+|------|--------|---------|
+| Z1 | 2.1% | 114 |
+| Z2 | 18.4% | 996 |
+| Z3 | 52.3% | 2833 |
+| Z4 | 24.8% | 1344 |
+| Z5 | 2.4% | 133 |
+
+## Insights
+
+*(No insight notes yet.)*
+```
+
+</details>
+
 > **Privacy:** If your vault is in a cloud-synced folder (iCloud, OneDrive, Dropbox), the server warns you and computed analytics will be uploaded. Use a local path to keep data on-device.
 
 ### Customize
@@ -185,6 +303,24 @@ biosensor-mcp status     — Check configuration and connectivity
 biosensor-mcp setup      — Re-run Strava OAuth setup
 biosensor-mcp uninstall  — Clean removal
 ```
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| `status` shows token expired | Run `biosensor-mcp setup` to re-authenticate. Tokens auto-refresh on use, but the refresh token itself can expire after 6 months of inactivity. |
+| Claude says "consent is required" | This is expected — biometric consent is session-scoped and resets each conversation. Approve once per session. |
+| Tool returns "No stream data available" | Run `strava_sync` first to pull activities into the local cache. Some activities (treadmill) may lack GPS streams. |
+| Windows: "address already in use" during OAuth | The setup wizard uses port 8899. Close any process using that port, or restart and retry. |
+| Cost gate triggered unexpectedly | Only `strava_full_streams` triggers the cost gate (>35,000 tokens). Use `strava_downsampled_streams` for visualization — it's ~85% cheaper. |
+
+---
+
+## Further Reading
+
+See [docs/design-context.pdf](docs/design-context.pdf) for the original design context document.
 
 ---
 

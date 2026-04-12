@@ -4,63 +4,152 @@
 [![Python 3.10 | 3.11 | 3.12](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/downloads/)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 
-A framework for piping high-frequency biosensor data into LLM context windows efficiently, privately, and cheaply. Raw biometric streams are compressed server-side before any data reaches the model.
+Ask Claude Desktop about your Strava runs — without blowing your token budget.
 
-**Reference implementation:** Strava running data → Claude Desktop via MCP.
+A local MCP server that compresses biosensor data server-side before it reaches the model. A 15-mile run drops from ~160,000 raw tokens to ~800 tokens — **99.5% reduction** — while raw per-second data stays on your machine.
+
+**Runners:** install, connect Strava, ask Claude about your training. [Install ↓](#install)
+**Builders:** reference implementation of a general biosensor→LLM framework (CGM, sleep, ECG follow the same pattern). [Framework docs ↓](#for-framework-builders)
+
+> **Try it with zero setup:** `pip install -e . && biosensor-mcp demo` — runs on synthetic data, no Strava account needed.
+
+## Quick navigation
+
+| Runners | Builders |
+|---------|----------|
+| [Try it in 30 seconds](#try-it-in-30-seconds) | [Architecture diagram](#for-framework-builders) |
+| [What you can ask Claude](#what-you-can-ask-claude) | [Building your own child MCP](#for-framework-builders) |
+| [Why this exists (cost breakdown)](#why-this-exists) | [Security pipeline](#how-it-works) |
+| [Install](#install) | [Three-tier access model](#how-it-works) |
+| [How it works](#how-it-works) | [Design context (PDF)](#further-reading) |
+| [Reference (tools, examples)](#reference) | [Reference (tools, examples)](#reference) |
 
 ---
 
-## The Problem
+## Try it in 30 seconds
+
+No Strava account, no OAuth, no API keys. The demo runs server-side analytics on synthetic 60-minute run data:
+
+```bash
+git clone https://github.com/saahasmuthineni/biosensor-to-llm-middleware.git
+cd biosensor-to-llm-middleware
+pip install -e .
+biosensor-mcp demo
+```
+
+<p align="center">
+  <img src="docs/demo.svg" alt="Data pipeline flow: 3,600 raw data points (~68,000 tokens) pass through a 5-layer server-side security pipeline and emerge as ~800 tokens — 98.8% reduction, raw data never leaves your machine" width="780">
+</p>
+
+---
+
+## What you can ask Claude
+
+| Ask Claude… | What you get | Cost |
+|---|---|---|
+| "How was my last run?" | Zones, splits, drift, efficiency — [auto-saved to vault](#vault-tools) | ~800 tokens |
+| "How has my fitness changed over 2 months?" | Weekly trends from [pre-saved notes](#vault-tools) | ~400 tokens |
+| "Show me my raw heart rate data" | Full-res stream (asks [consent + cost](#how-it-works) first) | 25,000–60,000 tokens |
+| "Backfill my vault with past runs" | Bulk-generates summaries for cached runs | ~800 tokens/run |
+
+<p align="center">
+  <img src="docs/claude-desktop-demo.svg" alt="Two-session story: Session 1 analyzes a run and saves to vault at ~800 tokens; Session 2 reads 8 pre-saved notes for fitness trends at ~400 tokens. Cards: Session Memory (170x longitudinal efficiency — 544k tokens vs 3,200), Per-Query Savings (98.8% reduction), Data Security (consent, audit, local processing)." width="700">
+</p>
+
+---
+
+## Why this exists
 
 High-frequency biosensor data and LLMs are a bad match out of the box:
 
 | Data source | Raw size | Direct cost | After this framework |
 |-------------|----------|-------------|----------------------|
-| 15-mile run (8 stream types, 1Hz) | ~200,000 tokens | ~$60/month | ~800 tokens (~$0.02) |
-| CGM trace (glucose, 5-min intervals) | ~10,000 tokens/day | — | ~200 tokens |
-| Sleep staging (per-epoch) | ~5,000 tokens/night | — | ~150 tokens |
+| 15-mile run (8 stream types, 1Hz) | ~160,000 tokens | ~$0.48/query | ~800 tokens (~$0.002/query) |
+| CGM trace (glucose, 5-min intervals) | ~10,000 tokens | — | ~200 tokens |
+| Sleep staging (per-epoch) | ~5,000 tokens | — | ~150 tokens |
 
-Server-side analytics compute what the LLM actually needs — zones, splits, trends, anomalies — and return only the summary. **99.6% token reduction** in the running example. Raw per-second data never leaves the machine.
+Server-side analytics compute what the LLM actually needs — zones, splits, trends, anomalies — and return only the summary. **99.5% token reduction** in the running example. Raw per-second data never leaves the machine.
+
+*Costs assume Claude Sonnet input pricing ($3/million tokens). Token counts from the project's `estimate_stream_tokens` heuristic; actual tokenization may vary slightly.*
 
 ---
 
-## Architecture
+## Install
 
-```mermaid
-flowchart TD
-    Client["Any LLM Client\n(Claude Desktop, API, etc.)"]
-    Client --> Router
+### Prerequisites
 
-    subgraph Router["RouterMCP — Security Pipeline"]
-        direction TB
-        L1["1 · ParamValidator\nType / Range / Pattern"] --> L2["2 · CircuitBreaker\n3 failures → 5 min block"]
-        L2 --> L3["3 · ConsentGate\nPer-domain · Session-scoped"]
-        L3 --> L4["4 · CostGate\nPre-estimate · Gate > 35k tokens"]
-        L4 --> L5["5 · AuditLog + TokenLedger\nSQLite · Cumulative spend"]
-    end
+- Python 3.10+
+- Claude Desktop
+- Strava account with an API app ([strava.com/settings/api](https://www.strava.com/settings/api)) — set callback domain to `localhost`
 
-    Router --> Children
-    Router -->|"tool dispatch +\npost-execute hook"| Vault
+### One-liner install
 
-    subgraph Children["Child MCPs — Domain Analytics"]
-        Running["RunningChild\n(Strava)"]
-        CGM["CGMChild\n(future)"]
-        Sleep["SleepChild\n(future)"]
-    end
-
-    Vault["VaultLayer · Reorientation Tier\n~800 tok/note vs 60k raw"]
-    Vault -->|"backfill reads\n(dispatch_internal)"| Router
-
-    Vault --- Obsidian["Obsidian Vault\n(local markdown files)"]
+**Mac / Linux:**
+```bash
+curl -sSL https://raw.githubusercontent.com/saahasmuthineni/biosensor-to-llm-middleware/main/install.sh | bash
 ```
 
-The router owns all cross-cutting concerns. Children own domain logic. The vault is a shared persistence layer — every analysis is automatically saved as a compressed note (~800 tokens vs ~60,000 raw), enabling rich longitudinal queries across future sessions. Any LLM client gets identical security enforcement — behavioral rules live server-side, not in prompts.
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/saahasmuthineni/biosensor-to-llm-middleware/main/install.ps1 | iex
+```
+
+Restart Claude Desktop after install. Then ask Claude to sync and analyze your runs.
+
+<p align="center">
+  <img src="docs/footprint.svg" alt="Lightweight footprint: one-command install, 525 KB package, ~4 MB total on disk after 3 months, no Docker or cloud infrastructure. Starts with Claude Desktop, stops when it closes." width="700">
+</p>
 
 ---
 
-## How It Works
+## How it works
 
-Every question you ask Claude follows the same path: your question goes through a security checkpoint, gets answered by the right specialist, and the answer is saved for future reference. Here's what happens behind the scenes for different types of questions.
+### Your Data, Two Ways
+
+Every analysis the system produces is saved as a plain markdown file in your [Obsidian](https://obsidian.md/) vault — a local, offline notebook that lives on your machine.
+
+This means you have **two ways to access the same data**:
+
+| | Ask Claude | Browse in Obsidian |
+|---|---|---|
+| **Best for** | Questions, trends, comparisons | Visual browsing, manual notes |
+| **How it works** | Reads pre-saved summaries (~400-800 tokens) | Opens the same markdown files directly |
+| **Example** | "Compare my last 3 long runs" | Open the graph view to see connections |
+| **Data stays** | On your machine | On your machine |
+
+**No cloud sync by default.** If your vault folder is inside OneDrive, iCloud, or Dropbox, the system warns you at startup — because saved analytics would then leave your machine. Set `vault_path` to a local-only folder to keep everything offline.
+
+<p align="center">
+  <img src="docs/vault-insights.svg" alt="Insight accumulation timeline: Week 1 saves run metrics, Week 4 Claude annotates 'decoupling improving 12% to 9%', Week 8 builds on prior insight 'aerobic base confirmed'. Reasoning compounds across sessions via vault_annotate_run and vault_capture_session." width="700">
+</p>
+
+### Security Pipeline
+
+| Layer | Component | Purpose |
+|-------|-----------|---------|
+| 1 | `ParamValidator` | Type/range/pattern checks — reject before any work |
+| 2 | `CircuitBreaker` | Block domain after 3 consecutive failures; auto-reset after 5 min |
+| 3 | `ConsentGate` | Per-domain biometric consent, session-scoped, revocable |
+| 4 | `CostGate` | Pre-estimate tokens before execution; gate if > 35,000 tokens |
+| 5 | `AuditLog` + `TokenLedger` | Every call logged to SQLite; cumulative session spend |
+
+### Three-Tier Access Model
+
+| Tier | What the LLM Sees | Tokens | Gate |
+|------|------------------|--------|------|
+| 1 — Free | Server-computed reports (zones, splits, trends, anomalies) | 50–1,500 | None |
+| 2 — Consent | Downsampled streams at 5–30s intervals | 3,000–7,000 | Biometric consent |
+| 3 — Cost | Per-second streams with precision reduction | 25,000–60,000 | Consent + cost approval |
+
+~90% of questions are answered at Tier 1. Zero raw biometric data leaves the machine.
+
+---
+
+## Reference
+
+### Sequence diagrams
+
+What happens behind the scenes for each type of question:
 
 <details>
 <summary><strong>You ask: "How was my last run?"</strong> — Instant analysis, automatically saved</summary>
@@ -78,7 +167,7 @@ sequenceDiagram
     Security->>Security: Safe to proceed
     Security->>Analyst: Crunch the numbers
     Note over Analyst: Computes zones, pace splits,<br/>heart rate drift, efficiency —<br/>all from local data
-    Analyst-->>Security: Summary report (~800 words)
+    Analyst-->>Security: Summary report (~800 tokens)
     Security->>Security: Log what was accessed
     Security->>Memory: Auto-save a copy
     Note over Memory: Saved as a markdown note<br/>you can browse in Obsidian
@@ -88,7 +177,7 @@ sequenceDiagram
 
 **What happened:** Your run data (thousands of data points) was crunched down to a short summary — and automatically saved to your personal vault so Claude can reference it in future conversations without re-processing.
 
-**Cost:** ~800 tokens (< $0.01). No approval needed.
+**Cost:** ~800 tokens (~$0.002). No approval needed.
 
 </details>
 
@@ -105,15 +194,15 @@ sequenceDiagram
     You->>Claude: "How has my fitness changed?"
     Claude->>Security: Look up fitness history
     Security->>Vault: Read saved run summaries
-    Note over Vault: Reads pre-saved notes —<br/>NOT raw sensor data.<br/>Each note is ~800 words<br/>instead of ~60,000 raw data points.
+    Note over Vault: Reads pre-saved notes —<br/>NOT raw sensor data.<br/>Each note is ~800 tokens<br/>instead of ~68,000 raw tokens.
     Vault-->>Security: Weekly summary table
     Security-->>Claude: 8 weeks of trends
     Claude-->>You: Your fitness trajectory
 ```
 
-**What happened:** Instead of re-downloading and re-processing 8 weeks of raw heart rate and GPS data (which would cost ~$5 in tokens), Claude read the pre-saved vault notes. Same quality analysis, 99% cheaper.
+**What happened:** Instead of re-downloading and re-processing 8 weeks of raw heart rate and GPS data (~544,000 tokens, ~$1.63), Claude read the pre-saved vault notes (~3,200 tokens, ~$0.01). Same quality analysis, 170x cheaper.
 
-**Cost:** ~400 tokens (< $0.01). No Strava API call. No raw biometric data touched.
+**Cost:** ~400 tokens (~$0.001). No Strava API call. No raw biometric data touched.
 
 </details>
 
@@ -181,114 +270,6 @@ sequenceDiagram
 
 </details>
 
-### Your Data, Two Ways
-
-Every analysis the system produces is saved as a plain markdown file in your [Obsidian](https://obsidian.md/) vault — a local, offline notebook that lives on your machine.
-
-This means you have **two ways to access the same data**:
-
-| | Ask Claude | Browse in Obsidian |
-|---|---|---|
-| **Best for** | Questions, trends, comparisons | Visual browsing, manual notes |
-| **How it works** | Reads pre-saved summaries (~400-800 tokens) | Opens the same markdown files directly |
-| **Example** | "Compare my last 3 long runs" | Open the graph view to see connections |
-| **Data stays** | On your machine | On your machine |
-
-**No cloud sync by default.** If your vault folder is inside OneDrive, iCloud, or Dropbox, the system warns you at startup — because saved analytics would then leave your machine. Set `vault_path` to a local-only folder to keep everything offline.
-
-### Security Pipeline
-
-| Layer | Component | Purpose |
-|-------|-----------|---------|
-| 1 | `ParamValidator` | Type/range/pattern checks — reject before any work |
-| 2 | `CircuitBreaker` | Block domain after 3 consecutive failures; auto-reset after 5 min |
-| 3 | `ConsentGate` | Per-domain biometric consent, session-scoped, revocable |
-| 4 | `CostGate` | Pre-estimate tokens before execution; gate if > 35,000 tokens |
-| 5 | `AuditLog` + `TokenLedger` | Every call logged to SQLite; cumulative session spend |
-
-### Three-Tier Access Model
-
-| Tier | What the LLM Sees | Tokens | Gate |
-|------|------------------|--------|------|
-| 1 — Free | Server-computed reports (zones, splits, trends, anomalies) | 200–1,500 | None |
-| 2 — Consent | Downsampled streams at 5–30s intervals | 3,000–7,000 | Biometric consent |
-| 3 — Cost | Per-second streams with precision reduction | 25,000–60,000 | Consent + cost approval |
-
-~90% of questions are answered at Tier 1. Zero raw biometric data leaves the machine.
-
----
-
-## Building Your Own Child
-
-Implement 4 abstract methods and register with the router:
-
-```python
-from biosensor_mcp.framework import ChildMCP, ToolDefinition, CostEstimate, ValidationSchema, ConsentInfo
-
-class CGMChild(ChildMCP):
-    @property
-    def domain(self) -> str: return "cgm"
-
-    @property
-    def display_name(self) -> str: return "Glucose (Dexcom)"
-
-    @property
-    def consent_info(self) -> ConsentInfo:
-        return ConsentInfo(
-            data_types=["glucose levels", "meal markers"],
-            purpose="glycemic analysis and trends",
-        )
-
-    @property
-    def tool_definitions(self) -> list[ToolDefinition]:
-        return [ToolDefinition("cgm_daily_report", 1, "Time-in-range, variability, meal response", {...})]
-
-    @property
-    def param_schemas(self) -> dict: ...
-
-    async def execute(self, tool_name: str, params: dict) -> dict: ...
-
-    async def estimate_cost(self, tool_name: str, params: dict) -> CostEstimate: ...
-
-# Register in __main__.py cmd_serve():
-router.register_child(CGMChild(config_dir, data_dir))
-# Router auto-generates approve_consent_cgm + revoke_consent_cgm
-```
-
-The router handles consent prompting, cost gating, circuit breaking, audit logging, and token tracking automatically. The child only implements domain analytics.
-
-**Other biosensor domains this pattern applies to:**
-- CGM (Dexcom, Libre) — time-in-range, glycemic variability, meal response curves
-- Sleep (Oura, Whoop) — stage duration, efficiency, latency, fragmentation
-- ECG (Apple Watch, Kardia) — rhythm classification, HRV, QT intervals
-- Lab results — trend analysis, reference range flags, longitudinal comparison
-
----
-
-## Working Example: Strava Running + Claude Desktop
-
-The reference implementation connects Strava running data to Claude Desktop via MCP. Twelve running tools across three tiers, plus seven vault tools for persistent analytical memory in Obsidian.
-
-### Prerequisites
-
-- Python 3.10+
-- Claude Desktop
-- Strava account with an API app ([strava.com/settings/api](https://www.strava.com/settings/api)) — set callback domain to `localhost`
-
-### Install
-
-**Mac / Linux:**
-```bash
-curl -sSL https://raw.githubusercontent.com/saahasmuthineni/biosensor-to-llm-middleware/main/install.sh | bash
-```
-
-**Windows (PowerShell):**
-```powershell
-irm https://raw.githubusercontent.com/saahasmuthineni/biosensor-to-llm-middleware/main/install.ps1 | iex
-```
-
-Restart Claude Desktop after install. Then ask Claude to sync and analyze your runs.
-
 ### Running Tools
 
 | Tool | Tier | What It Does | ~Tokens |
@@ -344,7 +325,7 @@ Restart Claude Desktop after install. Then ask Claude to sync and analyze your r
 
 </details>
 
-### Obsidian Vault (Optional)
+### Vault Tools
 
 Claude can write run notes into an Obsidian vault and read them back in future sessions — persistent analytical memory across conversations.
 
@@ -428,7 +409,16 @@ Avg HR: **156 bpm** · Max: **178 bpm** · Setting: 185 bpm
 
 > **Privacy:** If your vault is in a cloud-synced folder (iCloud, OneDrive, Dropbox), the server warns you and computed analytics will be uploaded. Use a local path to keep data on-device.
 
-### Customize
+### Commands
+
+```
+biosensor-mcp demo       — Run analytics on synthetic data (no Strava needed)
+biosensor-mcp status     — Check configuration and connectivity
+biosensor-mcp setup      — Re-run Strava OAuth setup
+biosensor-mcp uninstall  — Clean removal
+```
+
+### Configuration
 
 `~/.biosensor-mcp/user_config.json`:
 ```json
@@ -440,15 +430,86 @@ Avg HR: **156 bpm** · Max: **178 bpm** · Setting: 185 bpm
 }
 ```
 
-### Commands
-
-```
-biosensor-mcp status     — Check configuration and connectivity
-biosensor-mcp setup      — Re-run Strava OAuth setup
-biosensor-mcp uninstall  — Clean removal
-```
-
 ---
+
+## For framework builders
+
+The reference implementation (Strava running) demonstrates a general pattern for any biosensor domain. The router owns all cross-cutting concerns. Children own domain logic. The vault is a shared persistence layer — every analysis is automatically saved as a compressed note (~800 tokens vs ~68,000 raw), enabling rich longitudinal queries across future sessions. Any LLM client gets identical security enforcement — behavioral rules live server-side, not in prompts.
+
+```mermaid
+flowchart TD
+    Client["Any LLM Client\n(Claude Desktop, API, etc.)"]
+    Client --> Router
+
+    subgraph Router["RouterMCP — Security Pipeline"]
+        direction TB
+        L1["1 · ParamValidator\nType / Range / Pattern"] --> L2["2 · CircuitBreaker\n3 failures → 5 min block"]
+        L2 --> L3["3 · ConsentGate\nPer-domain · Session-scoped"]
+        L3 --> L4["4 · CostGate\nPre-estimate · Gate > 35k tokens"]
+        L4 --> L5["5 · AuditLog + TokenLedger\nSQLite · Cumulative spend"]
+    end
+
+    Router --> Children
+    Router -->|"tool dispatch +\npost-execute hook"| Vault
+
+    subgraph Children["Child MCPs — Domain Analytics"]
+        Running["RunningChild\n(Strava)"]
+        CGM["CGMChild\n(future)"]
+        Sleep["SleepChild\n(future)"]
+    end
+
+    Vault["VaultLayer · Reorientation Tier\n~800 tokens/note vs ~68k raw"]
+    Vault -->|"backfill reads\n(dispatch_internal)"| Router
+
+    Vault --- Obsidian["Obsidian Vault\n(local markdown files)"]
+```
+
+### Building Your Own Child
+
+Implement 4 abstract methods and register with the router:
+
+```python
+from biosensor_mcp.framework import ChildMCP, ToolDefinition, CostEstimate, ValidationSchema, ConsentInfo
+
+class CGMChild(ChildMCP):
+    @property
+    def domain(self) -> str: return "cgm"
+
+    @property
+    def display_name(self) -> str: return "Glucose (Dexcom)"
+
+    @property
+    def consent_info(self) -> ConsentInfo:
+        return ConsentInfo(
+            data_types=["glucose levels", "meal markers"],
+            purpose="glycemic analysis and trends",
+        )
+
+    @property
+    def tool_definitions(self) -> list[ToolDefinition]:
+        return [ToolDefinition("cgm_daily_report", 1, "Time-in-range, variability, meal response", {...})]
+
+    @property
+    def param_schemas(self) -> dict: ...
+
+    async def execute(self, tool_name: str, params: dict) -> dict: ...
+
+    async def estimate_cost(self, tool_name: str, params: dict) -> CostEstimate: ...
+
+# Register in __main__.py cmd_serve():
+router.register_child(CGMChild(config_dir, data_dir))
+# Router auto-generates approve_consent_cgm + revoke_consent_cgm
+```
+
+The router handles consent prompting, cost gating, circuit breaking, audit logging, and token tracking automatically. The child only implements domain analytics.
+
+**Other biosensor domains this pattern applies to:**
+- CGM (Dexcom, Libre) — time-in-range, glycemic variability, meal response curves
+- Sleep (Oura, Whoop) — stage duration, efficiency, latency, fragmentation
+- ECG (Apple Watch, Kardia) — rhythm classification, HRV, QT intervals
+- Lab results — trend analysis, reference range flags, longitudinal comparison
+
+See [docs/design-context.pdf](docs/design-context.pdf) for the full design rationale.
 
 ## Troubleshooting
 
@@ -460,13 +521,9 @@ biosensor-mcp uninstall  — Clean removal
 | "address already in use" during OAuth | The setup wizard uses port 8189 for the localhost OAuth callback. Close any process using that port, or restart and retry. |
 | Cost gate triggered unexpectedly | Only `strava_full_streams` triggers the cost gate (>35,000 tokens). Use `strava_downsampled_streams` for visualization — it's ~85% cheaper. |
 
----
-
-## Further Reading
+## Further reading
 
 See [docs/design-context.pdf](docs/design-context.pdf) for the original design context document.
-
----
 
 ## License
 

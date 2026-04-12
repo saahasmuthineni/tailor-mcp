@@ -52,7 +52,7 @@ src/biosensor_mcp/
   children/
     running/
       __init__.py          # Exports RunningChild
-      child.py             # RunningChild(ChildMCP) — 13 tools, 3 tiers
+      child.py             # RunningChild(ChildMCP) — 12 tools, 3 tiers
       processing.py        # RunningProcessing — stateless analytics
       strava_api.py        # OAuth + rate-limited Strava API client
   demo/
@@ -64,6 +64,8 @@ src/biosensor_mcp/
     layer.py               # VaultLayer — framework-level reorientation tier, 7 tools
     writer.py              # Post-execute hook; atomic file writes → Obsidian
     renderer.py            # Pure markdown generation (run/trend/compare notes)
+    parser.py              # Frontmatter / YAML parsing for vault notes
+    rescan.py              # Filesystem → SQLite index revalidation
     storage.py             # VaultStorage — SQLite index of vault notes
 
 tests/
@@ -73,6 +75,8 @@ tests/
   test_vault_layer.py      # VaultLayer handler tests
   test_vault_renderer.py   # Markdown renderer tests
   test_vault_writer.py     # VaultWriter atomic write + frontmatter tests
+  test_vault_parser.py     # Vault frontmatter parser tests
+  test_vault_rescan.py     # Vault index revalidation tests
   security_probe.py        # Standalone security probe (runs in CI, no pytest needed)
 ```
 

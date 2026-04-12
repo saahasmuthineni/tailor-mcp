@@ -3,10 +3,11 @@ Tests for vault/layer.py — VaultLayer tools with real temp FS + SQLite.
 """
 
 import asyncio
-import pytest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock
+
+import pytest
 
 
 def _run(coro):
@@ -41,8 +42,8 @@ def _make_running_storage_mock(activity_id=12345678):
 
 def _setup_vault(vault_dir, data_dir, activity_id=12345678, backfill_config=None):
     """Create a VaultLayer and pre-write one run note."""
-    from biosensor_mcp.vault.writer import VaultWriter
     from biosensor_mcp.vault.layer import VaultLayer
+    from biosensor_mcp.vault.writer import VaultWriter
 
     vault_path = Path(vault_dir)
     data_path = Path(data_dir)
@@ -148,8 +149,8 @@ class TestVaultGetFitnessSummary:
                 layer.close()
 
     def test_empty_vault_returns_note(self):
-        from biosensor_mcp.vault.writer import VaultWriter
         from biosensor_mcp.vault.layer import VaultLayer
+        from biosensor_mcp.vault.writer import VaultWriter
         with TemporaryDirectory() as v, TemporaryDirectory() as d:
             writer = VaultWriter(Path(v), Path(d), vaultable_tools=set())
             layer = VaultLayer(Path(v), writer)
@@ -461,7 +462,8 @@ class TestVaultReadTheme:
 
     def test_obsidian_edit_picked_up_via_mtime(self):
         """Manually rewriting the theme file should surface via vault_read_theme."""
-        import os, time
+        import os
+        import time
         with TemporaryDirectory() as v, TemporaryDirectory() as d:
             layer, writer, _, _date = _setup_vault(v, d)
             try:

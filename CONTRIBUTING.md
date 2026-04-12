@@ -1,0 +1,83 @@
+# Contributing
+
+Thanks for considering a contribution. This project is a reference implementation of a biosensor → LLM middleware pattern; PRs are welcome for bug fixes, additional child MCPs (e.g. CGM, sleep), docs, and test coverage.
+
+## Quick start
+
+```bash
+# Clone and install in dev mode
+git clone https://github.com/saahasmuthineni/biosensor-to-llm-middleware.git
+cd biosensor-to-llm-middleware
+python -m venv .venv
+source .venv/bin/activate        # on Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+```
+
+### Sanity checks
+
+```bash
+pytest -v                          # run tests (~250+ tests)
+python tests/security_probe.py     # standalone security-gate probe
+biosensor-mcp --help               # CLI smoke test
+biosensor-mcp demo                 # run analytics on synthetic data (no Strava creds needed)
+```
+
+### Lint & format
+
+```bash
+ruff check src tests
+ruff format src tests
+```
+
+CI runs `ruff check` and `ruff format --check`; both must pass.
+
+## Branching
+
+- `main` — stable, CI-green.
+- Open PRs from a feature branch named `type/short-description` (e.g. `fix/oauth-port-mismatch`, `feat/cgm-child`).
+
+## Commit messages
+
+Short imperative subject, optional body explaining *why*. Example:
+
+```
+Fix OAuth callback port drift in README
+
+README troubleshooting cited port 8899 but wizard.py has used
+8189 since v3. Anyone hitting "address in use" was checking
+the wrong port.
+```
+
+## Adding a new child MCP
+
+Children are the extension point of the framework. See `CLAUDE.md § Adding a New Biosensor Child` for the contract. Minimum viable child:
+
+1. Subclass `biosensor_mcp.framework.ChildMCP`.
+2. Implement `domain`, `display_name`, `consent_info`, `tool_definitions`, `param_schemas`, `execute`, `estimate_cost`.
+3. Register it in `src/biosensor_mcp/__main__.py::cmd_serve()` with `router.register_child(...)`.
+4. Add tests next to the existing ones in `tests/`.
+
+The router automatically generates `approve_consent_<domain>` and `revoke_consent_<domain>` tools — the child does not need to.
+
+## Tests
+
+- Unit tests live in `tests/` and are picked up by pytest's default discovery.
+- `pytest-asyncio` is configured in `asyncio_mode = "auto"` — no explicit `@pytest.mark.asyncio` needed.
+- Keep tests deterministic: seed any randomness, avoid network calls, avoid `time.time()` assertions (use monotonic offsets instead).
+- Sleep-based tests (e.g. circuit-breaker cooldown) are already in the suite; prefer time injection over `time.sleep` for new tests.
+
+## Security-sensitive changes
+
+Changes that touch `framework/middleware.py`, `framework/router.py`, or any consent/cost/circuit logic should add or update cases in `tests/security_probe.py` in addition to pytest coverage. The probe is CI-required and pytest-free so it can run anywhere.
+
+## Reporting bugs
+
+Open an issue using the bug-report template. Include:
+- Your OS and Python version
+- Steps to reproduce
+- Expected vs actual behavior
+- Logs from `~/.biosensor-mcp/logs/server.log` if relevant (redact anything personal)
+
+## License
+
+By contributing, you agree your contributions are licensed under the Apache License 2.0, matching the project license.

@@ -15,12 +15,13 @@ Schema overview (v2 — reasoning persistence):
     vault_themes    — denormalised theme rows for fast list queries
 """
 
+import logging
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Optional
 
-from ..framework.storage import BaseStorage
 from ..framework.middleware import _dumps, _loads
+from ..framework.storage import BaseStorage
+
+log = logging.getLogger("biosensor-mcp.vault")
 
 
 class VaultStorage(BaseStorage):
@@ -98,11 +99,11 @@ class VaultStorage(BaseStorage):
         note_type: str,
         frontmatter: dict,
         *,
-        activity_id: Optional[int] = None,
-        date: Optional[str] = None,
-        week: Optional[str] = None,
+        activity_id: int | None = None,
+        date: str | None = None,
+        week: str | None = None,
         has_insight_notes: bool = False,
-        mtime_ns: Optional[int] = None,
+        mtime_ns: int | None = None,
     ):
         """Insert or replace a note index entry."""
         self.execute(
@@ -136,7 +137,7 @@ class VaultStorage(BaseStorage):
         )
         self.commit()
 
-    def get_mtime_ns(self, filename: str) -> Optional[int]:
+    def get_mtime_ns(self, filename: str) -> int | None:
         row = self.fetchone(
             "SELECT mtime_ns FROM vault_notes WHERE filename=?",
             (filename,),
@@ -152,7 +153,7 @@ class VaultStorage(BaseStorage):
 
     # ── Query (notes) ──
 
-    def get_note(self, filename: str) -> Optional[dict]:
+    def get_note(self, filename: str) -> dict | None:
         """Return index row for a specific file, or None."""
         row = self.fetchone(
             "SELECT filename, domain, note_type, activity_id, date, week,"
@@ -164,12 +165,12 @@ class VaultStorage(BaseStorage):
 
     def list_notes(
         self,
-        domain: Optional[str] = None,
-        note_type: Optional[str] = None,
-        date_from: Optional[str] = None,
-        date_to: Optional[str] = None,
-        week: Optional[str] = None,
-        has_insight_notes: Optional[bool] = None,
+        domain: str | None = None,
+        note_type: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        week: str | None = None,
+        has_insight_notes: bool | None = None,
         limit: int = 50,
     ) -> list[dict]:
         """Filtered list of notes, newest first."""
@@ -212,7 +213,7 @@ class VaultStorage(BaseStorage):
         return [r[0] for r in rows]
 
     def get_anomalous_notes(
-        self, anomaly_type: Optional[str] = None, limit: int = 50
+        self, anomaly_type: str | None = None, limit: int = 50
     ) -> list[dict]:
         """
         Return run_report notes where anomaly_count > 0.
@@ -235,7 +236,7 @@ class VaultStorage(BaseStorage):
             ]
         return results
 
-    def count_notes(self, domain: Optional[str] = None) -> int:
+    def count_notes(self, domain: str | None = None) -> int:
         where = " WHERE domain=?" if domain else ""
         params = (domain,) if domain else ()
         row = self.fetchone(f"SELECT COUNT(*) FROM vault_notes{where}", params)
@@ -308,9 +309,9 @@ class VaultStorage(BaseStorage):
         status: str,
         opened: str,
         last_updated: str,
-        linked_runs: Optional[list] = None,
-        confidence: Optional[str] = None,
-        excerpt: Optional[str] = None,
+        linked_runs: list | None = None,
+        confidence: str | None = None,
+        excerpt: str | None = None,
     ) -> None:
         self.execute(
             "INSERT OR REPLACE INTO vault_themes"
@@ -328,7 +329,7 @@ class VaultStorage(BaseStorage):
         )
         self.commit()
 
-    def get_theme(self, slug: str) -> Optional[dict]:
+    def get_theme(self, slug: str) -> dict | None:
         row = self.fetchone(
             "SELECT slug, status, opened, last_updated, linked_runs_json,"
             "       confidence, excerpt"
@@ -339,7 +340,7 @@ class VaultStorage(BaseStorage):
 
     def list_themes(
         self,
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 50,
     ) -> list[dict]:
         clauses = []
@@ -378,8 +379,11 @@ class VaultStorage(BaseStorage):
         fm = {}
         try:
             fm = _loads(frontmatter_json) if frontmatter_json else {}
-        except Exception:
-            pass
+        except (ValueError, TypeError) as exc:
+            log.warning(
+                f"Vault index has corrupt frontmatter_json for {filename}: {exc}. "
+                f"Returning empty frontmatter; re-scan the vault to rebuild."
+            )
         return {
             "filename": filename,
             "domain": domain,
@@ -397,7 +401,11 @@ class VaultStorage(BaseStorage):
         slug, status, opened, last_updated, linked_runs_json, confidence, excerpt = row
         try:
             linked_runs = _loads(linked_runs_json) if linked_runs_json else []
-        except Exception:
+        except (ValueError, TypeError) as exc:
+            log.warning(
+                f"Vault index has corrupt linked_runs_json for theme {slug!r}: {exc}. "
+                f"Treating as empty."
+            )
             linked_runs = []
         return {
             "slug": slug,

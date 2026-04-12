@@ -2,10 +2,11 @@
 Tests for vault/writer.py — VaultWriter with a real temp filesystem + SQLite.
 """
 
-import pytest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock
+
+import pytest
 
 
 def _make_writer(vault_path: Path, data_dir: Path, running_storage=None):

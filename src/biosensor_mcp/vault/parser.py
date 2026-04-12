@@ -8,8 +8,6 @@ All functions work on strings; no filesystem, no database.
 """
 
 import re
-from typing import Optional
-
 
 # ── Regexes ──────────────────────────────────────────────────────
 
@@ -202,7 +200,7 @@ def _strip_fenced_code(body: str) -> list[str]:
 
 # ── Link resolution ──────────────────────────────────────────────
 
-def resolve_link(target: str, known_filenames: set[str]) -> Optional[str]:
+def resolve_link(target: str, known_filenames: set[str]) -> str | None:
     """
     Resolve a wikilink ``target`` to a vault filename.
 

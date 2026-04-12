@@ -6,6 +6,7 @@ tests in the project because the math is what users depend on.
 """
 
 import pytest
+
 from biosensor_mcp.children.running.processing import RunningProcessing, haversine
 
 

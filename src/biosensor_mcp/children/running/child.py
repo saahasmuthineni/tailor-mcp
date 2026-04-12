@@ -5,15 +5,21 @@ Wires together Strava API, running storage, and running analytics
 into a complete child that registers with the parent router.
 """
 
-import os
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
 
-from ...framework.interfaces import ChildMCP, ConsentInfo, ConsentScope, ToolDefinition, CostEstimate, ValidationSchema
-from ...framework.storage import BaseStorage
+from ...framework.interfaces import (
+    ChildMCP,
+    ConsentInfo,
+    ConsentScope,
+    CostEstimate,
+    ToolDefinition,
+    ValidationSchema,
+)
 from ...framework.middleware import _dumps, _loads
+from ...framework.storage import BaseStorage
 from .processing import RunningProcessing
 from .strava_api import StravaAPI
 
@@ -63,11 +69,11 @@ class RunningStorage(BaseStorage):
         )
         self.commit()
 
-    def get_activity(self, activity_id: int) -> Optional[dict]:
+    def get_activity(self, activity_id: int) -> dict | None:
         row = self.fetchone("SELECT data FROM activities WHERE id=?", (activity_id,))
         return _loads(row[0]) if row else None
 
-    def list_activities(self, limit: int = 20, after: Optional[str] = None) -> list[dict]:
+    def list_activities(self, limit: int = 20, after: str | None = None) -> list[dict]:
         if after:
             rows = self.fetchall(
                 "SELECT data FROM activities"
@@ -90,7 +96,7 @@ class RunningStorage(BaseStorage):
         )
         self.commit()
 
-    def get_streams(self, activity_id: int) -> Optional[dict]:
+    def get_streams(self, activity_id: int) -> dict | None:
         """Return cached streams if fresh, None if stale or missing."""
         row = self.fetchone(
             "SELECT data, fetched_at FROM streams WHERE activity_id=?",
@@ -117,7 +123,7 @@ class RunningStorage(BaseStorage):
         return _loads(data_str)
 
     def save_stop_label(
-        self, activity_id: int, stop_number: int, label: str, notes: Optional[str] = None
+        self, activity_id: int, stop_number: int, label: str, notes: str | None = None
     ):
         self.execute(
             "INSERT OR REPLACE INTO stop_labels"
@@ -451,7 +457,7 @@ class RunningChild(ChildMCP):
 
     # ── Data Loading ──
 
-    def _load_streams(self, activity_id: int) -> Optional[dict]:
+    def _load_streams(self, activity_id: int) -> dict | None:
         """Load from cache or fetch from Strava API. Raises on API failure."""
         cached = self._storage.get_streams(activity_id)
         if cached:

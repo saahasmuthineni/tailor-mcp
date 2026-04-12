@@ -4,10 +4,10 @@ Running Child — Strava API Layer
 OAuth token management, rate-limit awareness, and Strava API calls.
 """
 
+import logging
 import os
 import sys
 import time
-import logging
 from pathlib import Path
 from typing import Any
 
@@ -79,8 +79,13 @@ class StravaAPI:
                 data = _loads(self._rate_limit_file.read_text())
                 now = time.time()
                 return [t for t in data if now - t < 86400]
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError) as exc:
+            # Corrupt or unreadable rate-limit file → reset the counter but
+            # warn so a user investigating surprise 429s sees a breadcrumb.
+            log.warning(
+                f"Could not load rate-limit timestamps from {self._rate_limit_file}: {exc}. "
+                f"Counter reset; Strava limits may be closer than tracked."
+            )
         return []
 
     def _save_rate_limit_timestamps(self) -> None:

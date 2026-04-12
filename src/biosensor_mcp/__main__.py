@@ -10,9 +10,12 @@ Usage:
 """
 
 import json
+import logging
 import os
 import sys
 from pathlib import Path
+
+log = logging.getLogger("biosensor-mcp")
 
 CONFIG_DIR = Path(os.environ.get("BIOSENSOR_CONFIG_DIR", Path.home() / ".biosensor-mcp"))
 DATA_DIR = Path(os.environ.get("BIOSENSOR_DATA_DIR", CONFIG_DIR / "data"))
@@ -45,8 +48,8 @@ def cmd_serve():
     """Start the MCP server via stdio."""
     _setup_logging()
 
-    from biosensor_mcp.framework.router import RouterMCP
     from biosensor_mcp.children.running import RunningChild
+    from biosensor_mcp.framework.router import RouterMCP
 
     # Create parent router
     router = RouterMCP(
@@ -63,14 +66,21 @@ def cmd_serve():
 
     # Vault integration (opt-in — requires vault_path in user_config.json)
     _ucfg_path = CONFIG_DIR / "user_config.json"
+    _ucfg: dict = {}
     _vault_path = None
     if _ucfg_path.exists():
         try:
             _ucfg = json.loads(_ucfg_path.read_text())
             if "vault_path" in _ucfg:
                 _vault_path = Path(_ucfg["vault_path"]).expanduser()
-        except Exception:
-            pass
+        except (OSError, ValueError) as exc:
+            # Most common cause: user hand-edited user_config.json and left
+            # a trailing comma. Log loudly — silent failure leaves the vault
+            # silently disabled with no breadcrumb.
+            log.warning(
+                f"Could not parse {_ucfg_path}: {exc}. "
+                f"Vault integration disabled until the file is valid JSON."
+            )
 
     if _vault_path:
         import logging as _log_mod
@@ -97,13 +107,14 @@ def cmd_serve():
                 f"Vault enabled: run analytics will be written to {_vault_path}. "
                 f"If this path is cloud-synced, computed fitness data will leave this machine."
             )
-        from biosensor_mcp.vault import VaultWriter, VaultLayer
+        from biosensor_mcp.vault import VaultLayer, VaultWriter
         vaultable: set[str] = set()
         for _child in [running]:
             vaultable.update(getattr(_child, "vaultable_tools", []))
         # max_hr from user config (same source RunningChild reads from).
-        # _ucfg is guaranteed to exist here — _vault_path is only set when
-        # _ucfg was successfully parsed above.
+        # _ucfg is guaranteed to be a dict here — it is initialized to {} above
+        # and only populated on successful parse; _vault_path is only set when
+        # parsing succeeded.
         _max_hr = _ucfg.get("max_hr", 195)
         vault_writer = VaultWriter(
             vault_path=_vault_path,
@@ -208,9 +219,9 @@ def cmd_status():
             _cfg2 = json.loads(user_config_2.read_text())
             if "vault_path" in _cfg2:
                 vault_path_cfg = Path(_cfg2["vault_path"]).expanduser()
-        except Exception:
-            pass
-    print(f"\nVault integration:")
+        except (OSError, ValueError) as exc:
+            print(f"  Warning: could not parse {user_config_2}: {exc}")
+    print("\nVault integration:")
     if vault_path_cfg:
         print(f"  Enabled: Yes → {vault_path_cfg}")
         print(f"  Vault exists: {vault_path_cfg.exists()}")
@@ -280,7 +291,7 @@ def cmd_uninstall():
     print("Biosensor MCP — Uninstall")
     print("This will remove:")
     print(f"  - Config directory: {CONFIG_DIR}")
-    print(f"  - Claude Desktop MCP registration")
+    print("  - Claude Desktop MCP registration")
     confirm = input("\nProceed? (yes/no): ").strip().lower()
     if confirm != "yes":
         print("Cancelled.")

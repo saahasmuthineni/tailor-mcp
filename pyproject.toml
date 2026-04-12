@@ -36,6 +36,7 @@ dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21",
     "pytest-cov>=4.0",
+    "ruff>=0.5",
 ]
 
 [project.scripts]
@@ -44,6 +45,30 @@ biosensor-mcp = "biosensor_mcp.__main__:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+biosensor_mcp = ["py.typed"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# E/F/W = pycodestyle + pyflakes, I = isort, B = bugbear, UP = pyupgrade
+select = ["E", "F", "W", "I", "B", "UP"]
+# E501 (line too long) is enforced by the formatter; ignore in linting to
+# avoid double-reports. B008 is noisy for frameworks that use default
+# factories in function signatures.
+ignore = ["E501", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests sometimes import-only-for-fixture or shadow builtins intentionally.
+"tests/*" = ["F401", "F811"]
+# security_probe.py uses a deliberate compact "action; assert" style so the
+# whole probe reads as a single-screen checklist; E702 (semicolon) and E402
+# (sys.path manipulation before imports) are intentional there.
+"tests/security_probe.py" = ["E702", "E402", "F401", "F811"]

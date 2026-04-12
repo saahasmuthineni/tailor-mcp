@@ -6,7 +6,10 @@ between Claude and any biosensor child MCP.
 """
 
 import time
+
 import pytest
+
+from biosensor_mcp.framework.interfaces import ValidationSchema
 from biosensor_mcp.framework.middleware import (
     CircuitBreaker,
     ConsentGate,
@@ -15,7 +18,6 @@ from biosensor_mcp.framework.middleware import (
     TokenLedger,
     estimate_tokens,
 )
-from biosensor_mcp.framework.interfaces import ValidationSchema
 
 
 class TestCircuitBreaker:

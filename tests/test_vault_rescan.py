@@ -56,7 +56,7 @@ class TestRevalidateFile:
         with TemporaryDirectory() as v, TemporaryDirectory() as d:
             vault = Path(v)
             writer = _make_writer(vault, Path(d))
-            path = _write_raw_theme(vault, "new-theme")
+            _write_raw_theme(vault, "new-theme")
             assert writer._storage.get_note("themes/new-theme.md") is None
 
             changed = revalidate_file("themes/new-theme.md", vault, writer._storage)

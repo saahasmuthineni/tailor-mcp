@@ -457,7 +457,7 @@ biosensor-mcp uninstall  — Clean removal
 | `status` shows token expired | Run `biosensor-mcp setup` to re-authenticate. Tokens auto-refresh on use, but the refresh token itself can expire after 6 months of inactivity. |
 | Claude says "consent is required" | This is expected — biometric consent is session-scoped and resets each conversation. Approve once per session. |
 | Tool returns "No stream data available" | Run `strava_sync` first to pull activities into the local cache. Some activities (treadmill) may lack GPS streams. |
-| Windows: "address already in use" during OAuth | The setup wizard uses port 8899. Close any process using that port, or restart and retry. |
+| "address already in use" during OAuth | The setup wizard uses port 8189 for the localhost OAuth callback. Close any process using that port, or restart and retry. |
 | Cost gate triggered unexpectedly | Only `strava_full_streams` triggers the cost gate (>35,000 tokens). Use `strava_downsampled_streams` for visualization — it's ~85% cheaper. |
 
 ---

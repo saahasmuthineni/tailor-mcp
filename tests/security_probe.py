@@ -19,15 +19,16 @@ integrity:
 Exit code: 0 = all passed, 1 = failures detected.
 """
 
-import sys
 import asyncio
-import time
+import sys
 import tempfile
+import time
 import traceback
-from pathlib import Path
 
 # -- Mock the MCP library so we can import router.py without installing it --
 import types
+from pathlib import Path
+
 
 def _make_mcp_mock():
     mcp = types.ModuleType("mcp")
@@ -58,14 +59,22 @@ _make_mcp_mock()
 # -- Now import the real framework --
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from biosensor_mcp.framework.middleware import (
-    CircuitBreaker, ConsentGate, CostGate, ParamValidator, TokenLedger, estimate_tokens, _loads,
-)
 from biosensor_mcp.framework.interfaces import (
-    ChildMCP, ToolDefinition, CostEstimate, ValidationSchema,
+    ChildMCP,
+    CostEstimate,
+    ToolDefinition,
+    ValidationSchema,
+)
+from biosensor_mcp.framework.middleware import (
+    CircuitBreaker,
+    ConsentGate,
+    CostGate,
+    ParamValidator,
+    TokenLedger,
+    _loads,
+    estimate_tokens,
 )
 from biosensor_mcp.framework.router import RouterMCP
-
 
 # ===============================================================
 # TEST INFRASTRUCTURE
@@ -451,7 +460,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
     try:
         router.register_child(MockChild("alpha"))
         check("duplicate domain rejected", False, "Expected ValueError, got none")
-    except ValueError as e:
+    except ValueError:
         check("duplicate domain rejected", True)
     router.close()
 

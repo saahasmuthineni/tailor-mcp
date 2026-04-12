@@ -22,9 +22,9 @@ import logging
 import os
 import re
 import tempfile
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Optional
 
 from .renderer import (
     render_compare_note,

@@ -12,7 +12,6 @@ This is the running domain's Processing class. Other biosensor domains
 """
 
 import math
-from typing import Optional
 
 DEFAULT_MAX_HR = 195
 DEFAULT_RESTING_HR = 60
@@ -90,7 +89,7 @@ class RunningProcessing:
     # ═══════════════════════════════════════════════════════════
 
     @staticmethod
-    def filter_streams(streams: dict, requested: Optional[list[str]] = None) -> dict:
+    def filter_streams(streams: dict, requested: list[str] | None = None) -> dict:
         """Only return requested streams. Default: all."""
         if not requested:
             return streams
@@ -101,7 +100,7 @@ class RunningProcessing:
     # ═══════════════════════════════════════════════════════════
 
     @staticmethod
-    def estimate_stream_tokens(streams: dict, requested: Optional[list[str]] = None) -> int:
+    def estimate_stream_tokens(streams: dict, requested: list[str] | None = None) -> int:
         """
         Estimate tokens for a stream payload WITHOUT serializing.
 
@@ -198,7 +197,7 @@ class RunningProcessing:
 
     @staticmethod
     def compute_mile_splits(
-        distance: list, time_arr: list, velocity: Optional[list] = None
+        distance: list, time_arr: list, velocity: list | None = None
     ) -> list[dict]:
         """Mile splits from per-second distance data."""
         MILE_M = 1609.34
@@ -260,7 +259,10 @@ class RunningProcessing:
             return []
 
         gap_velocity = []
-        for v, g in zip(velocity, grade):
+        # Explicit strict=False preserves existing behavior (truncate to the
+        # shorter stream) — grade and velocity can differ by a few samples
+        # when one stream is shorter than the other.
+        for v, g in zip(velocity, grade, strict=False):
             cost = 1 + 0.03 * g
             gap_velocity.append(v / cost if cost != 0 else v)
 
@@ -311,7 +313,7 @@ class RunningProcessing:
 
     @staticmethod
     def compute_efficiency_factor(
-        hr_data: list, velocity: list, grade: Optional[list] = None
+        hr_data: list, velocity: list, grade: list | None = None
     ) -> dict:
         """EF = normalized pace / avg HR. Higher = more efficient."""
         if not hr_data or not velocity:
@@ -483,7 +485,7 @@ class RunningProcessing:
         latlng: list,
         velocity: list,
         time_arr: list,
-        home_coords: Optional[tuple] = None,
+        home_coords: tuple | None = None,
     ) -> list[dict]:
         """Detect stops using GPS + velocity. Optionally flag home-base stops.
 

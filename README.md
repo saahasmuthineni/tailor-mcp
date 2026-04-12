@@ -38,7 +38,7 @@ biosensor-mcp demo
 ```
 
 <p align="center">
-  <img src="docs/demo.svg" alt="Data pipeline flow: 3,600 raw data points (~200,000 tokens) pass through a 5-layer server-side security pipeline and emerge as ~800 tokens — 99.6% reduction, raw data never leaves your machine" width="780">
+  <img src="docs/demo.svg" alt="Data pipeline flow: 3,600 raw data points (~68,000 tokens) pass through a 5-layer server-side security pipeline and emerge as ~800 tokens — 98.8% reduction, raw data never leaves your machine" width="780">
 </p>
 
 ---
@@ -47,10 +47,10 @@ biosensor-mcp demo
 
 | Ask Claude… | What you get | Cost |
 |---|---|---|
-| "How was my last run?" | Zones, splits, drift, efficiency — [auto-saved to vault](#vault-tools) | ~800 tok |
-| "How has my fitness changed over 2 months?" | Weekly trends from [pre-saved notes](#vault-tools) | ~400 tok |
-| "Show me my raw heart rate data" | Full-res stream (asks [consent + cost](#how-it-works) first) | 25–60k tok |
-| "Backfill my vault with past runs" | Bulk-generates summaries for cached runs | per-run |
+| "How was my last run?" | Zones, splits, drift, efficiency — [auto-saved to vault](#vault-tools) | ~800 tokens |
+| "How has my fitness changed over 2 months?" | Weekly trends from [pre-saved notes](#vault-tools) | ~400 tokens |
+| "Show me my raw heart rate data" | Full-res stream (asks [consent + cost](#how-it-works) first) | 25,000–60,000 tokens |
+| "Backfill my vault with past runs" | Bulk-generates summaries for cached runs | ~800 tokens/run |
 
 <p align="center">
   <img src="docs/claude-desktop-demo.svg" alt="Two-session story: Session 1 analyzes a run and saves to vault at ~800 tokens; Session 2 reads 8 pre-saved notes for fitness trends at ~400 tokens — 170x more efficient than re-processing. Cards show per-query savings (98.8%), session memory (vault persistence), and data security (consent, audit, local processing)." width="700">
@@ -64,13 +64,13 @@ High-frequency biosensor data and LLMs are a bad match out of the box:
 
 | Data source | Raw size | Direct cost | After this framework |
 |-------------|----------|-------------|----------------------|
-| 15-mile run (8 stream types, 1Hz) | ~160,000 tokens | ~$0.48/query* | ~800 tokens (~$0.002) |
-| CGM trace (glucose, 5-min intervals) | ~10,000 tokens/day | — | ~200 tokens |
-| Sleep staging (per-epoch) | ~5,000 tokens/night | — | ~150 tokens |
+| 15-mile run (8 stream types, 1Hz) | ~160,000 tokens | ~$0.48/query | ~800 tokens (~$0.002/query) |
+| CGM trace (glucose, 5-min intervals) | ~10,000 tokens | — | ~200 tokens |
+| Sleep staging (per-epoch) | ~5,000 tokens | — | ~150 tokens |
 
 Server-side analytics compute what the LLM actually needs — zones, splits, trends, anomalies — and return only the summary. **99.5% token reduction** in the running example. Raw per-second data never leaves the machine.
 
-*Costs assume Claude Sonnet at $3/million input tokens. Token counts are from the project's own `estimate_stream_tokens` heuristic; actual Claude tokenization of JSON may be slightly higher.*
+*Costs assume Claude Sonnet input pricing ($3/million tokens). Token counts from the project's `estimate_stream_tokens` heuristic; actual tokenization may vary slightly.*
 
 ---
 
@@ -129,7 +129,7 @@ This means you have **two ways to access the same data**:
 
 | Tier | What the LLM Sees | Tokens | Gate |
 |------|------------------|--------|------|
-| 1 — Free | Server-computed reports (zones, splits, trends, anomalies) | 200–1,500 | None |
+| 1 — Free | Server-computed reports (zones, splits, trends, anomalies) | 50–1,500 | None |
 | 2 — Consent | Downsampled streams at 5–30s intervals | 3,000–7,000 | Biometric consent |
 | 3 — Cost | Per-second streams with precision reduction | 25,000–60,000 | Consent + cost approval |
 
@@ -159,7 +159,7 @@ sequenceDiagram
     Security->>Security: Safe to proceed
     Security->>Analyst: Crunch the numbers
     Note over Analyst: Computes zones, pace splits,<br/>heart rate drift, efficiency —<br/>all from local data
-    Analyst-->>Security: Summary report (~800 words)
+    Analyst-->>Security: Summary report (~800 tokens)
     Security->>Security: Log what was accessed
     Security->>Memory: Auto-save a copy
     Note over Memory: Saved as a markdown note<br/>you can browse in Obsidian
@@ -169,7 +169,7 @@ sequenceDiagram
 
 **What happened:** Your run data (thousands of data points) was crunched down to a short summary — and automatically saved to your personal vault so Claude can reference it in future conversations without re-processing.
 
-**Cost:** ~800 tokens (< $0.01). No approval needed.
+**Cost:** ~800 tokens (~$0.002). No approval needed.
 
 </details>
 
@@ -186,15 +186,15 @@ sequenceDiagram
     You->>Claude: "How has my fitness changed?"
     Claude->>Security: Look up fitness history
     Security->>Vault: Read saved run summaries
-    Note over Vault: Reads pre-saved notes —<br/>NOT raw sensor data.<br/>Each note is ~800 words<br/>instead of ~60,000 raw data points.
+    Note over Vault: Reads pre-saved notes —<br/>NOT raw sensor data.<br/>Each note is ~800 tokens<br/>instead of ~68,000 raw tokens.
     Vault-->>Security: Weekly summary table
     Security-->>Claude: 8 weeks of trends
     Claude-->>You: Your fitness trajectory
 ```
 
-**What happened:** Instead of re-downloading and re-processing 8 weeks of raw heart rate and GPS data (which would cost ~$5 in tokens), Claude read the pre-saved vault notes. Same quality analysis, 99% cheaper.
+**What happened:** Instead of re-downloading and re-processing 8 weeks of raw heart rate and GPS data (~544,000 tokens, ~$1.63), Claude read the pre-saved vault notes (~3,200 tokens, ~$0.01). Same quality analysis, 170x cheaper.
 
-**Cost:** ~400 tokens (< $0.01). No Strava API call. No raw biometric data touched.
+**Cost:** ~400 tokens (~$0.001). No Strava API call. No raw biometric data touched.
 
 </details>
 
@@ -426,7 +426,7 @@ biosensor-mcp uninstall  — Clean removal
 
 ## For framework builders
 
-The reference implementation (Strava running) demonstrates a general pattern for any biosensor domain. The router owns all cross-cutting concerns. Children own domain logic. The vault is a shared persistence layer — every analysis is automatically saved as a compressed note (~800 tokens vs ~60,000 raw), enabling rich longitudinal queries across future sessions. Any LLM client gets identical security enforcement — behavioral rules live server-side, not in prompts.
+The reference implementation (Strava running) demonstrates a general pattern for any biosensor domain. The router owns all cross-cutting concerns. Children own domain logic. The vault is a shared persistence layer — every analysis is automatically saved as a compressed note (~800 tokens vs ~68,000 raw), enabling rich longitudinal queries across future sessions. Any LLM client gets identical security enforcement — behavioral rules live server-side, not in prompts.
 
 ```mermaid
 flowchart TD
@@ -450,7 +450,7 @@ flowchart TD
         Sleep["SleepChild\n(future)"]
     end
 
-    Vault["VaultLayer · Reorientation Tier\n~800 tok/note vs 60k raw"]
+    Vault["VaultLayer · Reorientation Tier\n~800 tokens/note vs ~68k raw"]
     Vault -->|"backfill reads\n(dispatch_internal)"| Router
 
     Vault --- Obsidian["Obsidian Vault\n(local markdown files)"]

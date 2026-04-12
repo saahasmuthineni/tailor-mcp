@@ -83,28 +83,37 @@
 
   <!-- ============ BOTTOM SECTION: THREE INSIGHT CARDS ============ -->
 
-  <!-- Card 1: Vault Multiplier (THE key insight) -->
+  <!-- Card 1: Insight Accumulation (THE key insight) -->
   <rect fill="#f0fdf4" stroke="#86efac" stroke-width="1.5" x="16" y="310" width="232" height="290" rx="10" ry="10"/>
-  <text fill="#166534" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="12" font-weight="600" x="132" y="336" text-anchor="middle">Session Memory</text>
+  <text fill="#166534" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="12" font-weight="600" x="132" y="336" text-anchor="middle">Insight Accumulation</text>
   <line stroke="#bbf7d0" stroke-width="1" x1="32" y1="346" x2="232" y2="346"/>
-  <!-- Without vault -->
-  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="32" y="366">Without vault (re-process 8 runs):</text>
-  <rect fill="#fee2e2" x="32" y="374" width="200" height="18" rx="4" ry="4"/>
-  <rect fill="#ef4444" opacity="0.5" x="32" y="374" width="200" height="18" rx="4" ry="4"/>
-  <text fill="#991b1b" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" font-weight="600" x="132" y="387" text-anchor="middle">8 &#xD7; 68k = ~544,000 tokens</text>
-  <!-- With vault -->
-  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="32" y="414">With vault (read 8 saved notes):</text>
-  <rect fill="#dcfce7" x="32" y="422" width="200" height="18" rx="4" ry="4"/>
-  <rect fill="#22c55e" opacity="0.5" x="32" y="422" width="2" height="18" rx="0" ry="0"/>
-  <text fill="#166534" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" font-weight="600" x="42" y="435">8 &#xD7; 400 = ~3,200 tokens</text>
-  <!-- Multiplier -->
-  <text fill="#059669" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="22" font-weight="600" x="132" y="472" text-anchor="middle">170&#xD7;</text>
-  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" x="132" y="490" text-anchor="middle">more efficient</text>
-  <line stroke="#bbf7d0" stroke-width="1" x1="32" y1="502" x2="232" y2="502"/>
-  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="132" y="520" text-anchor="middle">Each run auto-saved as ~800 tok</text>
-  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="132" y="536" text-anchor="middle">markdown note. Vault reads</text>
-  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="132" y="552" text-anchor="middle">bypass all security gates.</text>
-  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="132" y="568" text-anchor="middle">Browse in Obsidian too.</text>
+  <!-- Timeline line -->
+  <line stroke="#86efac" stroke-width="2" x1="46" y1="362" x2="46" y2="556"/>
+  <!-- Week 1 -->
+  <circle fill="#86efac" cx="46" cy="368" r="5"/>
+  <text fill="#166534" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="58" y="372">Week 1</text>
+  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" x="58" y="386">Run analyzed + saved to vault</text>
+  <text fill="#9ca3af" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" font-style="italic" x="58" y="400">(No insight notes yet.)</text>
+  <!-- Week 4 -->
+  <circle fill="#22c55e" cx="46" cy="420" r="5"/>
+  <text fill="#166534" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="58" y="424">Week 4 — Claude annotates</text>
+  <rect fill="#dcfce7" x="58" y="432" width="178" height="30" rx="4" ry="4"/>
+  <text fill="#166534" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="64" y="445">"Decoupling improving:</text>
+  <text fill="#166534" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="64" y="457"> 12% &#x2192; 9% over 4 weeks"</text>
+  <!-- Week 8 -->
+  <circle fill="#059669" cx="46" cy="480" r="5"/>
+  <text fill="#166534" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="58" y="484">Week 8 — builds on prior</text>
+  <rect fill="#dcfce7" x="58" y="492" width="178" height="30" rx="4" ry="4"/>
+  <text fill="#166534" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="64" y="505">"Aerobic base confirmed:</text>
+  <text fill="#166534" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="64" y="517"> 12% &#x2192; 7.8% + HR drift &#x2193;"</text>
+  <!-- Circle at end -->
+  <circle fill="#059669" cx="46" cy="544" r="3"/>
+  <circle fill="#059669" cx="46" cy="552" r="2"/>
+  <circle fill="#059669" cx="46" cy="558" r="1"/>
+  <!-- Summary -->
+  <line stroke="#bbf7d0" stroke-width="1" x1="32" y1="570" x2="232" y2="570"/>
+  <text fill="#166534" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" font-weight="600" x="132" y="586" text-anchor="middle">Reasoning compounds across</text>
+  <text fill="#166534" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" font-weight="600" x="132" y="598" text-anchor="middle">sessions. Browse in Obsidian.</text>
 
   <!-- Card 2: Token Efficiency (per-query) -->
   <rect fill="#ffffff" stroke="#e5e7eb" stroke-width="1" x="260" y="310" width="216" height="290" rx="10" ry="10"/>

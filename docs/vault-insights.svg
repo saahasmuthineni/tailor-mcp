@@ -26,8 +26,8 @@
   <text fill="#9ca3af" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-style="italic" x="32" y="178">(No insight notes yet.)</text>
   <!-- Token badge -->
   <rect fill="#ecfdf5" x="32" y="192" width="178" height="28" rx="6" ry="6"/>
-  <text fill="#059669" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" font-weight="600" x="121" y="204" text-anchor="middle">~800 tokens saved</text>
-  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="8" x="121" y="216" text-anchor="middle">vs ~68,000 raw tokens</text>
+  <text fill="#059669" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" font-weight="600" x="121" y="204" text-anchor="middle">note stored: ~800 tokens</text>
+  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="8" x="121" y="216" text-anchor="middle">vs ~68,000 if sent raw</text>
   <!-- Token comparison label -->
   <rect fill="#fee2e2" x="32" y="224" width="178" height="16" rx="4" ry="4"/>
   <rect fill="#ef4444" opacity="0.4" x="32" y="224" width="178" height="16" rx="4" ry="4"/>
@@ -54,12 +54,11 @@
   <text fill="#166534" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="277" y="190"> 12.1% &#x2192; 9.2% in 4 weeks"</text>
   <!-- Token badge -->
   <rect fill="#ecfdf5" x="271" y="200" width="178" height="28" rx="6" ry="6"/>
-  <text fill="#059669" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" font-weight="600" x="360" y="212" text-anchor="middle">reads 4 notes: ~1,600 tokens</text>
+  <text fill="#059669" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" font-weight="600" x="360" y="212" text-anchor="middle">reads 4 notes: ~3,200 tokens</text>
   <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="8" x="360" y="224" text-anchor="middle">vs re-processing: ~272,000 tokens</text>
-  <!-- Reduction -->
-  <rect fill="#fee2e2" x="271" y="232" width="178" height="16" rx="4" ry="4"/>
-  <rect fill="#ef4444" opacity="0.4" x="271" y="232" width="2" height="16" rx="0" ry="0"/>
-  <text fill="#166534" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" font-weight="600" x="283" y="243">&#x2190; to scale vs red bar above</text>
+  <!-- Reduction badge -->
+  <rect fill="#059669" x="313" y="232" width="72" height="16" rx="8" ry="8"/>
+  <text fill="#ffffff" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" font-weight="600" x="349" y="243" text-anchor="middle">85&#xD7; cheaper</text>
 
   <!-- Arrow 2 -->
   <polygon fill="#22c55e" points="471,152 483,147 483,157"/>
@@ -82,11 +81,11 @@
   <text fill="#166534" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="516" y="190"> 12.1% &#x2192; 7.8% + drift &#x2193;"</text>
   <!-- Token badge -->
   <rect fill="#ecfdf5" x="510" y="200" width="178" height="28" rx="6" ry="6"/>
-  <text fill="#059669" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" font-weight="600" x="599" y="212" text-anchor="middle">reads 8 notes: ~3,200 tokens</text>
+  <text fill="#059669" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" font-weight="600" x="599" y="212" text-anchor="middle">reads 8 notes: ~6,400 tokens</text>
   <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="8" x="599" y="224" text-anchor="middle">vs re-processing: ~544,000 tokens</text>
-  <!-- 170x callout -->
+  <!-- 85x callout -->
   <rect fill="#059669" x="556" y="232" width="86" height="18" rx="9" ry="9"/>
-  <text fill="#ffffff" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" font-weight="600" x="599" y="245" text-anchor="middle">170&#xD7; cheaper</text>
+  <text fill="#ffffff" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" font-weight="600" x="599" y="245" text-anchor="middle">85&#xD7; cheaper</text>
 
   <!-- ===== BOTTOM: Summary bar ===== -->
   <rect fill="#f0fdf4" stroke="#86efac" stroke-width="1" x="16" y="268" width="688" height="100" rx="8" ry="8"/>
@@ -106,6 +105,6 @@
   <!-- Right: token benefit summary -->
   <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" font-weight="600" x="530" y="290">Token benefit</text>
   <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="530" y="306">Insights cost nothing extra to read.</text>
-  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="530" y="322">8 weeks of context in ~3,200 tokens</text>
-  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="530" y="338">vs ~544,000 to re-process raw data.</text>
+  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="530" y="322">8 notes + insights: ~6,400 tokens</text>
+  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="530" y="338">vs ~544,000 to re-process raw (85&#xD7;).</text>
 </svg>

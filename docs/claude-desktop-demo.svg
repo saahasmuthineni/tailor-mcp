@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="520" viewBox="0 0 720 520">
+  <defs>
+    <style>
+      .bg { fill: #f8f9fa; }
+      .header { fill: #ffffff; }
+      .header-border { stroke: #e5e7eb; stroke-width: 1; fill: none; }
+      .header-text { fill: #1a1a1a; font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-size: 15px; font-weight: 600; }
+      .header-sub { fill: #6b7280; font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-size: 12px; }
+      .user-bubble { fill: #f3f0ff; rx: 16; ry: 16; }
+      .claude-bubble { fill: #ffffff; rx: 16; ry: 16; stroke: #e5e7eb; stroke-width: 1; }
+      .user-text { fill: #1a1a1a; font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+      .claude-text { fill: #1a1a1a; font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+      .claude-bold { fill: #1a1a1a; font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-size: 14px; font-weight: 600; }
+      .claude-dim { fill: #6b7280; font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-size: 13px; }
+      .badge-bg { fill: #ecfdf5; rx: 10; ry: 10; }
+      .badge-text { fill: #059669; font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 11px; font-weight: 600; }
+      .avatar-claude { fill: #d97706; }
+      .avatar-text { fill: #ffffff; font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-size: 11px; font-weight: 700; }
+      .label { fill: #9ca3af; font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-size: 11px; }
+      .metric-key { fill: #6b7280; font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-size: 13px; }
+      .metric-val { fill: #1a1a1a; font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 13px; font-weight: 600; }
+      .divider { stroke: #e5e7eb; stroke-width: 1; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect class="bg" x="0" y="0" width="720" height="520" rx="8" ry="8"/>
+
+  <!-- Header bar -->
+  <rect class="header" x="0" y="0" width="720" height="52" rx="8" ry="8"/>
+  <rect class="header" x="0" y="20" width="720" height="32"/>
+  <line class="header-border" x1="0" y1="52" x2="720" y2="52"/>
+  <text class="header-text" x="24" y="30">Claude</text>
+  <text class="header-sub" x="24" y="44">biosensor-mcp connected</text>
+
+  <!-- User message -->
+  <text class="label" x="616" y="80">You</text>
+  <rect class="user-bubble" x="428" y="88" width="268" height="40"/>
+  <text class="user-text" x="452" y="113">How was my last run?</text>
+
+  <!-- Claude avatar + response -->
+  <circle class="avatar-claude" cx="36" cy="158" r="14"/>
+  <text class="avatar-text" x="36" y="162" text-anchor="middle">C</text>
+
+  <rect class="claude-bubble" x="58" y="144" width="620" height="320"/>
+
+  <text class="claude-bold" x="78" y="172">Thursday Recovery Run</text>
+  <text class="claude-dim" x="78" y="190">6.65 mi &#xB7; 60:00 &#xB7; Apr 9, 2026</text>
+
+  <line class="divider" x1="78" y1="202" x2="658" y2="202"/>
+
+  <!-- Metrics grid -->
+  <text class="metric-key" x="78" y="224">Avg Pace</text>
+  <text class="metric-val" x="78" y="242">8:58 /mi</text>
+
+  <text class="metric-key" x="228" y="224">Avg HR</text>
+  <text class="metric-val" x="228" y="242">156 bpm</text>
+
+  <text class="metric-key" x="378" y="224">Decoupling</text>
+  <text class="metric-val" x="378" y="242">7.8%</text>
+
+  <text class="metric-key" x="528" y="224">Efficiency</text>
+  <text class="metric-val" x="528" y="242">57.82 EF</text>
+
+  <line class="divider" x1="78" y1="258" x2="658" y2="258"/>
+
+  <!-- HR Zones -->
+  <text class="claude-bold" x="78" y="280">HR Zones</text>
+  <text class="claude-text" x="78" y="300">Z3: 8.1% &#xB7; Z4: 90.8% &#xB7; Z5: 1.1%</text>
+  <text class="claude-dim" x="78" y="318">HR drift: 5.3% (moderate) &#x2014; 152 &#x2192; 160 bpm first/second half</text>
+
+  <line class="divider" x1="78" y1="334" x2="658" y2="334"/>
+
+  <!-- Splits -->
+  <text class="claude-bold" x="78" y="356">Mile Splits</text>
+  <text class="claude-text" x="78" y="376">1: 8:48 &#xB7; 2: 8:54 &#xB7; 3: 8:58 &#xB7; 4: 9:01 &#xB7; 5: 9:05 &#xB7; 6: 9:09 &#xB7; 7: 9:12</text>
+  <text class="claude-dim" x="78" y="394">Steady negative split. No anomalies detected.</text>
+
+  <line class="divider" x1="78" y1="410" x2="658" y2="410"/>
+
+  <text class="claude-dim" x="78" y="432">Saved to vault as run note. You can browse it in Obsidian</text>
+  <text class="claude-dim" x="78" y="448">or ask me to compare it with previous runs.</text>
+
+  <!-- Cost badge -->
+  <rect class="badge-bg" x="520" y="420" width="138" height="24"/>
+  <text class="badge-text" x="589" y="436" text-anchor="middle">~800 tokens &#xB7; $0.01</text>
+</svg>

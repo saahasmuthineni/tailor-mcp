@@ -4,13 +4,61 @@
 [![Python 3.10 | 3.11 | 3.12](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/downloads/)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 
-A framework for piping high-frequency biosensor data into LLM context windows efficiently, privately, and cheaply. Raw biometric streams are compressed server-side before any data reaches the model.
+Ask Claude Desktop about your Strava runs — without burning $60/month in tokens.
 
-**Reference implementation:** Strava running data → Claude Desktop via MCP.
+A local MCP server that compresses biosensor data server-side before it reaches the model. A 15-mile run drops from ~200,000 tokens ($60/mo) to ~800 tokens ($0.02/mo) — **99.6% reduction** — while raw per-second data stays on your machine.
+
+**Runners:** install, connect Strava, ask Claude about your training. [Install ↓](#install)
+**Builders:** reference implementation of a general biosensor→LLM framework (CGM, sleep, ECG follow the same pattern). [Framework docs ↓](#for-framework-builders)
+
+> **Try it with zero setup:** `pip install -e . && biosensor-mcp demo` — runs on synthetic data, no Strava account needed.
+
+## Quick navigation
+
+| Runners | Builders |
+|---------|----------|
+| [Try it in 30 seconds](#try-it-in-30-seconds) | [Architecture diagram](#for-framework-builders) |
+| [What you can ask Claude](#what-you-can-ask-claude) | [Building your own child MCP](#for-framework-builders) |
+| [Why this exists (cost breakdown)](#why-this-exists) | [Security pipeline](#how-it-works) |
+| [Install](#install) | [Three-tier access model](#how-it-works) |
+| [How it works](#how-it-works) | [Design context (PDF)](#further-reading) |
+| [Reference (tools, examples)](#reference) | [Reference (tools, examples)](#reference) |
 
 ---
 
-## The Problem
+## Try it in 30 seconds
+
+No Strava account, no OAuth, no API keys. The demo runs server-side analytics on synthetic 60-minute run data:
+
+```bash
+git clone https://github.com/saahasmuthineni/biosensor-to-llm-middleware.git
+cd biosensor-to-llm-middleware
+pip install -e .
+biosensor-mcp demo
+```
+
+<p align="center">
+  <img src="docs/demo.svg" alt="Terminal demo of biosensor-mcp showing server-side run report, HR analysis, and pace analysis computed from synthetic data — no API keys needed" width="780">
+</p>
+
+---
+
+## What you can ask Claude
+
+| Ask Claude… | What you get | Cost |
+|---|---|---|
+| "How was my last run?" | Zones, splits, drift, efficiency — [auto-saved to vault](#reference-vault-tools) | ~800 tok |
+| "How has my fitness changed over 2 months?" | Weekly trends from [pre-saved notes](#reference-vault-tools) | ~400 tok |
+| "Show me my raw heart rate data" | Full-res stream (asks [consent + cost](#how-it-works) first) | 25–60k tok |
+| "Backfill my vault with past runs" | Bulk-generates summaries for cached runs | per-run |
+
+<p align="center">
+  <img src="docs/claude-desktop-demo.svg" alt="Claude Desktop answering 'How was my last run?' — full run analysis compressed to ~800 tokens" width="680">
+</p>
+
+---
+
+## Why this exists
 
 High-frequency biosensor data and LLMs are a bad match out of the box:
 
@@ -24,162 +72,31 @@ Server-side analytics compute what the LLM actually needs — zones, splits, tre
 
 ---
 
-## Architecture
+## Install
 
-```mermaid
-flowchart TD
-    Client["Any LLM Client\n(Claude Desktop, API, etc.)"]
-    Client --> Router
+### Prerequisites
 
-    subgraph Router["RouterMCP — Security Pipeline"]
-        direction TB
-        L1["1 · ParamValidator\nType / Range / Pattern"] --> L2["2 · CircuitBreaker\n3 failures → 5 min block"]
-        L2 --> L3["3 · ConsentGate\nPer-domain · Session-scoped"]
-        L3 --> L4["4 · CostGate\nPre-estimate · Gate > 35k tokens"]
-        L4 --> L5["5 · AuditLog + TokenLedger\nSQLite · Cumulative spend"]
-    end
+- Python 3.10+
+- Claude Desktop
+- Strava account with an API app ([strava.com/settings/api](https://www.strava.com/settings/api)) — set callback domain to `localhost`
 
-    Router --> Children
-    Router -->|"tool dispatch +\npost-execute hook"| Vault
+### One-liner install
 
-    subgraph Children["Child MCPs — Domain Analytics"]
-        Running["RunningChild\n(Strava)"]
-        CGM["CGMChild\n(future)"]
-        Sleep["SleepChild\n(future)"]
-    end
-
-    Vault["VaultLayer · Reorientation Tier\n~800 tok/note vs 60k raw"]
-    Vault -->|"backfill reads\n(dispatch_internal)"| Router
-
-    Vault --- Obsidian["Obsidian Vault\n(local markdown files)"]
+**Mac / Linux:**
+```bash
+curl -sSL https://raw.githubusercontent.com/saahasmuthineni/biosensor-to-llm-middleware/main/install.sh | bash
 ```
 
-The router owns all cross-cutting concerns. Children own domain logic. The vault is a shared persistence layer — every analysis is automatically saved as a compressed note (~800 tokens vs ~60,000 raw), enabling rich longitudinal queries across future sessions. Any LLM client gets identical security enforcement — behavioral rules live server-side, not in prompts.
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/saahasmuthineni/biosensor-to-llm-middleware/main/install.ps1 | iex
+```
+
+Restart Claude Desktop after install. Then ask Claude to sync and analyze your runs.
 
 ---
 
-## How It Works
-
-Every question you ask Claude follows the same path: your question goes through a security checkpoint, gets answered by the right specialist, and the answer is saved for future reference. Here's what happens behind the scenes for different types of questions.
-
-<details>
-<summary><strong>You ask: "How was my last run?"</strong> — Instant analysis, automatically saved</summary>
-
-```mermaid
-sequenceDiagram
-    actor You
-    participant Claude
-    participant Security as Security Check
-    participant Analyst as Running Analyst
-    participant Memory as Your Vault (Obsidian)
-
-    You->>Claude: "How was my last run?"
-    Claude->>Security: Analyze this run
-    Security->>Security: Safe to proceed
-    Security->>Analyst: Crunch the numbers
-    Note over Analyst: Computes zones, pace splits,<br/>heart rate drift, efficiency —<br/>all from local data
-    Analyst-->>Security: Summary report (~800 words)
-    Security->>Security: Log what was accessed
-    Security->>Memory: Auto-save a copy
-    Note over Memory: Saved as a markdown note<br/>you can browse in Obsidian
-    Security-->>Claude: Here's the analysis
-    Claude-->>You: Your run breakdown
-```
-
-**What happened:** Your run data (thousands of data points) was crunched down to a short summary — and automatically saved to your personal vault so Claude can reference it in future conversations without re-processing.
-
-**Cost:** ~800 tokens (< $0.01). No approval needed.
-
-</details>
-
-<details>
-<summary><strong>You ask: "How has my fitness changed over the last 2 months?"</strong> — Answered from saved notes, no re-processing</summary>
-
-```mermaid
-sequenceDiagram
-    actor You
-    participant Claude
-    participant Security as Security Check
-    participant Vault as Your Vault (Obsidian)
-
-    You->>Claude: "How has my fitness changed?"
-    Claude->>Security: Look up fitness history
-    Security->>Vault: Read saved run summaries
-    Note over Vault: Reads pre-saved notes —<br/>NOT raw sensor data.<br/>Each note is ~800 words<br/>instead of ~60,000 raw data points.
-    Vault-->>Security: Weekly summary table
-    Security-->>Claude: 8 weeks of trends
-    Claude-->>You: Your fitness trajectory
-```
-
-**What happened:** Instead of re-downloading and re-processing 8 weeks of raw heart rate and GPS data (which would cost ~$5 in tokens), Claude read the pre-saved vault notes. Same quality analysis, 99% cheaper.
-
-**Cost:** ~400 tokens (< $0.01). No Strava API call. No raw biometric data touched.
-
-</details>
-
-<details>
-<summary><strong>You ask: "Show me my raw heart rate data"</strong> — Sensitive data, requires your permission</summary>
-
-```mermaid
-sequenceDiagram
-    actor You
-    participant Claude
-    participant Security as Security Check
-    participant Analyst as Running Analyst
-
-    You->>Claude: "Show me raw HR data"
-    Claude->>Security: Request raw streams
-    Security->>Security: This is sensitive biometric data
-    Security-->>Claude: Ask for consent first
-    Claude-->>You: "This will share your heart rate data. OK?"
-    You->>Claude: "Yes, go ahead"
-    Security->>Security: This will use ~25,000 tokens
-    Security-->>Claude: Show the cost
-    Claude-->>You: "Full resolution costs ~25k tokens. Want downsampled instead (3k tokens)?"
-    You->>Claude: "Full resolution please"
-    Security->>Analyst: Approved — send raw data
-    Analyst-->>Security: Per-second heart rate
-    Security-->>Claude: Raw HR stream
-    Claude-->>You: Your heart rate data
-```
-
-**What happened:** The system asked you twice — once for consent (it's your biometric data), once for cost (raw data is expensive). You chose full resolution, so you got it. But 90% of the time, the first flow ("How was my last run?") answers the same question for 1/30th the cost.
-
-</details>
-
-<details>
-<summary><strong>You say: "Backfill my vault with all my past runs"</strong> — Bulk-saves historical data for future use</summary>
-
-```mermaid
-sequenceDiagram
-    actor You
-    participant Claude
-    participant Security as Security Check
-    participant Vault as Your Vault
-    participant Analyst as Running Analyst
-    participant Files as Obsidian Files
-
-    You->>Claude: "Backfill my vault"
-    Claude->>Security: Start backfill
-    Security->>Vault: Process historical runs
-
-    loop For each past run without a saved note
-        Vault->>Security: "Analyze run #1234"
-        Security->>Security: Consent + audit check
-        Security->>Analyst: Crunch the numbers
-        Analyst-->>Security: Summary report
-        Security-->>Vault: Report
-        Vault->>Files: Save as markdown note
-    end
-
-    Vault-->>Security: Done — 47 notes written
-    Security-->>Claude: Backfill complete
-    Claude-->>You: "Created 47 run summaries in your vault"
-```
-
-**What happened:** The system went through all your cached runs and created a summary note for each one. Every single analysis went through the same security checks — even internal operations are audited. Now Claude can answer questions about months of training history instantly from your vault.
-
-</details>
+## How it works
 
 ### Your Data, Two Ways
 
@@ -218,76 +135,130 @@ This means you have **two ways to access the same data**:
 
 ---
 
-## Building Your Own Child
+## Reference
 
-Implement 4 abstract methods and register with the router:
+### Sequence diagrams
 
-```python
-from biosensor_mcp.framework import ChildMCP, ToolDefinition, CostEstimate, ValidationSchema, ConsentInfo
+What happens behind the scenes for each type of question:
 
-class CGMChild(ChildMCP):
-    @property
-    def domain(self) -> str: return "cgm"
+<details id="ref-last-run">
+<summary><strong>You ask: "How was my last run?"</strong> — Instant analysis, automatically saved</summary>
 
-    @property
-    def display_name(self) -> str: return "Glucose (Dexcom)"
+```mermaid
+sequenceDiagram
+    actor You
+    participant Claude
+    participant Security as Security Check
+    participant Analyst as Running Analyst
+    participant Memory as Your Vault (Obsidian)
 
-    @property
-    def consent_info(self) -> ConsentInfo:
-        return ConsentInfo(
-            data_types=["glucose levels", "meal markers"],
-            purpose="glycemic analysis and trends",
-        )
-
-    @property
-    def tool_definitions(self) -> list[ToolDefinition]:
-        return [ToolDefinition("cgm_daily_report", 1, "Time-in-range, variability, meal response", {...})]
-
-    @property
-    def param_schemas(self) -> dict: ...
-
-    async def execute(self, tool_name: str, params: dict) -> dict: ...
-
-    async def estimate_cost(self, tool_name: str, params: dict) -> CostEstimate: ...
-
-# Register in __main__.py cmd_serve():
-router.register_child(CGMChild(config_dir, data_dir))
-# Router auto-generates approve_consent_cgm + revoke_consent_cgm
+    You->>Claude: "How was my last run?"
+    Claude->>Security: Analyze this run
+    Security->>Security: Safe to proceed
+    Security->>Analyst: Crunch the numbers
+    Note over Analyst: Computes zones, pace splits,<br/>heart rate drift, efficiency —<br/>all from local data
+    Analyst-->>Security: Summary report (~800 words)
+    Security->>Security: Log what was accessed
+    Security->>Memory: Auto-save a copy
+    Note over Memory: Saved as a markdown note<br/>you can browse in Obsidian
+    Security-->>Claude: Here's the analysis
+    Claude-->>You: Your run breakdown
 ```
 
-The router handles consent prompting, cost gating, circuit breaking, audit logging, and token tracking automatically. The child only implements domain analytics.
+**What happened:** Your run data (thousands of data points) was crunched down to a short summary — and automatically saved to your personal vault so Claude can reference it in future conversations without re-processing.
 
-**Other biosensor domains this pattern applies to:**
-- CGM (Dexcom, Libre) — time-in-range, glycemic variability, meal response curves
-- Sleep (Oura, Whoop) — stage duration, efficiency, latency, fragmentation
-- ECG (Apple Watch, Kardia) — rhythm classification, HRV, QT intervals
-- Lab results — trend analysis, reference range flags, longitudinal comparison
+**Cost:** ~800 tokens (< $0.01). No approval needed.
 
----
+</details>
 
-## Working Example: Strava Running + Claude Desktop
+<details id="ref-fitness-trend">
+<summary><strong>You ask: "How has my fitness changed over the last 2 months?"</strong> — Answered from saved notes, no re-processing</summary>
 
-The reference implementation connects Strava running data to Claude Desktop via MCP. Twelve running tools across three tiers, plus seven vault tools for persistent analytical memory in Obsidian.
+```mermaid
+sequenceDiagram
+    actor You
+    participant Claude
+    participant Security as Security Check
+    participant Vault as Your Vault (Obsidian)
 
-### Prerequisites
-
-- Python 3.10+
-- Claude Desktop
-- Strava account with an API app ([strava.com/settings/api](https://www.strava.com/settings/api)) — set callback domain to `localhost`
-
-### Install
-
-**Mac / Linux:**
-```bash
-curl -sSL https://raw.githubusercontent.com/saahasmuthineni/biosensor-to-llm-middleware/main/install.sh | bash
+    You->>Claude: "How has my fitness changed?"
+    Claude->>Security: Look up fitness history
+    Security->>Vault: Read saved run summaries
+    Note over Vault: Reads pre-saved notes —<br/>NOT raw sensor data.<br/>Each note is ~800 words<br/>instead of ~60,000 raw data points.
+    Vault-->>Security: Weekly summary table
+    Security-->>Claude: 8 weeks of trends
+    Claude-->>You: Your fitness trajectory
 ```
 
-**Windows (PowerShell):**
-```powershell
-irm https://raw.githubusercontent.com/saahasmuthineni/biosensor-to-llm-middleware/main/install.ps1 | iex
+**What happened:** Instead of re-downloading and re-processing 8 weeks of raw heart rate and GPS data (which would cost ~$5 in tokens), Claude read the pre-saved vault notes. Same quality analysis, 99% cheaper.
+
+**Cost:** ~400 tokens (< $0.01). No Strava API call. No raw biometric data touched.
+
+</details>
+
+<details id="ref-raw-hr">
+<summary><strong>You ask: "Show me my raw heart rate data"</strong> — Sensitive data, requires your permission</summary>
+
+```mermaid
+sequenceDiagram
+    actor You
+    participant Claude
+    participant Security as Security Check
+    participant Analyst as Running Analyst
+
+    You->>Claude: "Show me raw HR data"
+    Claude->>Security: Request raw streams
+    Security->>Security: This is sensitive biometric data
+    Security-->>Claude: Ask for consent first
+    Claude-->>You: "This will share your heart rate data. OK?"
+    You->>Claude: "Yes, go ahead"
+    Security->>Security: This will use ~25,000 tokens
+    Security-->>Claude: Show the cost
+    Claude-->>You: "Full resolution costs ~25k tokens. Want downsampled instead (3k tokens)?"
+    You->>Claude: "Full resolution please"
+    Security->>Analyst: Approved — send raw data
+    Analyst-->>Security: Per-second heart rate
+    Security-->>Claude: Raw HR stream
+    Claude-->>You: Your heart rate data
 ```
 
-Restart Claude Desktop after install. Then ask Claude to sync and analyze your runs.
+**What happened:** The system asked you twice — once for consent (it's your biometric data), once for cost (raw data is expensive). You chose full resolution, so you got it. But 90% of the time, the first flow ("How was my last run?") answers the same question for 1/30th the cost.
+
+</details>
+
+<details id="ref-backfill">
+<summary><strong>You say: "Backfill my vault with all my past runs"</strong> — Bulk-saves historical data for future use</summary>
+
+```mermaid
+sequenceDiagram
+    actor You
+    participant Claude
+    participant Security as Security Check
+    participant Vault as Your Vault
+    participant Analyst as Running Analyst
+    participant Files as Obsidian Files
+
+    You->>Claude: "Backfill my vault"
+    Claude->>Security: Start backfill
+    Security->>Vault: Process historical runs
+
+    loop For each past run without a saved note
+        Vault->>Security: "Analyze run #1234"
+        Security->>Security: Consent + audit check
+        Security->>Analyst: Crunch the numbers
+        Analyst-->>Security: Summary report
+        Security-->>Vault: Report
+        Vault->>Files: Save as markdown note
+    end
+
+    Vault-->>Security: Done — 47 notes written
+    Security-->>Claude: Backfill complete
+    Claude-->>You: "Created 47 run summaries in your vault"
+```
+
+**What happened:** The system went through all your cached runs and created a summary note for each one. Every single analysis went through the same security checks — even internal operations are audited. Now Claude can answer questions about months of training history instantly from your vault.
+
+</details>
 
 ### Running Tools
 
@@ -344,7 +315,7 @@ Restart Claude Desktop after install. Then ask Claude to sync and analyze your r
 
 </details>
 
-### Obsidian Vault (Optional)
+<h3 id="reference-vault-tools">Vault Tools</h3>
 
 Claude can write run notes into an Obsidian vault and read them back in future sessions — persistent analytical memory across conversations.
 
@@ -428,7 +399,16 @@ Avg HR: **156 bpm** · Max: **178 bpm** · Setting: 185 bpm
 
 > **Privacy:** If your vault is in a cloud-synced folder (iCloud, OneDrive, Dropbox), the server warns you and computed analytics will be uploaded. Use a local path to keep data on-device.
 
-### Customize
+### Commands
+
+```
+biosensor-mcp demo       — Run analytics on synthetic data (no Strava needed)
+biosensor-mcp status     — Check configuration and connectivity
+biosensor-mcp setup      — Re-run Strava OAuth setup
+biosensor-mcp uninstall  — Clean removal
+```
+
+### Configuration
 
 `~/.biosensor-mcp/user_config.json`:
 ```json
@@ -440,15 +420,86 @@ Avg HR: **156 bpm** · Max: **178 bpm** · Setting: 185 bpm
 }
 ```
 
-### Commands
-
-```
-biosensor-mcp status     — Check configuration and connectivity
-biosensor-mcp setup      — Re-run Strava OAuth setup
-biosensor-mcp uninstall  — Clean removal
-```
-
 ---
+
+## For framework builders
+
+The reference implementation (Strava running) demonstrates a general pattern for any biosensor domain. The router owns all cross-cutting concerns. Children own domain logic. The vault is a shared persistence layer — every analysis is automatically saved as a compressed note (~800 tokens vs ~60,000 raw), enabling rich longitudinal queries across future sessions. Any LLM client gets identical security enforcement — behavioral rules live server-side, not in prompts.
+
+```mermaid
+flowchart TD
+    Client["Any LLM Client\n(Claude Desktop, API, etc.)"]
+    Client --> Router
+
+    subgraph Router["RouterMCP — Security Pipeline"]
+        direction TB
+        L1["1 · ParamValidator\nType / Range / Pattern"] --> L2["2 · CircuitBreaker\n3 failures → 5 min block"]
+        L2 --> L3["3 · ConsentGate\nPer-domain · Session-scoped"]
+        L3 --> L4["4 · CostGate\nPre-estimate · Gate > 35k tokens"]
+        L4 --> L5["5 · AuditLog + TokenLedger\nSQLite · Cumulative spend"]
+    end
+
+    Router --> Children
+    Router -->|"tool dispatch +\npost-execute hook"| Vault
+
+    subgraph Children["Child MCPs — Domain Analytics"]
+        Running["RunningChild\n(Strava)"]
+        CGM["CGMChild\n(future)"]
+        Sleep["SleepChild\n(future)"]
+    end
+
+    Vault["VaultLayer · Reorientation Tier\n~800 tok/note vs 60k raw"]
+    Vault -->|"backfill reads\n(dispatch_internal)"| Router
+
+    Vault --- Obsidian["Obsidian Vault\n(local markdown files)"]
+```
+
+### Building Your Own Child
+
+Implement 4 abstract methods and register with the router:
+
+```python
+from biosensor_mcp.framework import ChildMCP, ToolDefinition, CostEstimate, ValidationSchema, ConsentInfo
+
+class CGMChild(ChildMCP):
+    @property
+    def domain(self) -> str: return "cgm"
+
+    @property
+    def display_name(self) -> str: return "Glucose (Dexcom)"
+
+    @property
+    def consent_info(self) -> ConsentInfo:
+        return ConsentInfo(
+            data_types=["glucose levels", "meal markers"],
+            purpose="glycemic analysis and trends",
+        )
+
+    @property
+    def tool_definitions(self) -> list[ToolDefinition]:
+        return [ToolDefinition("cgm_daily_report", 1, "Time-in-range, variability, meal response", {...})]
+
+    @property
+    def param_schemas(self) -> dict: ...
+
+    async def execute(self, tool_name: str, params: dict) -> dict: ...
+
+    async def estimate_cost(self, tool_name: str, params: dict) -> CostEstimate: ...
+
+# Register in __main__.py cmd_serve():
+router.register_child(CGMChild(config_dir, data_dir))
+# Router auto-generates approve_consent_cgm + revoke_consent_cgm
+```
+
+The router handles consent prompting, cost gating, circuit breaking, audit logging, and token tracking automatically. The child only implements domain analytics.
+
+**Other biosensor domains this pattern applies to:**
+- CGM (Dexcom, Libre) — time-in-range, glycemic variability, meal response curves
+- Sleep (Oura, Whoop) — stage duration, efficiency, latency, fragmentation
+- ECG (Apple Watch, Kardia) — rhythm classification, HRV, QT intervals
+- Lab results — trend analysis, reference range flags, longitudinal comparison
+
+See [docs/design-context.pdf](docs/design-context.pdf) for the full design rationale.
 
 ## Troubleshooting
 
@@ -460,13 +511,9 @@ biosensor-mcp uninstall  — Clean removal
 | "address already in use" during OAuth | The setup wizard uses port 8189 for the localhost OAuth callback. Close any process using that port, or restart and retry. |
 | Cost gate triggered unexpectedly | Only `strava_full_streams` triggers the cost gate (>35,000 tokens). Use `strava_downsampled_streams` for visualization — it's ~85% cheaper. |
 
----
-
-## Further Reading
+## Further reading
 
 See [docs/design-context.pdf](docs/design-context.pdf) for the original design context document.
-
----
 
 ## License
 

@@ -1,14 +1,38 @@
+# ── Python ──────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.egg-info/
+*.egg
 dist/
 build/
-*.egg
+
+# ── Virtual envs ────────────────────────────────────────────
 .venv/
 venv/
+
+# ── Secrets & local state ───────────────────────────────────
 .env
 tokens.json
 *.db
 *.log
-.DS_Store
+
+# ── Tooling caches ──────────────────────────────────────────
 .pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ── IDEs / editors ──────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── OS cruft ────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Installer backups (install.sh / install.ps1 write these) ─
+*.backup.*

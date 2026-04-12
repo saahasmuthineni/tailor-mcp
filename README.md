@@ -48,7 +48,7 @@ flowchart TD
         Sleep["SleepChild\n(future)"]
     end
 
-    Vault["VaultChild · Shared Persistence\n~800 tok/note vs 60k raw"]
+    Vault["VaultLayer · Reorientation Tier\n~800 tok/note vs 60k raw"]
     Vault -->|"backfill reads\n(dispatch_internal)"| Router
 
     Vault --- Obsidian["Obsidian Vault\n(local markdown files)"]

@@ -97,7 +97,7 @@ def cmd_serve():
                 f"Vault enabled: run analytics will be written to {_vault_path}. "
                 f"If this path is cloud-synced, computed fitness data will leave this machine."
             )
-        from biosensor_mcp.vault import VaultWriter, VaultChild
+        from biosensor_mcp.vault import VaultWriter, VaultLayer
         vaultable: set[str] = set()
         for _child in [running]:
             vaultable.update(getattr(_child, "vaultable_tools", []))
@@ -112,11 +112,16 @@ def cmd_serve():
             max_hr=_max_hr,
         )
         router.register_post_execute_hook(vault_writer)
-        # VaultChild is domain-agnostic — no RunningStorage/Processing refs.
-        # Router sets child._router during register_child() for dispatch_internal.
-        router.register_child(VaultChild(
+        # VaultLayer is framework-level infrastructure, not a ChildMCP.
+        # Backfill is decoupled from sibling tool names via backfill_config —
+        # cross-child knowledge lives at the wiring site, not inside the vault.
+        router.register_vault_layer(VaultLayer(
             vault_path=_vault_path,
             vault_writer=vault_writer,
+            backfill_config={
+                "list_tool": "strava_list_runs",
+                "report_tool": "strava_run_report",
+            },
         ))
 
     # Future children would register here:

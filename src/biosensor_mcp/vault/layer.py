@@ -43,7 +43,6 @@ Reasoning-persistence tools (narrative continuity across sessions):
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 from ..framework.interfaces import ToolDefinition, ValidationSchema
 from .rescan import rescan_vault, revalidate_file
@@ -85,7 +84,7 @@ class VaultLayer:
         self,
         vault_path: Path,
         vault_writer: VaultWriter,
-        backfill_config: Optional[dict] = None,
+        backfill_config: dict | None = None,
     ):
         self._vault_path = vault_path
         self._writer = vault_writer
@@ -1001,15 +1000,15 @@ class VaultLayer:
         # Resolve outgoing wikilinks to titles for quick navigation
         outgoing = self._storage.get_outgoing_links(filename)
         links = []
-        for l in outgoing:
-            target = l["target"]
+        for link in outgoing:
+            target = link["target"]
             entry = self._storage.get_note(target)
             title = None
             if entry:
                 title = (entry.get("frontmatter") or {}).get("title") or _title_from_filename(target)
             links.append({
                 "target": target,
-                "display": l.get("link_text"),
+                "display": link.get("link_text"),
                 "title": title,
                 "exists": bool(entry),
             })
@@ -1110,7 +1109,7 @@ class VaultLayer:
         preserved verbatim.  Returns the relative filename.
         """
         from .parser import split_frontmatter
-        from .renderer import _yaml_scalar, _yaml_int_list, _yaml_string_list
+        from .renderer import _yaml_int_list, _yaml_scalar, _yaml_string_list
 
         filename = f"themes/{slug}.md"
         abs_path = self._writer._safe_path(filename)  # type: ignore[attr-defined]
@@ -1355,8 +1354,8 @@ class VaultLayer:
         # Revalidate the start node so fresh edits are seen
         try:
             revalidate_file(filename, self._vault_path, self._storage)
-        except Exception:  # pragma: no cover
-            pass
+        except Exception as exc:  # pragma: no cover
+            log.debug(f"revalidate_file({filename}) failed: {exc}")
 
         if not self._storage.get_note(filename):
             return {"error": f"Note not found in vault index: {filename}"}
@@ -1365,7 +1364,7 @@ class VaultLayer:
         edges: list[dict] = []
         frontier = {filename}
 
-        for hop in range(depth):
+        for _hop in range(depth):
             next_frontier: set[str] = set()
             for node in frontier:
                 if node in visited:
@@ -1387,13 +1386,13 @@ class VaultLayer:
                     break
 
                 if direction in ("out", "both"):
-                    for l in self._storage.get_outgoing_links(node):
-                        tgt = l["target"]
+                    for link in self._storage.get_outgoing_links(node):
+                        tgt = link["target"]
                         edges.append({"source": node, "target": tgt, "direction": "out"})
                         next_frontier.add(tgt)
                 if direction in ("in", "both"):
-                    for l in self._storage.get_incoming_links(node):
-                        src = l["source"]
+                    for link in self._storage.get_incoming_links(node):
+                        src = link["source"]
                         edges.append({"source": src, "target": node, "direction": "in"})
                         next_frontier.add(src)
             frontier = next_frontier - set(visited.keys())
@@ -1414,7 +1413,7 @@ class VaultLayer:
 # MODULE-LEVEL HELPERS
 # ══════════════════════════════════════════════════════════
 
-def _domain_for_kind(kind: Optional[str]) -> Optional[str]:
+def _domain_for_kind(kind: str | None) -> str | None:
     """Map a note kind to its storage domain; None means 'all domains'."""
     if kind in ("theme", "moment"):
         return "vault"

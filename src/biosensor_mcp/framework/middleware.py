@@ -13,11 +13,11 @@ Pipeline order (cheapest checks first):
 6. TokenLedger     — track cumulative session spend
 """
 
-import re
-import time
-import sqlite3
 import logging
+import re
+import sqlite3
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -319,8 +319,9 @@ class ParamValidator:
                     cleaned[key] = schema.default
                 continue
 
-            # Type-specific validation
-            if schema.type == int:
+            # Type-specific validation (schema.type stores a type object:
+            # compare with `is` rather than ==, per PEP 8)
+            if schema.type is int:
                 try:
                     value = int(value)
                 except (ValueError, TypeError):
@@ -330,12 +331,12 @@ class ParamValidator:
                 if schema.max is not None and value > schema.max:
                     return False, f"Parameter {key} must be <= {schema.max}", {}
 
-            elif schema.type == str:
+            elif schema.type is str:
                 value = str(value)
                 if schema.pattern and not re.match(schema.pattern, value):
                     return False, f"Parameter {key} format invalid (expected {schema.pattern})", {}
 
-            elif schema.type == list:
+            elif schema.type is list:
                 if not isinstance(value, list):
                     return False, f"Parameter {key} must be a list", {}
                 if schema.min_len is not None and len(value) < schema.min_len:

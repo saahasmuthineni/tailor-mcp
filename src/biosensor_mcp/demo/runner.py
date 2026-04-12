@@ -10,7 +10,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from .sample_data import generate_sample_streams, generate_sample_activity, SAMPLE_ACTIVITY_ID
+from .sample_data import SAMPLE_ACTIVITY_ID, generate_sample_activity, generate_sample_streams
 
 
 def run_demo():

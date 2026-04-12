@@ -15,24 +15,24 @@ Children register via register_child(). The router builds a unified
 tool listing from all children and dispatches by tool name.
 """
 
-import time
 import logging
+import time
 from pathlib import Path
 
 from mcp.server import Server
-from mcp.types import Tool, TextContent
+from mcp.types import TextContent, Tool
 
 from .interfaces import ChildMCP, CostEstimate, LLMInstruction, ToolDefinition
 from .middleware import (
+    JSON_BACKEND,
+    AuditLog,
     CircuitBreaker,
     ConsentGate,
     CostGate,
-    AuditLog,
-    TokenLedger,
     ParamValidator,
-    estimate_tokens,
+    TokenLedger,
     _dumps,
-    JSON_BACKEND,
+    estimate_tokens,
 )
 
 log = logging.getLogger("biosensor-mcp")
@@ -206,7 +206,7 @@ class RouterMCP:
                 )
 
             # Tools from all children
-            for tool_name, (child, tool_def) in router._tool_map.items():
+            for tool_name, (_child, tool_def) in router._tool_map.items():
                 schema: dict = {
                     "type": "object",
                     "properties": {},
@@ -606,8 +606,14 @@ class RouterMCP:
         if tier >= 3:
             try:
                 cost_est = await child.estimate_cost(tool_name, cleaned)
-            except Exception:
+            except Exception as exc:
+                # Mirror the logging in the public dispatch path — silent
+                # failure here could let a Tier-3 call slip past the cost
+                # gate with a synthetic 0-token estimate.
                 cost_est = CostEstimate(tokens=0)
+                log.warning(
+                    f"Internal dispatch: cost estimation failed for {tool_name}: {exc}"
+                )
             if self._cost_gate.should_gate(cost_est.tokens):
                 self._audit.record(
                     domain, tool_name, tier, cleaned, cost_est.tokens,
@@ -730,6 +736,7 @@ class RouterMCP:
     def run(self):
         """Start the MCP server via stdio transport."""
         import asyncio
+
         from mcp.server.stdio import stdio_server
 
         server = self.create_server()

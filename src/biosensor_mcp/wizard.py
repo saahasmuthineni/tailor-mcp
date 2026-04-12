@@ -12,6 +12,7 @@ for pip-installed users because the path walked three levels above
 __file__ and landed in site-packages/, not the project directory.
 """
 
+import getpass
 import http.server
 import json
 import os
@@ -65,9 +66,10 @@ def main():
     print("\n  Strava OAuth Setup Wizard")
     print("  " + "=" * 30 + "\n")
 
-    # Get credentials
+    # Get credentials. The secret uses getpass so it does not echo to the
+    # terminal (and does not land in shell scrollback or history).
     client_id = input("  Strava Client ID: ").strip()
-    client_secret = input("  Strava Client Secret: ").strip()
+    client_secret = getpass.getpass("  Strava Client Secret (input hidden): ").strip()
 
     if not client_id or not client_secret:
         print("  ❌ Both Client ID and Client Secret are required.")
@@ -122,7 +124,7 @@ def main():
     thread.start()
     server_ready.wait()
 
-    print(f"\n  Opening browser for Strava authorization...")
+    print("\n  Opening browser for Strava authorization...")
     print(f"  If it doesn't open, visit: {auth_url}\n")
     webbrowser.open(auth_url)
 

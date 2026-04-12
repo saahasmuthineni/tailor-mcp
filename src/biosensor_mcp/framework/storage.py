@@ -8,11 +8,10 @@ Each thread gets its own persistent connection via threading.local(),
 avoiding connect/close overhead while respecting SQLite's thread safety.
 """
 
+import logging
 import sqlite3
 import threading
-import logging
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger("biosensor-mcp")
 
@@ -70,7 +69,7 @@ class BaseStorage:
     def commit(self):
         self._get_conn().commit()
 
-    def fetchone(self, sql: str, params: tuple = ()) -> Optional[tuple]:
+    def fetchone(self, sql: str, params: tuple = ()) -> tuple | None:
         return self._get_conn().execute(sql, params).fetchone()
 
     def fetchall(self, sql: str, params: tuple = ()) -> list[tuple]:

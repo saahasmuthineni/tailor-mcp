@@ -11,8 +11,6 @@ Return value convention: (relative_filename, markdown_content)
 """
 
 from datetime import datetime, timezone
-from typing import Optional
-
 
 # ═══════════════════════════════════════════════════════════════
 # HELPERS
@@ -62,7 +60,7 @@ def _seconds_to_minutes(s: float) -> float:
 
 # ── Generic helpers ─────────────────────────────────────────────
 
-def format_wikilink(target: str, display: Optional[str] = None) -> str:
+def format_wikilink(target: str, display: str | None = None) -> str:
     """
     Return an Obsidian wikilink string.  Centralises the ad-hoc
     ``[[target|display]]`` pattern that existing renderers used inline.
@@ -211,8 +209,8 @@ def render_run_note(
         "",
         "## Summary",
         "",
-        f"| Field | Value |",
-        f"|-------|-------|",
+        "| Field | Value |",
+        "|-------|-------|",
         f"| Date | {date_str} |",
         f"| Distance | {distance_miles} mi |",
         f"| Duration | {duration_min} min |",
@@ -439,7 +437,7 @@ def render_compare_note(result: dict) -> tuple[str, str]:
     frontmatter = "\n".join(frontmatter_lines)
 
     body_parts = [
-        f"# Run Comparison",
+        "# Run Comparison",
         "",
         "## Side-by-Side Metrics",
         "",

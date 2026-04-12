@@ -3,18 +3,18 @@ Tests for vault/renderer.py — pure functions, no I/O.
 """
 
 import pytest
-from biosensor_mcp.vault.renderer import (
-    render_run_note,
-    render_trend_note,
-    render_compare_note,
-    render_theme_note,
-    render_moment_note,
-    format_wikilink,
-    _aerobic_grade,
-    _pace_from_velocity,
-    _iso_week,
-)
 
+from biosensor_mcp.vault.renderer import (
+    _aerobic_grade,
+    _iso_week,
+    _pace_from_velocity,
+    format_wikilink,
+    render_compare_note,
+    render_moment_note,
+    render_run_note,
+    render_theme_note,
+    render_trend_note,
+)
 
 # ── Helpers ──
 

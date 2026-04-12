@@ -24,7 +24,6 @@ never poisons the rescan.
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from .parser import (
     extract_tags,
@@ -151,7 +150,7 @@ def _reindex_file(filename: str, abs_path: Path, storage: VaultStorage) -> None:
 
     activity_id = fm.get("activity_id") or fm.get("strava_id")
     try:
-        activity_id_int: Optional[int] = int(activity_id) if activity_id else None
+        activity_id_int: int | None = int(activity_id) if activity_id else None
     except (TypeError, ValueError):
         activity_id_int = None
 
@@ -203,7 +202,7 @@ def _reindex_file(filename: str, abs_path: Path, storage: VaultStorage) -> None:
         storage.delete_theme(_theme_slug_from_filename(filename))
 
 
-def _coerce_str(v) -> Optional[str]:
+def _coerce_str(v) -> str | None:
     if v is None:
         return None
     if isinstance(v, str):

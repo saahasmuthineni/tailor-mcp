@@ -6,19 +6,19 @@ without depending on Strava or any real data source.
 """
 
 import asyncio
-import pytest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
+
 from biosensor_mcp.framework.interfaces import (
     ChildMCP,
-    ToolDefinition,
     CostEstimate,
+    ToolDefinition,
     ValidationSchema,
 )
-from biosensor_mcp.framework.router import RouterMCP
 from biosensor_mcp.framework.middleware import _loads
-
+from biosensor_mcp.framework.router import RouterMCP
 
 # ── Mock Child ──
 
@@ -285,7 +285,7 @@ class TestVaultLayerIntegration:
 
     def _setup(self, tmpdir, backfill_config=None):
         """Register a router + one child + a vault layer pointing at tmp dirs."""
-        from biosensor_mcp.vault import VaultWriter, VaultLayer
+        from biosensor_mcp.vault import VaultLayer, VaultWriter
         root = Path(tmpdir)
         vault_path = root / "vault"
         vault_path.mkdir()
@@ -384,7 +384,7 @@ class TestVaultCaptureSessionIntegration:
     """
 
     def _setup(self, tmpdir):
-        from biosensor_mcp.vault import VaultWriter, VaultLayer
+        from biosensor_mcp.vault import VaultLayer, VaultWriter
         root = Path(tmpdir)
         vault_path = root / "vault"
         vault_path.mkdir()
@@ -449,7 +449,7 @@ class TestVaultCaptureSessionIntegration:
     def test_fresh_session_surfaces_previous_moment(self):
         """Capture moment → close router → reopen → fitness summary sees it."""
         with TemporaryDirectory() as tmpdir:
-            from biosensor_mcp.vault import VaultWriter, VaultLayer
+            from biosensor_mcp.vault import VaultLayer, VaultWriter
             root = Path(tmpdir)
             vault_path = root / "vault"
             vault_path.mkdir()
@@ -486,7 +486,8 @@ class TestVaultCaptureSessionIntegration:
 
     def test_manual_obsidian_edit_surfaces_on_read(self):
         """Overwrite the theme file on disk → vault_read_theme reflects new text."""
-        import os, time
+        import os
+        import time
         with TemporaryDirectory() as tmpdir:
             router, _, vault_path, _data_dir = self._setup(tmpdir)
             try:

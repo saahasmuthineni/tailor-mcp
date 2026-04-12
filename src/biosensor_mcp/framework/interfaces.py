@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from biosensor_mcp.framework.router import RouterMCP
@@ -49,12 +49,12 @@ class ValidationSchema:
     type: type
     required: bool = False
     default: Any = None
-    min: Optional[float] = None
-    max: Optional[float] = None
-    min_len: Optional[int] = None
-    max_len: Optional[int] = None
-    pattern: Optional[str] = None
-    allowed_values: Optional[list] = None
+    min: float | None = None
+    max: float | None = None
+    min_len: int | None = None
+    max_len: int | None = None
+    pattern: str | None = None
+    allowed_values: list | None = None
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -125,7 +125,7 @@ class CostContext:
     tokens: int
     relative_to_typical: str = ""       # e.g. "~20x a normal chat turn"
     relative_to_cheaper_pct: str = ""   # e.g. "10x more than downsampled"
-    estimated_cost_usd: Optional[float] = None  # at current rates, if known
+    estimated_cost_usd: float | None = None  # at current rates, if known
 
     def to_dict(self) -> dict:
         d: dict = {"tokens": self.tokens, "relative_to_typical": self.relative_to_typical}
@@ -177,7 +177,7 @@ class ChildMCP(ABC):
     5. Register with router.register_child(your_child)
     """
 
-    _router: Optional[RouterMCP] = None  # Set by router during registration
+    _router: RouterMCP | None = None  # Set by router during registration
 
     @property
     @abstractmethod

@@ -10,7 +10,7 @@ Exports:
     VaultLayer    Framework-level read/annotate interface (not a ChildMCP).
 """
 
-from .writer import VaultWriter
 from .layer import VaultLayer
+from .writer import VaultWriter
 
 __all__ = ["VaultWriter", "VaultLayer"]

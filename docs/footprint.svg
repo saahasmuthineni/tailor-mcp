@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="370" viewBox="0 0 720 370">
+  <!-- Background -->
+  <rect fill="#f8f9fa" x="0" y="0" width="720" height="370" rx="8" ry="8"/>
+
+  <!-- Title -->
+  <text fill="#1a1a1a" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="14" font-weight="600" x="360" y="28" text-anchor="middle">Lightweight by design — runs on your machine, not in the cloud</text>
+  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" x="360" y="46" text-anchor="middle">No Docker, no databases to manage, no background processes. One install command, then it just works.</text>
+
+  <!-- ===== ROW 1: Three cards ===== -->
+
+  <!-- Card 1: Install -->
+  <rect fill="#ffffff" stroke="#e5e7eb" stroke-width="1" x="16" y="64" width="224" height="146" rx="10" ry="10"/>
+  <text fill="#1a1a1a" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="12" font-weight="600" x="128" y="88" text-anchor="middle">One-Command Install</text>
+  <line stroke="#f3f4f6" stroke-width="1" x1="32" y1="96" x2="224" y2="96"/>
+  <!-- Terminal mockup -->
+  <rect fill="#1e1e2e" x="32" y="104" width="192" height="44" rx="6" ry="6"/>
+  <text fill="#a6e3a1" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="42" y="120">$</text>
+  <text fill="#cdd6f4" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="52" y="120">curl -sSL ... | bash</text>
+  <text fill="#6c7086" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="42" y="138">Restart Claude Desktop.</text>
+  <!-- Subtext -->
+  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="128" y="168" text-anchor="middle">Sets up venv, configures Claude</text>
+  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="128" y="182" text-anchor="middle">Desktop, runs OAuth. Done.</text>
+  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="128" y="200" text-anchor="middle">Python 3.10+ is the only prereq.</text>
+
+  <!-- Card 2: What's on disk -->
+  <rect fill="#ffffff" stroke="#e5e7eb" stroke-width="1" x="248" y="64" width="224" height="146" rx="10" ry="10"/>
+  <text fill="#1a1a1a" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="12" font-weight="600" x="360" y="88" text-anchor="middle">What's on Disk</text>
+  <line stroke="#f3f4f6" stroke-width="1" x1="264" y1="96" x2="456" y2="96"/>
+  <!-- Items -->
+  <text fill="#1a1a1a" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="264" y="116">Package</text>
+  <text fill="#6b7280" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="388" y="116">525 KB</text>
+  <text fill="#1a1a1a" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="264" y="134">SQLite databases</text>
+  <text fill="#6b7280" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="388" y="134">~3 MB</text>
+  <text fill="#1a1a1a" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="264" y="152">Vault notes (50 runs)</text>
+  <text fill="#6b7280" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="388" y="152">~75 KB</text>
+  <line stroke="#f3f4f6" stroke-width="1" x1="264" y1="162" x2="456" y2="162"/>
+  <text fill="#1a1a1a" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" font-weight="600" x="264" y="180">Total (3 months)</text>
+  <text fill="#059669" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" font-weight="600" x="388" y="180">~4 MB</text>
+  <!-- Comparison -->
+  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="360" y="200" text-anchor="middle">Smaller than a single photo.</text>
+
+  <!-- Card 3: No Infrastructure -->
+  <rect fill="#ffffff" stroke="#e5e7eb" stroke-width="1" x="480" y="64" width="224" height="146" rx="10" ry="10"/>
+  <text fill="#1a1a1a" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="12" font-weight="600" x="592" y="88" text-anchor="middle">No Infrastructure</text>
+  <line stroke="#f3f4f6" stroke-width="1" x1="496" y1="96" x2="688" y2="96"/>
+  <!-- Checklist -->
+  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" x="496" y="116">&#x2713;  No Docker</text>
+  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" x="496" y="136">&#x2713;  No Postgres / Redis</text>
+  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" x="496" y="156">&#x2713;  No cloud services</text>
+  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" x="496" y="176">&#x2713;  No background daemons</text>
+  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" x="496" y="196">&#x2713;  No API keys to manage*</text>
+
+  <!-- ===== ROW 2: How it runs ===== -->
+  <rect fill="#ffffff" stroke="#e5e7eb" stroke-width="1" x="16" y="224" width="688" height="130" rx="10" ry="10"/>
+  <text fill="#1a1a1a" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="12" font-weight="600" x="360" y="250" text-anchor="middle">How it runs</text>
+  <line stroke="#f3f4f6" stroke-width="1" x1="32" y1="258" x2="688" y2="258"/>
+
+  <!-- Three-stage horizontal flow -->
+  <!-- Stage 1: Claude Desktop -->
+  <rect fill="#f3f0ff" x="40" y="270" width="170" height="52" rx="8" ry="8"/>
+  <text fill="#1a1a1a" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" font-weight="600" x="125" y="291" text-anchor="middle">Claude Desktop</text>
+  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="125" y="307" text-anchor="middle">starts the server on demand</text>
+
+  <!-- Arrow -->
+  <line stroke="#d1d5db" stroke-width="1.5" x1="216" y1="296" x2="254" y2="296"/>
+  <polygon fill="#d1d5db" points="254,291 264,296 254,301"/>
+
+  <!-- Stage 2: MCP Server -->
+  <rect fill="#eff6ff" x="270" y="270" width="180" height="52" rx="8" ry="8"/>
+  <text fill="#1a1a1a" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" font-weight="600" x="360" y="291" text-anchor="middle">biosensor-mcp serve</text>
+  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="360" y="307" text-anchor="middle">local Python process, ~15 MB RAM</text>
+
+  <!-- Arrow -->
+  <line stroke="#d1d5db" stroke-width="1.5" x1="456" y1="296" x2="494" y2="296"/>
+  <polygon fill="#d1d5db" points="494,291 504,296 494,301"/>
+
+  <!-- Stage 3: Local storage -->
+  <rect fill="#f0fdf4" x="510" y="270" width="180" height="52" rx="8" ry="8"/>
+  <text fill="#1a1a1a" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" font-weight="600" x="600" y="291" text-anchor="middle">SQLite + Markdown</text>
+  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="600" y="307" text-anchor="middle">~4 MB on disk, all local</text>
+
+  <!-- Bottom note -->
+  <text fill="#9ca3af" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" x="360" y="342" text-anchor="middle">Stops when Claude Desktop closes. No orphan processes.</text>
+
+  <!-- Footnote -->
+  <text fill="#9ca3af" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" x="360" y="362" text-anchor="middle">*Strava OAuth token is managed by the install wizard and auto-refreshes. 3 runtime deps: mcp, orjson, requests.</text>
+</svg>

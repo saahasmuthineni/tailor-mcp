@@ -96,6 +96,10 @@ irm https://raw.githubusercontent.com/saahasmuthineni/biosensor-to-llm-middlewar
 
 Restart Claude Desktop after install. Then ask Claude to sync and analyze your runs.
 
+<p align="center">
+  <img src="docs/footprint.svg" alt="Lightweight footprint: one-command install, 525 KB package, ~4 MB total on disk after 3 months, no Docker or cloud infrastructure. Starts with Claude Desktop, stops when it closes." width="700">
+</p>
+
 ---
 
 ## How it works

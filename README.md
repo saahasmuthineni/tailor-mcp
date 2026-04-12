@@ -38,7 +38,7 @@ biosensor-mcp demo
 ```
 
 <p align="center">
-  <img src="docs/demo.svg" alt="Terminal demo of biosensor-mcp showing server-side run report, HR analysis, and pace analysis computed from synthetic data — no API keys needed" width="780">
+  <img src="docs/demo.svg" alt="Data pipeline flow: 3,600 raw data points (~200,000 tokens) pass through a 5-layer server-side security pipeline and emerge as ~800 tokens — 99.6% reduction, raw data never leaves your machine" width="780">
 </p>
 
 ---
@@ -53,7 +53,7 @@ biosensor-mcp demo
 | "Backfill my vault with past runs" | Bulk-generates summaries for cached runs | per-run |
 
 <p align="center">
-  <img src="docs/claude-desktop-demo.svg" alt="Claude Desktop answering 'How was my last run?' — full run analysis compressed to ~800 tokens" width="680">
+  <img src="docs/claude-desktop-demo.svg" alt="Claude Desktop answering 'How was my last run?' with full run analysis at ~800 tokens, plus three value-prop cards: 99.6% token reduction, biometric data stays local, and three-tier access model" width="680">
 </p>
 
 ---

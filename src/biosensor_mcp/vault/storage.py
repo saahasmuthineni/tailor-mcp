@@ -7,6 +7,12 @@ scanning the filesystem.
 
 Extends framework BaseStorage — same threading model, same
 connection lifecycle (WAL mode, thread-local connections).
+
+Schema overview (v2 — reasoning persistence):
+    vault_notes     — one row per written file (now with mtime_ns)
+    vault_links     — wikilink graph (source → target)
+    vault_tags      — inverted index on #hashtags
+    vault_themes    — denormalised theme rows for fast list queries
 """
 
 from datetime import datetime, timezone
@@ -36,15 +42,54 @@ class VaultStorage(BaseStorage):
                 week TEXT,
                 has_insight_notes INTEGER NOT NULL DEFAULT 0,
                 frontmatter_json TEXT NOT NULL,
-                written_at TEXT NOT NULL
+                written_at TEXT NOT NULL,
+                mtime_ns INTEGER
             );
             CREATE INDEX IF NOT EXISTS idx_vault_domain ON vault_notes(domain);
             CREATE INDEX IF NOT EXISTS idx_vault_date   ON vault_notes(date);
             CREATE INDEX IF NOT EXISTS idx_vault_type   ON vault_notes(note_type);
             CREATE INDEX IF NOT EXISTS idx_vault_week   ON vault_notes(week);
+
+            CREATE TABLE IF NOT EXISTS vault_links (
+                source TEXT NOT NULL,
+                target TEXT NOT NULL,
+                link_text TEXT,
+                PRIMARY KEY (source, target)
+            );
+            CREATE INDEX IF NOT EXISTS idx_vault_links_source ON vault_links(source);
+            CREATE INDEX IF NOT EXISTS idx_vault_links_target ON vault_links(target);
+
+            CREATE TABLE IF NOT EXISTS vault_tags (
+                filename TEXT NOT NULL,
+                tag TEXT NOT NULL,
+                PRIMARY KEY (filename, tag)
+            );
+            CREATE INDEX IF NOT EXISTS idx_vault_tags_tag ON vault_tags(tag);
+
+            CREATE TABLE IF NOT EXISTS vault_themes (
+                slug TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                opened TEXT NOT NULL,
+                last_updated TEXT NOT NULL,
+                linked_runs_json TEXT NOT NULL DEFAULT '[]',
+                confidence TEXT,
+                excerpt TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_vault_themes_status ON vault_themes(status);
+            CREATE INDEX IF NOT EXISTS idx_vault_themes_updated ON vault_themes(last_updated);
         """
 
-    # ── Write ──
+    def _ensure_db(self):
+        """Create tables and migrate legacy schemas in place."""
+        super()._ensure_db()
+        # Migrate existing vault_notes rows that predate mtime_ns
+        conn = self._get_conn()
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(vault_notes)").fetchall()}
+        if "mtime_ns" not in cols:
+            conn.execute("ALTER TABLE vault_notes ADD COLUMN mtime_ns INTEGER")
+            conn.commit()
+
+    # ── Write (notes) ──
 
     def upsert_note(
         self,
@@ -57,18 +102,20 @@ class VaultStorage(BaseStorage):
         date: Optional[str] = None,
         week: Optional[str] = None,
         has_insight_notes: bool = False,
+        mtime_ns: Optional[int] = None,
     ):
         """Insert or replace a note index entry."""
         self.execute(
             "INSERT OR REPLACE INTO vault_notes"
             " (filename, domain, note_type, activity_id, date, week,"
-            "  has_insight_notes, frontmatter_json, written_at)"
-            " VALUES (?,?,?,?,?,?,?,?,?)",
+            "  has_insight_notes, frontmatter_json, written_at, mtime_ns)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?)",
             (
                 filename, domain, note_type, activity_id, date, week,
                 int(has_insight_notes),
                 _dumps(frontmatter),
                 datetime.now(timezone.utc).isoformat(),
+                mtime_ns,
             ),
         )
         self.commit()
@@ -81,7 +128,29 @@ class VaultStorage(BaseStorage):
         )
         self.commit()
 
-    # ── Query ──
+    def set_mtime_ns(self, filename: str, mtime_ns: int):
+        """Record the filesystem mtime observed on the last index update."""
+        self.execute(
+            "UPDATE vault_notes SET mtime_ns=? WHERE filename=?",
+            (mtime_ns, filename),
+        )
+        self.commit()
+
+    def get_mtime_ns(self, filename: str) -> Optional[int]:
+        row = self.fetchone(
+            "SELECT mtime_ns FROM vault_notes WHERE filename=?",
+            (filename,),
+        )
+        return row[0] if row and row[0] is not None else None
+
+    def delete_note(self, filename: str):
+        """Remove a note and all of its links/tags from the index."""
+        self.execute("DELETE FROM vault_notes WHERE filename=?", (filename,))
+        self.execute("DELETE FROM vault_links WHERE source=?", (filename,))
+        self.execute("DELETE FROM vault_tags  WHERE filename=?", (filename,))
+        self.commit()
+
+    # ── Query (notes) ──
 
     def get_note(self, filename: str) -> Optional[dict]:
         """Return index row for a specific file, or None."""
@@ -137,6 +206,11 @@ class VaultStorage(BaseStorage):
         )
         return [self._row_to_dict(r) for r in rows]
 
+    def list_all_filenames(self) -> list[str]:
+        """Return every known filename in the index (for rescan reconciliation)."""
+        rows = self.fetchall("SELECT filename FROM vault_notes")
+        return [r[0] for r in rows]
+
     def get_anomalous_notes(
         self, anomaly_type: Optional[str] = None, limit: int = 50
     ) -> list[dict]:
@@ -167,6 +241,127 @@ class VaultStorage(BaseStorage):
         row = self.fetchone(f"SELECT COUNT(*) FROM vault_notes{where}", params)
         return row[0] if row else 0
 
+    # ── Links ──
+
+    def replace_links(
+        self, source: str, links: list[tuple[str, str]]
+    ) -> None:
+        """
+        Replace all outgoing links for ``source``.  Each entry is
+        (target_filename, display_text); unresolved targets can use
+        the raw wikilink text as both.
+        """
+        self.execute("DELETE FROM vault_links WHERE source=?", (source,))
+        if links:
+            self._get_conn().executemany(
+                "INSERT OR REPLACE INTO vault_links (source, target, link_text) VALUES (?,?,?)",
+                [(source, tgt, text) for (tgt, text) in links],
+            )
+        self.commit()
+
+    def get_outgoing_links(self, source: str) -> list[dict]:
+        rows = self.fetchall(
+            "SELECT target, link_text FROM vault_links WHERE source=?",
+            (source,),
+        )
+        return [{"target": r[0], "link_text": r[1]} for r in rows]
+
+    def get_incoming_links(self, target: str) -> list[dict]:
+        rows = self.fetchall(
+            "SELECT source, link_text FROM vault_links WHERE target=?",
+            (target,),
+        )
+        return [{"source": r[0], "link_text": r[1]} for r in rows]
+
+    # ── Tags ──
+
+    def replace_tags(self, filename: str, tags: list[str]) -> None:
+        """Replace the tag set for ``filename``."""
+        self.execute("DELETE FROM vault_tags WHERE filename=?", (filename,))
+        deduped = sorted(set(t for t in tags if t))
+        if deduped:
+            self._get_conn().executemany(
+                "INSERT OR REPLACE INTO vault_tags (filename, tag) VALUES (?,?)",
+                [(filename, t) for t in deduped],
+            )
+        self.commit()
+
+    def list_filenames_by_tag(self, tag: str) -> list[str]:
+        rows = self.fetchall(
+            "SELECT filename FROM vault_tags WHERE tag=? ORDER BY filename",
+            (tag,),
+        )
+        return [r[0] for r in rows]
+
+    def list_tags_for(self, filename: str) -> list[str]:
+        rows = self.fetchall(
+            "SELECT tag FROM vault_tags WHERE filename=? ORDER BY tag",
+            (filename,),
+        )
+        return [r[0] for r in rows]
+
+    # ── Themes ──
+
+    def upsert_theme(
+        self,
+        slug: str,
+        status: str,
+        opened: str,
+        last_updated: str,
+        linked_runs: Optional[list] = None,
+        confidence: Optional[str] = None,
+        excerpt: Optional[str] = None,
+    ) -> None:
+        self.execute(
+            "INSERT OR REPLACE INTO vault_themes"
+            " (slug, status, opened, last_updated, linked_runs_json, confidence, excerpt)"
+            " VALUES (?,?,?,?,?,?,?)",
+            (
+                slug,
+                status,
+                opened,
+                last_updated,
+                _dumps(linked_runs or []),
+                confidence,
+                excerpt,
+            ),
+        )
+        self.commit()
+
+    def get_theme(self, slug: str) -> Optional[dict]:
+        row = self.fetchone(
+            "SELECT slug, status, opened, last_updated, linked_runs_json,"
+            "       confidence, excerpt"
+            " FROM vault_themes WHERE slug=?",
+            (slug,),
+        )
+        return self._theme_row(row) if row else None
+
+    def list_themes(
+        self,
+        status: Optional[str] = None,
+        limit: int = 50,
+    ) -> list[dict]:
+        clauses = []
+        params: list = []
+        if status:
+            clauses.append("status=?")
+            params.append(status)
+        where = " WHERE " + " AND ".join(clauses) if clauses else ""
+        params.append(limit)
+        rows = self.fetchall(
+            "SELECT slug, status, opened, last_updated, linked_runs_json,"
+            "       confidence, excerpt"
+            f" FROM vault_themes{where}"
+            " ORDER BY last_updated DESC LIMIT ?",
+            tuple(params),
+        )
+        return [self._theme_row(r) for r in rows]
+
+    def delete_theme(self, slug: str) -> None:
+        self.execute("DELETE FROM vault_themes WHERE slug=?", (slug,))
+        self.commit()
+
     def close(self):
         """Close the thread-local connection (required on Windows to release WAL lock)."""
         conn = getattr(self._local, "conn", None)
@@ -195,4 +390,21 @@ class VaultStorage(BaseStorage):
             "has_insight_notes": bool(has_insight_notes),
             "frontmatter": fm,
             "written_at": written_at,
+        }
+
+    @staticmethod
+    def _theme_row(row: tuple) -> dict:
+        slug, status, opened, last_updated, linked_runs_json, confidence, excerpt = row
+        try:
+            linked_runs = _loads(linked_runs_json) if linked_runs_json else []
+        except Exception:
+            linked_runs = []
+        return {
+            "slug": slug,
+            "status": status,
+            "opened": opened,
+            "last_updated": last_updated,
+            "linked_runs": linked_runs,
+            "confidence": confidence,
+            "excerpt": excerpt,
         }

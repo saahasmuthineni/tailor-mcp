@@ -217,3 +217,212 @@ class TestVaultWriterPathSafety:
                                    __import__("sys").platform == "win32" else
                                    "running/2025-04-10-activity-123.md")
             writer.close()
+
+
+# ── Theme / Moment / Registry / Evidence ──
+
+def _minimal_theme(**overrides):
+    base = {
+        "slug": "dehydration-drift",
+        "title": "Dehydration Drift",
+        "hypothesis": "HR drifts on hot days.",
+        "status": "open",
+        "opened": "2026-04-01",
+        "last_updated": "2026-04-10",
+        "linked_runs": [12345],
+        "tags": ["hydration"],
+        "confidence": "medium",
+    }
+    base.update(overrides)
+    return base
+
+
+def _minimal_moment(**overrides):
+    base = {
+        "title": "Aha Moment",
+        "body": "Noticed HR climbs past mile 5 on hot days.",
+        "date": "2026-04-10",
+        "linked_runs": [12345],
+        "linked_themes": ["dehydration-drift"],
+        "tags": ["observation"],
+    }
+    base.update(overrides)
+    return base
+
+
+class TestVaultWriterWriteTheme:
+    def test_creates_file(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            filename = writer.write_theme(_minimal_theme())
+            assert filename == "themes/dehydration-drift.md"
+            assert (Path(vault_dir) / filename).exists()
+            writer.close()
+
+    def test_indexed_in_storage(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            writer.write_theme(_minimal_theme())
+            theme = writer._storage.get_theme("dehydration-drift")
+            assert theme is not None
+            assert theme["status"] == "open"
+            writer.close()
+
+    def test_overwrites_existing(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            writer.write_theme(_minimal_theme())
+            writer.write_theme(_minimal_theme(status="resolved"))
+            theme = writer._storage.get_theme("dehydration-drift")
+            assert theme["status"] == "resolved"
+            writer.close()
+
+
+class TestVaultWriterWriteMoment:
+    def test_creates_file(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            filename = writer.write_moment(_minimal_moment())
+            assert filename.startswith("moments/2026-04-10-")
+            assert (Path(vault_dir) / filename).exists()
+            writer.close()
+
+    def test_indexed_in_storage(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            filename = writer.write_moment(_minimal_moment())
+            row = writer._storage.get_note(filename)
+            assert row is not None
+            assert row["note_type"] == "moment"
+            writer.close()
+
+
+class TestVaultWriterAppendThemeEvidence:
+    def test_appends_evidence_block(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            writer.write_theme(_minimal_theme())
+            writer.append_theme_evidence(
+                "dehydration-drift", "First hot Tuesday: 8bpm higher at mile 6."
+            )
+            content = (Path(vault_dir) / "themes/dehydration-drift.md").read_text(encoding="utf-8")
+            assert "First hot Tuesday" in content
+            assert "### Evidence —" in content
+            writer.close()
+
+    def test_preserves_prior_evidence_blocks_in_order(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            writer.write_theme(_minimal_theme())
+            writer.append_theme_evidence("dehydration-drift", "First observation.")
+            writer.append_theme_evidence("dehydration-drift", "Second observation.")
+            content = (Path(vault_dir) / "themes/dehydration-drift.md").read_text(encoding="utf-8")
+            first_idx = content.find("First observation.")
+            second_idx = content.find("Second observation.")
+            assert first_idx != -1 and second_idx != -1
+            assert first_idx < second_idx
+            writer.close()
+
+    def test_rejects_empty_evidence(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            writer.write_theme(_minimal_theme())
+            with pytest.raises(ValueError, match="empty"):
+                writer.append_theme_evidence("dehydration-drift", "   ")
+            writer.close()
+
+    def test_rejects_evidence_too_long(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            writer.write_theme(_minimal_theme())
+            with pytest.raises(ValueError, match="too long"):
+                writer.append_theme_evidence("dehydration-drift", "x" * 2001)
+            writer.close()
+
+    def test_rejects_missing_theme(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            with pytest.raises(FileNotFoundError):
+                writer.append_theme_evidence("does-not-exist", "some evidence")
+            writer.close()
+
+    def test_rejects_slug_with_slash(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            with pytest.raises(ValueError, match="Invalid theme slug"):
+                writer.append_theme_evidence("../etc", "evidence")
+            writer.close()
+
+    def test_inserts_before_resolution_header(self):
+        """Evidence must appear above ## Resolution so the log stays chronological."""
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            writer.write_theme(_minimal_theme())
+            writer.append_theme_evidence("dehydration-drift", "Key evidence here.")
+            content = (Path(vault_dir) / "themes/dehydration-drift.md").read_text(encoding="utf-8")
+            ev_idx = content.find("Key evidence here.")
+            res_idx = content.find("## Resolution")
+            assert ev_idx != -1 and res_idx != -1
+            assert ev_idx < res_idx
+            writer.close()
+
+    def test_refreshes_last_updated_stamp(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            writer.write_theme(_minimal_theme(last_updated="2020-01-01"))
+            writer.append_theme_evidence("dehydration-drift", "New evidence.")
+            content = (Path(vault_dir) / "themes/dehydration-drift.md").read_text(encoding="utf-8")
+            assert 'last_updated: "2020-01-01"' not in content
+            writer.close()
+
+
+class TestVaultWriterRendererRegistry:
+    def test_register_custom_renderer(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+
+            def custom_renderer(result: dict) -> tuple[str, str]:
+                return ("custom/hello.md", "---\nkind: custom\n---\nhi")
+
+            writer.register_renderer("custom_tool", custom_renderer)
+            filename, content = writer._render("custom_tool", {})
+            assert filename == "custom/hello.md"
+            assert "hi" in content
+            writer.close()
+
+    def test_unknown_tool_raises(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            with pytest.raises(ValueError, match="No renderer"):
+                writer._render("unknown_tool", {})
+            writer.close()
+
+    def test_seeded_renderers_present(self):
+        """The registry must come pre-seeded with the core 5 renderers."""
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            for name in [
+                "strava_run_report",
+                "strava_trend_report",
+                "strava_compare_runs",
+                "vault_theme",
+                "vault_moment",
+            ]:
+                assert name in writer._renderers
+            writer.close()
+
+    def test_re_register_replaces(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+
+            def r1(_):
+                return ("a.md", "first")
+
+            def r2(_):
+                return ("a.md", "second")
+
+            writer.register_renderer("tool_x", r1)
+            writer.register_renderer("tool_x", r2)
+            _, content = writer._render("tool_x", {})
+            assert content == "second"
+            writer.close()

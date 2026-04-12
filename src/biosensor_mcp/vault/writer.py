@@ -12,21 +12,34 @@ After any vaultable tool succeeds the router calls:
 Errors are always swallowed — a vault failure never breaks the MCP session.
 
 Atomic writes use tempfile + os.replace() so Obsidian never sees a partial file.
+
+Renderers live in a registry keyed by tool name.  The three core
+biosensor renderers are registered by default; reorientation-tier
+renderers (themes, moments) are registered by VaultLayer at wiring time.
 """
 
 import logging
 import os
 import re
-import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
-from .renderer import render_run_note, render_trend_note, render_compare_note
+from .renderer import (
+    render_compare_note,
+    render_moment_note,
+    render_run_note,
+    render_theme_note,
+    render_trend_note,
+)
 from .storage import VaultStorage
 
 log = logging.getLogger("biosensor-mcp.vault")
+
+
+# Type alias for a renderer callable: result dict → (filename, content)
+Renderer = Callable[[dict], tuple[str, str]]
 
 
 def _is_relative_to(path: Path, parent: Path) -> bool:
@@ -44,6 +57,9 @@ def _is_relative_to(path: Path, parent: Path) -> bool:
 
 # Max chars for a single insight annotation block
 _MAX_INSIGHT_CHARS = 2000
+
+# Max chars for a single evidence block appended to a theme
+_MAX_EVIDENCE_CHARS = 2000
 
 # Non-printable control chars (except tab, newline, CR) that must not be stored
 _CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -77,6 +93,16 @@ class VaultWriter:
         self._vaultable_tools = vaultable_tools
         self._max_hr = max_hr
 
+        # Renderer registry — seed with core biosensor renderers.
+        # Wrappers adapt signatures so every entry is result -> (filename, content).
+        self._renderers: dict[str, Renderer] = {
+            "strava_run_report": self._render_run,
+            "strava_trend_report": lambda r: render_trend_note(r),
+            "strava_compare_runs": lambda r: render_compare_note(r),
+            "vault_theme": lambda r: render_theme_note(r),
+            "vault_moment": lambda r: render_moment_note(r),
+        }
+
     # ── Hook interface ──
 
     def __call__(self, domain: str, tool_name: str, result: dict) -> None:
@@ -88,7 +114,13 @@ class VaultWriter:
         except Exception as exc:
             log.warning(f"VaultWriter: {exc}")
 
-    # ── Public write API (used by vault_backfill) ──
+    # ── Registry ──
+
+    def register_renderer(self, tool_name: str, renderer: Renderer) -> None:
+        """Register (or replace) a renderer for ``tool_name``."""
+        self._renderers[tool_name] = renderer
+
+    # ── Public write API ──
 
     def write_note(self, tool_name: str, result: dict) -> str:
         """
@@ -98,6 +130,85 @@ class VaultWriter:
         filename, content = self._render(tool_name, result)
         self._atomic_write(filename, content)
         self._index_note(filename, tool_name, result, content)
+        return filename
+
+    def write_theme(self, theme: dict) -> str:
+        """
+        Create or overwrite a theme note.  ``theme`` is passed directly
+        to ``render_theme_note``.  Use ``append_theme_evidence`` to add
+        subsequent evidence entries instead of rewriting the whole file.
+        """
+        filename, content = render_theme_note(theme)
+        self._atomic_write(filename, content)
+        self._index_note(filename, "vault_theme", {}, content)
+        return filename
+
+    def write_moment(self, moment: dict) -> str:
+        """Write a moment note.  ``moment`` is passed directly to the renderer."""
+        filename, content = render_moment_note(moment)
+        self._atomic_write(filename, content)
+        self._index_note(filename, "vault_moment", {}, content)
+        return filename
+
+    def append_theme_evidence(self, slug: str, evidence: str) -> str:
+        """
+        Append a timestamped evidence block to ``themes/<slug>.md``.
+
+        Inserts before the ``## Resolution`` header when present, otherwise
+        before end-of-file.  Rewrites the whole file atomically.  Returns
+        the relative filename.  Raises ValueError on bad input,
+        FileNotFoundError if the theme note does not exist.
+        """
+        evidence = _sanitize(evidence.strip())
+        if not evidence:
+            raise ValueError("Evidence must not be empty.")
+        if len(evidence) > _MAX_EVIDENCE_CHARS:
+            raise ValueError(
+                f"Evidence too long: {len(evidence)} chars (max {_MAX_EVIDENCE_CHARS})."
+            )
+
+        slug = _sanitize(slug.strip())
+        if not slug or "/" in slug or slug.startswith("."):
+            raise ValueError(f"Invalid theme slug: {slug!r}")
+
+        filename = f"themes/{slug}.md"
+        abs_path = self._safe_path(filename)
+        if not abs_path.exists():
+            raise FileNotFoundError(f"Theme note not found: {filename}")
+
+        existing = abs_path.read_text(encoding="utf-8")
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        block = f"### Evidence — {timestamp}\n\n{evidence}\n"
+
+        # Drop the placeholder if this is the first evidence entry
+        placeholder = "*(No evidence recorded yet.)*"
+        if placeholder in existing:
+            updated = existing.replace(placeholder + "\n", block, 1)
+            if updated == existing:  # fallback if newline stripped
+                updated = existing.replace(placeholder, block, 1)
+        else:
+            # Insert before ## Resolution if present, else append at end
+            resolution_header = "\n## Resolution"
+            idx = existing.find(resolution_header)
+            if idx != -1:
+                updated = existing[:idx].rstrip() + "\n\n" + block + "\n" + existing[idx + 1:]
+            else:
+                updated = existing.rstrip() + "\n\n" + block
+
+        # Refresh last_updated stamp
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        updated = re.sub(
+            r'^last_updated:\s*".*?"$',
+            f'last_updated: "{today}"',
+            updated,
+            count=1,
+            flags=re.MULTILINE,
+        )
+
+        self._atomic_write_abs(abs_path, updated)
+        # Re-index so wikilinks/tags/theme row all reflect the new body
+        self._index_note(filename, "vault_theme", {}, updated)
+        log.info(f"VaultWriter: evidence appended to {filename}")
         return filename
 
     def append_insight_notes(self, filename: str, notes: str) -> None:
@@ -138,6 +249,11 @@ class VaultWriter:
 
         self._atomic_write_abs(abs_path, updated)
         self._storage.set_has_insight_notes(filename)
+        # Refresh mtime_ns so rescan doesn't immediately re-parse this file
+        try:
+            self._storage.set_mtime_ns(filename, abs_path.stat().st_mtime_ns)
+        except OSError:
+            pass
         log.info(f"VaultWriter: insight notes appended to {filename}")
 
     def close(self):
@@ -153,28 +269,27 @@ class VaultWriter:
         log.info(f"VaultWriter: wrote {filename}")
 
     def _render(self, tool_name: str, result: dict) -> tuple[str, str]:
-        """Dispatch to the correct renderer. Returns (filename, content)."""
-        if tool_name == "strava_run_report":
-            # Activity metadata is now embedded in the result dict by RunningChild,
-            # so we build activity_data from the result rather than querying storage.
-            activity_data = {
-                "id": result.get("activity_id"),
-                "name": result.get("activity_name"),
-                "start_date": result.get("start_date"),
-                "distance": result.get("distance"),
-                "moving_time": result.get("moving_time"),
-                "average_heartrate": result.get("average_heartrate"),
-                "max_heartrate": result.get("max_heartrate"),
-            }
-            return render_run_note(result, activity_data, max_hr=self._max_hr)
+        """Dispatch to the registered renderer. Returns (filename, content)."""
+        renderer = self._renderers.get(tool_name)
+        if renderer is None:
+            raise ValueError(f"No renderer for tool: {tool_name}")
+        return renderer(result)
 
-        if tool_name == "strava_trend_report":
-            return render_trend_note(result)
-
-        if tool_name == "strava_compare_runs":
-            return render_compare_note(result)
-
-        raise ValueError(f"No renderer for tool: {tool_name}")
+    def _render_run(self, result: dict) -> tuple[str, str]:
+        """
+        Adapter for ``render_run_note`` — builds activity_data from the
+        result dict (as RunningChild now embeds metadata directly).
+        """
+        activity_data = {
+            "id": result.get("activity_id"),
+            "name": result.get("activity_name"),
+            "start_date": result.get("start_date"),
+            "distance": result.get("distance"),
+            "moving_time": result.get("moving_time"),
+            "average_heartrate": result.get("average_heartrate"),
+            "max_heartrate": result.get("max_heartrate"),
+        }
+        return render_run_note(result, activity_data, max_hr=self._max_hr)
 
     def _atomic_write(self, relative_filename: str, content: str) -> None:
         """Resolve to vault_path, validate, then write atomically."""
@@ -214,58 +329,14 @@ class VaultWriter:
     def _index_note(
         self, filename: str, tool_name: str, result: dict, content: str
     ) -> None:
-        """Extract key fields and write to VaultStorage index."""
-        # Parse frontmatter fields for fast querying
-        fm = _extract_frontmatter(content)
-        note_type = fm.get("note_type", tool_name)
-        domain = fm.get("domain", "running")
-        activity_id = fm.get("activity_id") or fm.get("strava_id")
-        date = fm.get("date")
-        week = fm.get("week")
+        """
+        Extract key fields and write to VaultStorage index, including
+        mtime_ns, wikilinks, tags, and (for themes) a vault_themes row.
+        Delegates to rescan._reindex_file so the write-path and the
+        rescan-path share a single parser.
+        """
+        abs_path = self._safe_path(filename)
+        # Import here to avoid a circular import at module load.
+        from .rescan import _reindex_file
 
-        self._storage.upsert_note(
-            filename=filename,
-            domain=domain,
-            note_type=note_type,
-            frontmatter=fm,
-            activity_id=int(activity_id) if activity_id else None,
-            date=date,
-            week=week,
-        )
-
-
-def _extract_frontmatter(content: str) -> dict:
-    """
-    Parse the YAML frontmatter block from a rendered note.
-    Returns a flat dict of scalar values (no full YAML parsing needed).
-    """
-    if not content.startswith("---"):
-        return {}
-    end = content.find("\n---", 3)
-    if end == -1:
-        return {}
-    fm_block = content[4:end]
-
-    result: dict = {}
-    for line in fm_block.splitlines():
-        if ":" not in line:
-            continue
-        key, _, value = line.partition(":")
-        key = key.strip()
-        value = value.strip().strip('"')
-        # Skip tag list lines
-        if key.startswith("-") or not key:
-            continue
-        # Parse simple types
-        if value == "true":
-            result[key] = True
-        elif value == "false":
-            result[key] = False
-        elif value.lstrip("-").isdigit():
-            result[key] = int(value)
-        else:
-            try:
-                result[key] = float(value)
-            except ValueError:
-                result[key] = value
-    return result
+        _reindex_file(filename, abs_path, self._storage)

@@ -60,6 +60,57 @@ def _seconds_to_minutes(s: float) -> float:
     return round(s / 60, 1)
 
 
+# ── Generic helpers ─────────────────────────────────────────────
+
+def format_wikilink(target: str, display: Optional[str] = None) -> str:
+    """
+    Return an Obsidian wikilink string.  Centralises the ad-hoc
+    ``[[target|display]]`` pattern that existing renderers used inline.
+    """
+    target = (target or "").strip()
+    if not target:
+        return ""
+    if display and display.strip() and display.strip() != target:
+        return f"[[{target}|{display.strip()}]]"
+    return f"[[{target}]]"
+
+
+def _slug_from_filename(filename: str) -> str:
+    base = filename.rsplit("/", 1)[-1]
+    if base.endswith(".md"):
+        base = base[:-3]
+    return base
+
+
+def _run_wikilink_for_activity(activity_id) -> str:
+    """Render the canonical run wikilink target (no .md extension)."""
+    return f"activity-{activity_id}"
+
+
+def _yaml_scalar(value) -> str:
+    """Quote a string value for YAML frontmatter; leave scalars bare."""
+    if value is None:
+        return '""'
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    s = str(value).replace('"', '\\"')
+    return f'"{s}"'
+
+
+def _yaml_string_list(items: list) -> str:
+    if not items:
+        return "[]"
+    return "[" + ", ".join(_yaml_scalar(str(x)) for x in items) + "]"
+
+
+def _yaml_int_list(items: list) -> str:
+    if not items:
+        return "[]"
+    return "[" + ", ".join(str(int(x)) for x in items if x is not None) + "]"
+
+
 # ═══════════════════════════════════════════════════════════════
 # RUN REPORT NOTE
 # ═══════════════════════════════════════════════════════════════
@@ -414,7 +465,7 @@ def render_compare_note(result: dict) -> tuple[str, str]:
         drift_pct = drift.get("drift_pct", "—") if isinstance(drift, dict) else "—"
 
         name = c.get("name", f"Run {aid}")
-        link = f"[[{date}-activity-{aid}|{name}]]" if date else str(aid)
+        link = format_wikilink(f"{date}-activity-{aid}", name) if date else str(aid)
         wikilinks.append(link)
 
         body_parts.append(
@@ -439,3 +490,219 @@ def render_compare_note(result: dict) -> tuple[str, str]:
 
     filename = f"running/compare/{date_slug}.md"
     return filename, content
+
+
+# ═══════════════════════════════════════════════════════════════
+# THEME NOTE — persistent hypothesis across runs
+# ═══════════════════════════════════════════════════════════════
+
+_THEME_EVIDENCE_HEADER = "## Evidence"
+_THEME_RESOLUTION_HEADER = "## Resolution"
+
+
+def render_theme_note(theme: dict) -> tuple[str, str]:
+    """
+    Render a theme (persistent hypothesis) as a markdown note.
+
+    Expected ``theme`` fields:
+        slug (required):       e.g. "dehydration-drift"
+        title (optional):      human title; defaults to slug
+        hypothesis (required): short prose statement
+        status:                open | resolved | rejected (default: open)
+        opened:                YYYY-MM-DD (default: today)
+        last_updated:          YYYY-MM-DD (default: today)
+        linked_runs:           list of int activity_ids
+        linked_themes:         list of theme slugs
+        tags:                  list of strings
+        confidence:            low | medium | high
+        evidence:              initial evidence block (str or list[str])
+        resolution:            prose shown under ## Resolution when status != open
+
+    The body is: hypothesis → ## Evidence (append-only log) → ## Resolution.
+    """
+    slug = str(theme.get("slug") or "").strip()
+    if not slug:
+        raise ValueError("theme.slug is required")
+
+    title = str(theme.get("title") or slug.replace("-", " ").title())
+    hypothesis = str(theme.get("hypothesis") or "").strip()
+    status = str(theme.get("status") or "open").strip()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    opened = str(theme.get("opened") or today)
+    last_updated = str(theme.get("last_updated") or today)
+    confidence = theme.get("confidence")
+    linked_runs = [int(x) for x in (theme.get("linked_runs") or []) if x is not None]
+    linked_themes = list(theme.get("linked_themes") or [])
+    tags = list(theme.get("tags") or [])
+    if "theme" not in tags:
+        tags = ["theme"] + tags
+
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # ── Frontmatter ──
+    fm_lines = [
+        "---",
+        "domain: vault",
+        "note_type: theme",
+        "kind: theme",
+        f"slug: {_yaml_scalar(slug)}",
+        f"title: {_yaml_scalar(title)}",
+        f"status: {_yaml_scalar(status)}",
+        f"opened: {_yaml_scalar(opened)}",
+        f"last_updated: {_yaml_scalar(last_updated)}",
+        f"date: {_yaml_scalar(last_updated)}",
+        f"linked_runs: {_yaml_int_list(linked_runs)}",
+        f"linked_themes: {_yaml_string_list(linked_themes)}",
+    ]
+    if confidence:
+        fm_lines.append(f"confidence: {_yaml_scalar(confidence)}")
+    fm_lines.append(f'generated_at: "{now_iso}"')
+    fm_lines.append("tags:")
+    fm_lines += [f"  - {t}" for t in tags]
+    fm_lines.append("---")
+
+    # ── Body ──
+    body_parts = [
+        f"# {title}",
+        "",
+        "## Hypothesis",
+        "",
+        hypothesis or "*(No hypothesis yet.)*",
+        "",
+    ]
+
+    # Linked runs section — wikilinks to run notes
+    if linked_runs:
+        body_parts += ["## Linked Runs", ""]
+        body_parts += [
+            f"- {format_wikilink(_run_wikilink_for_activity(aid))}"
+            for aid in linked_runs
+        ]
+        body_parts.append("")
+
+    if linked_themes:
+        body_parts += ["## Linked Themes", ""]
+        body_parts += [f"- {format_wikilink(s)}" for s in linked_themes]
+        body_parts.append("")
+
+    # Evidence log
+    body_parts += [_THEME_EVIDENCE_HEADER, ""]
+    initial_evidence = theme.get("evidence")
+    if isinstance(initial_evidence, list):
+        for block in initial_evidence:
+            body_parts.append(_format_evidence_block(str(block), last_updated))
+    elif isinstance(initial_evidence, str) and initial_evidence.strip():
+        body_parts.append(_format_evidence_block(initial_evidence, last_updated))
+    else:
+        body_parts.append("*(No evidence recorded yet.)*")
+        body_parts.append("")
+
+    # Resolution section (always present so status flips have a clear home)
+    body_parts += [_THEME_RESOLUTION_HEADER, ""]
+    resolution = theme.get("resolution")
+    if status != "open" and resolution:
+        body_parts.append(str(resolution).strip())
+    elif status != "open":
+        body_parts.append(f"*(Status: {status}. No resolution notes recorded.)*")
+    else:
+        body_parts.append("*(Open — no resolution yet.)*")
+    body_parts.append("")
+
+    content = "\n".join(fm_lines) + "\n" + "\n".join(body_parts)
+    filename = f"themes/{slug}.md"
+    return filename, content
+
+
+def _format_evidence_block(evidence: str, date_str: str) -> str:
+    """
+    Render one evidence entry.  Uses the same ``### Insight — TIMESTAMP``
+    header convention as existing insight annotations in writer.py so
+    the two logs look consistent in Obsidian.
+    """
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return f"### Evidence — {ts}\n\n{evidence.strip()}\n"
+
+
+# ═══════════════════════════════════════════════════════════════
+# MOMENT NOTE — one-shot "aha" observation
+# ═══════════════════════════════════════════════════════════════
+
+def render_moment_note(moment: dict) -> tuple[str, str]:
+    """
+    Render a single "aha" moment note.
+
+    Expected ``moment`` fields:
+        title (required):  short human title
+        body (required):   1–3 paragraph prose
+        date:              YYYY-MM-DD (default: today)
+        linked_runs:       list of activity_ids
+        linked_themes:     list of theme slugs
+        tags:              list of strings
+        slug:              explicit slug override (default: derived from title)
+    """
+    title = str(moment.get("title") or "").strip()
+    body = str(moment.get("body") or "").strip()
+    if not title:
+        raise ValueError("moment.title is required")
+    if not body:
+        raise ValueError("moment.body is required")
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    date_str = str(moment.get("date") or today)
+    slug = str(moment.get("slug") or _slugify_title(title))
+    linked_runs = [int(x) for x in (moment.get("linked_runs") or []) if x is not None]
+    linked_themes = list(moment.get("linked_themes") or [])
+    tags = list(moment.get("tags") or [])
+    if "moment" not in tags:
+        tags = ["moment"] + tags
+
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    fm_lines = [
+        "---",
+        "domain: vault",
+        "note_type: moment",
+        "kind: moment",
+        f"title: {_yaml_scalar(title)}",
+        f"slug: {_yaml_scalar(slug)}",
+        f"date: {_yaml_scalar(date_str)}",
+        f"linked_runs: {_yaml_int_list(linked_runs)}",
+        f"linked_themes: {_yaml_string_list(linked_themes)}",
+        f'generated_at: "{now_iso}"',
+        "tags:",
+    ]
+    fm_lines += [f"  - {t}" for t in tags]
+    fm_lines.append("---")
+
+    body_parts = [
+        f"# {title}",
+        "",
+        body,
+        "",
+    ]
+
+    if linked_runs:
+        body_parts += ["## Linked Runs", ""]
+        body_parts += [
+            f"- {format_wikilink(_run_wikilink_for_activity(aid))}"
+            for aid in linked_runs
+        ]
+        body_parts.append("")
+
+    if linked_themes:
+        body_parts += ["## Linked Themes", ""]
+        body_parts += [f"- {format_wikilink(s)}" for s in linked_themes]
+        body_parts.append("")
+
+    content = "\n".join(fm_lines) + "\n" + "\n".join(body_parts)
+    filename = f"moments/{date_str}-{slug}.md"
+    return filename, content
+
+
+def _slugify_title(title: str) -> str:
+    """Minimal slugger — lowercase, alnum + dashes, no unicode transliteration."""
+    import re as _re
+    s = title.lower().strip()
+    s = _re.sub(r"[^a-z0-9]+", "-", s)
+    s = s.strip("-")
+    return s or "moment"

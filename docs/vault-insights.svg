@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="340" viewBox="0 0 720 340">
+  <!-- Background -->
+  <rect fill="#f8f9fa" x="0" y="0" width="720" height="340" rx="8" ry="8"/>
+
+  <!-- Title -->
+  <text fill="#1a1a1a" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="14" font-weight="600" x="360" y="28" text-anchor="middle">Analytical reasoning persists and compounds across sessions</text>
+  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" x="360" y="46" text-anchor="middle">Each session can annotate vault notes with insights. Future sessions inherit all prior reasoning.</text>
+
+  <!-- Connecting line -->
+  <line stroke="#d1d5db" stroke-width="2" x1="120" y1="152" x2="600" y2="152"/>
+
+  <!-- ===== STAGE 1: Week 1 ===== -->
+  <rect fill="#ffffff" stroke="#e5e7eb" stroke-width="1" x="16" y="68" width="210" height="170" rx="10" ry="10"/>
+  <!-- Dot on timeline -->
+  <circle fill="#ffffff" stroke="#9ca3af" stroke-width="2" cx="120" cy="152" r="8"/>
+  <circle fill="#9ca3af" cx="120" cy="152" r="4"/>
+  <!-- Header -->
+  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="32" y="90">WEEK 1</text>
+  <text fill="#1a1a1a" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="12" font-weight="600" x="32" y="108">Run analyzed + saved</text>
+  <line stroke="#f3f4f6" stroke-width="1" x1="32" y1="116" x2="210" y2="116"/>
+  <!-- Vault note preview -->
+  <rect fill="#f9fafb" x="32" y="124" width="178" height="48" rx="4" ry="4"/>
+  <text fill="#1a1a1a" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="40" y="138">decoupling: 12.1%</text>
+  <text fill="#1a1a1a" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="40" y="152">hr_drift:   8.4%</text>
+  <text fill="#1a1a1a" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="40" y="166">ef:         48.2</text>
+  <!-- Insight status -->
+  <text fill="#9ca3af" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-style="italic" x="32" y="192">## Insights</text>
+  <text fill="#9ca3af" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-style="italic" x="32" y="206">(No insight notes yet.)</text>
+  <!-- Token badge -->
+  <rect fill="#ecfdf5" x="126" y="216" width="90" height="18" rx="8" ry="8"/>
+  <text fill="#059669" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" font-weight="600" x="171" y="229" text-anchor="middle">~800 tokens</text>
+
+  <!-- Arrow 1 -->
+  <polygon fill="#9ca3af" points="232,152 244,147 244,157"/>
+
+  <!-- ===== STAGE 2: Week 4 ===== -->
+  <rect fill="#ffffff" stroke="#86efac" stroke-width="1.5" x="255" y="68" width="210" height="170" rx="10" ry="10"/>
+  <!-- Dot on timeline -->
+  <circle fill="#ffffff" stroke="#22c55e" stroke-width="2" cx="360" cy="152" r="8"/>
+  <circle fill="#22c55e" cx="360" cy="152" r="4"/>
+  <!-- Header -->
+  <text fill="#166534" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="271" y="90">WEEK 4</text>
+  <text fill="#1a1a1a" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="12" font-weight="600" x="271" y="108">Claude annotates insight</text>
+  <line stroke="#dcfce7" stroke-width="1" x1="271" y1="116" x2="449" y2="116"/>
+  <!-- Vault note preview -->
+  <rect fill="#f0fdf4" x="271" y="124" width="178" height="48" rx="4" ry="4"/>
+  <text fill="#1a1a1a" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="279" y="138">decoupling: 9.2%</text>
+  <text fill="#1a1a1a" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="279" y="152">hr_drift:   6.1%</text>
+  <text fill="#1a1a1a" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="279" y="166">ef:         52.7</text>
+  <!-- Insight content -->
+  <text fill="#166534" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="271" y="192">### Insight &#x2014; Week 4</text>
+  <rect fill="#dcfce7" x="271" y="198" width="178" height="28" rx="4" ry="4"/>
+  <text fill="#166534" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="277" y="210">"Decoupling improving:</text>
+  <text fill="#166534" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="277" y="222"> 12.1% &#x2192; 9.2% in 4 weeks"</text>
+
+  <!-- Arrow 2 -->
+  <polygon fill="#22c55e" points="471,152 483,147 483,157"/>
+
+  <!-- ===== STAGE 3: Week 8+ ===== -->
+  <rect fill="#ffffff" stroke="#059669" stroke-width="1.5" x="494" y="68" width="210" height="170" rx="10" ry="10"/>
+  <!-- Dot on timeline -->
+  <circle fill="#ffffff" stroke="#059669" stroke-width="2" cx="600" cy="152" r="8"/>
+  <circle fill="#059669" cx="600" cy="152" r="4"/>
+  <!-- Header -->
+  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="510" y="90">WEEK 8+</text>
+  <text fill="#1a1a1a" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="12" font-weight="600" x="510" y="108">Builds on prior insights</text>
+  <line stroke="#dcfce7" stroke-width="1" x1="510" y1="116" x2="688" y2="116"/>
+  <!-- Vault note preview -->
+  <rect fill="#f0fdf4" x="510" y="124" width="178" height="48" rx="4" ry="4"/>
+  <text fill="#1a1a1a" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="518" y="138">decoupling: 7.8%</text>
+  <text fill="#1a1a1a" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="518" y="152">hr_drift:   5.3%</text>
+  <text fill="#1a1a1a" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="518" y="166">ef:         57.8</text>
+  <!-- Stacked insights -->
+  <text fill="#166534" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="510" y="192">### Insight &#x2014; Week 8</text>
+  <rect fill="#dcfce7" x="510" y="198" width="178" height="28" rx="4" ry="4"/>
+  <text fill="#166534" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="516" y="210">"Aerobic base confirmed:</text>
+  <text fill="#166534" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="516" y="222"> 12.1% &#x2192; 7.8% + drift &#x2193;"</text>
+
+  <!-- ===== BOTTOM: Summary bar ===== -->
+  <rect fill="#f0fdf4" stroke="#86efac" stroke-width="1" x="16" y="256" width="688" height="70" rx="8" ry="8"/>
+
+  <!-- Left: mechanism -->
+  <text fill="#166534" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" font-weight="600" x="32" y="278">vault_annotate_run</text>
+  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="32" y="294">Claude writes timestamped observations</text>
+  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="32" y="310">back to vault notes (max 2,000 chars).</text>
+
+  <!-- Center: mechanism -->
+  <text fill="#166534" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" font-weight="600" x="280" y="278">vault_capture_session</text>
+  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="280" y="294">Before session ends, Claude persists</text>
+  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="280" y="310">key aha-moments and theme updates.</text>
+
+  <!-- Right: benefit -->
+  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" font-weight="600" x="530" y="278">Result</text>
+  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="530" y="294">Analytical reasoning compounds.</text>
+  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="530" y="310">No insight lost between sessions.</text>
+</svg>

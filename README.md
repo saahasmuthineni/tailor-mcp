@@ -53,7 +53,7 @@ biosensor-mcp demo
 | "Backfill my vault with past runs" | Bulk-generates summaries for cached runs | ~800 tokens/run |
 
 <p align="center">
-  <img src="docs/claude-desktop-demo.svg" alt="Two-session story: Session 1 analyzes a run and saves to vault at ~800 tokens; Session 2 reads 8 pre-saved notes for fitness trends at ~400 tokens — 170x more efficient than re-processing. Cards show per-query savings (98.8%), session memory (vault persistence), and data security (consent, audit, local processing)." width="700">
+  <img src="docs/claude-desktop-demo.svg" alt="Two-session story: Session 1 analyzes a run and saves to vault at ~800 tokens; Session 2 reads 8 pre-saved notes for fitness trends at ~400 tokens. Cards: Session Memory (170x longitudinal efficiency — 544k tokens vs 3,200), Per-Query Savings (98.8% reduction), Data Security (consent, audit, local processing)." width="700">
 </p>
 
 ---
@@ -114,6 +114,10 @@ This means you have **two ways to access the same data**:
 | **Data stays** | On your machine | On your machine |
 
 **No cloud sync by default.** If your vault folder is inside OneDrive, iCloud, or Dropbox, the system warns you at startup — because saved analytics would then leave your machine. Set `vault_path` to a local-only folder to keep everything offline.
+
+<p align="center">
+  <img src="docs/vault-insights.svg" alt="Insight accumulation timeline: Week 1 saves run metrics, Week 4 Claude annotates 'decoupling improving 12% to 9%', Week 8 builds on prior insight 'aerobic base confirmed'. Reasoning compounds across sessions via vault_annotate_run and vault_capture_session." width="700">
+</p>
 
 ### Security Pipeline
 

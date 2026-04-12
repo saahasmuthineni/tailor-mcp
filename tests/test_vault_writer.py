@@ -321,6 +321,7 @@ class TestVaultWriterAppendThemeEvidence:
             second_idx = content.find("Second observation.")
             assert first_idx != -1 and second_idx != -1
             assert first_idx < second_idx
+            writer.close()
 
     def test_rejects_empty_evidence(self):
         with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:

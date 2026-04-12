@@ -9,8 +9,24 @@ Pipeline order (cheapest checks first):
 2. CircuitBreaker  — block if upstream is failing
 3. ConsentGate     — per-domain biometric consent
 4. CostGate        — pre-estimate tokens, gate if expensive
-5. AuditLog        — log every call for transparency
-6. TokenLedger     — track cumulative session spend
+5. PHIScrubber     — institutional-policy scrubbing seam (default: no-op)
+6. AuditLog        — log every call for reproducibility and IRB review
+7. TokenLedger     — track cumulative session spend
+
+Research framing
+----------------
+The audit log is the backbone of reproducibility and IRB review for
+LLM-assisted analyses in this framework. Every tool call is persisted
+with timestamp, domain, tool name, access tier, parameters, token
+estimate, outcome, latency, and (optionally) a study ``subject_id``
+pulled from the call parameters. That row is intended to be durable
+evidence — of how an analyst accessed participant data, in what order,
+with what scope, and with what result — suitable for appendices,
+protocol amendments, or replication packages.
+
+The PHIScrubber is the extension seam for institutional PHI
+policies. It ships as a no-op; real scrubbing implementations are
+added per data source and per institutional review.
 """
 
 import logging
@@ -185,13 +201,62 @@ class CostGate:
 
 
 # ═══════════════════════════════════════════════════════════════
+# PHI SCRUBBER (extension seam)
+# ═══════════════════════════════════════════════════════════════
+
+class PHIScrubber:
+    """
+    Extension seam for institutional PHI scrubbing policies.
+
+    The default implementation is a no-op: it returns the result
+    unchanged. This is intentional. The running child in this
+    repository ships with no institutional policy to enforce, and
+    the framework never pretends to know what "PHI" means in a
+    given study — that is an institutional, protocol-specific
+    decision.
+
+    What this class IS:
+        - A stable hook point between a child's ``execute()`` and the
+          audit log / token accounting.
+        - A single, documented place to plug in transforms that drop
+          or hash identifying fields from tool results before those
+          results leave the router.
+
+    What this class is NOT:
+        - A safe-harbor PHI de-identifier.
+        - A replacement for institutional review.
+        - A substitute for keeping raw streams local (which the
+          tiered-access model already enforces).
+
+    Subclass and override ``scrub()`` per data source. Wire a
+    per-child instance in at router construction time once the
+    subclass exists.
+    """
+
+    def scrub(self, result: dict) -> dict:
+        """
+        Return ``result`` unchanged. Subclasses override this method
+        to strip, hash, or transform fields before results leave the
+        router. Implementations must be pure functions of the result
+        dict — no I/O, no exceptions on well-formed input.
+        """
+        return result
+
+
+# ═══════════════════════════════════════════════════════════════
 # AUDIT LOG
 # ═══════════════════════════════════════════════════════════════
 
 class AuditLog:
     """
-    Every tool call logged to SQLite for transparency.
-    Includes domain, tool name, tier, params, token estimate, outcome, timing.
+    Every tool call logged to SQLite for reproducibility and IRB review.
+
+    Captured per call: timestamp, domain, tool name, access tier,
+    parameters, token estimate, outcome, latency, an optional error
+    message, and an optional ``subject_id`` for studies that want to
+    scope rows to a participant or cohort. ``subject_id`` is only
+    populated when a caller supplies one — children are free to
+    ignore it.
 
     Uses threading.local() so each thread gets its own SQLite connection —
     sqlite3 connections must not be shared across threads (check_same_thread
@@ -215,9 +280,19 @@ class AuditLog:
                 token_estimate INTEGER,
                 outcome TEXT NOT NULL,
                 duration_ms INTEGER,
-                error TEXT
+                error TEXT,
+                subject_id TEXT
             )
         """)
+        # Migrate pre-existing audit.db files that predate the subject_id
+        # column. Mirrors VaultStorage._ensure_db()'s approach for
+        # vault_notes.mtime_ns: detect via PRAGMA, ALTER TABLE if absent.
+        cols = {
+            row[1]
+            for row in self._conn.execute("PRAGMA table_info(audit_log)").fetchall()
+        }
+        if "subject_id" not in cols:
+            self._conn.execute("ALTER TABLE audit_log ADD COLUMN subject_id TEXT")
         self._conn.commit()
 
     @property
@@ -236,19 +311,21 @@ class AuditLog:
 
     def record(self, domain: str, tool_name: str, tier: int, params: dict,
                token_estimate: int, outcome: str, duration_ms: int,
-               error: str = None):
+               error: str = None, *, subject_id: str | None = None):
         self._conn.execute(
             "INSERT INTO audit_log"
             " (timestamp, domain, tool_name, tier, params, token_estimate,"
-            "  outcome, duration_ms, error)"
-            " VALUES (?,?,?,?,?,?,?,?,?)",
+            "  outcome, duration_ms, error, subject_id)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?)",
             (datetime.now(timezone.utc).isoformat(), domain, tool_name, tier,
-             _dumps(params), token_estimate, outcome, duration_ms, error),
+             _dumps(params), token_estimate, outcome, duration_ms, error,
+             subject_id),
         )
         self._conn.commit()
         log.info(
             f"AUDIT | {domain}.{tool_name} | tier={tier} "
             f"| tokens~{token_estimate} | {outcome} | {duration_ms}ms"
+            + (f" | subject={subject_id}" if subject_id else "")
         )
 
 

@@ -271,6 +271,17 @@ with tempfile.TemporaryDirectory() as tmpdir:
     check("tier1 free tool executes", d.get("result") == "ok")
     check("tier1 meta attached", "_meta" in d and d["_meta"]["tier"] == 1)
 
+    # Provenance stamps: every result carries enough metadata to be
+    # traceable back to the code version that produced it. Minimum bar
+    # for anything that might end up in a paper.
+    _m = d.get("_meta", {})
+    check("provenance: package_version stamped", "package_version" in _m,
+          f"_meta keys: {list(_m.keys())}")
+    check("provenance: tool_name stamped", _m.get("tool_name") == "alpha_free",
+          f"got tool_name={_m.get('tool_name')}")
+    check("provenance: called_at stamped", "called_at" in _m,
+          f"_meta keys: {list(_m.keys())}")
+
     # Tier 1 -- bad param
     r = run(router._dispatch("alpha_free", {}))
     d = _loads(r[0].text)
@@ -473,14 +484,28 @@ with tempfile.TemporaryDirectory() as tmpdir:
     router.register_child(MockChild("alpha"))
     run(router._dispatch("alpha_free", {"val": 5}))
     run(router._dispatch("alpha_gated", {"val": 5}))  # blocked by consent gate
+    # A call with a study subject_id so we can verify scoping works.
+    run(router._dispatch("alpha_free", {"val": 9, "subject_id": "P042"}))
 
     conn = sqlite3.connect(str(Path(tmpdir) / "audit.db"))
-    rows = conn.execute("SELECT tool_name, outcome FROM audit_log ORDER BY id").fetchall()
+    rows = conn.execute(
+        "SELECT tool_name, outcome, subject_id FROM audit_log ORDER BY id"
+    ).fetchall()
     conn.close()
 
-    check("tier1 success audited", any(r[0] == "alpha_free" and r[1] == "SUCCESS" for r in rows),
+    check("tier1 success audited",
+          any(r[0] == "alpha_free" and r[1] == "SUCCESS" for r in rows),
           f"rows: {rows}")
-    check("consent block audited", any(r[0] == "alpha_gated" and r[1] == "CONSENT_BLOCKED" for r in rows),
+    check("consent block audited",
+          any(r[0] == "alpha_gated" and r[1] == "CONSENT_BLOCKED" for r in rows),
+          f"rows: {rows}")
+    # Research-framing: subject_id threads through to the audit row, so
+    # a study's analytical trace can be scoped to a participant/cohort.
+    check("subject_id recorded on audit row",
+          any(r[0] == "alpha_free" and r[2] == "P042" for r in rows),
+          f"rows: {rows}")
+    check("subject_id absent stays NULL",
+          any(r[0] == "alpha_gated" and r[2] is None for r in rows),
           f"rows: {rows}")
     router.close()
 

@@ -4,8 +4,18 @@ Biosensor-to-LLM Framework — Interfaces
 Base classes defining the contract between the parent router MCP
 and domain-specific child MCPs.
 
-Any biosensor data source (running, CGM, sleep, ECG, etc.) implements
-ChildMCP to plug into the router's security/consent/cost pipeline.
+ChildMCP is the extension point for each data source a research
+group wants to expose to an LLM analyst: a CSV directory, an EDF
+file, a FHIR bundle, a REDCap export, a vendor-specific cloud
+API, etc. The running child in this repository is one worked
+example of the pattern, not the canonical use case.
+
+Every child declares how sensitive its data is (``consent_info``),
+what tools it exposes and at what access tier (``tool_definitions``),
+and how to cheaply estimate a per-call token budget
+(``estimate_cost``). The router enforces the rest uniformly — so
+any LLM client gets identical behavior without domain-specific
+prompting.
 """
 
 from __future__ import annotations

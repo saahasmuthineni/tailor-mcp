@@ -3,9 +3,15 @@ Biosensor-to-LLM Framework — Base Storage
 ==========================================
 Thread-safe SQLite-backed local cache with WAL mode and connection pooling.
 
-Children extend this for domain-specific tables by overriding _schema_sql().
-Each thread gets its own persistent connection via threading.local(),
-avoiding connect/close overhead while respecting SQLite's thread safety.
+SQLite is used deliberately: it's stdlib, single-file, inspectable with
+any SQL tool, and simple to archive or attach to a replication package.
+For the research workflows this framework targets, that set of properties
+matters more than write throughput.
+
+Children extend this for domain-specific tables by overriding
+``_schema_sql()``. Each thread gets its own persistent connection via
+``threading.local()``, avoiding connect/close overhead while respecting
+SQLite's thread safety.
 """
 
 import logging

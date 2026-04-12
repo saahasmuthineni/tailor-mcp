@@ -151,7 +151,15 @@ class TestTier1Dispatch:
             result = _run(router._dispatch("alpha_free_tool", {"value": 42}))
             data = _loads(result[0].text)
             assert data["result"] == "ok"
-            assert data["_meta"]["tier"] == 1
+            meta = data["_meta"]
+            assert meta["tier"] == 1
+            # Provenance stamps: package version, tool name, UTC timestamp.
+            # These let any downstream consumer (a vault note, a paper
+            # appendix) trace a result back to the exact code version.
+            import biosensor_mcp
+            assert meta["package_version"] == biosensor_mcp.__version__
+            assert meta["tool_name"] == "alpha_free_tool"
+            assert meta["called_at"].endswith("+00:00")
             router.close()
 
     def test_invalid_params_rejected(self):
@@ -344,7 +352,13 @@ class TestVaultLayerIntegration:
             result = _run(router._dispatch("vault_list_notes", {}))
             data = _loads(result[0].text)
             assert "error" not in data
-            assert data["_meta"]["domain"] == "vault"
+            meta = data["_meta"]
+            assert meta["domain"] == "vault"
+            # Provenance stamps apply to vault dispatch too.
+            import biosensor_mcp
+            assert meta["package_version"] == biosensor_mcp.__version__
+            assert meta["tool_name"] == "vault_list_notes"
+            assert "called_at" in meta
             router.close()
 
     def test_vault_tool_validates_params(self):
@@ -508,3 +522,107 @@ class TestVaultCaptureSessionIntegration:
                 assert "Hand-edited in Obsidian." in data["content"]
             finally:
                 router.close()
+
+
+class TestSubjectIdAuditScoping:
+    """
+    ``subject_id`` lifted into the audit log lets any analysis scope rows
+    to a study participant or cohort. Existing children that don't pass
+    one still work (the column stays NULL).
+    """
+
+    def test_subject_id_threaded_through_to_audit_row(self):
+        import sqlite3
+        with TemporaryDirectory() as tmpdir:
+            router = RouterMCP("test", Path(tmpdir))
+            router.register_child(MockChild("alpha"))
+            _run(router._dispatch(
+                "alpha_free_tool", {"value": 7, "subject_id": "P042"}
+            ))
+            router.close()
+            conn = sqlite3.connect(str(Path(tmpdir) / "audit.db"))
+            try:
+                rows = conn.execute(
+                    "SELECT tool_name, outcome, subject_id FROM audit_log"
+                ).fetchall()
+            finally:
+                conn.close()
+        assert rows == [("alpha_free_tool", "SUCCESS", "P042")]
+
+    def test_subject_id_absent_leaves_column_null(self):
+        import sqlite3
+        with TemporaryDirectory() as tmpdir:
+            router = RouterMCP("test", Path(tmpdir))
+            router.register_child(MockChild("alpha"))
+            _run(router._dispatch("alpha_free_tool", {"value": 7}))
+            router.close()
+            conn = sqlite3.connect(str(Path(tmpdir) / "audit.db"))
+            try:
+                rows = conn.execute(
+                    "SELECT subject_id FROM audit_log"
+                ).fetchall()
+            finally:
+                conn.close()
+        assert rows == [(None,)]
+
+
+class TestPHIScrubberSeam:
+    """
+    The router runs PHIScrubber.scrub() on every successful child result
+    before tokens are counted, the row is audited, or post-execute hooks
+    fire. Default is a no-op; a subclass can override to actually strip
+    fields.
+    """
+
+    def test_default_scrubber_leaves_result_untouched(self):
+        with TemporaryDirectory() as tmpdir:
+            router = RouterMCP("test", Path(tmpdir))
+            router.register_child(MockChild("alpha"))
+            r = _run(router._dispatch("alpha_free_tool", {"value": 1}))
+            data = _loads(r[0].text)
+            assert data["result"] == "ok"
+            assert data["tool"] == "alpha_free_tool"
+            router.close()
+
+    def test_subclass_scrubber_mutates_response(self):
+        from biosensor_mcp.framework.middleware import PHIScrubber
+
+        class DropParamsScrubber(PHIScrubber):
+            def scrub(self, result: dict) -> dict:
+                # Drop everything except the outcome marker so we can prove
+                # the scrubber actually ran.
+                return {"result": result.get("result")}
+
+        with TemporaryDirectory() as tmpdir:
+            router = RouterMCP("test", Path(tmpdir))
+            router.register_child(MockChild("alpha"))
+            router._phi_scrubber = DropParamsScrubber()
+            r = _run(router._dispatch("alpha_free_tool", {"value": 1}))
+            data = _loads(r[0].text)
+            assert data["result"] == "ok"
+            assert "params" not in data  # scrubbed
+            assert "tool" not in data    # scrubbed
+            router.close()
+
+
+class TestDispatchInternalProvenance:
+    """
+    Internal cross-child calls (used by vault backfill) must carry the
+    same provenance stamps as Claude-facing calls. Otherwise vault notes
+    written by backfill would be untraceable.
+    """
+
+    def test_dispatch_internal_stamps_meta(self):
+        with TemporaryDirectory() as tmpdir:
+            router = RouterMCP("test", Path(tmpdir))
+            router.register_child(MockChild("alpha"))
+            result = _run(router.dispatch_internal(
+                "alpha_free_tool", {"value": 7}
+            ))
+            assert "_meta" in result
+            meta = result["_meta"]
+            import biosensor_mcp
+            assert meta["package_version"] == biosensor_mcp.__version__
+            assert meta["tool_name"] == "alpha_free_tool"
+            assert meta["source"] == "INTERNAL"
+            router.close()

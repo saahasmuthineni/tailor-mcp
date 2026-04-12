@@ -1,12 +1,16 @@
 """
 Biosensor-to-LLM Framework
 ===========================
-Parent router MCP with security middleware for piping
-high-frequency biosensor data into LLM context windows.
+Local-first router and middleware for LLM-assisted analysis of
+high-frequency biometric data in research settings.
 
-Domain-agnostic: the framework handles consent, cost gating,
-circuit breaking, audit, and token budgeting. Domain-specific
-logic lives in child MCPs that register with the router.
+The framework is domain-agnostic. It owns the cross-cutting concerns
+that research workflows need regardless of data source: parameter
+validation, circuit breaking, per-domain consent, cost gating, a
+PHI-scrubbing seam, an audit log suitable for reproducibility and
+IRB review, and cumulative token accounting. Domain-specific logic
+(one data source per child) lives in ChildMCPs that register with
+the router.
 """
 
 from .interfaces import (

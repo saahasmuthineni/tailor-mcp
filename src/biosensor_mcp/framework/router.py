@@ -1,26 +1,38 @@
 """
 Biosensor-to-LLM Framework — Parent Router MCP
 ================================================
-The router sits between Claude and all child MCPs.
-It owns security, consent, cost gating, and audit.
-Children register their tools; the router dispatches through
-the security pipeline.
+The router sits between the LLM client (Claude Desktop, Claude API,
+any MCP-speaking agent) and all registered child MCPs. It owns the
+cross-cutting concerns that let a research group reason about what
+an LLM analyst saw, when, with what scope, and under what gate —
+without trusting the LLM to enforce those rules itself.
 
 Architecture:
-    Claude → Router (validate → circuit break → consent → cost → audit)
-                ↓
-           Child MCP (domain-specific execution)
+    LLM client → Router (validate → circuit break → consent → cost
+                         → execute → PHI-scrub → audit)
+                    ↓
+               Child MCP (domain-specific execution)
 
 Children register via register_child(). The router builds a unified
 tool listing from all children and dispatches by tool name.
+
+Every successful result that leaves the router carries a ``_meta``
+block stamped with the package version, the tool name, and a UTC
+timestamp. Combined with the audit log, this gives any downstream
+consumer enough information to trace a result back to the exact code
+version and moment that produced it — the minimum bar for an analysis
+that might end up in a paper.
 """
 
 import logging
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 from mcp.server import Server
 from mcp.types import TextContent, Tool
+
+import biosensor_mcp
 
 from .interfaces import ChildMCP, CostEstimate, LLMInstruction, ToolDefinition
 from .middleware import (
@@ -30,12 +42,30 @@ from .middleware import (
     ConsentGate,
     CostGate,
     ParamValidator,
+    PHIScrubber,
     TokenLedger,
     _dumps,
     estimate_tokens,
 )
 
 log = logging.getLogger("biosensor-mcp")
+
+
+def _coerce_subject_id(params: object) -> str | None:
+    """
+    Extract an optional ``subject_id`` from a params dict for audit-log
+    scoping. Accepts str/int (common in research identifiers); anything
+    else is treated as absent. Returning None means "no scope" — callers
+    pass None through to ``AuditLog.record(subject_id=...)``.
+    """
+    if not isinstance(params, dict):
+        return None
+    raw = params.get("subject_id")
+    if raw is None:
+        return None
+    if isinstance(raw, (str, int)):
+        return str(raw)
+    return None
 
 
 class RouterMCP:
@@ -75,6 +105,10 @@ class RouterMCP:
         )
         self._consent = ConsentGate()
         self._cost_gate = CostGate(threshold=cost_threshold)
+        # PHI scrubbing seam. Ships as a no-op; institutions swap in a
+        # subclass that drops/hashes identifying fields on a per-child
+        # basis once their policy is defined. See middleware.PHIScrubber.
+        self._phi_scrubber = PHIScrubber()
         self._audit = AuditLog(data_dir / "audit.db")
         self._ledger = TokenLedger()
         self._validator = ParamValidator()
@@ -268,20 +302,30 @@ class RouterMCP:
         domain = child.domain
         tier = tool_def.tier
 
+        # Extract optional study subject_id so every audit row along this
+        # dispatch path can be scoped to a participant/cohort. Pre-validation
+        # we read from raw arguments; post-validation from cleaned (which
+        # ParamValidator preserves extra keys through).
+        subject_id = _coerce_subject_id(arguments)
+
         # ── LAYER 1: Param validation ──
         schemas = child.param_schemas.get(tool_name, {})
         ok, err, cleaned = self._validator.validate(schemas, arguments)
         if not ok:
             self._audit.record(
-                domain, tool_name, tier, arguments, 0, "PARAM_INVALID", 0, err
+                domain, tool_name, tier, arguments, 0, "PARAM_INVALID", 0, err,
+                subject_id=subject_id,
             )
             return [TextContent(type="text", text=_dumps({"error": err}))]
+
+        subject_id = _coerce_subject_id(cleaned)
 
         # ── LAYER 2: Circuit breaker (scoped per domain) ──
         cb_ok, cb_err = self._circuit.check(domain)
         if not cb_ok:
             self._audit.record(
-                domain, tool_name, tier, cleaned, 0, "CIRCUIT_OPEN", 0, cb_err
+                domain, tool_name, tier, cleaned, 0, "CIRCUIT_OPEN", 0, cb_err,
+                subject_id=subject_id,
             )
             return [TextContent(type="text", text=_dumps({"error": cb_err}))]
 
@@ -290,7 +334,8 @@ class RouterMCP:
             consent_ok, _ = self._consent.check(domain)
             if not consent_ok:
                 self._audit.record(
-                    domain, tool_name, tier, cleaned, 0, "CONSENT_BLOCKED", 0
+                    domain, tool_name, tier, cleaned, 0, "CONSENT_BLOCKED", 0,
+                    subject_id=subject_id,
                 )
                 ci = child.consent_info
                 scope = ci.scope
@@ -377,6 +422,7 @@ class RouterMCP:
                     cost_est.tokens,
                     "COST_GATE_TRIGGERED",
                     duration_ms,
+                    subject_id=subject_id,
                 )
 
                 # Human-relatable cost context
@@ -445,13 +491,21 @@ class RouterMCP:
         try:
             result = await child.execute(tool_name, cleaned)
 
+            # ── PHI scrubbing seam (runs before tokens are counted or
+            # the result is audited, so the scrubbed form is what every
+            # downstream consumer sees). Default no-op; institutions
+            # override by subclassing middleware.PHIScrubber.
+            if isinstance(result, dict):
+                result = self._phi_scrubber.scrub(result)
+
             tokens = estimate_tokens(result)
             duration_ms = int((time.time() - start) * 1000)
 
             self._circuit.record_success(domain)
             self._ledger.add(domain, tool_name, tokens)
             self._audit.record(
-                domain, tool_name, tier, cleaned, tokens, "SUCCESS", duration_ms
+                domain, tool_name, tier, cleaned, tokens, "SUCCESS", duration_ms,
+                subject_id=subject_id,
             )
 
             # ── Post-execute hooks (e.g. VaultWriter) ──
@@ -461,13 +515,18 @@ class RouterMCP:
                 except Exception as _hook_exc:
                     log.warning(f"Post-execute hook failed silently: {_hook_exc}")
 
-            # Attach metadata to response
+            # Attach metadata to response, including provenance stamps so
+            # a downstream analyst can trace any result back to the exact
+            # code version and moment that produced it.
             if isinstance(result, dict):
                 result["_meta"] = {
                     "tokens_this_call": tokens,
                     "session_total_tokens": self._ledger.total,
                     "domain": domain,
                     "tier": tier,
+                    "package_version": biosensor_mcp.__version__,
+                    "tool_name": tool_name,
+                    "called_at": datetime.now(timezone.utc).isoformat(),
                 }
 
             return [TextContent(type="text", text=_dumps(result))]
@@ -476,7 +535,8 @@ class RouterMCP:
             duration_ms = int((time.time() - start) * 1000)
             self._circuit.record_failure(domain)
             self._audit.record(
-                domain, tool_name, tier, cleaned, 0, "ERROR", duration_ms, str(e)
+                domain, tool_name, tier, cleaned, 0, "ERROR", duration_ms, str(e),
+                subject_id=subject_id,
             )
             log.error(f"Tool {tool_name} failed: {e}", exc_info=True)
             return [TextContent(type="text", text=_dumps({"error": str(e)}))]
@@ -505,15 +565,19 @@ class RouterMCP:
               vault writes)
         """
         tier = tool_def.tier
+        subject_id = _coerce_subject_id(arguments)
 
         # ── LAYER 1: Param validation ──
         schemas = self._vault_layer.param_schemas.get(tool_name, {})
         ok, err, cleaned = self._validator.validate(schemas, arguments)
         if not ok:
             self._audit.record(
-                "vault", tool_name, tier, arguments, 0, "PARAM_INVALID", 0, err
+                "vault", tool_name, tier, arguments, 0, "PARAM_INVALID", 0, err,
+                subject_id=subject_id,
             )
             return [TextContent(type="text", text=_dumps({"error": err}))]
+
+        subject_id = _coerce_subject_id(cleaned)
 
         # ── EXECUTE ──
         try:
@@ -523,7 +587,8 @@ class RouterMCP:
 
             self._ledger.add("vault", tool_name, tokens)
             self._audit.record(
-                "vault", tool_name, tier, cleaned, tokens, "SUCCESS", duration_ms
+                "vault", tool_name, tier, cleaned, tokens, "SUCCESS", duration_ms,
+                subject_id=subject_id,
             )
 
             if isinstance(result, dict):
@@ -532,6 +597,9 @@ class RouterMCP:
                     "session_total_tokens": self._ledger.total,
                     "domain": "vault",
                     "tier": tier,
+                    "package_version": biosensor_mcp.__version__,
+                    "tool_name": tool_name,
+                    "called_at": datetime.now(timezone.utc).isoformat(),
                 }
 
             return [TextContent(type="text", text=_dumps(result))]
@@ -539,7 +607,8 @@ class RouterMCP:
         except Exception as e:
             duration_ms = int((time.time() - start) * 1000)
             self._audit.record(
-                "vault", tool_name, tier, cleaned, 0, "ERROR", duration_ms, str(e)
+                "vault", tool_name, tier, cleaned, 0, "ERROR", duration_ms, str(e),
+                subject_id=subject_id,
             )
             log.error(f"Vault tool {tool_name} failed: {e}", exc_info=True)
             return [TextContent(type="text", text=_dumps({"error": str(e)}))]
@@ -575,21 +644,26 @@ class RouterMCP:
 
         domain = child.domain
         tier = tool_def.tier
+        subject_id = _coerce_subject_id(params)
 
         # ── LAYER 1: Param validation ──
         schemas = child.param_schemas.get(tool_name, {})
         ok, err, cleaned = self._validator.validate(schemas, params)
         if not ok:
             self._audit.record(
-                domain, tool_name, tier, params, 0, "PARAM_INVALID_INTERNAL", 0, err
+                domain, tool_name, tier, params, 0, "PARAM_INVALID_INTERNAL", 0, err,
+                subject_id=subject_id,
             )
             return {"error": err}
+
+        subject_id = _coerce_subject_id(cleaned)
 
         # ── LAYER 2: Circuit breaker ──
         cb_ok, cb_err = self._circuit.check(domain)
         if not cb_ok:
             self._audit.record(
-                domain, tool_name, tier, cleaned, 0, "CIRCUIT_OPEN_INTERNAL", 0, cb_err
+                domain, tool_name, tier, cleaned, 0, "CIRCUIT_OPEN_INTERNAL", 0, cb_err,
+                subject_id=subject_id,
             )
             return {"error": cb_err}
 
@@ -598,7 +672,8 @@ class RouterMCP:
             consent_ok, _ = self._consent.check(domain)
             if not consent_ok:
                 self._audit.record(
-                    domain, tool_name, tier, cleaned, 0, "CONSENT_BLOCKED_INTERNAL", 0
+                    domain, tool_name, tier, cleaned, 0, "CONSENT_BLOCKED_INTERNAL", 0,
+                    subject_id=subject_id,
                 )
                 return {"error": f"Consent not approved for domain '{domain}'"}
 
@@ -617,29 +692,51 @@ class RouterMCP:
             if self._cost_gate.should_gate(cost_est.tokens):
                 self._audit.record(
                     domain, tool_name, tier, cleaned, cost_est.tokens,
-                    "COST_GATE_INTERNAL", 0
+                    "COST_GATE_INTERNAL", 0,
+                    subject_id=subject_id,
                 )
                 return {"error": f"Cost gate: {cost_est.tokens} tokens exceeds threshold"}
 
         # ── LAYER 5: Execute ──
         try:
             result = await child.execute(tool_name, cleaned)
+            # Same PHI-scrubbing seam as the public dispatch path, so
+            # internal cross-child calls (e.g. vault backfill) see the
+            # same scrubbed view a Claude-facing call would see.
+            if isinstance(result, dict):
+                result = self._phi_scrubber.scrub(result)
             tokens = estimate_tokens(result)
             duration_ms = int((time.time() - start) * 1000)
 
             self._circuit.record_success(domain)
             self._ledger.add(domain, tool_name, tokens)
             self._audit.record(
-                domain, tool_name, tier, cleaned, tokens, "SUCCESS_INTERNAL", duration_ms
+                domain, tool_name, tier, cleaned, tokens, "SUCCESS_INTERNAL", duration_ms,
+                subject_id=subject_id,
             )
-            # No post-execute hooks — caller manages side effects
+            # No post-execute hooks — caller manages side effects.
+            # Stamp _meta so internal dispatch results carry the same
+            # provenance as Claude-facing ones; otherwise vault backfill
+            # results would be untraceable.
+            if isinstance(result, dict):
+                result["_meta"] = {
+                    "tokens_this_call": tokens,
+                    "session_total_tokens": self._ledger.total,
+                    "domain": domain,
+                    "tier": tier,
+                    "package_version": biosensor_mcp.__version__,
+                    "tool_name": tool_name,
+                    "called_at": datetime.now(timezone.utc).isoformat(),
+                    "source": "INTERNAL",
+                }
             return result
 
         except Exception as e:
             duration_ms = int((time.time() - start) * 1000)
             self._circuit.record_failure(domain)
             self._audit.record(
-                domain, tool_name, tier, cleaned, 0, "ERROR_INTERNAL", duration_ms, str(e)
+                domain, tool_name, tier, cleaned, 0, "ERROR_INTERNAL", duration_ms, str(e),
+                subject_id=subject_id,
             )
             log.error(f"Internal dispatch {tool_name} failed: {e}", exc_info=True)
             return {"error": str(e)}

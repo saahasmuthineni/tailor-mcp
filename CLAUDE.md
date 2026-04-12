@@ -1,25 +1,30 @@
-# CLAUDE.md — Biosensor-to-LLM Optimization
+# CLAUDE.md — Biosensor MCP
 
 ## What This Project Is
 
-A **reference implementation** for efficiently piping high-frequency biosensor data (HR, GPS, pace, altitude, glucose, SpO2) into LLM context windows without blowing token budgets or leaking sensitive biometric data.
+**Local-first infrastructure for LLM-assisted analysis of high-frequency biometric data — built for health research workflows where data governance, audit trails, and reproducibility matter.**
 
-Strava running data is the proving ground. The architecture generalises to any biosensor pipeline: CGM, sleep staging, ECG, lab results.
+The intended users are health researchers (academic medical centers, mHealth labs, sleep/CGM/cardiology groups) and the research-software engineers who support them. The deliverables are a router that owns cross-cutting concerns, a ChildMCP extension point for new data sources, and a vault layer for durable cross-session analytical memory.
 
-**This is NOT a Strava coaching product.** The domain is illustrative; the framework is the deliverable.
+The running child (Strava data) is one **worked example** of the ChildMCP pattern — a complete, copyable template for wrapping a streaming biometric source. It is retained for teaching value; it is not the canonical use case.
 
-## The Core Problem Solved
+## Problems this is built against
 
-A 15-mile run generates ~8,600 per-second data points across 8 stream types, serialising to ~200,000 tokens. Sending that to Claude for every question costs ~$60/month and is a privacy risk. Server-side computation reduces this to ~800 tokens (~$0.02) — 99.6% reduction.
+1. **Data governance.** Hosted LLMs are the wrong home for participant biometric data. The tier model and local-first processing are the structural response.
+2. **Reproducibility.** LLM-assisted analyses in chat windows leave no durable trace. The audit log (every call logged to SQLite, scoped by optional `subject_id`) and `_meta` provenance stamps are the response.
+3. **Longitudinal analytical memory.** Observations made in one session disappear when the chat ends. The vault layer (themes, moments, evidence logs, append-only) is the response.
+
+Token efficiency is a useful side effect of computing summaries server-side. It is not the headline.
 
 ## Architecture
 
 ```
-Claude Desktop <--> RouterMCP (validate → circuit break → consent → cost → audit)
-                         |                 ╲
-                    ChildMCP                VaultLayer   ← framework-level
-             (biosensor tier)          (reorientation tier;  skips gates)
-          e.g. RunningChild, CGMChild   Obsidian vault + SQLite index
+LLM client <--> RouterMCP (validate → circuit break → consent → cost → execute
+                           → PHI scrub → audit + provenance stamp)
+                   |                 ╲
+              ChildMCP                VaultLayer   ← framework-level
+     (one per data source)      (reorientation tier;  skips consent/cost gates)
+  e.g. RunningChild, CGMChild    Obsidian vault + SQLite index
 ```
 
 **Two persistence tiers, architecturally distinct:**
@@ -31,7 +36,7 @@ Claude Desktop <--> RouterMCP (validate → circuit break → consent → cost �
 
 Markdown files in the Obsidian vault are the **source of truth** for analytical knowledge; `vault.db` is a query-optimization index. Obsidian is the human-facing view of the same data the LLM accesses via vault tools.
 
-**Key principle**: Behavioral rules (consent gates, cost gates, access tiers) live server-side, not in the LLM. Any LLM client gets identical enforcement. Vault tools skip these gates (metadata, not biometric data) — only param validation and audit apply.
+**Key principle**: Behavioral rules (consent gates, cost gates, access tiers, PHI scrubbing) live server-side, not in the LLM. Any LLM client gets identical enforcement. Vault tools skip the biosensor-tier gates (the analyst's notes are not participant biometric data), including the PHI-scrubbing seam — only param validation and audit apply.
 
 ## File Structure
 
@@ -45,13 +50,17 @@ src/biosensor_mcp/
     interfaces.py          # ChildMCP ABC, ToolDefinition, CostEstimate,
                            #   ValidationSchema, ConsentInfo, ConsentScope,
                            #   CostContext, LLMInstruction
-    router.py              # RouterMCP — security pipeline + dispatch
+    router.py              # RouterMCP — security pipeline + dispatch +
+                           #   _meta provenance stamps, PHI-scrub seam
     middleware.py          # CircuitBreaker, ConsentGate, CostGate,
-                           #   AuditLog, TokenLedger, ParamValidator
+                           #   PHIScrubber (no-op default), AuditLog
+                           #   (with subject_id), TokenLedger, ParamValidator
     storage.py             # BaseStorage — thread-safe SQLite with WAL
   children/
-    running/
-      __init__.py          # Exports RunningChild
+    __init__.py            # Docstring framing children as the extension
+                           #   point for new data sources
+    running/               # Worked example — see __init__.py
+      __init__.py          # Exports RunningChild; framed as a template
       child.py             # RunningChild(ChildMCP) — 12 tools, 3 tiers
       processing.py        # RunningProcessing — stateless analytics
       strava_api.py        # OAuth + rate-limited Strava API client
@@ -80,7 +89,7 @@ tests/
   security_probe.py        # Standalone security probe (runs in CI, no pytest needed)
 ```
 
-## Security Pipeline (5 Layers, Cheapest First)
+## Security Pipeline (Cheapest First)
 
 | Layer | Class | Purpose |
 |-------|-------|---------|
@@ -88,19 +97,24 @@ tests/
 | 2 | `CircuitBreaker` | Block domain after 3 consecutive failures; auto-reset after 5 min |
 | 3 | `ConsentGate` | Per-domain biometric consent, session-scoped, revocable |
 | 4 | `CostGate` | Pre-estimate tokens before execution; gate if > 35,000 tokens |
-| 5 | `AuditLog` + `TokenLedger` | Every call logged to SQLite; cumulative session spend |
+| 5 | `PHIScrubber` | Institutional PHI-stripping seam; no-op default, subclass-per-child when a real policy exists |
+| 6 | `AuditLog` + `TokenLedger` | Every call logged to SQLite with optional `subject_id` scoping; cumulative session spend |
+
+Every successful result also carries a `_meta` block stamped with `package_version`, `tool_name`, and a UTC `called_at` timestamp — minimum-viable provenance for results that may end up in a paper.
 
 ## Three-Tier Access Model
 
-| Tier | What Claude Sees | Tokens | Gate |
+The tier model is a technical implementation of data minimization — the question "at what resolution does the analyst actually need this?" made executable.
+
+| Tier | What the LLM Sees | Tokens (running example) | Gate |
 |------|-----------------|--------|------|
 | 1 — Free | Server-computed reports (splits, zones, drift, decoupling, EF, trends) | 200–1,500 | None |
-| 2 — Consent | Downsampled streams at 5–30s for visualisation | 3,000–7,000 | Biometric consent |
-| 3 — Cost | Per-second streams with precision reduction | 25,000–60,000 | Consent + cost approval |
+| 2 — Consent | Downsampled streams at 5–30s for visualization | 3,000–7,000 | Biometric consent |
+| 3 — Cost | Per-timestamp streams with precision reduction | 25,000–60,000 | Consent + cost approval |
 
-~90% of questions are answered at Tier 1 with zero raw biometric data leaving the machine.
+Most analytical questions are answerable at Tier 1 with zero raw biometric data leaving the machine. Token counts are illustrative and come from the running child; other domains will have different baselines.
 
-## Running Child — 12 Tools
+## Running Child (worked example) — 12 Tools
 
 | Tool | Tier | Description |
 |------|------|-------------|
@@ -140,6 +154,12 @@ biosensor-mcp serve
 ```
 
 ## Key Design Decisions
+
+**Audit log is the backbone.** Every tool call lands in `audit.db` with timestamp, domain, tool, tier, parameters, token estimate, outcome, latency, optional error, and optional `subject_id`. That row is intended to be durable evidence of how an analyst accessed participant data. It's the single most load-bearing feature for research use.
+
+**`subject_id` scoping is first-class on the audit log but optional on calls.** The router extracts `subject_id` from incoming parameters (if present) and passes it through to every audit row in that dispatch path. Children are not yet required to accept it as a tool parameter — that's on the roadmap. Existing audit databases are silently migrated via `ALTER TABLE`.
+
+**PHI scrubbing is a seam, not a policy.** `PHIScrubber.scrub()` is a no-op by default. Institutions subclass and wire their own scrubber in at router construction time once they have a policy. The framework deliberately does not guess what "PHI" means in a given study.
 
 **Structured `LLMInstruction` over freeform strings**: Consent and cost gates return a JSON object with individually checkable `must_do`, `must_not_do`, and `on_ambiguous_reply` fields — not a free-text paragraph. Makes compliance auditable.
 
@@ -185,7 +205,9 @@ User config at `~/.biosensor-mcp/user_config.json`:
 }
 ```
 
-## Adding a New Biosensor Child
+## Adding a New ChildMCP (new data source)
+
+Children are the framework's extension point. Each one wraps one data source (CSV directory, EDF file, FHIR bundle, REDCap export, vendor API) and exposes tiered tools; the router handles everything else uniformly.
 
 Implement 4 abstract items and register:
 
@@ -224,7 +246,7 @@ router.register_child(CGMChild(config_dir, data_dir))
 
 ## Framework-Level Infrastructure (Not a ChildMCP)
 
-Components that represent durable cross-session state — not biosensor domains — register directly with the router and bypass the security pipeline (consent/cost gates don't apply to metadata).
+Components that represent durable cross-session state — not biosensor domains — register directly with the router and bypass the biosensor-tier gates (consent, cost, circuit breaker, PHI scrub). Param validation and audit still apply.
 
 `VaultLayer` is the reference implementation of this pattern:
 
@@ -244,9 +266,15 @@ router.register_vault_layer(VaultLayer(
 
 Key differences from a ChildMCP:
 - No `domain`, `consent_info`, or `estimate_cost()` — these are biosensor-tier concerns
-- Dispatch skips circuit breaker, consent gate, cost gate, and post-execute hooks
+- Dispatch skips circuit breaker, consent gate, cost gate, PHI-scrub seam, and post-execute hooks
 - Only param validation + audit apply
 - Tools must still have unique names (collision with any registered child is rejected)
+
+## Further reading
+
+- [README.md](README.md) — audience-facing overview.
+- [docs/research-framing.md](docs/research-framing.md) — the longer-form document aimed at health-research reviewers and RSEs.
+- [docs/roadmap.md](docs/roadmap.md) — explicitly deferred work (real PHI scrubbing, new children, deterministic replay, full provenance hashing, per-subject tool-parameter scoping, multi-analyst vault attribution, vault freeze, worked-example notebook, evaluation harness).
 
 ## CI
 

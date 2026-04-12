@@ -61,7 +61,6 @@ class VaultWriter:
     Args:
         vault_path:       Absolute path to the Obsidian vault root.
         data_dir:         The MCP data directory (used to locate vault.db).
-        running_storage:  RunningStorage instance for date / activity lookups.
         vaultable_tools:  Set of tool names whose results should be archived.
         max_hr:           User-configured max heart rate (for run note rendering).
     """
@@ -70,13 +69,11 @@ class VaultWriter:
         self,
         vault_path: Path,
         data_dir: Path,
-        running_storage,           # RunningStorage — avoids circular import
         vaultable_tools: set[str],
         max_hr: int = 195,
     ):
         self._vault_path = vault_path
         self._storage = VaultStorage(data_dir / "vault.db")
-        self._running_storage = running_storage
         self._vaultable_tools = vaultable_tools
         self._max_hr = max_hr
 
@@ -158,10 +155,17 @@ class VaultWriter:
     def _render(self, tool_name: str, result: dict) -> tuple[str, str]:
         """Dispatch to the correct renderer. Returns (filename, content)."""
         if tool_name == "strava_run_report":
-            activity_id = result.get("activity_id")
-            activity_data = {}
-            if activity_id and self._running_storage:
-                activity_data = self._running_storage.get_activity(activity_id) or {}
+            # Activity metadata is now embedded in the result dict by RunningChild,
+            # so we build activity_data from the result rather than querying storage.
+            activity_data = {
+                "id": result.get("activity_id"),
+                "name": result.get("activity_name"),
+                "start_date": result.get("start_date"),
+                "distance": result.get("distance"),
+                "moving_time": result.get("moving_time"),
+                "average_heartrate": result.get("average_heartrate"),
+                "max_heartrate": result.get("max_heartrate"),
+            }
             return render_run_note(result, activity_data, max_hr=self._max_hr)
 
         if tool_name == "strava_trend_report":

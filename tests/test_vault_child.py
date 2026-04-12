@@ -13,6 +13,13 @@ def _run(coro):
     return asyncio.run(coro)
 
 
+def _async_return(value):
+    """Create an async function that returns a fixed value (for mocking dispatch_internal)."""
+    async def _mock(*args, **kwargs):
+        return value
+    return _mock
+
+
 def _make_running_storage_mock(activity_id=12345678):
     from datetime import datetime, timedelta, timezone
     # Use a date 4 weeks ago so it stays within any reasonable weeks_back window
@@ -39,12 +46,13 @@ def _setup_vault(vault_dir, data_dir, activity_id=12345678):
 
     vault_path = Path(vault_dir)
     data_path = Path(data_dir)
+    # Still used to derive the dynamic date for test assertions
     running_storage = _make_running_storage_mock(activity_id)
+    activity_date = running_storage.get_activity(activity_id)["start_date"][:10]
 
     writer = VaultWriter(
         vault_path=vault_path,
         data_dir=data_path,
-        running_storage=running_storage,
         vaultable_tools={"strava_run_report"},
         max_hr=195,
     )
@@ -52,6 +60,13 @@ def _setup_vault(vault_dir, data_dir, activity_id=12345678):
     result = {
         "activity_id": activity_id,
         "data_points": 3600,
+        # Activity metadata (now embedded in result by RunningChild)
+        "activity_name": "Morning Run",
+        "start_date": running_storage.get_activity(activity_id)["start_date"],
+        "distance": 14800,
+        "moving_time": 4740,
+        "average_heartrate": 149,
+        "max_heartrate": 172,
         "decoupling": {"decoupling_pct": 3.2, "interpretation": "well coupled"},
         "efficiency_factor": {"ef": 1.23},
         "hr_drift": {"drift_pct": 3.4, "interpretation": "aerobic",
@@ -72,13 +87,7 @@ def _setup_vault(vault_dir, data_dir, activity_id=12345678):
     child = VaultChild(
         vault_path=vault_path,
         vault_writer=writer,
-        running_storage=running_storage,
-        running_processing=MagicMock(),
-        max_hr=195,
-        resting_hr=60,
     )
-    # Return the dynamic date for use in test assertions
-    activity_date = running_storage.get_activity(activity_id)["start_date"][:10]
     return child, writer, filename, activity_date
 
 
@@ -118,9 +127,8 @@ class TestVaultGetFitnessSummary:
         from biosensor_mcp.vault.writer import VaultWriter
         from biosensor_mcp.vault.child import VaultChild
         with TemporaryDirectory() as v, TemporaryDirectory() as d:
-            mock = _make_running_storage_mock()
-            writer = VaultWriter(Path(v), Path(d), mock, set())
-            child = VaultChild(Path(v), writer, mock, MagicMock())
+            writer = VaultWriter(Path(v), Path(d), vaultable_tools=set())
+            child = VaultChild(Path(v), writer)
             try:
                 result = _run(child.execute("vault_get_fitness_summary", {}))
                 assert "note" in result
@@ -244,10 +252,21 @@ class TestVaultAnnotateRun:
 
 
 class TestVaultBackfill:
+    def test_backfill_no_router_returns_error(self):
+        """Backfill without a router reference should return an error."""
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            child, writer, _, _date = _setup_vault(v, d)
+            result = _run(child.execute("vault_backfill", {}))
+            assert "error" in result
+            writer.close()
+
     def test_backfill_with_no_activities(self):
         with TemporaryDirectory() as v, TemporaryDirectory() as d:
             child, writer, _, _date = _setup_vault(v, d)
-            child._running_storage.list_activities = MagicMock(return_value=[])
+            # Mock router.dispatch_internal to return empty activity list
+            mock_router = MagicMock()
+            mock_router.dispatch_internal = _async_return({"activities": []})
+            child._router = mock_router
             result = _run(child.execute("vault_backfill", {}))
             assert result["written"] == 0
             writer.close()
@@ -256,11 +275,13 @@ class TestVaultBackfill:
         """Activity already in vault index should be skipped."""
         with TemporaryDirectory() as v, TemporaryDirectory() as d:
             child, writer, _, activity_date = _setup_vault(v, d)
-            # The fixture already wrote activity 12345678 with the dynamic date
-            child._running_storage.list_activities = MagicMock(return_value=[{
+            # Mock router.dispatch_internal
+            mock_router = MagicMock()
+            mock_router.dispatch_internal = _async_return({"activities": [{
                 "id": 12345678,
                 "start_date": activity_date + "T07:00:00Z",
-            }])
+            }]})
+            child._router = mock_router
             result = _run(child.execute("vault_backfill", {}))
             assert result["skipped"] >= 1
             writer.close()

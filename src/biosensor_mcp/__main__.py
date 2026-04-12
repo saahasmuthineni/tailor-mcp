@@ -101,21 +101,22 @@ def cmd_serve():
         vaultable: set[str] = set()
         for _child in [running]:
             vaultable.update(getattr(_child, "vaultable_tools", []))
+        # max_hr from user config (same source RunningChild reads from).
+        # _ucfg is guaranteed to exist here — _vault_path is only set when
+        # _ucfg was successfully parsed above.
+        _max_hr = _ucfg.get("max_hr", 195)
         vault_writer = VaultWriter(
             vault_path=_vault_path,
             data_dir=DATA_DIR,
-            running_storage=running._storage,
             vaultable_tools=vaultable,
-            max_hr=running._max_hr,
+            max_hr=_max_hr,
         )
         router.register_post_execute_hook(vault_writer)
+        # VaultChild is domain-agnostic — no RunningStorage/Processing refs.
+        # Router sets child._router during register_child() for dispatch_internal.
         router.register_child(VaultChild(
             vault_path=_vault_path,
             vault_writer=vault_writer,
-            running_storage=running._storage,
-            running_processing=running._processing,
-            max_hr=running._max_hr,
-            resting_hr=running._resting_hr,
         ))
 
     # Future children would register here:

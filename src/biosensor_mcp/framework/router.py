@@ -93,6 +93,7 @@ class RouterMCP:
             raise ValueError(f"Domain '{domain}' already registered")
 
         self._children[domain] = child
+        child._router = self
 
         for tool_def in child.tool_definitions:
             if tool_def.name in self._tool_map:
@@ -440,6 +441,95 @@ class RouterMCP:
             )
             log.error(f"Tool {tool_name} failed: {e}", exc_info=True)
             return [TextContent(type="text", text=_dumps({"error": str(e)}))]
+
+    # ══════════════════════════════════════════════════════════
+    # INTERNAL DISPATCH (cross-child queries)
+    # ══════════════════════════════════════════════════════════
+
+    async def dispatch_internal(
+        self, tool_name: str, params: dict
+    ) -> dict:
+        """
+        Internal cross-child dispatch.  Full security pipeline, returns dict.
+
+        Used by children (e.g. VaultChild backfill) to query siblings
+        through the Router rather than holding direct references.
+
+        Differences from _dispatch():
+        - Returns dict (not TextContent) for programmatic consumption
+        - Post-execute hooks are skipped (caller manages side effects)
+        - Audit records source as "INTERNAL" for traceability
+        """
+        start = time.time()
+
+        if tool_name not in self._tool_map:
+            return {"error": f"Unknown tool: {tool_name}"}
+
+        child, tool_def = self._tool_map[tool_name]
+        domain = child.domain
+        tier = tool_def.tier
+
+        # ── LAYER 1: Param validation ──
+        schemas = child.param_schemas.get(tool_name, {})
+        ok, err, cleaned = self._validator.validate(schemas, params)
+        if not ok:
+            self._audit.record(
+                domain, tool_name, tier, params, 0, "PARAM_INVALID_INTERNAL", 0, err
+            )
+            return {"error": err}
+
+        # ── LAYER 2: Circuit breaker ──
+        cb_ok, cb_err = self._circuit.check(domain)
+        if not cb_ok:
+            self._audit.record(
+                domain, tool_name, tier, cleaned, 0, "CIRCUIT_OPEN_INTERNAL", 0, cb_err
+            )
+            return {"error": cb_err}
+
+        # ── LAYER 3: Consent gate (Tier 2+) ──
+        if tier >= 2:
+            consent_ok, _ = self._consent.check(domain)
+            if not consent_ok:
+                self._audit.record(
+                    domain, tool_name, tier, cleaned, 0, "CONSENT_BLOCKED_INTERNAL", 0
+                )
+                return {"error": f"Consent not approved for domain '{domain}'"}
+
+        # ── LAYER 4: Cost gate (Tier 3) ──
+        if tier >= 3:
+            try:
+                cost_est = await child.estimate_cost(tool_name, cleaned)
+            except Exception:
+                cost_est = CostEstimate(tokens=0)
+            if self._cost_gate.should_gate(cost_est.tokens):
+                self._audit.record(
+                    domain, tool_name, tier, cleaned, cost_est.tokens,
+                    "COST_GATE_INTERNAL", 0
+                )
+                return {"error": f"Cost gate: {cost_est.tokens} tokens exceeds threshold"}
+
+        # ── LAYER 5: Execute ──
+        try:
+            result = await child.execute(tool_name, cleaned)
+            tokens = estimate_tokens(result)
+            duration_ms = int((time.time() - start) * 1000)
+
+            self._circuit.record_success(domain)
+            self._ledger.add(domain, tool_name, tokens)
+            self._audit.record(
+                domain, tool_name, tier, cleaned, tokens, "SUCCESS_INTERNAL", duration_ms
+            )
+            # No post-execute hooks — caller manages side effects
+            return result
+
+        except Exception as e:
+            duration_ms = int((time.time() - start) * 1000)
+            self._circuit.record_failure(domain)
+            self._audit.record(
+                domain, tool_name, tier, cleaned, 0, "ERROR_INTERNAL", duration_ms, str(e)
+            )
+            log.error(f"Internal dispatch {tool_name} failed: {e}", exc_info=True)
+            return {"error": str(e)}
 
     # ── Consent Handler ──
 

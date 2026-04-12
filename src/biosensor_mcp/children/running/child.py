@@ -653,10 +653,21 @@ class RunningChild(ChildMCP):
         time_arr = streams.get("time", [])
         p = self._processing
 
+        # Include activity metadata so downstream consumers (e.g. VaultWriter)
+        # don't need direct access to RunningStorage.
+        activity_id = params["activity_id"]
+        detail = self._storage.get_activity(activity_id)
         report: dict = {
-            "activity_id": params["activity_id"],
+            "activity_id": activity_id,
             "data_points": max(len(hr), len(vel)),
         }
+        if detail:
+            report["activity_name"] = detail.get("name")
+            report["start_date"] = detail.get("start_date")
+            report["distance"] = detail.get("distance")
+            report["moving_time"] = detail.get("moving_time")
+            report["average_heartrate"] = detail.get("average_heartrate")
+            report["max_heartrate"] = detail.get("max_heartrate")
         if hr and vel:
             report["decoupling"] = p.compute_decoupling(hr, vel)
             report["efficiency_factor"] = p.compute_efficiency_factor(hr, vel, grade)

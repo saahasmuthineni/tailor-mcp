@@ -40,6 +40,7 @@ flowchart TD
     end
 
     Router --> Children
+    Router -->|"tool dispatch +\npost-execute hook"| Vault
 
     subgraph Children["Child MCPs — Domain Analytics"]
         Running["RunningChild\n(Strava)"]
@@ -47,10 +48,153 @@ flowchart TD
         Sleep["SleepChild\n(future)"]
     end
 
-    Running -.-> Vault["VaultChild\n(Obsidian)"]
+    Vault["VaultChild · Shared Persistence\n~800 tok/note vs 60k raw"]
+    Vault -->|"backfill reads\n(dispatch_internal)"| Router
+
+    Vault --- Obsidian["Obsidian Vault\n(local markdown files)"]
 ```
 
-The router owns all cross-cutting concerns. Children own domain logic. Any LLM client gets identical security enforcement — behavioral rules live server-side, not in prompts.
+The router owns all cross-cutting concerns. Children own domain logic. The vault is a shared persistence layer — every analysis is automatically saved as a compressed note (~800 tokens vs ~60,000 raw), enabling rich longitudinal queries across future sessions. Any LLM client gets identical security enforcement — behavioral rules live server-side, not in prompts.
+
+---
+
+## How It Works
+
+Every question you ask Claude follows the same path: your question goes through a security checkpoint, gets answered by the right specialist, and the answer is saved for future reference. Here's what happens behind the scenes for different types of questions.
+
+<details>
+<summary><strong>You ask: "How was my last run?"</strong> — Instant analysis, automatically saved</summary>
+
+```mermaid
+sequenceDiagram
+    actor You
+    participant Claude
+    participant Security as Security Check
+    participant Analyst as Running Analyst
+    participant Memory as Your Vault (Obsidian)
+
+    You->>Claude: "How was my last run?"
+    Claude->>Security: Analyze this run
+    Security->>Security: Safe to proceed
+    Security->>Analyst: Crunch the numbers
+    Note over Analyst: Computes zones, pace splits,<br/>heart rate drift, efficiency —<br/>all from local data
+    Analyst-->>Security: Summary report (~800 words)
+    Security->>Security: Log what was accessed
+    Security->>Memory: Auto-save a copy
+    Note over Memory: Saved as a markdown note<br/>you can browse in Obsidian
+    Security-->>Claude: Here's the analysis
+    Claude-->>You: Your run breakdown
+```
+
+**What happened:** Your run data (thousands of data points) was crunched down to a short summary — and automatically saved to your personal vault so Claude can reference it in future conversations without re-processing.
+
+**Cost:** ~800 tokens (< $0.01). No approval needed.
+
+</details>
+
+<details>
+<summary><strong>You ask: "How has my fitness changed over the last 2 months?"</strong> — Answered from saved notes, no re-processing</summary>
+
+```mermaid
+sequenceDiagram
+    actor You
+    participant Claude
+    participant Security as Security Check
+    participant Vault as Your Vault (Obsidian)
+
+    You->>Claude: "How has my fitness changed?"
+    Claude->>Security: Look up fitness history
+    Security->>Vault: Read saved run summaries
+    Note over Vault: Reads pre-saved notes —<br/>NOT raw sensor data.<br/>Each note is ~800 words<br/>instead of ~60,000 raw data points.
+    Vault-->>Security: Weekly summary table
+    Security-->>Claude: 8 weeks of trends
+    Claude-->>You: Your fitness trajectory
+```
+
+**What happened:** Instead of re-downloading and re-processing 8 weeks of raw heart rate and GPS data (which would cost ~$5 in tokens), Claude read the pre-saved vault notes. Same quality analysis, 99% cheaper.
+
+**Cost:** ~400 tokens (< $0.01). No Strava API call. No raw biometric data touched.
+
+</details>
+
+<details>
+<summary><strong>You ask: "Show me my raw heart rate data"</strong> — Sensitive data, requires your permission</summary>
+
+```mermaid
+sequenceDiagram
+    actor You
+    participant Claude
+    participant Security as Security Check
+    participant Analyst as Running Analyst
+
+    You->>Claude: "Show me raw HR data"
+    Claude->>Security: Request raw streams
+    Security->>Security: This is sensitive biometric data
+    Security-->>Claude: Ask for consent first
+    Claude-->>You: "This will share your heart rate data. OK?"
+    You->>Claude: "Yes, go ahead"
+    Security->>Security: This will use ~25,000 tokens
+    Security-->>Claude: Show the cost
+    Claude-->>You: "Full resolution costs ~25k tokens. Want downsampled instead (3k tokens)?"
+    You->>Claude: "Full resolution please"
+    Security->>Analyst: Approved — send raw data
+    Analyst-->>Security: Per-second heart rate
+    Security-->>Claude: Raw HR stream
+    Claude-->>You: Your heart rate data
+```
+
+**What happened:** The system asked you twice — once for consent (it's your biometric data), once for cost (raw data is expensive). You chose full resolution, so you got it. But 90% of the time, the first flow ("How was my last run?") answers the same question for 1/30th the cost.
+
+</details>
+
+<details>
+<summary><strong>You say: "Backfill my vault with all my past runs"</strong> — Bulk-saves historical data for future use</summary>
+
+```mermaid
+sequenceDiagram
+    actor You
+    participant Claude
+    participant Security as Security Check
+    participant Vault as Your Vault
+    participant Analyst as Running Analyst
+    participant Files as Obsidian Files
+
+    You->>Claude: "Backfill my vault"
+    Claude->>Security: Start backfill
+    Security->>Vault: Process historical runs
+
+    loop For each past run without a saved note
+        Vault->>Security: "Analyze run #1234"
+        Security->>Security: Consent + audit check
+        Security->>Analyst: Crunch the numbers
+        Analyst-->>Security: Summary report
+        Security-->>Vault: Report
+        Vault->>Files: Save as markdown note
+    end
+
+    Vault-->>Security: Done — 47 notes written
+    Security-->>Claude: Backfill complete
+    Claude-->>You: "Created 47 run summaries in your vault"
+```
+
+**What happened:** The system went through all your cached runs and created a summary note for each one. Every single analysis went through the same security checks — even internal operations are audited. Now Claude can answer questions about months of training history instantly from your vault.
+
+</details>
+
+### Your Data, Two Ways
+
+Every analysis the system produces is saved as a plain markdown file in your [Obsidian](https://obsidian.md/) vault — a local, offline notebook that lives on your machine.
+
+This means you have **two ways to access the same data**:
+
+| | Ask Claude | Browse in Obsidian |
+|---|---|---|
+| **Best for** | Questions, trends, comparisons | Visual browsing, manual notes |
+| **How it works** | Reads pre-saved summaries (~400-800 tokens) | Opens the same markdown files directly |
+| **Example** | "Compare my last 3 long runs" | Open the graph view to see connections |
+| **Data stays** | On your machine | On your machine |
+
+**No cloud sync by default.** If your vault folder is inside OneDrive, iCloud, or Dropbox, the system warns you at startup — because saved analytics would then leave your machine. Set `vault_path` to a local-only folder to keep everything offline.
 
 ### Security Pipeline
 

@@ -35,31 +35,23 @@ class VaultChild(ChildMCP):
     """
     Read/write access to the Obsidian vault.
 
+    Domain-agnostic: does not import or reference any domain child.
+    For backfill, queries sibling children through the Router's
+    ``dispatch_internal()`` method (full security pipeline).
+
     Args:
-        vault_path:          Absolute path to the vault root.
-        vault_writer:        Shared VaultWriter instance (owns storage + rendering).
-        running_storage:     RunningStorage for backfill activity lookups.
-        running_processing:  RunningProcessing for backfill analytics.
-        max_hr:              User max HR setting (passed to renderer for backfill).
-        resting_hr:          User resting HR setting (informational).
+        vault_path:    Absolute path to the vault root.
+        vault_writer:  Shared VaultWriter instance (owns storage + rendering).
     """
 
     def __init__(
         self,
         vault_path: Path,
         vault_writer: VaultWriter,
-        running_storage,       # RunningStorage — avoids circular import
-        running_processing,    # RunningProcessing
-        max_hr: int = 195,
-        resting_hr: int = 60,
     ):
         self._vault_path = vault_path
         self._writer = vault_writer
         self._storage: VaultStorage = vault_writer._storage
-        self._running_storage = running_storage
-        self._running_processing = running_processing
-        self._max_hr = max_hr
-        self._resting_hr = resting_hr
 
     @property
     def domain(self) -> str:
@@ -471,11 +463,25 @@ class VaultChild(ChildMCP):
     async def _handle_backfill(self, params: dict) -> dict:
         """
         Generate vault notes for cached activities that don't have one yet.
-        Uses RunningStorage + RunningProcessing directly.
+
+        Queries sibling domain children through the Router's dispatch_internal()
+        so every data access goes through the full security pipeline (validation,
+        consent, circuit breaker, cost gate, audit).  No direct references to
+        RunningStorage or RunningProcessing.
         """
         limit = params.get("limit", 50)
 
-        activities = self._running_storage.list_activities(limit=limit)
+        if self._router is None:
+            return {"error": "Backfill requires router reference (not available)."}
+
+        # Get activity list through Router → RunningChild
+        list_result = await self._router.dispatch_internal(
+            "strava_list_runs", {"limit": limit}
+        )
+        if "error" in list_result:
+            return {"error": f"Failed to list activities: {list_result['error']}"}
+
+        activities = list_result.get("activities", [])
         if not activities:
             return {"written": 0, "skipped": 0, "errors": 0, "note": "No cached activities found."}
 
@@ -503,36 +509,16 @@ class VaultChild(ChildMCP):
                 continue
 
             try:
-                # Build a run report result from streams
-                streams = self._running_storage.get_streams(activity_id)
-                if not streams:
+                # Generate run report through Router → RunningChild
+                # Full security pipeline: validation, consent, audit
+                report = await self._router.dispatch_internal(
+                    "strava_run_report", {"activity_id": activity_id}
+                )
+                if "error" in report:
                     skipped += 1
                     continue
 
-                p = self._running_processing
-                hr = streams.get("heartrate", [])
-                vel = streams.get("velocity_smooth", [])
-                grade = streams.get("grade_smooth", [])
-                dist = streams.get("distance", [])
-                time_arr = streams.get("time", [])
-
-                result: dict = {"activity_id": activity_id, "data_points": max(len(hr), len(vel))}
-                if hr and vel:
-                    result["decoupling"] = p.compute_decoupling(hr, vel)
-                    result["efficiency_factor"] = p.compute_efficiency_factor(hr, vel, grade)
-                if hr:
-                    result["hr_drift"] = p.compute_hr_drift(hr)
-                    result["hr_zones"] = p.compute_hr_zones(hr, max_hr=self._max_hr)
-                if vel and time_arr:
-                    result["phases"] = p.detect_run_phases(vel, time_arr)
-                if dist and time_arr:
-                    result["mile_splits"] = p.compute_mile_splits(dist, time_arr, vel)
-                if grade and vel and dist and time_arr:
-                    result["gap_splits"] = p.compute_gap_splits(vel, grade, dist, time_arr)
-                if hr or vel:
-                    result["anomalies"] = p.detect_anomalies(hr, vel)
-
-                filename = self._writer.write_note("strava_run_report", result)
+                filename = self._writer.write_note("strava_run_report", report)
                 filenames.append(filename)
                 written += 1
 

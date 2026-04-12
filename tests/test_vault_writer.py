@@ -23,7 +23,6 @@ def _make_writer(vault_path: Path, data_dir: Path, running_storage=None):
     return VaultWriter(
         vault_path=vault_path,
         data_dir=data_dir,
-        running_storage=mock_storage,
         vaultable_tools={"strava_run_report", "strava_trend_report", "strava_compare_runs"},
         max_hr=195,
     )
@@ -33,6 +32,12 @@ def _minimal_run_result(activity_id=12345678):
     return {
         "activity_id": activity_id,
         "data_points": 3600,
+        "activity_name": "Morning Run",
+        "start_date": "2025-04-10T13:00:00Z",
+        "distance": 14800,
+        "moving_time": 4740,
+        "average_heartrate": 149,
+        "max_heartrate": 172,
         "decoupling": {"decoupling_pct": 3.2, "interpretation": "well coupled"},
         "efficiency_factor": {"ef": 1.23},
         "hr_drift": {"drift_pct": 3.4, "interpretation": "aerobic",

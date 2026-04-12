@@ -8,9 +8,14 @@ Any biosensor data source (running, CGM, sleep, ECG, etc.) implements
 ChildMCP to plug into the router's security/consent/cost pipeline.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from biosensor_mcp.framework.router import RouterMCP
 
 
 @dataclass
@@ -171,6 +176,8 @@ class ChildMCP(ABC):
     4. Implement execute() and estimate_cost()
     5. Register with router.register_child(your_child)
     """
+
+    _router: Optional[RouterMCP] = None  # Set by router during registration
 
     @property
     @abstractmethod

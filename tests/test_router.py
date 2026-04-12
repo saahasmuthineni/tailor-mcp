@@ -278,3 +278,97 @@ class TestConsentApproval:
             data = _loads(result[0].text)
             assert "error" in data
             router.close()
+
+
+class TestVaultLayerIntegration:
+    """VaultLayer registration and dispatch bypass of consent/cost gates."""
+
+    def _setup(self, tmpdir, backfill_config=None):
+        """Register a router + one child + a vault layer pointing at tmp dirs."""
+        from biosensor_mcp.vault import VaultWriter, VaultLayer
+        root = Path(tmpdir)
+        vault_path = root / "vault"
+        vault_path.mkdir()
+        data_dir = root / "data"
+        data_dir.mkdir()
+
+        router = RouterMCP("test", data_dir)
+        router.register_child(MockChild("alpha"))
+
+        writer = VaultWriter(
+            vault_path=vault_path,
+            data_dir=data_dir,
+            vaultable_tools=set(),
+            max_hr=195,
+        )
+        layer = VaultLayer(vault_path, writer, backfill_config=backfill_config)
+        router.register_vault_layer(layer)
+        return router, layer
+
+    def test_register_vault_layer_adds_tools(self):
+        with TemporaryDirectory() as tmpdir:
+            router, _ = self._setup(tmpdir)
+            assert "vault_list_notes" in router.registered_tools
+            assert "vault_get_fitness_summary" in router.registered_tools
+            router.close()
+
+    def test_vault_not_in_registered_domains(self):
+        """Vault is infrastructure, not a biosensor domain."""
+        with TemporaryDirectory() as tmpdir:
+            router, _ = self._setup(tmpdir)
+            assert "vault" not in router.registered_domains
+            assert "alpha" in router.registered_domains
+            router.close()
+
+    def test_no_consent_tools_for_vault(self):
+        """approve_consent_vault should not be a valid domain (vault isn't in _children)."""
+        with TemporaryDirectory() as tmpdir:
+            router, _ = self._setup(tmpdir)
+            # The consent handler only recognizes domains in _children.
+            # Since vault is no longer a child, approve_consent_vault should fail.
+            result = _run(router._dispatch("approve_consent_vault", {}))
+            data = _loads(result[0].text)
+            assert "error" in data
+            assert "Unknown domain" in data["error"]
+            # But child consent still works
+            result2 = _run(router._dispatch("approve_consent_alpha", {}))
+            data2 = _loads(result2[0].text)
+            assert data2.get("approved") is True
+            router.close()
+
+    def test_vault_tool_dispatch_skips_consent(self):
+        """Vault tools should execute without consent approval."""
+        with TemporaryDirectory() as tmpdir:
+            router, _ = self._setup(tmpdir)
+            # No approve_consent_vault call — should still work
+            result = _run(router._dispatch("vault_list_notes", {}))
+            data = _loads(result[0].text)
+            assert "error" not in data
+            assert data["_meta"]["domain"] == "vault"
+            router.close()
+
+    def test_vault_tool_validates_params(self):
+        """Bad params are still rejected (param validation remains)."""
+        with TemporaryDirectory() as tmpdir:
+            router, _ = self._setup(tmpdir)
+            # vault_read_note requires filename
+            result = _run(router._dispatch("vault_read_note", {}))
+            data = _loads(result[0].text)
+            assert "error" in data
+            router.close()
+
+    def test_duplicate_vault_registration_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            router, layer = self._setup(tmpdir)
+            with pytest.raises(ValueError, match="already registered"):
+                router.register_vault_layer(layer)
+            router.close()
+
+    def test_vault_tool_cannot_be_called_internally(self):
+        """dispatch_internal should reject vault tools."""
+        with TemporaryDirectory() as tmpdir:
+            router, _ = self._setup(tmpdir)
+            result = _run(router.dispatch_internal("vault_list_notes", {}))
+            assert "error" in result
+            assert "internally" in result["error"].lower()
+            router.close()

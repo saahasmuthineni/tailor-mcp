@@ -1,7 +1,7 @@
 """
 Vault Storage — SQLite Index for Vault Notes
 =============================================
-Tracks every note written by VaultWriter so VaultChild can
+Tracks every note written by VaultWriter so VaultLayer can
 query by domain, type, date, week, or anomaly status without
 scanning the filesystem.
 

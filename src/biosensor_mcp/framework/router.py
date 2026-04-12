@@ -65,6 +65,10 @@ class RouterMCP:
         self._children: dict[str, ChildMCP] = {}  # domain -> child
         self._tool_map: dict[str, tuple[ChildMCP, ToolDefinition]] = {}
 
+        # Vault layer (framework-level reorientation tier; not a ChildMCP)
+        # Tools go in _tool_map with child=None sentinel — dispatch redirects them.
+        self._vault_layer = None
+
         # Middleware stack
         self._circuit = CircuitBreaker(
             threshold=circuit_threshold, reset_after=circuit_reset
@@ -116,6 +120,36 @@ class RouterMCP:
         Errors are swallowed — a hook failure never breaks the MCP session.
         """
         self._post_execute_hooks.append(hook)
+
+    def register_vault_layer(self, vault_layer) -> None:
+        """
+        Register the framework-level vault layer (reorientation tier).
+
+        Vault tools are added to _tool_map with a None-child sentinel.
+        Dispatch redirects them to _dispatch_vault() — a stripped-down
+        pipeline (param validation + audit + execute) that skips consent,
+        cost, and circuit breaker gates.  No consent approval tools are
+        generated for the vault since it's not a biosensor domain.
+        """
+        if self._vault_layer is not None:
+            raise ValueError("Vault layer already registered")
+
+        self._vault_layer = vault_layer
+        vault_layer._router = self  # Needed for backfill's dispatch_internal calls
+
+        for tool_def in vault_layer.tool_definitions:
+            if tool_def.name in self._tool_map:
+                existing = self._tool_map[tool_def.name][0]
+                existing_domain = existing.domain if existing is not None else "vault"
+                raise ValueError(
+                    f"Tool '{tool_def.name}' already registered by '{existing_domain}'"
+                )
+            # None sentinel marks this as a vault-layer tool
+            self._tool_map[tool_def.name] = (None, tool_def)
+
+        log.info(
+            f"Registered vault layer with {len(vault_layer.tool_definitions)} tools"
+        )
 
     @property
     def registered_domains(self) -> list[str]:
@@ -226,6 +260,11 @@ class RouterMCP:
             ]
 
         child, tool_def = self._tool_map[tool_name]
+
+        # ── Vault layer fast-path (framework-level; skip consent/cost/circuit) ──
+        if child is None:
+            return await self._dispatch_vault(tool_name, tool_def, arguments, start)
+
         domain = child.domain
         tier = tool_def.tier
 
@@ -443,6 +482,69 @@ class RouterMCP:
             return [TextContent(type="text", text=_dumps({"error": str(e)}))]
 
     # ══════════════════════════════════════════════════════════
+    # VAULT DISPATCH (framework-level, skips biosensor gates)
+    # ══════════════════════════════════════════════════════════
+
+    async def _dispatch_vault(
+        self,
+        tool_name: str,
+        tool_def: ToolDefinition,
+        arguments: dict,
+        start: float,
+    ) -> list[TextContent]:
+        """
+        Dispatch a vault-layer tool.  Stripped-down pipeline:
+
+            param validation → execute → audit
+
+        Skipped by design:
+            - Circuit breaker (local SQLite + filesystem, not external API)
+            - Consent gate (metadata, not biometric data)
+            - Cost gate (always small, Tier 1)
+            - Post-execute hooks (vault writes should not trigger recursive
+              vault writes)
+        """
+        tier = tool_def.tier
+
+        # ── LAYER 1: Param validation ──
+        schemas = self._vault_layer.param_schemas.get(tool_name, {})
+        ok, err, cleaned = self._validator.validate(schemas, arguments)
+        if not ok:
+            self._audit.record(
+                "vault", tool_name, tier, arguments, 0, "PARAM_INVALID", 0, err
+            )
+            return [TextContent(type="text", text=_dumps({"error": err}))]
+
+        # ── EXECUTE ──
+        try:
+            result = await self._vault_layer.execute(tool_name, cleaned)
+            tokens = estimate_tokens(result)
+            duration_ms = int((time.time() - start) * 1000)
+
+            self._ledger.add("vault", tool_name, tokens)
+            self._audit.record(
+                "vault", tool_name, tier, cleaned, tokens, "SUCCESS", duration_ms
+            )
+
+            if isinstance(result, dict):
+                result["_meta"] = {
+                    "tokens_this_call": tokens,
+                    "session_total_tokens": self._ledger.total,
+                    "domain": "vault",
+                    "tier": tier,
+                }
+
+            return [TextContent(type="text", text=_dumps(result))]
+
+        except Exception as e:
+            duration_ms = int((time.time() - start) * 1000)
+            self._audit.record(
+                "vault", tool_name, tier, cleaned, 0, "ERROR", duration_ms, str(e)
+            )
+            log.error(f"Vault tool {tool_name} failed: {e}", exc_info=True)
+            return [TextContent(type="text", text=_dumps({"error": str(e)}))]
+
+    # ══════════════════════════════════════════════════════════
     # INTERNAL DISPATCH (cross-child queries)
     # ══════════════════════════════════════════════════════════
 
@@ -452,8 +554,8 @@ class RouterMCP:
         """
         Internal cross-child dispatch.  Full security pipeline, returns dict.
 
-        Used by children (e.g. VaultChild backfill) to query siblings
-        through the Router rather than holding direct references.
+        Used by framework components (e.g. VaultLayer backfill) to query
+        children through the Router rather than holding direct references.
 
         Differences from _dispatch():
         - Returns dict (not TextContent) for programmatic consumption
@@ -466,6 +568,11 @@ class RouterMCP:
             return {"error": f"Unknown tool: {tool_name}"}
 
         child, tool_def = self._tool_map[tool_name]
+
+        # Vault tools are LLM-facing only; not valid for internal dispatch
+        if child is None:
+            return {"error": f"Vault tool '{tool_name}' cannot be called internally"}
+
         domain = child.domain
         tier = tool_def.tier
 
@@ -617,6 +724,8 @@ class RouterMCP:
     def close(self):
         """Release resources (SQLite connections). Required on Windows to release file locks."""
         self._audit.close()
+        if self._vault_layer is not None:
+            self._vault_layer.close()
 
     def run(self):
         """Start the MCP server via stdio transport."""

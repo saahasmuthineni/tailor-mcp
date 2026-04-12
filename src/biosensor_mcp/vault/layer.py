@@ -1,27 +1,39 @@
 """
-Vault Child MCP — Obsidian Vault Access Tools
-=============================================
-Provides 7 Tier 1 tools for reading, searching, and annotating
-vault notes.  All tools are free (no consent or cost gate).
+Vault Layer — Framework-level Cross-Session Reorientation
+=========================================================
+The vault layer is NOT a ChildMCP.  It's the reorientation tier:
+durable analytical memory that persists across sessions via an
+Obsidian vault (markdown + frontmatter, indexed in SQLite).
 
-Registered as a sibling child alongside RunningChild.  Requires
-the vault to be enabled (vault_path in user_config.json).
+Architectural distinction from biosensor children:
+    Biosensor tier (RunningChild, CGMChild, ...):
+        Ephemeral — raw data ingestion, cached locally, rebuildable
+        by re-syncing from the upstream source.
+    Reorientation tier (VaultLayer):
+        Durable — analytical knowledge, canonical record.
+        Markdown files are the source of truth; vault.db is a
+        query-optimization index.
+
+Vault tools skip consent/cost/circuit gates — they read local
+metadata, not biometric data.  Param validation and audit still apply.
 
 Tools:
-  vault_get_fitness_summary   Primary orientation tool for a new session.
-  vault_list_notes            Browse notes with optional filters.
-  vault_read_note             Read full body of a specific note.
-  vault_search_notes          Full-text search across note bodies.
-  vault_list_anomalies        Runs with anomaly_count > 0.
-  vault_annotate_run          Write analytical insights back to a note.
-  vault_backfill              Generate notes for all cached activities.
+    vault_get_fitness_summary   Primary orientation tool for a new session.
+    vault_list_notes            Browse notes with optional filters.
+    vault_read_note             Read full body of a specific note.
+    vault_search_notes          Full-text search across note bodies.
+    vault_list_anomalies        Runs with anomaly_count > 0.
+    vault_annotate_run          Write analytical insights back to a note.
+    vault_backfill              Generate notes for activities missing one
+                                (LLM-driven, server-orchestrated via
+                                configurable backfill_config).
 """
 
 import logging
 from pathlib import Path
 from typing import Optional
 
-from ..framework.interfaces import ChildMCP, ToolDefinition, CostEstimate, ValidationSchema
+from ..framework.interfaces import ToolDefinition, ValidationSchema
 from .storage import VaultStorage
 from .writer import VaultWriter, _is_relative_to
 
@@ -31,35 +43,36 @@ log = logging.getLogger("biosensor-mcp.vault")
 _MAX_NOTES_CHARS = 2000
 
 
-class VaultChild(ChildMCP):
+class VaultLayer:
     """
-    Read/write access to the Obsidian vault.
+    Framework-level reorientation layer backed by an Obsidian vault.
 
-    Domain-agnostic: does not import or reference any domain child.
-    For backfill, queries sibling children through the Router's
-    ``dispatch_internal()`` method (full security pipeline).
+    Registered directly on RouterMCP via ``register_vault_layer()``, not
+    as a ChildMCP.  The router skips consent, cost, and circuit breaker
+    gates for vault tools — only param validation and audit apply.
 
     Args:
-        vault_path:    Absolute path to the vault root.
-        vault_writer:  Shared VaultWriter instance (owns storage + rendering).
+        vault_path:       Absolute path to the vault root.
+        vault_writer:     Shared VaultWriter instance (owns storage + rendering).
+        backfill_config:  Maps generic roles to sibling tool names,
+                          decoupling backfill from hardcoded domain knowledge.
+                          Example:
+                              {"list_tool":   "strava_list_runs",
+                               "report_tool": "strava_run_report"}
+                          When None, vault_backfill returns a configuration error.
     """
 
     def __init__(
         self,
         vault_path: Path,
         vault_writer: VaultWriter,
+        backfill_config: Optional[dict] = None,
     ):
         self._vault_path = vault_path
         self._writer = vault_writer
         self._storage: VaultStorage = vault_writer._storage
-
-    @property
-    def domain(self) -> str:
-        return "vault"
-
-    @property
-    def display_name(self) -> str:
-        return "Vault (Obsidian)"
+        self._backfill_config = backfill_config or {}
+        self._router = None  # Set by RouterMCP.register_vault_layer()
 
     @property
     def tool_definitions(self) -> list[ToolDefinition]:
@@ -181,9 +194,9 @@ class VaultChild(ChildMCP):
             ),
             ToolDefinition(
                 "vault_backfill", 1,
-                "Generate vault notes for all activities cached locally that don't "
-                "yet have a note. Run once after enabling the vault to populate "
-                "historical notes.",
+                "Generate vault notes for activities cached locally that don't "
+                "yet have a note. LLM-driven, server-orchestrated — the LLM decides "
+                "when to run it; the server iterates activities and writes notes.",
                 {
                     "limit": {
                         "type": "integer",
@@ -231,9 +244,6 @@ class VaultChild(ChildMCP):
             },
         }
 
-    async def estimate_cost(self, tool_name: str, params: dict) -> CostEstimate:
-        return CostEstimate(tokens=0)
-
     async def execute(self, tool_name: str, params: dict) -> dict:
         handlers = {
             "vault_get_fitness_summary": self._handle_fitness_summary,
@@ -248,6 +258,10 @@ class VaultChild(ChildMCP):
         if not handler:
             return {"error": f"Unknown vault tool: {tool_name}"}
         return await handler(params)
+
+    def close(self) -> None:
+        """Release SQLite connections (required on Windows)."""
+        self._writer.close()
 
     # ══════════════════════════════════════════════════════════
     # HANDLERS
@@ -462,22 +476,31 @@ class VaultChild(ChildMCP):
 
     async def _handle_backfill(self, params: dict) -> dict:
         """
-        Generate vault notes for cached activities that don't have one yet.
+        LLM-driven, server-orchestrated backfill.
 
-        Queries sibling domain children through the Router's dispatch_internal()
-        so every data access goes through the full security pipeline (validation,
-        consent, circuit breaker, cost gate, audit).  No direct references to
-        RunningStorage or RunningProcessing.
+        The LLM decides *when* to run backfill; the server iterates
+        cached activities and writes missing notes.  Cross-child tool
+        names come from ``self._backfill_config``, so the vault has no
+        hardcoded knowledge of sibling domains.
         """
         limit = params.get("limit", 50)
 
         if self._router is None:
             return {"error": "Backfill requires router reference (not available)."}
 
-        # Get activity list through Router → RunningChild
-        list_result = await self._router.dispatch_internal(
-            "strava_list_runs", {"limit": limit}
-        )
+        list_tool = self._backfill_config.get("list_tool")
+        report_tool = self._backfill_config.get("report_tool")
+        if not list_tool or not report_tool:
+            return {
+                "error": (
+                    "Backfill is not configured. The vault layer must be "
+                    "initialized with backfill_config={'list_tool': ..., "
+                    "'report_tool': ...} to enable this tool."
+                )
+            }
+
+        # Get activity list through Router → source child (e.g. RunningChild)
+        list_result = await self._router.dispatch_internal(list_tool, {"limit": limit})
         if "error" in list_result:
             return {"error": f"Failed to list activities: {list_result['error']}"}
 
@@ -509,16 +532,16 @@ class VaultChild(ChildMCP):
                 continue
 
             try:
-                # Generate run report through Router → RunningChild
+                # Generate run report through Router → source child
                 # Full security pipeline: validation, consent, audit
                 report = await self._router.dispatch_internal(
-                    "strava_run_report", {"activity_id": activity_id}
+                    report_tool, {"activity_id": activity_id}
                 )
                 if "error" in report:
                     skipped += 1
                     continue
 
-                filename = self._writer.write_note("strava_run_report", report)
+                filename = self._writer.write_note(report_tool, report)
                 filenames.append(filename)
                 written += 1
 

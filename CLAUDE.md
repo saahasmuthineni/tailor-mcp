@@ -16,12 +16,22 @@ A 15-mile run generates ~8,600 per-second data points across 8 stream types, ser
 
 ```
 Claude Desktop <--> RouterMCP (validate → circuit break → consent → cost → audit)
-                         |
-                    ChildMCP (domain-specific execution)
-                  e.g. RunningChild, CGMChild (future), SleepChild (future)
+                         |                 ╲
+                    ChildMCP                VaultLayer   ← framework-level
+             (biosensor tier)          (reorientation tier;  skips gates)
+          e.g. RunningChild, CGMChild   Obsidian vault + SQLite index
 ```
 
-**Key principle**: Behavioral rules (consent gates, cost gates, access tiers) live server-side, not in the LLM. Any LLM client gets identical enforcement.
+**Two persistence tiers, architecturally distinct:**
+
+| Tier | Purpose | Storage | Lifecycle |
+|------|---------|---------|-----------|
+| **Biosensor** (ChildMCP) | Ingest, cache, rate-limit raw data | SQLite (`activities.db`) | Ephemeral — rebuildable by re-sync |
+| **Reorientation** (VaultLayer) | Cross-session analytical memory | Obsidian vault (markdown + frontmatter) | Durable — canonical record |
+
+Markdown files in the Obsidian vault are the **source of truth** for analytical knowledge; `vault.db` is a query-optimization index. Obsidian is the human-facing view of the same data the LLM accesses via vault tools.
+
+**Key principle**: Behavioral rules (consent gates, cost gates, access tiers) live server-side, not in the LLM. Any LLM client gets identical enforcement. Vault tools skip these gates (metadata, not biometric data) — only param validation and audit apply.
 
 ## File Structure
 
@@ -50,8 +60,8 @@ src/biosensor_mcp/
     sample_data.py         # Synthetic 60-minute run data (reproducible, stdlib-only)
     runner.py              # Demo runner — execute analytics on synthetic data
   vault/
-    __init__.py            # Exports VaultWriter, VaultChild
-    child.py               # VaultChild(ChildMCP) — 7 read/write tools
+    __init__.py            # Exports VaultWriter, VaultLayer
+    layer.py               # VaultLayer — framework-level reorientation tier, 7 tools
     writer.py              # Post-execute hook; atomic file writes → Obsidian
     renderer.py            # Pure markdown generation (run/trend/compare notes)
     storage.py             # VaultStorage — SQLite index of vault notes
@@ -59,8 +69,8 @@ src/biosensor_mcp/
 tests/
   test_processing.py       # Pure-function analytics tests (no I/O)
   test_middleware.py       # Framework security component tests
-  test_router.py           # Router pipeline integration tests (mock child)
-  test_vault_child.py      # VaultChild handler tests
+  test_router.py           # Router pipeline integration tests (includes VaultLayer)
+  test_vault_layer.py      # VaultLayer handler tests
   test_vault_renderer.py   # Markdown renderer tests
   test_vault_writer.py     # VaultWriter atomic write + frontmatter tests
   security_probe.py        # Standalone security probe (runs in CI, no pytest needed)
@@ -207,6 +217,32 @@ class CGMChild(ChildMCP):
 router.register_child(CGMChild(config_dir, data_dir))
 # Router auto-generates approve_consent_cgm + revoke_consent_cgm
 ```
+
+## Framework-Level Infrastructure (Not a ChildMCP)
+
+Components that represent durable cross-session state — not biosensor domains — register directly with the router and bypass the security pipeline (consent/cost gates don't apply to metadata).
+
+`VaultLayer` is the reference implementation of this pattern:
+
+```python
+# In __main__.py cmd_serve():
+from biosensor_mcp.vault import VaultLayer
+
+router.register_vault_layer(VaultLayer(
+    vault_path=vault_path,
+    vault_writer=vault_writer,
+    backfill_config={                       # decouples from sibling tool names;
+        "list_tool": "strava_list_runs",    # cross-child knowledge lives at the
+        "report_tool": "strava_run_report", # wiring site, not inside the vault
+    },
+))
+```
+
+Key differences from a ChildMCP:
+- No `domain`, `consent_info`, or `estimate_cost()` — these are biosensor-tier concerns
+- Dispatch skips circuit breaker, consent gate, cost gate, and post-execute hooks
+- Only param validation + audit apply
+- Tools must still have unique names (collision with any registered child is rejected)
 
 ## CI
 

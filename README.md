@@ -4,9 +4,9 @@
 [![Python 3.10 | 3.11 | 3.12](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/downloads/)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 
-Ask Claude Desktop about your Strava runs — without burning $60/month in tokens.
+Ask Claude Desktop about your Strava runs — without blowing your token budget.
 
-A local MCP server that compresses biosensor data server-side before it reaches the model. A 15-mile run drops from ~200,000 tokens ($60/mo) to ~800 tokens ($0.02/mo) — **99.6% reduction** — while raw per-second data stays on your machine.
+A local MCP server that compresses biosensor data server-side before it reaches the model. A 15-mile run drops from ~160,000 raw tokens to ~800 tokens — **99.5% reduction** — while raw per-second data stays on your machine.
 
 **Runners:** install, connect Strava, ask Claude about your training. [Install ↓](#install)
 **Builders:** reference implementation of a general biosensor→LLM framework (CGM, sleep, ECG follow the same pattern). [Framework docs ↓](#for-framework-builders)
@@ -53,7 +53,7 @@ biosensor-mcp demo
 | "Backfill my vault with past runs" | Bulk-generates summaries for cached runs | per-run |
 
 <p align="center">
-  <img src="docs/claude-desktop-demo.svg" alt="Claude Desktop answering 'How was my last run?' with full run analysis at ~800 tokens, plus three value-prop cards: 99.6% token reduction, biometric data stays local, and three-tier access model" width="680">
+  <img src="docs/claude-desktop-demo.svg" alt="Two-session story: Session 1 analyzes a run and saves to vault at ~800 tokens; Session 2 reads 8 pre-saved notes for fitness trends at ~400 tokens — 170x more efficient than re-processing. Cards show per-query savings (98.8%), session memory (vault persistence), and data security (consent, audit, local processing)." width="700">
 </p>
 
 ---
@@ -64,11 +64,13 @@ High-frequency biosensor data and LLMs are a bad match out of the box:
 
 | Data source | Raw size | Direct cost | After this framework |
 |-------------|----------|-------------|----------------------|
-| 15-mile run (8 stream types, 1Hz) | ~200,000 tokens | ~$60/month | ~800 tokens (~$0.02) |
+| 15-mile run (8 stream types, 1Hz) | ~160,000 tokens | ~$0.48/query* | ~800 tokens (~$0.002) |
 | CGM trace (glucose, 5-min intervals) | ~10,000 tokens/day | — | ~200 tokens |
 | Sleep staging (per-epoch) | ~5,000 tokens/night | — | ~150 tokens |
 
-Server-side analytics compute what the LLM actually needs — zones, splits, trends, anomalies — and return only the summary. **99.6% token reduction** in the running example. Raw per-second data never leaves the machine.
+Server-side analytics compute what the LLM actually needs — zones, splits, trends, anomalies — and return only the summary. **99.5% token reduction** in the running example. Raw per-second data never leaves the machine.
+
+*Costs assume Claude Sonnet at $3/million input tokens. Token counts are from the project's own `estimate_stream_tokens` heuristic; actual Claude tokenization of JSON may be slightly higher.*
 
 ---
 

@@ -47,8 +47,8 @@ biosensor-mcp demo
 
 | Ask Claude… | What you get | Cost |
 |---|---|---|
-| "How was my last run?" | Zones, splits, drift, efficiency — [auto-saved to vault](#reference-vault-tools) | ~800 tok |
-| "How has my fitness changed over 2 months?" | Weekly trends from [pre-saved notes](#reference-vault-tools) | ~400 tok |
+| "How was my last run?" | Zones, splits, drift, efficiency — [auto-saved to vault](#vault-tools) | ~800 tok |
+| "How has my fitness changed over 2 months?" | Weekly trends from [pre-saved notes](#vault-tools) | ~400 tok |
 | "Show me my raw heart rate data" | Full-res stream (asks [consent + cost](#how-it-works) first) | 25–60k tok |
 | "Backfill my vault with past runs" | Bulk-generates summaries for cached runs | per-run |
 
@@ -141,7 +141,7 @@ This means you have **two ways to access the same data**:
 
 What happens behind the scenes for each type of question:
 
-<details id="ref-last-run">
+<details>
 <summary><strong>You ask: "How was my last run?"</strong> — Instant analysis, automatically saved</summary>
 
 ```mermaid
@@ -171,7 +171,7 @@ sequenceDiagram
 
 </details>
 
-<details id="ref-fitness-trend">
+<details>
 <summary><strong>You ask: "How has my fitness changed over the last 2 months?"</strong> — Answered from saved notes, no re-processing</summary>
 
 ```mermaid
@@ -196,7 +196,7 @@ sequenceDiagram
 
 </details>
 
-<details id="ref-raw-hr">
+<details>
 <summary><strong>You ask: "Show me my raw heart rate data"</strong> — Sensitive data, requires your permission</summary>
 
 ```mermaid
@@ -226,7 +226,7 @@ sequenceDiagram
 
 </details>
 
-<details id="ref-backfill">
+<details>
 <summary><strong>You say: "Backfill my vault with all my past runs"</strong> — Bulk-saves historical data for future use</summary>
 
 ```mermaid
@@ -315,7 +315,7 @@ sequenceDiagram
 
 </details>
 
-<h3 id="reference-vault-tools">Vault Tools</h3>
+### Vault Tools
 
 Claude can write run notes into an Obsidian vault and read them back in future sessions — persistent analytical memory across conversations.
 

@@ -1,62 +1,36 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="820" height="580" viewBox="0 0 820 580">
-  <defs>
-    <style>
-      .term-bg { fill: #1e1e2e; rx: 8; ry: 8; }
-      .title-bar { fill: #313244; rx: 8; ry: 8; }
-      .title-bar-mask { fill: #1e1e2e; }
-      .dot-red { fill: #f38ba8; }
-      .dot-yellow { fill: #f9e2af; }
-      .dot-green { fill: #a6e3a1; }
-      .title-text { fill: #6c7086; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace; font-size: 12px; text-anchor: middle; }
-      .t { fill: #cdd6f4; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace; font-size: 13px; }
-      .prompt { fill: #a6e3a1; }
-      .dim { fill: #6c7086; }
-      .accent { fill: #89b4fa; }
-      .heading { fill: #f9e2af; }
-      .key { fill: #cba6f7; }
-      .val { fill: #a6e3a1; }
-      .note { fill: #6c7086; font-style: italic; }
-    </style>
-  </defs>
-
   <!-- Window frame -->
-  <rect class="term-bg" x="0" y="0" width="820" height="580"/>
-  <rect class="title-bar" x="0" y="0" width="820" height="36"/>
-  <rect class="title-bar-mask" x="0" y="28" width="820" height="8"/>
+  <rect fill="#1e1e2e" x="0" y="0" width="820" height="580" rx="8" ry="8"/>
+  <rect fill="#313244" x="0" y="0" width="820" height="36" rx="8" ry="8"/>
+  <rect fill="#1e1e2e" x="0" y="28" width="820" height="8"/>
 
   <!-- Traffic lights -->
-  <circle class="dot-red" cx="20" cy="18" r="6"/>
-  <circle class="dot-yellow" cx="40" cy="18" r="6"/>
-  <circle class="dot-green" cx="60" cy="18" r="6"/>
-  <text class="title-text" x="410" y="22">biosensor-mcp demo</text>
+  <circle fill="#f38ba8" cx="20" cy="18" r="6"/>
+  <circle fill="#f9e2af" cx="40" cy="18" r="6"/>
+  <circle fill="#a6e3a1" cx="60" cy="18" r="6"/>
+  <text fill="#6c7086" font-family="SF Mono,Fira Code,Cascadia Code,Consolas,monospace" font-size="12" text-anchor="middle" x="410" y="22">biosensor-mcp demo</text>
 
   <!-- Terminal content -->
-  <g transform="translate(16, 52)">
-    <text class="t"><tspan class="prompt">$</tspan> biosensor-mcp demo</text>
-    <text class="t" y="22"></text>
-    <text class="t heading" y="44">Biosensor MCP &#x2014; Demo Mode</text>
-    <text class="t dim" y="66">==================================================</text>
-    <text class="t" y="88">Running analytics on synthetic 60-minute run data.</text>
-    <text class="t dim" y="110">No Strava account or OAuth tokens required.</text>
-    <text class="t" y="132"></text>
-    <text class="t" y="154">Generated: <tspan class="val">3600</tspan> data points, <tspan class="val">6.65</tspan> miles</text>
-    <text class="t" y="176">Activity:  <tspan class="accent">Demo: Thursday Recovery Run</tspan></text>
-    <text class="t" y="198"></text>
-    <text class="t heading" y="220">--- strava_run_report ---</text>
-    <text class="t" y="242">  <tspan class="key">decoupling</tspan>:    <tspan class="val">7.8%</tspan> (moderate)</text>
-    <text class="t" y="264">  <tspan class="key">efficiency</tspan>:    <tspan class="val">57.82</tspan> EF</text>
-    <text class="t" y="286">  <tspan class="key">hr_drift</tspan>:      <tspan class="val">5.3%</tspan> (moderate drift)</text>
-    <text class="t" y="308">  <tspan class="key">hr_zones</tspan>:      Z3 <tspan class="val">8.1%</tspan> &#xB7; Z4 <tspan class="val">90.8%</tspan> &#xB7; Z5 <tspan class="val">1.1%</tspan></text>
-    <text class="t" y="330">  <tspan class="key">mile_splits</tspan>:   <tspan class="val">8:48</tspan> &#x2192; <tspan class="val">9:12</tspan> (7 miles)</text>
-    <text class="t" y="352">  <tspan class="key">anomalies</tspan>:     none</text>
-    <text class="t" y="374"></text>
-    <text class="t heading" y="396">--- strava_hr_analysis ---</text>
-    <text class="t" y="418">  avg_hr: <tspan class="val">156</tspan> bpm &#xB7; max: <tspan class="val">169</tspan> bpm &#xB7; drift: <tspan class="val">5.3%</tspan></text>
-    <text class="t" y="440"></text>
-    <text class="t heading" y="462">--- strava_pace_analysis ---</text>
-    <text class="t" y="484">  classification: <tspan class="val">100%</tspan> running &#xB7; splits: <tspan class="val">8:48</tspan> &#x2192; <tspan class="val">9:12</tspan></text>
-    <text class="t" y="506"></text>
-    <text class="t dim" y="510">==================================================</text>
-    <text class="t note" y="532">Demo complete. All analytics computed server-side from synthetic data.</text>
+  <g transform="translate(16, 52)" font-family="SF Mono,Fira Code,Cascadia Code,Consolas,monospace" font-size="13" fill="#cdd6f4">
+    <text><tspan fill="#a6e3a1">$</tspan> biosensor-mcp demo</text>
+    <text y="44" fill="#f9e2af">Biosensor MCP &#x2014; Demo Mode</text>
+    <text y="66" fill="#6c7086">==================================================</text>
+    <text y="88">Running analytics on synthetic 60-minute run data.</text>
+    <text y="110" fill="#6c7086">No Strava account or OAuth tokens required.</text>
+    <text y="154">Generated: <tspan fill="#a6e3a1">3600</tspan> data points, <tspan fill="#a6e3a1">6.65</tspan> miles</text>
+    <text y="176">Activity:  <tspan fill="#89b4fa">Demo: Thursday Recovery Run</tspan></text>
+    <text y="220" fill="#f9e2af">--- strava_run_report ---</text>
+    <text y="242">  <tspan fill="#cba6f7">decoupling</tspan>:    <tspan fill="#a6e3a1">7.8%</tspan> (moderate)</text>
+    <text y="264">  <tspan fill="#cba6f7">efficiency</tspan>:    <tspan fill="#a6e3a1">57.82</tspan> EF</text>
+    <text y="286">  <tspan fill="#cba6f7">hr_drift</tspan>:      <tspan fill="#a6e3a1">5.3%</tspan> (moderate drift)</text>
+    <text y="308">  <tspan fill="#cba6f7">hr_zones</tspan>:      Z3 <tspan fill="#a6e3a1">8.1%</tspan> &#xB7; Z4 <tspan fill="#a6e3a1">90.8%</tspan> &#xB7; Z5 <tspan fill="#a6e3a1">1.1%</tspan></text>
+    <text y="330">  <tspan fill="#cba6f7">mile_splits</tspan>:   <tspan fill="#a6e3a1">8:48</tspan> &#x2192; <tspan fill="#a6e3a1">9:12</tspan> (7 miles)</text>
+    <text y="352">  <tspan fill="#cba6f7">anomalies</tspan>:     none</text>
+    <text y="396" fill="#f9e2af">--- strava_hr_analysis ---</text>
+    <text y="418">  avg_hr: <tspan fill="#a6e3a1">156</tspan> bpm &#xB7; max: <tspan fill="#a6e3a1">169</tspan> bpm &#xB7; drift: <tspan fill="#a6e3a1">5.3%</tspan></text>
+    <text y="462" fill="#f9e2af">--- strava_pace_analysis ---</text>
+    <text y="484">  classification: <tspan fill="#a6e3a1">100%</tspan> running &#xB7; splits: <tspan fill="#a6e3a1">8:48</tspan> &#x2192; <tspan fill="#a6e3a1">9:12</tspan></text>
+    <text y="510" fill="#6c7086">==================================================</text>
+    <text y="532" fill="#6c7086" font-style="italic">Demo complete. All analytics computed server-side from synthetic data.</text>
   </g>
 </svg>

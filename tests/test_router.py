@@ -372,3 +372,138 @@ class TestVaultLayerIntegration:
             assert "error" in result
             assert "internally" in result["error"].lower()
             router.close()
+
+
+class TestVaultCaptureSessionIntegration:
+    """
+    End-to-end smoke for `vault_capture_session`:
+      * One audit row per invocation (router records outer call only).
+      * Summary moment + theme updates both land on disk.
+      * Session state survives router close/reopen (fresh session sim).
+      * Manual Obsidian edits to a theme file surface via vault_read_theme.
+    """
+
+    def _setup(self, tmpdir):
+        from biosensor_mcp.vault import VaultWriter, VaultLayer
+        root = Path(tmpdir)
+        vault_path = root / "vault"
+        vault_path.mkdir()
+        data_dir = root / "data"
+        data_dir.mkdir()
+
+        router = RouterMCP("test", data_dir)
+        router.register_child(MockChild("alpha"))
+        writer = VaultWriter(
+            vault_path=vault_path,
+            data_dir=data_dir,
+            vaultable_tools=set(),
+            max_hr=195,
+        )
+        layer = VaultLayer(vault_path, writer)
+        router.register_vault_layer(layer)
+        return router, layer, vault_path, data_dir
+
+    def test_single_audit_row_for_session_capture(self):
+        import sqlite3
+        with TemporaryDirectory() as tmpdir:
+            router, _, vault_path, data_dir = self._setup(tmpdir)
+            try:
+                result = _run(router._dispatch("vault_capture_session", {
+                    "summary": {
+                        "title": "Weekly review",
+                        "body": "Worked through drift hypothesis on Tue + Thu.",
+                        "date": "2026-04-10",
+                    },
+                    "update_themes": [
+                        {"slug": "drift", "hypothesis": "Drift on hot days.",
+                         "evidence": "Mile 6 on 4/10: +8bpm."},
+                    ],
+                    "new_moments": [
+                        {"title": "Thursday sub-observation",
+                         "body": "Noted cooldown HR oddity.",
+                         "date": "2026-04-10"},
+                    ],
+                }))
+                data = _loads(result[0].text)
+                assert data["summary_filename"] is not None
+                assert len(data["theme_updates"]) == 1
+                assert len(data["moment_filenames"]) == 1
+                assert data["errors"] == []
+
+                # Files must actually exist on disk
+                assert (vault_path / data["summary_filename"]).exists()
+                assert (vault_path / "themes/drift.md").exists()
+
+                # Exactly one audit row for the outer call
+                conn = sqlite3.connect(str(data_dir / "audit.db"))
+                rows = conn.execute(
+                    "SELECT tool_name, outcome FROM audit_log"
+                    " WHERE tool_name='vault_capture_session'"
+                ).fetchall()
+                conn.close()
+                assert len(rows) == 1
+                assert rows[0] == ("vault_capture_session", "SUCCESS")
+            finally:
+                router.close()
+
+    def test_fresh_session_surfaces_previous_moment(self):
+        """Capture moment → close router → reopen → fitness summary sees it."""
+        with TemporaryDirectory() as tmpdir:
+            from biosensor_mcp.vault import VaultWriter, VaultLayer
+            root = Path(tmpdir)
+            vault_path = root / "vault"
+            vault_path.mkdir()
+            data_dir = root / "data"
+            data_dir.mkdir()
+
+            # --- Session 1: write a moment ---
+            router1 = RouterMCP("test", data_dir)
+            writer1 = VaultWriter(vault_path, data_dir, vaultable_tools=set())
+            layer1 = VaultLayer(vault_path, writer1)
+            router1.register_vault_layer(layer1)
+            try:
+                r = _run(router1._dispatch("vault_capture_moment", {
+                    "title": "Tuesday Aha",
+                    "body": "Drift explained by hydration.",
+                    "date": "2026-04-10",
+                }))
+                assert "error" not in _loads(r[0].text)
+            finally:
+                router1.close()
+
+            # --- Session 2: new router instance, same vault/data dirs ---
+            router2 = RouterMCP("test", data_dir)
+            writer2 = VaultWriter(vault_path, data_dir, vaultable_tools=set())
+            layer2 = VaultLayer(vault_path, writer2)
+            router2.register_vault_layer(layer2)
+            try:
+                r2 = _run(router2._dispatch("vault_get_fitness_summary", {}))
+                data = _loads(r2[0].text)
+                assert "recent_moments" in data
+                assert any(m["title"] == "Tuesday Aha" for m in data["recent_moments"])
+            finally:
+                router2.close()
+
+    def test_manual_obsidian_edit_surfaces_on_read(self):
+        """Overwrite the theme file on disk → vault_read_theme reflects new text."""
+        import os, time
+        with TemporaryDirectory() as tmpdir:
+            router, _, vault_path, _data_dir = self._setup(tmpdir)
+            try:
+                _run(router._dispatch("vault_upsert_theme", {
+                    "slug": "drift",
+                    "hypothesis": "Original prose.",
+                }))
+                path = vault_path / "themes/drift.md"
+                replaced = path.read_text(encoding="utf-8").replace(
+                    "Original prose.", "Hand-edited in Obsidian."
+                )
+                path.write_text(replaced, encoding="utf-8")
+                future = time.time_ns() + 10_000_000_000
+                os.utime(path, ns=(future, future))
+
+                r = _run(router._dispatch("vault_read_theme", {"slug": "drift"}))
+                data = _loads(r[0].text)
+                assert "Hand-edited in Obsidian." in data["content"]
+            finally:
+                router.close()

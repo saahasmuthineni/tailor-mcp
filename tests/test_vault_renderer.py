@@ -7,6 +7,9 @@ from biosensor_mcp.vault.renderer import (
     render_run_note,
     render_trend_note,
     render_compare_note,
+    render_theme_note,
+    render_moment_note,
+    format_wikilink,
     _aerobic_grade,
     _pace_from_velocity,
     _iso_week,
@@ -327,3 +330,191 @@ class TestRenderCompareNote:
         filename, content = render_compare_note({"comparisons": []})
         assert isinstance(filename, str)
         assert isinstance(content, str)
+
+
+# ── format_wikilink ──
+
+class TestFormatWikilink:
+    def test_target_only(self):
+        assert format_wikilink("foo") == "[[foo]]"
+
+    def test_with_display(self):
+        assert format_wikilink("foo", "Nice Foo") == "[[foo|Nice Foo]]"
+
+    def test_empty_display_falls_back_to_target(self):
+        assert format_wikilink("foo", "") == "[[foo]]"
+
+
+# ── render_theme_note ──
+
+class TestRenderThemeNote:
+    def _minimal_theme(self, **overrides):
+        base = {
+            "slug": "dehydration-drift",
+            "title": "Dehydration Drift",
+            "hypothesis": "HR drifts higher on hot Tuesday runs.",
+            "status": "open",
+            "opened": "2026-04-01",
+            "last_updated": "2026-04-10",
+            "linked_runs": [12345, 67890],
+            "tags": ["hydration"],
+            "confidence": "medium",
+        }
+        base.update(overrides)
+        return base
+
+    def test_returns_tuple(self):
+        filename, content = render_theme_note(self._minimal_theme())
+        assert isinstance(filename, str)
+        assert isinstance(content, str)
+
+    def test_filename_format(self):
+        filename, _ = render_theme_note(self._minimal_theme())
+        assert filename == "themes/dehydration-drift.md"
+
+    def test_slug_required(self):
+        with pytest.raises(ValueError):
+            render_theme_note({"hypothesis": "x"})
+
+    def test_frontmatter_has_kind_theme(self):
+        _, content = render_theme_note(self._minimal_theme())
+        assert "kind: theme" in content
+        assert "note_type: theme" in content
+
+    def test_frontmatter_has_status(self):
+        _, content = render_theme_note(self._minimal_theme(status="resolved"))
+        assert 'status: "resolved"' in content
+
+    def test_frontmatter_has_confidence(self):
+        _, content = render_theme_note(self._minimal_theme(confidence="high"))
+        assert 'confidence: "high"' in content
+
+    def test_frontmatter_has_linked_runs(self):
+        _, content = render_theme_note(self._minimal_theme())
+        # Flow-list ints, no quotes
+        assert "linked_runs: [12345, 67890]" in content
+
+    def test_body_has_hypothesis_section(self):
+        _, content = render_theme_note(self._minimal_theme())
+        assert "## Hypothesis" in content
+        assert "HR drifts higher" in content
+
+    def test_body_has_evidence_section(self):
+        _, content = render_theme_note(self._minimal_theme())
+        assert "## Evidence" in content
+        # Placeholder when no evidence yet
+        assert "*(No evidence recorded yet.)*" in content
+
+    def test_body_has_resolution_section(self):
+        _, content = render_theme_note(self._minimal_theme())
+        assert "## Resolution" in content
+        # Open status → open resolution placeholder
+        assert "*(Open" in content
+
+    def test_resolved_status_resolution_text(self):
+        _, content = render_theme_note(
+            self._minimal_theme(status="resolved", resolution="Confirmed via July heat wave.")
+        )
+        assert "Confirmed via July heat wave." in content
+
+    def test_linked_runs_section_has_wikilinks(self):
+        _, content = render_theme_note(self._minimal_theme())
+        assert "## Linked Runs" in content
+        # Wikilink format: YYYY-MM-DD-activity-<id>
+        assert "activity-12345" in content
+        assert "[[" in content and "]]" in content
+
+    def test_initial_evidence_string(self):
+        _, content = render_theme_note(
+            self._minimal_theme(evidence="Observed at mile 6 on 4/10.")
+        )
+        assert "### Evidence" in content
+        assert "Observed at mile 6" in content
+
+    def test_initial_evidence_list(self):
+        _, content = render_theme_note(
+            self._minimal_theme(evidence=["first block", "second block"])
+        )
+        assert "first block" in content
+        assert "second block" in content
+
+    def test_theme_tag_always_present(self):
+        _, content = render_theme_note(self._minimal_theme(tags=["hydration"]))
+        # Block-list entries
+        assert "  - theme" in content
+        assert "  - hydration" in content
+
+
+# ── render_moment_note ──
+
+class TestRenderMomentNote:
+    def _minimal_moment(self, **overrides):
+        base = {
+            "title": "Tuesday Drift Hypothesis",
+            "body": "Noticed HR climbing past mile 5 consistently on hot days.",
+            "date": "2026-04-10",
+            "linked_runs": [12345],
+            "linked_themes": ["dehydration-drift"],
+            "tags": ["observation"],
+        }
+        base.update(overrides)
+        return base
+
+    def test_returns_tuple(self):
+        filename, content = render_moment_note(self._minimal_moment())
+        assert isinstance(filename, str)
+        assert isinstance(content, str)
+
+    def test_filename_format(self):
+        filename, _ = render_moment_note(self._minimal_moment())
+        # moments/YYYY-MM-DD-<slug>.md
+        assert filename.startswith("moments/2026-04-10-")
+        assert filename.endswith(".md")
+
+    def test_slug_derived_from_title(self):
+        filename, _ = render_moment_note(self._minimal_moment())
+        assert "tuesday-drift-hypothesis" in filename
+
+    def test_explicit_slug_overrides(self):
+        filename, _ = render_moment_note(self._minimal_moment(slug="custom-slug"))
+        assert filename == "moments/2026-04-10-custom-slug.md"
+
+    def test_title_required(self):
+        with pytest.raises(ValueError):
+            render_moment_note({"body": "x"})
+
+    def test_body_required(self):
+        with pytest.raises(ValueError):
+            render_moment_note({"title": "x"})
+
+    def test_frontmatter_has_kind_moment(self):
+        _, content = render_moment_note(self._minimal_moment())
+        assert "kind: moment" in content
+        assert "note_type: moment" in content
+
+    def test_frontmatter_has_date(self):
+        _, content = render_moment_note(self._minimal_moment())
+        assert 'date: "2026-04-10"' in content
+
+    def test_body_contains_prose(self):
+        _, content = render_moment_note(self._minimal_moment())
+        assert "Noticed HR climbing past mile 5" in content
+
+    def test_body_contains_title_heading(self):
+        _, content = render_moment_note(self._minimal_moment())
+        assert "# Tuesday Drift Hypothesis" in content
+
+    def test_linked_runs_wikilinks(self):
+        _, content = render_moment_note(self._minimal_moment())
+        assert "## Linked Runs" in content
+        assert "activity-12345" in content
+
+    def test_linked_themes_wikilinks(self):
+        _, content = render_moment_note(self._minimal_moment())
+        assert "## Linked Themes" in content
+        assert "[[dehydration-drift]]" in content
+
+    def test_moment_tag_always_present(self):
+        _, content = render_moment_note(self._minimal_moment(tags=["observation"]))
+        assert "  - moment" in content
+        assert "  - observation" in content

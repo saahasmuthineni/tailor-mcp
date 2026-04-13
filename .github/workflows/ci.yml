@@ -21,8 +21,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # setup-python pinned at v5: v6 (Node 24, runner ≥2.327.1) caused
+      # post-merge CI failures across all jobs in this account's runner
+      # pool even though pre-merge PR runs passed. Revisit when dependabot
+      # re-proposes v6+ and the runner image rollout is complete.
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: 'pip'
@@ -65,7 +69,7 @@ jobs:
 
       # 2. Set up Python (with pip cache keyed on pyproject.toml)
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
@@ -91,10 +95,11 @@ jobs:
       - name: Smoke test CLI
         run: biosensor-mcp --help
 
-      # 7. Upload coverage as a build artifact (one per matrix cell)
+      # 7. Upload coverage as a build artifact (one per matrix cell).
+      #    Pinned at v4 alongside setup-python@v5 — see comment in lint job.
       - name: Upload coverage artifact
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ matrix.os }}-py${{ matrix.python-version }}
           path: coverage.xml

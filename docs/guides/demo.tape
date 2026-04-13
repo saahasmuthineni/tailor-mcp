@@ -1,9 +1,9 @@
 # VHS tape script — reproducible terminal GIF for README
 # Install: https://github.com/charmbracelet/vhs
-# Run:     vhs docs/demo.tape
-# Output:  docs/demo.gif
+# Run:     vhs docs/guides/demo.tape
+# Output:  docs/assets/demo.gif
 
-Output docs/demo.gif
+Output docs/assets/demo.gif
 
 Set Shell "bash"
 Set FontFamily "JetBrains Mono"

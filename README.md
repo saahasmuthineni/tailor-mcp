@@ -139,11 +139,11 @@ Every successful result carries a `_meta` provenance stamp:
 The vault layer adds cross-session analytical memory — **themes**
 (persistent research questions with appending evidence logs) and
 **moments** (timestamped observations linkable to participants or runs).
-See [research-framing.md](docs/research-framing.md#the-vault-layer--longitudinal-analytical-memory)
+See [research-framing.md](docs/design/research-framing.md#the-vault-layer--longitudinal-analytical-memory)
 for the full treatment.
 
 <p align="center">
-  <img src="docs/vault-insights.svg" alt="Obsidian-backed vault — themes, moments, evidence logs" width="760">
+  <img src="docs/assets/vault-insights.svg" alt="Obsidian-backed vault — themes, moments, evidence logs" width="760">
 </p>
 
 ---
@@ -164,7 +164,7 @@ for the full treatment.
 decision-support system. It has not been validated against any regulatory
 framework for patient-facing tools. Analytical output requires human
 validation before informing decisions. See
-[research-framing.md](docs/research-framing.md#scope-limit) for the
+[research-framing.md](docs/design/research-framing.md#scope-limit) for the
 full statement.
 
 ---
@@ -286,7 +286,7 @@ or issue before writing code — several have real design questions
 ## Architecture
 
 <p align="center">
-  <img src="docs/footprint.svg" alt="Biosensor MCP system footprint — router, child, vault layer" width="760">
+  <img src="docs/assets/footprint.svg" alt="Biosensor MCP system footprint — router, child, vault layer" width="760">
 </p>
 
 ```mermaid
@@ -326,10 +326,11 @@ Detailed notes in [CLAUDE.md](CLAUDE.md).
 
 | Document | Audience |
 |---|---|
-| [docs/research-framing.md](docs/research-framing.md) | Health-research reviewers evaluating this for a study |
+| [docs/design/research-framing.md](docs/design/research-framing.md) | Health-research reviewers evaluating this for a study |
 | [ROADMAP.md](ROADMAP.md) | Anyone — what's deferred and why, with effort/impact triage |
 | [CLAUDE.md](CLAUDE.md) | Contributors and operators |
-| [docs/design-context.pdf](docs/design-context.pdf) | Historical design rationale |
+| [docs/adr/](docs/adr/) | Architectural decisions and their rationale |
+| [docs/design/design-context.pdf](docs/design/design-context.pdf) | Historical design rationale |
 
 ## License
 

@@ -1,0 +1,32 @@
+# CODEOWNERS — who reviews what.
+#
+# GitHub uses the LAST matching pattern per file, so more-specific
+# patterns below override the default.
+#
+# Syntax: <path pattern>  <@owner> [<@owner>...]
+
+# Default — everything needs the maintainer's review.
+*                                                   @saahasmuthineni
+
+# Framework pipeline — the load-bearing security/governance code.
+# Any change here should be reviewed with the security pipeline and
+# audit-log invariants in mind.
+/src/biosensor_mcp/framework/                       @saahasmuthineni
+/src/biosensor_mcp/framework/security.py            @saahasmuthineni
+/src/biosensor_mcp/framework/cost.py                @saahasmuthineni
+/src/biosensor_mcp/framework/audit.py               @saahasmuthineni
+/src/biosensor_mcp/framework/router.py              @saahasmuthineni
+
+# Vault — the durable cross-session analytical memory. Writes here
+# affect reproducibility of prior analyses, not just the current run.
+/src/biosensor_mcp/framework/vault/                 @saahasmuthineni
+
+# Architecture Decision Records — changes to ADRs should be deliberate
+# and reviewed even when the surrounding prose looks like routine
+# doc edits.
+/docs/adr/                                          @saahasmuthineni
+
+# CI and security-relevant config.
+/.github/workflows/                                 @saahasmuthineni
+/.github/SECURITY.md                                @saahasmuthineni
+/tests/security_probe.py                            @saahasmuthineni

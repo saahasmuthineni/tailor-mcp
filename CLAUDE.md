@@ -260,6 +260,10 @@ router.register_child(CGMChild(config_dir, data_dir))
 # Router auto-generates approve_consent_cgm + revoke_consent_cgm
 ```
 
+For a runnable starting point that already passes shape tests, copy
+`src/biosensor_mcp/children/template/` and rename. See its
+`__init__.py` for the rename checklist.
+
 ## Framework-Level Infrastructure (Not a ChildMCP)
 
 Components that represent durable cross-session state — not biosensor domains — register directly with the router and bypass the biosensor-tier gates (consent, cost, circuit breaker, PHI scrub). Param validation and audit still apply.

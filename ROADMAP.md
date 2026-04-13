@@ -8,7 +8,7 @@ one- or two-sentence pitch plus context; no implementation details.
 
 | Item | Effort | Impact | Unblocks |
 |---|---|---|---|
-| [New ChildMCPs (CGM / sleep / ECG / CSV / EDF / FHIR)](#new-childmcps-for-research-relevant-data-sources) | M–L | High | Second worked example, broader adoption |
+| [New ChildMCPs (CGM / sleep / ECG / CSV / EDF / FHIR)](#new-childmcps-for-research-relevant-data-sources) *(template skeleton shipped — see that section)* | M–L | High | Second worked example, broader adoption |
 | [Per-subject `subject_id` on vault tools](#per-subject-parameter-scoping-on-vault-tools) | S–M | Medium | Multi-participant vault organization |
 | [Real PHI-scrubbing implementations](#real-phi-scrubbing-implementations-behind-the-phiscrubber-slot) | M | High | Any deployment with actual PHI |
 | [Per-analyst attribution on vault evidence](#per-analyst-attribution-on-vault-evidence-blocks) | S | Medium | Multi-analyst studies |
@@ -61,11 +61,13 @@ group that doesn't want to start from scratch:
   medication histories, or vitals. Bridges clinical data into the
   same governance pipeline.
 
-A prerequisite that would pay back across all of these: a minimal
-`children/template/` skeleton — three Tier-1 tools, one Tier-2, one
-Tier-3, with the abstract methods stubbed out and the param schemas
-illustrated. Cuts onboarding for the next child from "read 1,500
-lines of running code" to "fill in five blanks."
+**Shipped**: a minimal `children/template/` skeleton — three Tier-1
+tools, one Tier-2, one Tier-3, with every abstract method stubbed
+out, param schemas illustrated, and `subject_id` wired throughout.
+New children fork from `src/biosensor_mcp/children/template/` rather
+than reading the running child end-to-end. Shape-contract tests at
+`tests/children/template/test_template_shape.py` are copyable as a
+starting point for the new child's own tests.
 
 ## Per-subject parameter scoping on vault tools
 

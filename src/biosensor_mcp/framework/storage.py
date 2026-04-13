@@ -35,6 +35,17 @@ class BaseStorage:
                         payload TEXT NOT NULL
                     );
                 '''
+
+    Transaction contract:
+        ``execute()`` and ``executemany()`` do NOT auto-commit — this
+        is deliberate so callers can batch multiple statements into a
+        single transaction. Callers are responsible for invoking
+        ``commit()`` once the batch is complete. Forgetting to commit
+        is the single most common foot-gun when extending this class.
+
+        Note that ``AuditLog.record()`` follows a different convention
+        (auto-commits after every insert) because each audit row is an
+        independent unit of evidence with no batching context.
     """
 
     def __init__(self, db_path: Path):
@@ -67,12 +78,15 @@ class BaseStorage:
         return ""
 
     def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
+        """Run a single statement. Caller must ``commit()`` to persist."""
         return self._get_conn().execute(sql, params)
 
     def executemany(self, sql: str, params_list: list[tuple]):
+        """Run a batch. Caller must ``commit()`` to persist."""
         self._get_conn().executemany(sql, params_list)
 
     def commit(self):
+        """Persist any pending writes from execute()/executemany()."""
         self._get_conn().commit()
 
     def fetchone(self, sql: str, params: tuple = ()) -> tuple | None:

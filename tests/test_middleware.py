@@ -321,3 +321,114 @@ class TestPHIScrubber:
         )
         assert "participant_name" not in scrubbed
         assert scrubbed["value"] == 42
+
+    def test_scrubber_id_distinguishes_noop_from_subclass(self):
+        """
+        `scrubber_id` lets the router stamp _meta with the scrubber in use,
+        so audit rows on a misconfigured deployment (no real scrubber wired
+        in) are distinguishable from ones produced under a real policy.
+        """
+        class CustomScrubber(PHIScrubber):
+            def scrub(self, result: dict) -> dict:
+                return result
+
+        assert PHIScrubber().scrubber_id == "noop"
+        assert CustomScrubber().scrubber_id == "CustomScrubber"
+
+
+class TestAuditParamsSizeBound:
+    """
+    Oversized params dicts must be truncated before hitting SQLite —
+    otherwise a single pathological caller can bloat audit.db beyond
+    the point where routine queries stay fast.
+    """
+
+    def test_oversized_params_truncated_with_marker(self):
+        with TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "audit.db"
+            audit = AuditLog(db)
+            try:
+                # 200 KB of junk — well over the 50 KB cap.
+                huge = {"blob": "x" * 200_000}
+                audit.record(
+                    "test_domain", "big_tool", 1, huge, 0, "SUCCESS", 0,
+                )
+            finally:
+                audit.close()
+
+            conn = sqlite3.connect(str(db))
+            try:
+                (stored,) = conn.execute(
+                    "SELECT params FROM audit_log"
+                ).fetchone()
+            finally:
+                conn.close()
+
+        assert "...[truncated;" in stored
+        # 50_000 cap + ~40-char marker → well under 60 KB
+        assert len(stored) < 60_000
+
+    def test_normal_params_not_truncated(self):
+        with TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "audit.db"
+            audit = AuditLog(db)
+            try:
+                audit.record(
+                    "test_domain", "small_tool", 1,
+                    {"activity_id": 12345}, 0, "SUCCESS", 0,
+                )
+            finally:
+                audit.close()
+
+            conn = sqlite3.connect(str(db))
+            try:
+                (stored,) = conn.execute(
+                    "SELECT params FROM audit_log"
+                ).fetchone()
+            finally:
+                conn.close()
+
+        assert "truncated" not in stored
+        assert "12345" in stored
+
+
+class TestAuditErrorKeywordOnly:
+    """
+    `error` on AuditLog.record is keyword-only: the signature
+    previously accepted 8 positional args and mistakes slipped
+    through silently. Making it keyword-only surfaces the error.
+    """
+
+    def test_positional_error_rejected(self):
+        with TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "audit.db"
+            audit = AuditLog(db)
+            try:
+                with pytest.raises(TypeError):
+                    # 8th positional arg (error) no longer accepted.
+                    audit.record(
+                        "d", "t", 1, {}, 0, "FAIL", 0, "boom",  # noqa: B008
+                    )
+            finally:
+                audit.close()
+
+    def test_keyword_error_roundtrips(self):
+        with TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "audit.db"
+            audit = AuditLog(db)
+            try:
+                audit.record(
+                    "d", "t", 1, {}, 0, "FAIL", 0, error="boom",
+                )
+            finally:
+                audit.close()
+
+            conn = sqlite3.connect(str(db))
+            try:
+                (err,) = conn.execute(
+                    "SELECT error FROM audit_log"
+                ).fetchone()
+            finally:
+                conn.close()
+
+        assert err == "boom"

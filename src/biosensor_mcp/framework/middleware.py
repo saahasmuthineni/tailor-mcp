@@ -233,6 +233,25 @@ class PHIScrubber:
     subclass exists.
     """
 
+    # Class-level flag so the no-op warning fires once per process,
+    # not once per router instance (tests instantiate many routers).
+    _noop_warning_emitted = False
+
+    def __init__(self):
+        # Only the base class is the no-op. Subclasses signal intent
+        # by overriding scrub() — their __init__ doesn't trigger this.
+        if type(self) is PHIScrubber and not PHIScrubber._noop_warning_emitted:
+            log.warning(
+                "PHIScrubber default is a no-op; subclass and wire a real "
+                "scrubber in at router construction for production use."
+            )
+            PHIScrubber._noop_warning_emitted = True
+
+    @property
+    def scrubber_id(self) -> str:
+        """Short identifier stamped into _meta for audit traceability."""
+        return "noop" if type(self) is PHIScrubber else type(self).__name__
+
     def scrub(self, result: dict) -> dict:
         """
         Return ``result`` unchanged. Subclasses override this method
@@ -309,16 +328,33 @@ class AuditLog:
             self._local.conn.close()
             self._local.conn = None
 
+    # A pathological caller can pass a multi-megabyte params dict and bloat
+    # audit.db. Serialized params above this bound are truncated with a
+    # marker — we still record *that* the call happened, but the params
+    # column stays query-able. 50 KB is generous for structured args.
+    _MAX_PARAMS_BYTES = 50_000
+
     def record(self, domain: str, tool_name: str, tier: int, params: dict,
                token_estimate: int, outcome: str, duration_ms: int,
-               error: str = None, *, subject_id: str | None = None):
+               *, error: str | None = None,
+               subject_id: str | None = None):
+        params_json = _dumps(params)
+        if isinstance(params_json, bytes):
+            params_repr = params_json.decode("utf-8", errors="replace")
+        else:
+            params_repr = params_json
+        if len(params_repr) > self._MAX_PARAMS_BYTES:
+            params_repr = (
+                params_repr[: self._MAX_PARAMS_BYTES]
+                + f"...[truncated; original {len(params_repr)} bytes]"
+            )
         self._conn.execute(
             "INSERT INTO audit_log"
             " (timestamp, domain, tool_name, tier, params, token_estimate,"
             "  outcome, duration_ms, error, subject_id)"
             " VALUES (?,?,?,?,?,?,?,?,?,?)",
             (datetime.now(timezone.utc).isoformat(), domain, tool_name, tier,
-             _dumps(params), token_estimate, outcome, duration_ms, error,
+             params_repr, token_estimate, outcome, duration_ms, error,
              subject_id),
         )
         self._conn.commit()

@@ -123,11 +123,24 @@ def rescan_vault(
         except Exception as exc:
             log.warning(f"rescan_vault: failed on {filename}: {exc}")
 
-    # Drop index rows whose files disappeared
+    # Drop index rows whose files disappeared. Re-verify existence at
+    # delete time — if a user created a new file *during* our walk, it
+    # won't be in `seen` but may well exist now, and we shouldn't drop
+    # an index row for a real on-disk file.
     for indexed in storage.list_all_filenames():
-        if indexed not in seen:
-            storage.delete_note(indexed)
-            counts["deleted"] += 1
+        if indexed in seen:
+            continue
+        candidate = vault_resolved / indexed
+        if candidate.exists():
+            # Re-index rather than drop; file appeared after walk passed it.
+            try:
+                _reindex_file(indexed, candidate.resolve(), storage)
+                counts["added"] += 1
+            except Exception as exc:
+                log.warning(f"rescan_vault: reindex of late-arriving {indexed} failed: {exc}")
+            continue
+        storage.delete_note(indexed)
+        counts["deleted"] += 1
 
     return counts
 

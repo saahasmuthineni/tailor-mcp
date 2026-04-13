@@ -28,10 +28,10 @@ jobs:
           cache: 'pip'
           cache-dependency-path: pyproject.toml
 
-      - name: Install ruff
+      - name: Install lint deps
         run: |
           python -m pip install --upgrade pip
-          pip install "ruff>=0.5"
+          pip install "ruff>=0.5" "mypy>=1.10"
 
       - name: Ruff check
         run: ruff check src tests
@@ -41,6 +41,13 @@ jobs:
       # step once the initial format pass has been committed.
       # - name: Ruff format (check only)
       #   run: ruff format --check src tests
+
+      # mypy runs informationally for now — see pyproject.toml [tool.mypy].
+      # Flip `continue-on-error` off once the existing 16 errors are
+      # addressed (tracked on the roadmap).
+      - name: mypy (informational)
+        continue-on-error: true
+        run: mypy src/biosensor_mcp
 
   test:
     name: Test (${{ matrix.os }} · py${{ matrix.python-version }})
@@ -70,9 +77,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      # 4. Run the test suite with coverage
+      # 4. Run the test suite with coverage. Floor is set below current
+      #    baseline (~65%) to leave slack for routine PRs; raise it as
+      #    the untested CLI/OAuth/demo paths gain tests.
       - name: Run tests
-        run: pytest -v --cov=biosensor_mcp --cov-report=term-missing --cov-report=xml
+        run: pytest -v --cov=biosensor_mcp --cov-report=term-missing --cov-report=xml --cov-fail-under=60
 
       # 5. Run standalone security probe
       - name: Security probe

@@ -134,14 +134,17 @@ class RunningProcessing:
     # ═══════════════════════════════════════════════════════════
 
     @staticmethod
-    def compute_hr_zones(
-        hr_data: list[int], max_hr: int = DEFAULT_MAX_HR, resting_hr: int = DEFAULT_RESTING_HR
-    ) -> dict:
+    def compute_hr_zones(hr_data: list[int], max_hr: int = DEFAULT_MAX_HR) -> dict:
         """
-        Zone distribution from per-second HR data.
+        Zone distribution from per-second HR data (%MHR method).
 
         Uses configurable max_hr — hardcoded 195 doesn't work for everyone.
         Zone boundaries: 60%, 70%, 80%, 90%, 100% of max HR.
+
+        Note: this is %MHR, not Karvonen HR-reserve. Resting HR is
+        intentionally not part of the input here — if a future version
+        wants reserve-based zones, introduce a separate method so the
+        existing semantics are preserved.
         """
         zones = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
         boundaries = [0.6, 0.7, 0.8, 0.9, 1.0]
@@ -312,10 +315,15 @@ class RunningProcessing:
         }
 
     @staticmethod
-    def compute_efficiency_factor(
-        hr_data: list, velocity: list, grade: list | None = None
-    ) -> dict:
-        """EF = normalized pace / avg HR. Higher = more efficient."""
+    def compute_efficiency_factor(hr_data: list, velocity: list) -> dict:
+        """
+        EF = (pace in min/mile) / avg HR * 1000. Higher = more efficient.
+
+        Note: this is flat-pace EF, not grade-adjusted. A grade-adjusted
+        variant would divide velocity by (1 + 0.03 * grade%) before the
+        ratio — add as a separate method rather than extending this
+        signature, to keep existing callers stable.
+        """
         if not hr_data or not velocity:
             return {"ef": 0}
         avg_hr = sum(hr_data) / len(hr_data)

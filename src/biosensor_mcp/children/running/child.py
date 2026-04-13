@@ -202,7 +202,18 @@ class RunningChild(ChildMCP):
 
     @property
     def vaultable_tools(self) -> list[str]:
-        """Tools whose results should be archived to the Obsidian vault."""
+        """
+        Tools whose results are part of the analytical record.
+
+        In a research context, these are the computed reports an
+        analyst would cite, revisit, or compare across sessions —
+        not raw-stream dumps or transient lookups. The framework
+        archives each successful call to one of these tools as a
+        markdown note in the Obsidian vault with a frontmatter
+        index row in ``vault.db``. The mechanism is the same as
+        before the research reframe; the name is retained for
+        compatibility.
+        """
         return ["strava_run_report", "strava_trend_report", "strava_compare_runs"]
 
     @property

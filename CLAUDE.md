@@ -155,25 +155,27 @@ biosensor-mcp serve
 
 ## Key Design Decisions
 
-**Audit log is the backbone.** Every tool call lands in `audit.db` with timestamp, domain, tool, tier, parameters, token estimate, outcome, latency, optional error, and optional `subject_id`. That row is intended to be durable evidence of how an analyst accessed participant data. It's the single most load-bearing feature for research use.
+Architectural decisions are captured as numbered ADRs under
+[docs/adr/](docs/adr/) — one file per decision, each with its own
+context / decision / consequences / alternatives. Summaries below link
+to the full record.
 
-**`subject_id` scoping is first-class on the audit log but optional on calls.** The router extracts `subject_id` from incoming parameters (if present) and passes it through to every audit row in that dispatch path. Children are not yet required to accept it as a tool parameter — that's on the roadmap. Existing audit databases are silently migrated via `ALTER TABLE`.
+- **[ADR 0001 — Audit log is the backbone](docs/adr/0001-audit-log-as-backbone.md).** Every tool call lands in `audit.db`: timestamp, domain, tool, tier, parameters, token estimate, outcome, latency, optional error, optional `subject_id`. Durable evidence of how an analyst accessed participant data — the single most load-bearing feature for research use.
+- **[ADR 0002 — `subject_id` scoping](docs/adr/0002-subject-id-scoping.md).** First-class audit column, optional on calls. The router extracts `subject_id` from parameters and threads it to every audit row; children adopt it in `param_schemas` incrementally. Legacy `audit.db` migrates via `ALTER TABLE`.
+- **[ADR 0003 — PHI scrubbing is a seam, not a policy](docs/adr/0003-phi-scrubber-seam.md).** `PHIScrubber.scrub()` is a no-op by default; institutions subclass. The default emits a one-time warning on first construction and exposes `scrubber_id` so audit rows distinguish misconfigured deployments from real policies.
+- **[ADR 0004 — Structured `LLMInstruction`](docs/adr/0004-structured-llm-instruction.md).** Consent and cost gates return a JSON object with individually checkable `must_do`, `must_not_do`, and `on_ambiguous_reply` fields — not a free-text paragraph. Makes compliance auditable.
+- **[ADR 0005 — Pre-estimation, not post-billing](docs/adr/0005-cost-pre-estimation.md).** `CostGate` calls `child.estimate_cost()` before execution using stream metadata (point counts), never the full payload. Estimator failures fail closed.
 
-**PHI scrubbing is a seam, not a policy.** `PHIScrubber.scrub()` is a no-op by default. Institutions subclass and wire their own scrubber in at router construction time once they have a policy. The framework deliberately does not guess what "PHI" means in a given study.
+### Implementation notes
 
-**Structured `LLMInstruction` over freeform strings**: Consent and cost gates return a JSON object with individually checkable `must_do`, `must_not_do`, and `on_ambiguous_reply` fields — not a free-text paragraph. Makes compliance auditable.
+Domain-specific tuning choices that inform behavior but aren't
+architectural decisions in the ADR sense:
 
-**Pre-estimation not post-billing**: `CostGate` calls `child.estimate_cost()` before execution using stream metadata (point counts), never the full payload. No wasted compute on rejected requests.
-
-**Grade precision at 1 decimal**: GAP calculation uses `cost = 1 + 0.03 * grade%`. Rounding grade to integer introduces ~3% split error. All other numerics are reduced more aggressively.
-
-**0.5 m/s stop threshold**: 0.3 m/s was too aggressive (flagged slow shuffles at end of hard efforts). 0.5 m/s (~1.8 km/h) is the designed "completely stopped" signal.
-
-**Spike detection 30-second cooldown**: A single Apple Watch sensor catchup burst can generate dozens of overlapping anomaly entries without the cooldown.
-
-**orjson with stdlib fallback**: `_dumps`/`_loads` wrappers in `middleware.py` are transparent to all consumers.
-
-**`router.close()` on Windows**: SQLite WAL connections must be explicitly closed before the process exits on Windows. Call `router.close()` in tests and server shutdown to release file locks.
+- **Grade precision at 1 decimal**: GAP calculation uses `cost = 1 + 0.03 * grade%`. Rounding grade to integer introduces ~3% split error. All other numerics are reduced more aggressively.
+- **0.5 m/s stop threshold**: 0.3 m/s was too aggressive (flagged slow shuffles at end of hard efforts). 0.5 m/s (~1.8 km/h) is the designed "completely stopped" signal.
+- **Spike detection 30-second cooldown**: A single Apple Watch sensor catchup burst can generate dozens of overlapping anomaly entries without the cooldown.
+- **orjson with stdlib fallback**: `_dumps`/`_loads` wrappers in `middleware.py` are transparent to all consumers.
+- **`router.close()` on Windows**: SQLite WAL connections must be explicitly closed before the process exits on Windows. Call `router.close()` in tests and server shutdown to release file locks.
 
 ## Configuration
 
@@ -273,7 +275,8 @@ Key differences from a ChildMCP:
 ## Further reading
 
 - [README.md](README.md) — audience-facing overview.
-- [docs/research-framing.md](docs/research-framing.md) — the longer-form document aimed at health-research reviewers and RSEs.
+- [docs/design/research-framing.md](docs/design/research-framing.md) — the longer-form document aimed at health-research reviewers and RSEs.
+- [docs/adr/](docs/adr/) — Architecture Decision Records for the framework's load-bearing choices.
 - [ROADMAP.md](ROADMAP.md) — explicitly deferred work with effort/impact triage (real PHI scrubbing, new children, deterministic replay, full provenance hashing, per-subject tool-parameter scoping, multi-analyst vault attribution, vault freeze, worked-example notebook, evaluation harness).
 
 ## CI

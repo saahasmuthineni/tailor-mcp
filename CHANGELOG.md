@@ -8,6 +8,8 @@ and this project aims at [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ## [Unreleased]
 
 ### Changed
+- **Repo reorganization pass** (PR 1 of 3) — hygiene files and documentation layout only; no code or test movement. `docs/` now splits into `assets/` (SVGs), `design/` (research-framing, design-context PDF), and `guides/` (Claude Desktop demo, VHS tape). Link references in README and CLAUDE.md updated.
+- `CLAUDE.md` "Key Design Decisions" section now links to ADR files under `docs/adr/` for the five architectural decisions, and relocates the five domain-specific numeric choices (grade precision, 0.5 m/s stop threshold, 30 s spike cooldown, orjson fallback, `router.close()` on Windows) to an "Implementation notes" subsection.
 - **Codebase review pass** (`claude/codebase-review-hl0tT`) — targeted bug fixes, test gaps, and CI guardrails. Highlights below; no public-API removals.
 - Cost-estimation failure now **fails closed** in both `_dispatch()` and `dispatch_internal()`. Previously a broken `estimate_cost()` fell back to `CostEstimate(tokens=0)`, which silently bypassed the cost gate for Tier-3 calls. Audited as `COST_ESTIMATE_ERROR` / `COST_ESTIMATE_ERROR_INTERNAL`.
 - `AuditLog.record()` serialises `params` through a **50 KB size bound**; oversized payloads are truncated with a `...[truncated; N bytes]` marker so a pathological caller cannot bloat `audit.db`.
@@ -16,14 +18,21 @@ and this project aims at [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - `dispatch_internal()` cost-gate + PARAM_INVALID audit rows now record `duration_ms` consistently with the public dispatch path (was hard-coded to `0`).
 - `compute_hr_zones()` no longer accepts an unused `resting_hr` parameter (%MHR zones never used it). If Karvonen reserve is wanted, add it as a separate method rather than extending the signature.
 - `compute_efficiency_factor()` no longer accepts an unused `grade` parameter. A grade-adjusted variant should live in a new method.
-- **Repositioned the project** as local-first infrastructure for LLM-assisted analysis of high-frequency biometric data in health research workflows. The running/Strava child is retained as a worked example of the ChildMCP pattern, not the headline use case. README, `CLAUDE.md`, module docstrings, and `ChildMCP`/`children` docstrings rewritten to match. See `docs/research-framing.md`.
+- **Repositioned the project** as local-first infrastructure for LLM-assisted analysis of high-frequency biometric data in health research workflows. The running/Strava child is retained as a worked example of the ChildMCP pattern, not the headline use case. README, `CLAUDE.md`, module docstrings, and `ChildMCP`/`children` docstrings rewritten to match. See `docs/design/research-framing.md`.
 - `CLAUDE.md` file tree / tool count aligned with the actual code (`RunningChild` exposes 12 tools; vault ships `parser.py` and `rescan.py`; tests ship `test_vault_parser.py` and `test_vault_rescan.py`).
 
 ### Added
+- `docs/adr/` — Architecture Decision Records. Five initial entries cover the audit log as backbone, `subject_id` scoping, the `PHIScrubber` seam, structured `LLMInstruction`, and cost pre-estimation. `docs/adr/README.md` indexes them; `docs/adr/0000-template.md` is the copy-template for future ADRs.
+- `.github/SECURITY.md` — private vulnerability reporting path via GitHub security advisories; scope in/out list.
+- `.github/CODEOWNERS` — flags `framework/`, `framework/vault/`, `docs/adr/`, CI workflows, and the security probe as review-required.
+- `.github/dependabot.yml` — weekly `pip` + `github-actions` dependency updates, with minor/patch version bumps grouped to reduce review churn.
+- `.github/ISSUE_TEMPLATE/new_child.md` — structured proposal template for new `ChildMCP` data sources (domain, consent scope, tier mapping, PHI considerations).
+- `.pre-commit-config.yaml` — ruff (lint + format-check), trailing-whitespace, end-of-file-fixer, check-yaml, check-toml, mixed-line-ending. Ruff configuration continues to live in `pyproject.toml`.
+- `.editorconfig` — cross-editor/cross-OS indentation + line-ending rules.
 - `subject_id` column on the `audit_log` table — nullable `TEXT`, populated from the `subject_id` key in a call's parameters if present. Threaded through every `_audit.record()` call in `_dispatch`, `_dispatch_vault`, and `dispatch_internal`. Legacy `audit.db` files are migrated on open via `ALTER TABLE`, mirroring the pattern `VaultStorage` already uses for `mtime_ns`.
 - `PHIScrubber` class in `framework.middleware` — a documented extension seam for institutional PHI-stripping policies. Default implementation is a no-op. The router instantiates one at construction time and calls `.scrub()` on every successful child result in both `_dispatch()` and `dispatch_internal()`, before the token estimate, audit row, and post-execute hooks fire. Not applied on the vault-dispatch path (vault tools are metadata, not biometric data).
 - `_meta` provenance stamps on every successful result: `package_version` (from `biosensor_mcp.__version__`), `tool_name`, and a UTC `called_at` ISO-8601 timestamp. Applied in `_dispatch()`, `_dispatch_vault()`, and `dispatch_internal()`; `dispatch_internal()` additionally carries `source: "INTERNAL"` so cross-child call traces stay distinguishable.
-- `docs/research-framing.md` — the longer-form document for health-research reviewers.
+- `docs/design/research-framing.md` — the longer-form document for health-research reviewers.
 - `ROADMAP.md` (originally `docs/roadmap.md`, promoted to repo root in the codebase-review pass) — the list of explicitly deferred work the research-shift release did **not** implement, now with effort/impact triage and surfaced from README.
 - Tests: audit-log `subject_id` round-trip + legacy-schema migration; `PHIScrubber` no-op default and subclass-override path; `_meta` provenance assertions across `_dispatch`, `_dispatch_vault`, and `dispatch_internal`; security-probe checks for `subject_id` scoping and provenance stamps.
 - Ruff linting & formatting configuration in `pyproject.toml`.

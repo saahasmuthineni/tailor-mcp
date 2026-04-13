@@ -43,4 +43,4 @@ ffmpeg -i input.mp4 -vf "fps=15,scale=900:-1:flags=lanczos" -loop 0 docs/claude-
 
 ## Current placeholder
 
-Until a real recording is available, `docs/claude-desktop-demo.svg` provides a static mockup of the same interaction for the README.
+Until a real recording is available, [`docs/assets/claude-desktop-demo.svg`](../assets/claude-desktop-demo.svg) provides a static mockup of the same interaction for the README.

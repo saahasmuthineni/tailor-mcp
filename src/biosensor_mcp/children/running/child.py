@@ -575,9 +575,7 @@ class RunningChild(ChildMCP):
         vel = streams.get("velocity_smooth", [])
         return {
             "activity_id": params["activity_id"],
-            "zones": self._processing.compute_hr_zones(
-                hr, max_hr=self._max_hr, resting_hr=self._resting_hr
-            ),
+            "zones": self._processing.compute_hr_zones(hr, max_hr=self._max_hr),
             "drift": self._processing.compute_hr_drift(hr),
             "anomalies": [
                 a
@@ -687,7 +685,7 @@ class RunningChild(ChildMCP):
             report["max_heartrate"] = detail.get("max_heartrate")
         if hr and vel:
             report["decoupling"] = p.compute_decoupling(hr, vel)
-            report["efficiency_factor"] = p.compute_efficiency_factor(hr, vel, grade)
+            report["efficiency_factor"] = p.compute_efficiency_factor(hr, vel)
         if hr:
             report["hr_drift"] = p.compute_hr_drift(hr)
             report["hr_zones"] = p.compute_hr_zones(hr, max_hr=self._max_hr)

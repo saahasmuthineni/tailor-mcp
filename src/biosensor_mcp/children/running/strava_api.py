@@ -152,7 +152,17 @@ class StravaAPI:
             )
 
     def get(self, endpoint: str, **params) -> Any:
-        """Make an authenticated GET request to the Strava API."""
+        """Make an authenticated GET request to the Strava API.
+
+        Rate-limit accounting:
+          - A network-level failure (DNS, refused, timeout before response)
+            raises from ``requests.get()`` and the timestamp append below is
+            skipped — correct, because Strava's rate limiter never saw the
+            request.
+          - A response that reaches us (including 4xx/5xx/429) counts — also
+            correct, because Strava's rate limiter counts every HTTP request
+            that hits their servers, not just successful ones.
+        """
         self._check_rate_limit()
         self._refresh_if_needed()
         headers = {"Authorization": f"Bearer {self.tokens['access_token']}"}

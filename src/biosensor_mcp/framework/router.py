@@ -34,7 +34,7 @@ from mcp.types import TextContent, Tool
 
 import biosensor_mcp
 
-from .interfaces import ChildMCP, CostEstimate, LLMInstruction, ToolDefinition
+from .interfaces import ChildMCP, LLMInstruction, ToolDefinition
 from .middleware import (
     JSON_BACKEND,
     AuditLog,
@@ -313,8 +313,8 @@ class RouterMCP:
         ok, err, cleaned = self._validator.validate(schemas, arguments)
         if not ok:
             self._audit.record(
-                domain, tool_name, tier, arguments, 0, "PARAM_INVALID", 0, err,
-                subject_id=subject_id,
+                domain, tool_name, tier, arguments, 0, "PARAM_INVALID", 0,
+                error=err, subject_id=subject_id,
             )
             return [TextContent(type="text", text=_dumps({"error": err}))]
 
@@ -324,8 +324,8 @@ class RouterMCP:
         cb_ok, cb_err = self._circuit.check(domain)
         if not cb_ok:
             self._audit.record(
-                domain, tool_name, tier, cleaned, 0, "CIRCUIT_OPEN", 0, cb_err,
-                subject_id=subject_id,
+                domain, tool_name, tier, cleaned, 0, "CIRCUIT_OPEN", 0,
+                error=cb_err, subject_id=subject_id,
             )
             return [TextContent(type="text", text=_dumps({"error": cb_err}))]
 
@@ -409,8 +409,27 @@ class RouterMCP:
             try:
                 cost_est = await child.estimate_cost(tool_name, cleaned)
             except Exception as e:
-                cost_est = CostEstimate(tokens=0)
+                # Fail-closed: a broken estimator must not slip past the
+                # cost gate with a synthetic 0-token estimate.
+                duration_ms = int((time.time() - start) * 1000)
+                self._audit.record(
+                    domain, tool_name, tier, cleaned, 0,
+                    "COST_ESTIMATE_ERROR", duration_ms,
+                    error=str(e), subject_id=subject_id,
+                )
                 log.warning(f"Cost estimation failed for {tool_name}: {e}")
+                return [
+                    TextContent(
+                        type="text",
+                        text=_dumps({
+                            "error": (
+                                f"Could not estimate cost for {tool_name}; "
+                                "refusing to execute Tier-3 call without a "
+                                "verified token estimate."
+                            )
+                        }),
+                    )
+                ]
 
             if self._cost_gate.should_gate(cost_est.tokens):
                 duration_ms = int((time.time() - start) * 1000)
@@ -535,8 +554,8 @@ class RouterMCP:
             duration_ms = int((time.time() - start) * 1000)
             self._circuit.record_failure(domain)
             self._audit.record(
-                domain, tool_name, tier, cleaned, 0, "ERROR", duration_ms, str(e),
-                subject_id=subject_id,
+                domain, tool_name, tier, cleaned, 0, "ERROR", duration_ms,
+                error=str(e), subject_id=subject_id,
             )
             log.error(f"Tool {tool_name} failed: {e}", exc_info=True)
             return [TextContent(type="text", text=_dumps({"error": str(e)}))]
@@ -572,8 +591,8 @@ class RouterMCP:
         ok, err, cleaned = self._validator.validate(schemas, arguments)
         if not ok:
             self._audit.record(
-                "vault", tool_name, tier, arguments, 0, "PARAM_INVALID", 0, err,
-                subject_id=subject_id,
+                "vault", tool_name, tier, arguments, 0, "PARAM_INVALID", 0,
+                error=err, subject_id=subject_id,
             )
             return [TextContent(type="text", text=_dumps({"error": err}))]
 
@@ -607,8 +626,8 @@ class RouterMCP:
         except Exception as e:
             duration_ms = int((time.time() - start) * 1000)
             self._audit.record(
-                "vault", tool_name, tier, cleaned, 0, "ERROR", duration_ms, str(e),
-                subject_id=subject_id,
+                "vault", tool_name, tier, cleaned, 0, "ERROR", duration_ms,
+                error=str(e), subject_id=subject_id,
             )
             log.error(f"Vault tool {tool_name} failed: {e}", exc_info=True)
             return [TextContent(type="text", text=_dumps({"error": str(e)}))]
@@ -651,8 +670,8 @@ class RouterMCP:
         ok, err, cleaned = self._validator.validate(schemas, params)
         if not ok:
             self._audit.record(
-                domain, tool_name, tier, params, 0, "PARAM_INVALID_INTERNAL", 0, err,
-                subject_id=subject_id,
+                domain, tool_name, tier, params, 0, "PARAM_INVALID_INTERNAL", 0,
+                error=err, subject_id=subject_id,
             )
             return {"error": err}
 
@@ -662,8 +681,8 @@ class RouterMCP:
         cb_ok, cb_err = self._circuit.check(domain)
         if not cb_ok:
             self._audit.record(
-                domain, tool_name, tier, cleaned, 0, "CIRCUIT_OPEN_INTERNAL", 0, cb_err,
-                subject_id=subject_id,
+                domain, tool_name, tier, cleaned, 0, "CIRCUIT_OPEN_INTERNAL", 0,
+                error=cb_err, subject_id=subject_id,
             )
             return {"error": cb_err}
 
@@ -682,17 +701,28 @@ class RouterMCP:
             try:
                 cost_est = await child.estimate_cost(tool_name, cleaned)
             except Exception as exc:
-                # Mirror the logging in the public dispatch path — silent
-                # failure here could let a Tier-3 call slip past the cost
-                # gate with a synthetic 0-token estimate.
-                cost_est = CostEstimate(tokens=0)
+                # Fail-closed — same policy as the public path.
+                duration_ms = int((time.time() - start) * 1000)
+                self._audit.record(
+                    domain, tool_name, tier, cleaned, 0,
+                    "COST_ESTIMATE_ERROR_INTERNAL", duration_ms,
+                    error=str(exc), subject_id=subject_id,
+                )
                 log.warning(
                     f"Internal dispatch: cost estimation failed for {tool_name}: {exc}"
                 )
+                return {
+                    "error": (
+                        f"Could not estimate cost for {tool_name}; "
+                        "refusing internal Tier-3 dispatch without a "
+                        "verified token estimate."
+                    )
+                }
             if self._cost_gate.should_gate(cost_est.tokens):
+                duration_ms = int((time.time() - start) * 1000)
                 self._audit.record(
                     domain, tool_name, tier, cleaned, cost_est.tokens,
-                    "COST_GATE_INTERNAL", 0,
+                    "COST_GATE_INTERNAL", duration_ms,
                     subject_id=subject_id,
                 )
                 return {"error": f"Cost gate: {cost_est.tokens} tokens exceeds threshold"}
@@ -735,8 +765,8 @@ class RouterMCP:
             duration_ms = int((time.time() - start) * 1000)
             self._circuit.record_failure(domain)
             self._audit.record(
-                domain, tool_name, tier, cleaned, 0, "ERROR_INTERNAL", duration_ms, str(e),
-                subject_id=subject_id,
+                domain, tool_name, tier, cleaned, 0, "ERROR_INTERNAL", duration_ms,
+                error=str(e), subject_id=subject_id,
             )
             log.error(f"Internal dispatch {tool_name} failed: {e}", exc_info=True)
             return {"error": str(e)}

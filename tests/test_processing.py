@@ -280,3 +280,89 @@ class TestHaversine:
     def test_same_point(self):
         coord = [42.0, -71.0]
         assert haversine(coord, (42.0, -71.0)) < 1  # < 1 meter
+
+
+class TestDesignDecisionRegressions:
+    """
+    Regression tests for three explicit design decisions called out in
+    CLAUDE.md. These pin down behavior that must not silently change —
+    a future refactor that breaks any of these should fail loudly.
+    """
+
+    def test_grade_precision_preserved_for_gap(self):
+        """
+        CLAUDE.md: grade is preserved at 1 decimal (not rounded to int)
+        because GAP uses cost = 1 + 0.03 * grade%; integer rounding on a
+        steep grade introduces ~3% split error.
+        """
+        reduced = RunningProcessing.reduce_precision(
+            {"grade_smooth": [-2.34, 5.67, 10.02]}
+        )
+        assert reduced["grade_smooth"] == [-2.3, 5.7, 10.0]
+
+        # Round-trip through compute_gap_splits must see the 1-decimal
+        # grade, not an integer. Build a 2-mile synthetic run where only
+        # the fractional part of grade matters.
+        n = 3220
+        distance = [float(i) for i in range(n)]
+        time_arr = list(range(n))
+        velocity = [3.0] * n
+        grade_precise = [2.4] * n  # 1-decimal precision preserved
+        grade_coarse = [2.0] * n  # what naive integer rounding would give
+        splits_precise = RunningProcessing.compute_gap_splits(
+            velocity, grade_precise, distance, time_arr
+        )
+        splits_coarse = RunningProcessing.compute_gap_splits(
+            velocity, grade_coarse, distance, time_arr
+        )
+        # Same number of splits, but grade-adjusted velocity differs —
+        # demonstrates that the 1-decimal grade flows through GAP.
+        assert len(splits_precise) == len(splits_coarse)
+        assert (
+            splits_precise[0]["avg_velocity_ms"]
+            != splits_coarse[0]["avg_velocity_ms"]
+        )
+
+    def test_stop_threshold_is_half_meter_per_second(self):
+        """
+        CLAUDE.md: 0.5 m/s stop threshold. 0.3 m/s was too aggressive
+        (flagged slow shuffles at end of hard efforts); 0.5 is the
+        designed 'completely stopped' signal.
+        """
+        # 0.49 m/s for 15 s → below threshold → stop detected
+        vel_low = [3.0] * 50 + [0.49] * 15 + [3.0] * 50
+        stops_low = RunningProcessing.detect_stops(
+            [], vel_low, list(range(len(vel_low)))
+        )
+        assert len(stops_low) == 1
+
+        # 0.51 m/s for 15 s → above threshold → no stop
+        vel_high = [3.0] * 50 + [0.51] * 15 + [3.0] * 50
+        stops_high = RunningProcessing.detect_stops(
+            [], vel_high, list(range(len(vel_high)))
+        )
+        assert len(stops_high) == 0
+
+    def test_spike_cooldown_prevents_duplicate_anomalies(self):
+        """
+        CLAUDE.md: 30 s cooldown after a spike. A single sensor
+        catch-up burst can produce many rapid HR transitions; without
+        the cooldown we'd emit dozens of overlapping anomaly entries.
+        """
+        # Five 1-second spikes to 190 bpm, each 5 s apart — all within
+        # a single 30 s cooldown window starting at t=5.
+        hr = (
+            [150] * 5
+            + [190] + [150] * 4
+            + [190] + [150] * 4
+            + [190] + [150] * 4
+            + [190] + [150] * 4
+            + [190] + [150] * 30
+        )
+        spikes = [
+            a for a in RunningProcessing.detect_anomalies(hr, [])
+            if a["type"] == "hr_spike"
+        ]
+        # Without cooldown: up to 5 detections. With cooldown: exactly 1.
+        assert len(spikes) == 1
+        assert spikes[0]["delta"] == 40

@@ -37,6 +37,7 @@ dev = [
     "pytest-asyncio>=0.21",
     "pytest-cov>=4.0",
     "ruff>=0.5",
+    "mypy>=1.10",
 ]
 
 [project.scripts]
@@ -51,6 +52,15 @@ biosensor_mcp = ["py.typed"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.mypy]
+# mypy runs informationally in CI today (continue-on-error). Over time,
+# lift individual errors and then flip CI to fatal.
+python_version = "3.10"
+ignore_missing_imports = true
+check_untyped_defs = false
+# Don't type-check tests for now — too much fixture-heavy Any.
+exclude = ["tests/", "src/biosensor_mcp/demo/"]
 
 [tool.ruff]
 line-length = 100

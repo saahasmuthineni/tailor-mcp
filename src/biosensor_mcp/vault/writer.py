@@ -303,16 +303,34 @@ class VaultWriter:
         fd, tmp_path = tempfile.mkstemp(
             dir=abs_path.parent, prefix=".vault_tmp_", suffix=".md"
         )
+        # Two failure modes to handle cleanly:
+        #   1. os.fdopen() itself raises — the fd was never transferred,
+        #      so we must close it explicitly, then unlink the tmp file.
+        #   2. write()/os.replace() raises — fdopen's `with` closed the
+        #      fd; we just need to unlink the tmp file if it still exists.
+        fd_transferred = False
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
+                fd_transferred = True
                 f.write(content)
             os.replace(tmp_path, abs_path)
         except Exception:
-            # Clean up temp file if replace failed
+            if not fd_transferred:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+            # os.replace() is atomic — if it succeeded, tmp_path is gone;
+            # if it failed, tmp_path still exists. Either way, best-effort
+            # unlink is safe.
             try:
                 os.unlink(tmp_path)
-            except OSError:
+            except FileNotFoundError:
                 pass
+            except OSError as unlink_err:
+                log.warning(
+                    f"Failed to clean up vault tmp file {tmp_path}: {unlink_err}"
+                )
             raise
 
     def _safe_path(self, relative_filename: str) -> Path:

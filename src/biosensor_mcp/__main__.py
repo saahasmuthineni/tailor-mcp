@@ -70,16 +70,32 @@ def cmd_serve():
     _vault_path = None
     if _ucfg_path.exists():
         try:
-            _ucfg = json.loads(_ucfg_path.read_text())
+            _ucfg_text = _ucfg_path.read_text(encoding="utf-8")
+            _ucfg = json.loads(_ucfg_text)
             if "vault_path" in _ucfg:
                 _vault_path = Path(_ucfg["vault_path"]).expanduser()
-        except (OSError, ValueError) as exc:
+        except json.JSONDecodeError as exc:
             # Most common cause: user hand-edited user_config.json and left
-            # a trailing comma. Log loudly — silent failure leaves the vault
-            # silently disabled with no breadcrumb.
+            # a trailing comma. Print loudly to stderr AND log — silent
+            # failure leaves vault integration disabled with no breadcrumb,
+            # which is a nightmare to debug on a research workstation.
+            _banner = "=" * 60
+            sys.stderr.write(
+                f"\n{_banner}\n"
+                f"ERROR: could not parse user_config.json\n"
+                f"  File:   {_ucfg_path}\n"
+                f"  Reason: {exc.msg} (line {exc.lineno}, column {exc.colno})\n"
+                f"  Effect: vault integration is DISABLED.\n"
+                f"  Fix:    validate the file with `python -m json.tool` "
+                f"and restart the server.\n"
+                f"{_banner}\n\n"
+            )
+            sys.stderr.flush()
+            log.error(f"user_config.json parse error: {exc}")
+        except OSError as exc:
             log.warning(
-                f"Could not parse {_ucfg_path}: {exc}. "
-                f"Vault integration disabled until the file is valid JSON."
+                f"Could not read {_ucfg_path}: {exc}. "
+                f"Vault integration disabled until the file is readable."
             )
 
     if _vault_path:

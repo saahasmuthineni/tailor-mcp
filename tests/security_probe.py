@@ -59,22 +59,20 @@ _make_mcp_mock()
 # -- Now import the real framework --
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from biosensor_mcp.framework.audit import _loads
+from biosensor_mcp.framework.cost import CostGate, TokenLedger, estimate_tokens
 from biosensor_mcp.framework.interfaces import (
     ChildMCP,
     CostEstimate,
     ToolDefinition,
     ValidationSchema,
 )
-from biosensor_mcp.framework.middleware import (
+from biosensor_mcp.framework.router import RouterMCP
+from biosensor_mcp.framework.security import (
     CircuitBreaker,
     ConsentGate,
-    CostGate,
     ParamValidator,
-    TokenLedger,
-    _loads,
-    estimate_tokens,
 )
-from biosensor_mcp.framework.router import RouterMCP
 
 # ===============================================================
 # TEST INFRASTRUCTURE

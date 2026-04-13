@@ -34,18 +34,14 @@ from mcp.types import TextContent, Tool
 
 import biosensor_mcp
 
+from .audit import JSON_BACKEND, AuditLog, _dumps
+from .cost import CostGate, TokenLedger, estimate_tokens
 from .interfaces import ChildMCP, LLMInstruction, ToolDefinition
-from .middleware import (
-    JSON_BACKEND,
-    AuditLog,
+from .security import (
     CircuitBreaker,
     ConsentGate,
-    CostGate,
     ParamValidator,
     PHIScrubber,
-    TokenLedger,
-    _dumps,
-    estimate_tokens,
 )
 
 log = logging.getLogger("biosensor-mcp")

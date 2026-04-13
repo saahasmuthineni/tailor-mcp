@@ -42,8 +42,8 @@ def _make_running_storage_mock(activity_id=12345678):
 
 def _setup_vault(vault_dir, data_dir, activity_id=12345678, backfill_config=None):
     """Create a VaultLayer and pre-write one run note."""
-    from biosensor_mcp.vault.layer import VaultLayer
-    from biosensor_mcp.vault.writer import VaultWriter
+    from biosensor_mcp.framework.vault.layer import VaultLayer
+    from biosensor_mcp.framework.vault.writer import VaultWriter
 
     vault_path = Path(vault_dir)
     data_path = Path(data_dir)
@@ -133,7 +133,7 @@ class TestVaultLayerMetadata:
     def test_not_a_child_mcp(self):
         """VaultLayer should not inherit from ChildMCP."""
         from biosensor_mcp.framework.interfaces import ChildMCP
-        from biosensor_mcp.vault.layer import VaultLayer
+        from biosensor_mcp.framework.vault.layer import VaultLayer
         assert not issubclass(VaultLayer, ChildMCP)
 
 
@@ -149,8 +149,8 @@ class TestVaultGetFitnessSummary:
                 layer.close()
 
     def test_empty_vault_returns_note(self):
-        from biosensor_mcp.vault.layer import VaultLayer
-        from biosensor_mcp.vault.writer import VaultWriter
+        from biosensor_mcp.framework.vault.layer import VaultLayer
+        from biosensor_mcp.framework.vault.writer import VaultWriter
         with TemporaryDirectory() as v, TemporaryDirectory() as d:
             writer = VaultWriter(Path(v), Path(d), vaultable_tools=set())
             layer = VaultLayer(Path(v), writer)

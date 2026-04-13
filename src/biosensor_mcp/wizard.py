@@ -24,7 +24,8 @@ from pathlib import Path
 
 import requests
 
-CONFIG_DIR = Path(os.environ.get("BIOSENSOR_CONFIG_DIR", Path.home() / ".biosensor-mcp"))
+from biosensor_mcp.config import CONFIG_DIR
+
 TOKEN_FILE = CONFIG_DIR / "tokens.json"
 CALLBACK_PORT = 8189
 REDIRECT_URI = f"http://localhost:{CALLBACK_PORT}/callback"

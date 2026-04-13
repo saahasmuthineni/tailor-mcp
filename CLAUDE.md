@@ -42,9 +42,10 @@ Markdown files in the Obsidian vault are the **source of truth** for analytical 
 
 ```
 src/biosensor_mcp/
-  __init__.py              # Package metadata (v4.0.0)
+  __init__.py              # Package metadata (v5.0.0)
   __main__.py              # CLI: serve | setup | status | demo | uninstall | --help
   wizard.py                # OAuth setup wizard (localhost callback server)
+  config.py                # Centralised env-var + user_config.json reader
   framework/
     __init__.py            # Public API exports
     interfaces.py          # ChildMCP ABC, ToolDefinition, CostEstimate,
@@ -52,10 +53,21 @@ src/biosensor_mcp/
                            #   CostContext, LLMInstruction
     router.py              # RouterMCP — security pipeline + dispatch +
                            #   _meta provenance stamps, PHI-scrub seam
-    middleware.py          # CircuitBreaker, ConsentGate, CostGate,
-                           #   PHIScrubber (no-op default), AuditLog
-                           #   (with subject_id), TokenLedger, ParamValidator
+    security.py            # ParamValidator, CircuitBreaker, ConsentGate,
+                           #   PHIScrubber (no-op default — see ADR 0003)
+    cost.py                # CostGate, TokenLedger, estimate_tokens
+    audit.py               # AuditLog (with subject_id) + JSON helpers
+                           #   (_dumps, _loads, JSON_BACKEND)
     storage.py             # BaseStorage — thread-safe SQLite with WAL
+    vault/                 # Reorientation tier (framework-level
+                           #   infrastructure, not a ChildMCP)
+      __init__.py          # Exports VaultLayer, VaultWriter
+      layer.py             # VaultLayer — 7 tools
+      writer.py            # Post-execute hook; atomic file writes → Obsidian
+      renderer.py          # Pure markdown generation (run/trend/compare notes)
+      parser.py            # Frontmatter / YAML parsing for vault notes
+      rescan.py            # Filesystem → SQLite index revalidation
+      storage.py           # VaultStorage — SQLite index of vault notes
   children/
     __init__.py            # Docstring framing children as the extension
                            #   point for new data sources
@@ -68,25 +80,26 @@ src/biosensor_mcp/
     __init__.py            # Exports run_demo
     sample_data.py         # Synthetic 60-minute run data (reproducible, stdlib-only)
     runner.py              # Demo runner — execute analytics on synthetic data
-  vault/
-    __init__.py            # Exports VaultWriter, VaultLayer
-    layer.py               # VaultLayer — framework-level reorientation tier, 7 tools
-    writer.py              # Post-execute hook; atomic file writes → Obsidian
-    renderer.py            # Pure markdown generation (run/trend/compare notes)
-    parser.py              # Frontmatter / YAML parsing for vault notes
-    rescan.py              # Filesystem → SQLite index revalidation
-    storage.py             # VaultStorage — SQLite index of vault notes
 
-tests/
-  test_processing.py       # Pure-function analytics tests (no I/O)
-  test_middleware.py       # Framework security component tests
-  test_router.py           # Router pipeline integration tests (includes VaultLayer)
-  test_vault_layer.py      # VaultLayer handler tests
-  test_vault_renderer.py   # Markdown renderer tests
-  test_vault_writer.py     # VaultWriter atomic write + frontmatter tests
-  test_vault_parser.py     # Vault frontmatter parser tests
-  test_vault_rescan.py     # Vault index revalidation tests
+tests/                     # Mirrors src/ layout
+  conftest.py              # Shared fixtures (tmp_data_dir, tmp_vault_dirs)
+                           #   + probe marker registration
   security_probe.py        # Standalone security probe (runs in CI, no pytest needed)
+  test_security_probe_pytest.py   # @pytest.mark.probe wrapper around the standalone probe
+  framework/
+    test_router.py         # Router pipeline integration tests (includes VaultLayer)
+    test_security.py       # ParamValidator / CircuitBreaker / ConsentGate / PHIScrubber
+    test_cost.py           # CostGate / TokenLedger / estimate_tokens
+    test_audit.py          # AuditLog: subject_id, params truncation, keyword-only error
+    vault/
+      test_layer.py        # VaultLayer handler tests
+      test_renderer.py     # Markdown renderer tests
+      test_writer.py       # VaultWriter atomic write + frontmatter tests
+      test_parser.py       # Vault frontmatter parser tests
+      test_rescan.py       # Vault index revalidation tests
+  children/
+    running/
+      test_processing.py   # Pure-function analytics tests (no I/O)
 ```
 
 ## Security Pipeline (Cheapest First)
@@ -254,7 +267,7 @@ Components that represent durable cross-session state — not biosensor domains 
 
 ```python
 # In __main__.py cmd_serve():
-from biosensor_mcp.vault import VaultLayer
+from biosensor_mcp.framework.vault import VaultLayer
 
 router.register_vault_layer(VaultLayer(
     vault_path=vault_path,

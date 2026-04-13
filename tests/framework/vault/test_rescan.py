@@ -7,9 +7,9 @@ import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from biosensor_mcp.vault.rescan import rescan_vault, revalidate_file
-from biosensor_mcp.vault.storage import VaultStorage
-from biosensor_mcp.vault.writer import VaultWriter
+from biosensor_mcp.framework.vault.rescan import rescan_vault, revalidate_file
+from biosensor_mcp.framework.vault.storage import VaultStorage
+from biosensor_mcp.framework.vault.writer import VaultWriter
 
 
 def _make_writer(vault: Path, data: Path) -> VaultWriter:

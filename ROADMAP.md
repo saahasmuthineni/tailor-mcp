@@ -9,7 +9,7 @@ one- or two-sentence pitch plus context; no implementation details.
 | Item | Effort | Impact | Unblocks |
 |---|---|---|---|
 | [New ChildMCPs (CGM / sleep / ECG / CSV / EDF / FHIR)](#new-childmcps-for-research-relevant-data-sources) | M–L | High | Second worked example, broader adoption |
-| [Per-subject `subject_id` as a tool parameter](#per-subject-parameter-scoping-on-existing-tools) | S | High | Multi-participant studies |
+| [Per-subject `subject_id` on vault tools](#per-subject-parameter-scoping-on-vault-tools) | S–M | Medium | Multi-participant vault organization |
 | [Real PHI-scrubbing implementations](#real-phi-scrubbing-implementations-behind-the-phiscrubber-slot) | M | High | Any deployment with actual PHI |
 | [Per-analyst attribution on vault evidence](#per-analyst-attribution-on-vault-evidence-blocks) | S | Medium | Multi-analyst studies |
 | [Deterministic mode + seed control](#deterministic-mode-with-seed-control) | S | Medium | Reproducible paper results |
@@ -67,15 +67,22 @@ Tier-3, with the abstract methods stubbed out and the param schemas
 illustrated. Cuts onboarding for the next child from "read 1,500
 lines of running code" to "fill in five blanks."
 
-## Per-subject parameter scoping on existing tools
+## Per-subject parameter scoping on vault tools
 
 The research-shift release makes `subject_id` a first-class column on
 the audit log and threads it through the router from call parameters
-to every audit row in that dispatch path. What it does **not** yet do
-is require or even accept `subject_id` as a declared tool parameter
-on existing children (running, vault). Adding it cleanly means
-deciding how the vault keys notes by subject — which is a design
-question worth answering deliberately rather than retrofitting.
+to every audit row in that dispatch path. `RunningChild` now declares
+`subject_id` on all 12 `strava_*` tools (audit scoping for data
+access; see ADR 0002 update). What remains is vault adoption.
+
+Declaring `subject_id` on vault tools is not a mechanical copy of the
+running-child work: the vault organizes analytical memory across
+sessions, and adding per-subject scoping means deciding how vault
+notes and themes are *keyed* by subject — do evidence blocks carry a
+subject, do themes span subjects, does `vault_search_notes` filter by
+subject, what happens to cross-subject insights, how do existing
+un-keyed notes migrate? That's a design question worth answering
+deliberately rather than retrofitting.
 
 ## Per-analyst attribution on vault evidence blocks
 

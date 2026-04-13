@@ -189,6 +189,7 @@ architectural decisions in the ADR sense:
 - **Spike detection 30-second cooldown**: A single Apple Watch sensor catchup burst can generate dozens of overlapping anomaly entries without the cooldown.
 - **orjson with stdlib fallback**: `_dumps`/`_loads` wrappers in `middleware.py` are transparent to all consumers.
 - **`router.close()` on Windows**: SQLite WAL connections must be explicitly closed before the process exits on Windows. Call `router.close()` in tests and server shutdown to release file locks.
+- **`subject_id` on `strava_*` tools**: All 12 running tools declare an optional `subject_id` parameter (pattern `^[A-Za-z0-9_\-]{1,64}$`) for audit-log scoping. Does not filter Strava data — one authenticated Strava account may cover multiple study participants, and `subject_id` is the caller's statement of which one this call is about. Vault tools do not yet declare it (ADR 0002, ROADMAP).
 
 ## Configuration
 

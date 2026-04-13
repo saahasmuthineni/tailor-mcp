@@ -565,6 +565,65 @@ class TestSubjectIdAuditScoping:
                 conn.close()
         assert rows == [(None,)]
 
+    def test_subject_id_invalid_pattern_audits_as_param_invalid(self):
+        """
+        When a child declares a ``subject_id`` pattern (as RunningChild
+        now does, per ADR 0002), a malformed value is rejected at
+        validation. The audit row must still capture the submitted
+        ``subject_id`` so an IRB reviewer can see on whose behalf the
+        (rejected) call was allegedly made. The router extracts
+        ``subject_id`` pre-validation precisely for this reason
+        (router.py:305).
+        """
+        import sqlite3
+
+        class ChildWithSubjectIdSchema(MockChild):
+            @property
+            def param_schemas(self) -> dict:
+                return {
+                    f"{self._domain}_free_tool": {
+                        "value": ValidationSchema(type=int, min=1, required=True),
+                        "subject_id": ValidationSchema(
+                            type=str,
+                            required=False,
+                            pattern=r"^[A-Za-z0-9_\-]{1,64}$",
+                        ),
+                    },
+                }
+
+            @property
+            def tool_definitions(self) -> list[ToolDefinition]:
+                return [
+                    ToolDefinition(
+                        f"{self._domain}_free_tool", 1,
+                        "A free tool for testing.",
+                        {
+                            "value": {"type": "integer", "description": "A value", "required": True},
+                            "subject_id": {"type": "string", "description": "Subject", "required": False},
+                        },
+                    ),
+                ]
+
+        with TemporaryDirectory() as tmpdir:
+            router = RouterMCP("test", Path(tmpdir))
+            router.register_child(ChildWithSubjectIdSchema("alpha"))
+            result = _run(router._dispatch(
+                "alpha_free_tool", {"value": 7, "subject_id": "bad;value"},
+            ))
+            router.close()
+            # Validation rejected the call.
+            err_data = _loads(result[0].text)
+            assert err_data.get("error"), "expected error payload on rejection"
+
+            conn = sqlite3.connect(str(Path(tmpdir) / "audit.db"))
+            try:
+                rows = conn.execute(
+                    "SELECT tool_name, outcome, subject_id FROM audit_log"
+                ).fetchall()
+            finally:
+                conn.close()
+        assert rows == [("alpha_free_tool", "PARAM_INVALID", "bad;value")]
+
 
 class TestPHIScrubberSeam:
     """

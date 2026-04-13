@@ -87,3 +87,25 @@ Specifically:
 - **Infer `subject_id` from the calling LLM session.** Rejected —
   inference is the wrong direction for a governance record. The
   caller should state the subject explicitly.
+
+## Update — 2026-04-13
+
+First child-level adoption landed.
+
+- `RunningChild` now declares `subject_id` on all 12 `strava_*` tools
+  in both surfaces: `ToolDefinition.params` (so MCP `list_tools`
+  surfaces it to the LLM client) and `param_schemas` (so
+  `ParamValidator` pattern-checks the value). The shared constant
+  `SUBJECT_ID_SCHEMA` at the top of `children/running/child.py`
+  enforces `^[A-Za-z0-9_\-]{1,64}$`, matching the conventions used
+  for research participant identifiers (`P042`, `SUBJ-001`,
+  `subj_042`).
+- Validation failures on `subject_id` are audited as `PARAM_INVALID`
+  rows that preserve the submitted (rejected) value, so an IRB
+  reviewer can see on whose behalf a rejected call was allegedly
+  made.
+- `VaultLayer` remains deliberately un-adopted. The vault
+  subject-keying design question (how do notes and themes organize
+  by subject?) is tracked as its own item in
+  [ROADMAP.md § Per-subject parameter scoping on vault tools](../../ROADMAP.md#per-subject-parameter-scoping-on-vault-tools).
+

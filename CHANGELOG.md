@@ -7,6 +7,25 @@ and this project aims at [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Added
+- `RunningChild` now declares `subject_id` on all 12 `strava_*` tools
+  in both `ToolDefinition.params` (MCP `list_tools` discoverability)
+  and `param_schemas` (validator-side pattern enforcement:
+  `^[A-Za-z0-9_\-]{1,64}$`). Closes the first half of the roadmap
+  item "Per-subject parameter scoping on existing tools". The router
+  plumbing and audit column from ADR 0002 were already in place; this
+  is the declaration layer. Vault adoption remains deferred pending
+  the vault subject-keying design question.
+- `SUBJECT_ID_SCHEMA` and `SUBJECT_ID_PARAM_DOC` constants exported
+  from `biosensor_mcp.children.running.child` so future children can
+  copy the two-line pattern.
+- `tests/children/running/test_child_schema.py` — schema declaration
+  and pattern validation tests.
+- `tests/framework/test_router.py::TestSubjectIdAuditScoping::test_subject_id_invalid_pattern_audits_as_param_invalid`
+  — confirms that a rejected `subject_id` still lands in the audit
+  row, so reviewers see on whose behalf a bad call was allegedly
+  made.
+
 ## [5.0.0] — 2026-04-13
 
 ### Breaking

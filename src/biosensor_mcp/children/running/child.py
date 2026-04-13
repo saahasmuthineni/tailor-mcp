@@ -32,6 +32,24 @@ ALL_STREAM_TYPES = [
     "grade_smooth", "distance", "time", "moving",
 ]
 
+# Optional audit-scoping identifier declared on every strava_* tool. See ADR 0002.
+# `SUBJECT_ID_SCHEMA` enforces the validator-side pattern; `SUBJECT_ID_PARAM_DOC`
+# is the MCP-surface copy so LLM clients discover the parameter via list_tools.
+SUBJECT_ID_SCHEMA = ValidationSchema(
+    type=str,
+    required=False,
+    pattern=r"^[A-Za-z0-9_\-]{1,64}$",
+)
+
+SUBJECT_ID_PARAM_DOC = {
+    "type": "string",
+    "description": (
+        "Optional study participant identifier for audit-log scoping. "
+        "Does not filter data. Pattern: ^[A-Za-z0-9_-]{1,64}$."
+    ),
+    "required": False,
+}
+
 
 # ═══════════════════════════════════════════════════════════════
 # RUNNING STORAGE
@@ -267,7 +285,10 @@ class RunningChild(ChildMCP):
             ToolDefinition(
                 "strava_sync", 1,
                 "Sync recent activities from Strava into local cache.",
-                {"days_back": {"type": "integer", "description": "Days back to sync (default 60)", "required": False}},
+                {
+                    "days_back": {"type": "integer", "description": "Days back to sync (default 60)", "required": False},
+                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                },
             ),
             ToolDefinition(
                 "strava_list_runs", 1,
@@ -275,27 +296,40 @@ class RunningChild(ChildMCP):
                 {
                     "limit": {"type": "integer", "description": "Max results (default 20)", "required": False},
                     "after": {"type": "string", "description": "Only runs after this date (YYYY-MM-DD)", "required": False},
+                    "subject_id": SUBJECT_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
                 "strava_activity_detail", 1,
                 "Get full details for a specific activity.",
-                {"activity_id": {"type": "integer", "description": "Strava activity ID", "required": True}},
+                {
+                    "activity_id": {"type": "integer", "description": "Strava activity ID", "required": True},
+                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                },
             ),
             ToolDefinition(
                 "strava_hr_analysis", 1,
                 "Server-computed HR zones, drift, anomalies. Raw data stays on server. ~200-500 tokens.",
-                {"activity_id": {"type": "integer", "description": "Strava activity ID", "required": True}},
+                {
+                    "activity_id": {"type": "integer", "description": "Strava activity ID", "required": True},
+                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                },
             ),
             ToolDefinition(
                 "strava_pace_analysis", 1,
                 "Server-computed mile splits and run/walk classification. ~200-500 tokens.",
-                {"activity_id": {"type": "integer", "description": "Strava activity ID", "required": True}},
+                {
+                    "activity_id": {"type": "integer", "description": "Strava activity ID", "required": True},
+                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                },
             ),
             ToolDefinition(
                 "strava_stop_analysis", 1,
                 "Detect pauses/stops using GPS + velocity. Returns locations, durations, and saved labels.",
-                {"activity_id": {"type": "integer", "description": "Strava activity ID", "required": True}},
+                {
+                    "activity_id": {"type": "integer", "description": "Strava activity ID", "required": True},
+                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                },
             ),
             ToolDefinition(
                 "strava_label_stop", 1,
@@ -305,13 +339,17 @@ class RunningChild(ChildMCP):
                     "stop_number": {"type": "integer", "description": "Stop number from stop_analysis (1-indexed)", "required": True},
                     "label": {"type": "string", "description": "Short label", "required": True},
                     "notes": {"type": "string", "description": "Optional details", "required": False},
+                    "subject_id": SUBJECT_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
                 "strava_run_report", 1,
                 "Comprehensive single-run report: decoupling, efficiency factor, HR drift, "
                 "run phases, GAP splits, anomaly detection. All server-side. ~800 tokens.",
-                {"activity_id": {"type": "integer", "description": "Strava activity ID", "required": True}},
+                {
+                    "activity_id": {"type": "integer", "description": "Strava activity ID", "required": True},
+                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                },
             ),
             ToolDefinition(
                 "strava_trend_report", 1,
@@ -319,12 +357,16 @@ class RunningChild(ChildMCP):
                 {
                     "start_date": {"type": "string", "description": "Start date (YYYY-MM-DD)", "required": True},
                     "end_date": {"type": "string", "description": "End date (YYYY-MM-DD)", "required": True},
+                    "subject_id": SUBJECT_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
                 "strava_compare_runs", 1,
                 "Side-by-side comparison of 2-5 activities: pace, HR, drift, EF. ~1500 tokens.",
-                {"activity_ids": {"type": "array", "description": "List of 2-5 activity IDs", "required": True}},
+                {
+                    "activity_ids": {"type": "array", "description": "List of 2-5 activity IDs", "required": True},
+                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                },
             ),
             # ── Tier 2: Consent-gated (downsampled streams) ──
             ToolDefinition(
@@ -339,6 +381,7 @@ class RunningChild(ChildMCP):
                         "description": f"Which streams to include: {', '.join(ALL_STREAM_TYPES)}. Default: all.",
                         "required": False,
                     },
+                    "subject_id": SUBJECT_ID_PARAM_DOC,
                 },
             ),
             # ── Tier 3: Cost-gated (full per-second streams) ──
@@ -354,6 +397,7 @@ class RunningChild(ChildMCP):
                         "description": f"Which streams: {', '.join(ALL_STREAM_TYPES)}. Default: all.",
                         "required": False,
                     },
+                    "subject_id": SUBJECT_ID_PARAM_DOC,
                 },
             ),
         ]
@@ -363,47 +407,59 @@ class RunningChild(ChildMCP):
         return {
             "strava_sync": {
                 "days_back": ValidationSchema(type=int, min=1, max=365, default=60),
+                "subject_id": SUBJECT_ID_SCHEMA,
             },
             "strava_list_runs": {
                 "limit": ValidationSchema(type=int, min=1, max=100, default=20),
                 "after": ValidationSchema(type=str, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+                "subject_id": SUBJECT_ID_SCHEMA,
             },
             "strava_activity_detail": {
                 "activity_id": ValidationSchema(type=int, min=1, required=True),
+                "subject_id": SUBJECT_ID_SCHEMA,
             },
             "strava_hr_analysis": {
                 "activity_id": ValidationSchema(type=int, min=1, required=True),
+                "subject_id": SUBJECT_ID_SCHEMA,
             },
             "strava_pace_analysis": {
                 "activity_id": ValidationSchema(type=int, min=1, required=True),
+                "subject_id": SUBJECT_ID_SCHEMA,
             },
             "strava_stop_analysis": {
                 "activity_id": ValidationSchema(type=int, min=1, required=True),
+                "subject_id": SUBJECT_ID_SCHEMA,
             },
             "strava_label_stop": {
                 "activity_id": ValidationSchema(type=int, min=1, required=True),
                 "stop_number": ValidationSchema(type=int, min=1, required=True),
                 "label": ValidationSchema(type=str, required=True),
                 "notes": ValidationSchema(type=str),
+                "subject_id": SUBJECT_ID_SCHEMA,
             },
             "strava_run_report": {
                 "activity_id": ValidationSchema(type=int, min=1, required=True),
+                "subject_id": SUBJECT_ID_SCHEMA,
             },
             "strava_trend_report": {
                 "start_date": ValidationSchema(type=str, pattern=r"^\d{4}-\d{2}-\d{2}$", required=True),
                 "end_date": ValidationSchema(type=str, pattern=r"^\d{4}-\d{2}-\d{2}$", required=True),
+                "subject_id": SUBJECT_ID_SCHEMA,
             },
             "strava_compare_runs": {
                 "activity_ids": ValidationSchema(type=list, min_len=2, max_len=5, required=True),
+                "subject_id": SUBJECT_ID_SCHEMA,
             },
             "strava_downsampled_streams": {
                 "activity_id": ValidationSchema(type=int, min=1, required=True),
                 "interval_seconds": ValidationSchema(type=int, min=5, max=30, default=10),
                 "streams": ValidationSchema(type=list, allowed_values=ALL_STREAM_TYPES),
+                "subject_id": SUBJECT_ID_SCHEMA,
             },
             "strava_full_streams": {
                 "activity_id": ValidationSchema(type=int, min=1, required=True),
                 "streams": ValidationSchema(type=list, allowed_values=ALL_STREAM_TYPES),
+                "subject_id": SUBJECT_ID_SCHEMA,
             },
         }
 

@@ -13,7 +13,7 @@ from typing import Any
 
 import requests
 
-from ...framework.middleware import _dumps, _loads
+from ...framework.audit import _dumps, _loads
 
 log = logging.getLogger("biosensor-mcp.running")
 

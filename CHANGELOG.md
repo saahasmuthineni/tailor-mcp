@@ -7,9 +7,64 @@ and this project aims at [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [5.0.0] — 2026-04-13
+
+### Breaking
+- **`framework.middleware` is gone.** Split into three topical
+  modules with no re-export shims (per the v5.0.0 plan). Update
+  imports as follows:
+  - `from biosensor_mcp.framework.middleware import ParamValidator,`
+    `CircuitBreaker, ConsentGate, PHIScrubber`
+    → `from biosensor_mcp.framework.security import ...`
+  - `from biosensor_mcp.framework.middleware import CostGate,`
+    `TokenLedger, estimate_tokens`
+    → `from biosensor_mcp.framework.cost import ...`
+  - `from biosensor_mcp.framework.middleware import AuditLog,`
+    `_dumps, _loads, JSON_BACKEND`
+    → `from biosensor_mcp.framework.audit import ...`
+  - The umbrella `from biosensor_mcp.framework import ...` keeps
+    working unchanged for the public symbols (and now also exposes
+    `PHIScrubber`, which had been omitted from `__all__`).
+- **`biosensor_mcp.vault` moved to `biosensor_mcp.framework.vault`.**
+  `VaultLayer` and `VaultWriter` are framework-level infrastructure;
+  the previous top-level location was an asymmetry. Update:
+  - `from biosensor_mcp.vault import VaultLayer, VaultWriter`
+    → `from biosensor_mcp.framework.vault import VaultLayer, VaultWriter`
+  - Submodule imports follow the same prefix shift
+    (`biosensor_mcp.vault.layer` → `biosensor_mcp.framework.vault.layer`
+    etc.).
+
+### Added
+- `biosensor_mcp.config` — single point of truth for environment-derived
+  paths (`BIOSENSOR_CONFIG_DIR`, `BIOSENSOR_DATA_DIR`) and the
+  `user_config.json` reader. `__main__.py` and `wizard.py` now route
+  through it; child modules continue to own their domain-specific
+  env vars (e.g. `STRAVA_STREAM_CACHE_TTL_DAYS` in the running child).
+- `tests/conftest.py` — shared fixtures (`tmp_data_dir`,
+  `tmp_vault_dirs`) and the `probe` marker registration.
+- `tests/test_security_probe_pytest.py` — pytest wrapper that runs the
+  standalone `tests/security_probe.py` under `pytest -m probe`. The
+  standalone CLI invocation continues to work unchanged for CI's
+  defense-in-depth check.
+
 ### Changed
-- **Repo reorganization pass** (PR 1 of 3) — hygiene files and documentation layout only; no code or test movement. `docs/` now splits into `assets/` (SVGs), `design/` (research-framing, design-context PDF), and `guides/` (Claude Desktop demo, VHS tape). Link references in README and CLAUDE.md updated.
-- `CLAUDE.md` "Key Design Decisions" section now links to ADR files under `docs/adr/` for the five architectural decisions, and relocates the five domain-specific numeric choices (grade precision, 0.5 m/s stop threshold, 30 s spike cooldown, orjson fallback, `router.close()` on Windows) to an "Implementation notes" subsection.
+- `tests/` mirrors the `src/` layout: `tests/framework/` for
+  middleware tests (split into `test_security.py`, `test_cost.py`,
+  `test_audit.py`), `tests/framework/vault/` for vault tests (drop
+  the `test_vault_` prefix), `tests/children/running/` for
+  domain-specific tests. `tests/security_probe.py` stays at the
+  `tests/` root as a standalone script.
+- **Repo reorganization pass** — hygiene files and documentation
+  layout. `docs/` now splits into `assets/` (SVGs), `design/`
+  (research-framing, design-context PDF), and `guides/` (Claude
+  Desktop demo, VHS tape). Link references in README and CLAUDE.md
+  updated.
+- `CLAUDE.md` "Key Design Decisions" section now links to ADR files
+  under `docs/adr/` for the five architectural decisions, and
+  relocates the five domain-specific numeric choices (grade
+  precision, 0.5 m/s stop threshold, 30 s spike cooldown, orjson
+  fallback, `router.close()` on Windows) to an "Implementation
+  notes" subsection.
 - **Codebase review pass** (`claude/codebase-review-hl0tT`) — targeted bug fixes, test gaps, and CI guardrails. Highlights below; no public-API removals.
 - Cost-estimation failure now **fails closed** in both `_dispatch()` and `dispatch_internal()`. Previously a broken `estimate_cost()` fell back to `CostEstimate(tokens=0)`, which silently bypassed the cost gate for Tier-3 calls. Audited as `COST_ESTIMATE_ERROR` / `COST_ESTIMATE_ERROR_INTERNAL`.
 - `AuditLog.record()` serialises `params` through a **50 KB size bound**; oversized payloads are truncated with a `...[truncated; N bytes]` marker so a pathological caller cannot bloat `audit.db`.

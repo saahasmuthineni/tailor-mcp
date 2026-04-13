@@ -12,4 +12,4 @@ accounting. Each data source is a ChildMCP. The running child
 (``biosensor_mcp.children.running``) is one worked example.
 """
 
-__version__ = "4.0.0"
+__version__ = "5.0.0"

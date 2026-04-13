@@ -17,9 +17,8 @@ from pathlib import Path
 
 log = logging.getLogger("biosensor-mcp")
 
-CONFIG_DIR = Path(os.environ.get("BIOSENSOR_CONFIG_DIR", Path.home() / ".biosensor-mcp"))
-DATA_DIR = Path(os.environ.get("BIOSENSOR_DATA_DIR", CONFIG_DIR / "data"))
-LOG_DIR = CONFIG_DIR / "logs"
+# Centralized config — see biosensor_mcp.config for env-var defaults.
+from biosensor_mcp.config import CONFIG_DIR, DATA_DIR, LOG_DIR  # noqa: E402
 
 
 def _setup_logging():
@@ -123,7 +122,7 @@ def cmd_serve():
                 f"Vault enabled: run analytics will be written to {_vault_path}. "
                 f"If this path is cloud-synced, computed fitness data will leave this machine."
             )
-        from biosensor_mcp.vault import VaultLayer, VaultWriter
+        from biosensor_mcp.framework.vault import VaultLayer, VaultWriter
         vaultable: set[str] = set()
         for _child in [running]:
             vaultable.update(getattr(_child, "vaultable_tools", []))

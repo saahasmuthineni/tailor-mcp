@@ -10,6 +10,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from ...framework.audit import _dumps, _loads
 from ...framework.interfaces import (
     ChildMCP,
     ConsentInfo,
@@ -18,7 +19,6 @@ from ...framework.interfaces import (
     ToolDefinition,
     ValidationSchema,
 )
-from ...framework.middleware import _dumps, _loads
 from ...framework.storage import BaseStorage
 from .processing import RunningProcessing
 from .strava_api import StravaAPI

@@ -10,7 +10,7 @@ import pytest
 
 
 def _make_writer(vault_path: Path, data_dir: Path, running_storage=None):
-    from biosensor_mcp.vault.writer import VaultWriter
+    from biosensor_mcp.framework.vault.writer import VaultWriter
     mock_storage = running_storage or MagicMock()
     mock_storage.get_activity = MagicMock(return_value={
         "id": 12345678,

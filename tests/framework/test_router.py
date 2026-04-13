@@ -11,13 +11,13 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
+from biosensor_mcp.framework.audit import _loads
 from biosensor_mcp.framework.interfaces import (
     ChildMCP,
     CostEstimate,
     ToolDefinition,
     ValidationSchema,
 )
-from biosensor_mcp.framework.middleware import _loads
 from biosensor_mcp.framework.router import RouterMCP
 
 # ── Mock Child ──
@@ -293,7 +293,7 @@ class TestVaultLayerIntegration:
 
     def _setup(self, tmpdir, backfill_config=None):
         """Register a router + one child + a vault layer pointing at tmp dirs."""
-        from biosensor_mcp.vault import VaultLayer, VaultWriter
+        from biosensor_mcp.framework.vault import VaultLayer, VaultWriter
         root = Path(tmpdir)
         vault_path = root / "vault"
         vault_path.mkdir()
@@ -398,7 +398,7 @@ class TestVaultCaptureSessionIntegration:
     """
 
     def _setup(self, tmpdir):
-        from biosensor_mcp.vault import VaultLayer, VaultWriter
+        from biosensor_mcp.framework.vault import VaultLayer, VaultWriter
         root = Path(tmpdir)
         vault_path = root / "vault"
         vault_path.mkdir()
@@ -463,7 +463,7 @@ class TestVaultCaptureSessionIntegration:
     def test_fresh_session_surfaces_previous_moment(self):
         """Capture moment → close router → reopen → fitness summary sees it."""
         with TemporaryDirectory() as tmpdir:
-            from biosensor_mcp.vault import VaultLayer, VaultWriter
+            from biosensor_mcp.framework.vault import VaultLayer, VaultWriter
             root = Path(tmpdir)
             vault_path = root / "vault"
             vault_path.mkdir()
@@ -585,7 +585,7 @@ class TestPHIScrubberSeam:
             router.close()
 
     def test_subclass_scrubber_mutates_response(self):
-        from biosensor_mcp.framework.middleware import PHIScrubber
+        from biosensor_mcp.framework.security import PHIScrubber
 
         class DropParamsScrubber(PHIScrubber):
             def scrub(self, result: dict) -> dict:

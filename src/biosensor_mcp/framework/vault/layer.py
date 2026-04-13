@@ -44,7 +44,7 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ..framework.interfaces import ToolDefinition, ValidationSchema
+from ..interfaces import ToolDefinition, ValidationSchema
 from .rescan import rescan_vault, revalidate_file
 from .storage import VaultStorage
 from .writer import VaultWriter, _is_relative_to

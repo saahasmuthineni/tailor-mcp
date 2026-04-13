@@ -18,8 +18,8 @@ Schema overview (v2 — reasoning persistence):
 import logging
 from datetime import datetime, timezone
 
-from ..framework.middleware import _dumps, _loads
-from ..framework.storage import BaseStorage
+from ..audit import _dumps, _loads
+from ..storage import BaseStorage
 
 log = logging.getLogger("biosensor-mcp.vault")
 

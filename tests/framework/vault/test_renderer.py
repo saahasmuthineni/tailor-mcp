@@ -4,7 +4,7 @@ Tests for vault/renderer.py — pure functions, no I/O.
 
 import pytest
 
-from biosensor_mcp.vault.renderer import (
+from biosensor_mcp.framework.vault.renderer import (
     _aerobic_grade,
     _iso_week,
     _pace_from_velocity,

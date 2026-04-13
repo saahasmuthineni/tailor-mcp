@@ -2,7 +2,7 @@
 Tests for vault/parser.py — pure-function wikilink, tag, and frontmatter parsing.
 """
 
-from biosensor_mcp.vault.parser import (
+from biosensor_mcp.framework.vault.parser import (
     extract_tags,
     extract_wikilinks,
     resolve_link,

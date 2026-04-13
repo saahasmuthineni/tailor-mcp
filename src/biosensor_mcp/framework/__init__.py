@@ -11,8 +11,21 @@ PHI-scrubbing seam, an audit log suitable for reproducibility and
 IRB review, and cumulative token accounting. Domain-specific logic
 (one data source per child) lives in ChildMCPs that register with
 the router.
+
+Module layout (since v5.0.0):
+- ``framework.security``  — ParamValidator, CircuitBreaker,
+                            ConsentGate, PHIScrubber
+- ``framework.cost``      — CostGate, TokenLedger, estimate_tokens
+- ``framework.audit``     — AuditLog (and the JSON helpers used
+                            across the framework)
+- ``framework.router``    — RouterMCP (deferred import; needs ``mcp``)
+- ``framework.storage``   — BaseStorage
+- ``framework.interfaces`` — ChildMCP ABC, dataclasses, ConsentScope
+- ``framework.vault``     — VaultLayer + VaultWriter (reorientation tier)
 """
 
+from .audit import AuditLog
+from .cost import CostGate, TokenLedger, estimate_tokens
 from .interfaces import (
     ChildMCP,
     ConsentInfo,
@@ -23,13 +36,11 @@ from .interfaces import (
     ToolDefinition,
     ValidationSchema,
 )
-from .middleware import (
-    AuditLog,
+from .security import (
     CircuitBreaker,
     ConsentGate,
-    CostGate,
     ParamValidator,
-    TokenLedger,
+    PHIScrubber,
 )
 from .storage import BaseStorage
 
@@ -37,9 +48,15 @@ from .storage import BaseStorage
 # Use: from biosensor_mcp.framework.router import RouterMCP
 
 __all__ = [
+    # interfaces
     "ChildMCP", "ToolDefinition", "CostEstimate", "ValidationSchema",
     "ConsentInfo", "ConsentScope", "CostContext", "LLMInstruction",
-    "CircuitBreaker", "ConsentGate", "CostGate",
-    "AuditLog", "TokenLedger", "ParamValidator",
+    # security
+    "CircuitBreaker", "ConsentGate", "ParamValidator", "PHIScrubber",
+    # cost
+    "CostGate", "TokenLedger", "estimate_tokens",
+    # audit
+    "AuditLog",
+    # storage
     "BaseStorage",
 ]

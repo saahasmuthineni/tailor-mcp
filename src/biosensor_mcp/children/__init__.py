@@ -18,5 +18,5 @@ for.
 Future children sketched in the roadmap include CGM traces
 (OhioT1DM, Jaeb), sleep staging (PhysioNet Sleep-EDF), ECG
 (MIT-BIH), a generic CSV directory child, an EDF file child, and a
-FHIR bundle child. See docs/roadmap.md.
+FHIR bundle child. See ROADMAP.md at the repo root.
 """

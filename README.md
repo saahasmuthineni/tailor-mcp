@@ -24,6 +24,7 @@ biosensor-mcp --help         # see all commands
 - **Researcher / research-software engineer** → [Why this exists](#why-this-exists) · [How data minimization works](#how-data-minimization-works)
 - **Developer trying the demo** → [Install & run](#install--run) · [Running child tools](#running-child-tools)
 - **Architect / integrator** → [Architecture](#architecture) · [Adding a new child data source](CLAUDE.md#adding-a-new-childmcp-new-data-source)
+- **Curious where this is going** → [What's next](#whats-next) · [full ROADMAP.md](ROADMAP.md)
 
 ---
 
@@ -153,7 +154,7 @@ for the full treatment.
   OAuth, cached streams, and the vault writer. Treat it as a template,
   not a dependency.
 - CGM, sleep, ECG, EDF, CSV, and FHIR children are roadmap.
-  See [docs/roadmap.md](docs/roadmap.md).
+  See [ROADMAP.md](ROADMAP.md).
 - PHI scrubbing ships as a documented no-op seam. Institutions subclass
   once their policy is defined.
 - Per-subject audit scoping is first-class; per-subject tool parameters
@@ -259,6 +260,29 @@ Twelve tools across three tiers:
 
 ---
 
+## What's next
+
+The framework is deliberately a worked example plus an extension seam,
+not a finished product. The top items on the roadmap — each with a
+reason it matters, not just a title:
+
+| Next up | Why it matters |
+|---|---|
+| [**New ChildMCPs**](ROADMAP.md#new-childmcps-for-research-relevant-data-sources) (CGM, sleep, ECG, CSV, EDF, FHIR) | Second worked example unlocks broader adoption; a `children/template/` skeleton cuts onboarding from 1,500 lines of reading to filling five blanks. |
+| [**`subject_id` as a first-class tool parameter**](ROADMAP.md#per-subject-parameter-scoping-on-existing-tools) | Audit rows already support it; surfacing it on tools makes multi-participant studies first-class. |
+| [**Real PHI-scrubbing implementations**](ROADMAP.md#real-phi-scrubbing-implementations-behind-the-phiscrubber-slot) | The seam is wired and instrumented; a real policy per child is what any deployment touching actual PHI needs. |
+| [**Deterministic mode + provenance hashing**](ROADMAP.md#deterministic-mode-with-seed-control) | Lets a reviewer re-run an analysis and trace every published number to exact code + exact input bytes. |
+| [**"Freeze vault" for manuscript submission**](ROADMAP.md#freeze-vault-operation-for-manuscript-submission) | One-command archive of vault + audit + code version for attaching to a submission. |
+| [**LLM-client evaluation harness**](ROADMAP.md#evaluation-harness-for-llm-client-behavior) | Makes "client-agnostic governance" a measurable claim rather than a design assertion. |
+
+Full list with effort/impact triage and design notes: [**ROADMAP.md**](ROADMAP.md).
+
+If any of these is the reason you showed up, open a GitHub discussion
+or issue before writing code — several have real design questions
+(especially `subject_id` → vault keying) worth talking through.
+
+---
+
 ## Architecture
 
 <p align="center">
@@ -303,7 +327,7 @@ Detailed notes in [CLAUDE.md](CLAUDE.md).
 | Document | Audience |
 |---|---|
 | [docs/research-framing.md](docs/research-framing.md) | Health-research reviewers evaluating this for a study |
-| [docs/roadmap.md](docs/roadmap.md) | Anyone — what's deferred and why |
+| [ROADMAP.md](ROADMAP.md) | Anyone — what's deferred and why, with effort/impact triage |
 | [CLAUDE.md](CLAUDE.md) | Contributors and operators |
 | [docs/design-context.pdf](docs/design-context.pdf) | Historical design rationale |
 

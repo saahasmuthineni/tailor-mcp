@@ -1,9 +1,27 @@
 # Roadmap
 
-Work that came up during the research-shift planning and is explicitly
-deferred. Each item is a one- or two-sentence description plus why it
-matters for the research framing. No implementation details — this
-document is a list, not a design doc.
+Work that's explicitly deferred — what the framework is *not* yet, and
+why each item matters for the research framing. Each section is a
+one- or two-sentence pitch plus context; no implementation details.
+
+## At a glance
+
+| Item | Effort | Impact | Unblocks |
+|---|---|---|---|
+| [New ChildMCPs (CGM / sleep / ECG / CSV / EDF / FHIR)](#new-childmcps-for-research-relevant-data-sources) | M–L | High | Second worked example, broader adoption |
+| [Per-subject `subject_id` as a tool parameter](#per-subject-parameter-scoping-on-existing-tools) | S | High | Multi-participant studies |
+| [Real PHI-scrubbing implementations](#real-phi-scrubbing-implementations-behind-the-phiscrubber-slot) | M | High | Any deployment with actual PHI |
+| [Per-analyst attribution on vault evidence](#per-analyst-attribution-on-vault-evidence-blocks) | S | Medium | Multi-analyst studies |
+| [Deterministic mode + seed control](#deterministic-mode-with-seed-control) | S | Medium | Reproducible paper results |
+| [Provenance hashing on derived metrics](#real-provenance-hashing-on-derived-metrics) | M | Medium | Byte-level reviewer traceability |
+| [Vault-freeze for manuscript submission](#freeze-vault-operation-for-manuscript-submission) | S | Medium | Submission-ready snapshots |
+| [Worked-example notebook on a public dataset](#worked-example-notebook-against-a-published-analytical-question) | S | Medium | Onboarding PIs and RSEs |
+| [LLM-client evaluation harness](#evaluation-harness-for-llm-client-behavior) | M | Medium | Making the governance claim measurable |
+
+Effort: S (days), M (weeks), L (month+). Impact reflects research value,
+not engineering elegance.
+
+---
 
 ## Real PHI-scrubbing implementations behind the `PHIScrubber` slot
 
@@ -14,6 +32,12 @@ the router, bound to the specific shape of a CGM child, a sleep child,
 a FHIR-bundle child, etc. Getting this right requires an actual study
 to anchor the policy against; it is deliberately not a framework-level
 decision.
+
+As of the codebase-review pass, the no-op default emits a one-time
+warning on first construction and exposes a `scrubber_id` property
+(`"noop"` vs subclass name) so audit rows on a misconfigured
+deployment are distinguishable from ones produced under a real
+policy.
 
 ## New ChildMCPs for research-relevant data sources
 
@@ -36,6 +60,12 @@ group that doesn't want to start from scratch:
 - **FHIR bundle child** — ingestion of FHIR bundles for lab values,
   medication histories, or vitals. Bridges clinical data into the
   same governance pipeline.
+
+A prerequisite that would pay back across all of these: a minimal
+`children/template/` skeleton — three Tier-1 tools, one Tier-2, one
+Tier-3, with the abstract methods stubbed out and the param schemas
+illustrated. Cuts onboarding for the next child from "read 1,500
+lines of running code" to "fill in five blanks."
 
 ## Per-subject parameter scoping on existing tools
 
@@ -99,3 +129,13 @@ scope drift (did the LLM expand the scope of a consent it was
 granted?), and vault-recall accuracy (did the LLM actually consult
 existing themes before writing a new one?) would make the "client-
 agnostic governance" claim measurable.
+
+---
+
+## Contributing
+
+These items are all roadmap-level, not ticketed. If one of them is
+the reason you showed up, open a discussion or issue on GitHub first
+— some have real design questions (especially the `subject_id` →
+vault keying question and the per-analyst attribution one) that are
+worth talking through before code.

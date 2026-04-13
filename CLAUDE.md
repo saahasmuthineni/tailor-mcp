@@ -274,7 +274,7 @@ Key differences from a ChildMCP:
 
 - [README.md](README.md) — audience-facing overview.
 - [docs/research-framing.md](docs/research-framing.md) — the longer-form document aimed at health-research reviewers and RSEs.
-- [docs/roadmap.md](docs/roadmap.md) — explicitly deferred work (real PHI scrubbing, new children, deterministic replay, full provenance hashing, per-subject tool-parameter scoping, multi-analyst vault attribution, vault freeze, worked-example notebook, evaluation harness).
+- [ROADMAP.md](ROADMAP.md) — explicitly deferred work with effort/impact triage (real PHI scrubbing, new children, deterministic replay, full provenance hashing, per-subject tool-parameter scoping, multi-analyst vault attribution, vault freeze, worked-example notebook, evaluation harness).
 
 ## CI
 

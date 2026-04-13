@@ -127,7 +127,7 @@ notebooks.
 ## What is NOT yet built
 
 This document is also a commitment to be honest about the gaps.
-Tracked in [roadmap.md](roadmap.md):
+Tracked in [ROADMAP.md](../ROADMAP.md):
 
 - **Real PHI scrubbing implementations** behind the `PHIScrubber`
   slot. The slot exists; the implementations do not. The framework

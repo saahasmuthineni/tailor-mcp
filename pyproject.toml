@@ -21,7 +21,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
 ]
 dependencies = [
-    "mcp>=1.0.0,<2.0",
+    "mcp>=1.27.0,<2.0",
     "requests>=2.31.0",
     "orjson>=3.9.0",
 ]

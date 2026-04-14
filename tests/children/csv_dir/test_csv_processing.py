@@ -83,9 +83,19 @@ class TestDetectTimestampColumn:
         assert CSVProcessing.detect_timestamp_column(["datetime", "val"]) == "datetime"
 
     def test_case_insensitive(self):
-        # The headers are matched against lowered candidates, but the
-        # original header string is returned.
         assert CSVProcessing.detect_timestamp_column(["ID", "Timestamp", "Value"]) == "Timestamp"
+
+    def test_finds_ts(self):
+        assert CSVProcessing.detect_timestamp_column(["id", "ts", "value"]) == "ts"
+
+    def test_finds_event_time(self):
+        assert CSVProcessing.detect_timestamp_column(["id", "event_time", "value"]) == "event_time"
+
+    def test_finds_reading_time(self):
+        assert CSVProcessing.detect_timestamp_column(["reading_time", "val"]) == "reading_time"
+
+    def test_finds_substring_match(self):
+        assert CSVProcessing.detect_timestamp_column(["id", "sample_timestamp", "val"]) == "sample_timestamp"
 
     def test_returns_none_when_no_match(self):
         assert CSVProcessing.detect_timestamp_column(["id", "value", "measurement"]) is None

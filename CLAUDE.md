@@ -226,6 +226,7 @@ User config at `~/.biosensor-mcp/user_config.json`:
   "csv_dir": {
     "path": "/path/to/csv/directory",
     "timestamp_column": "timestamp",
+    "timestamp_format": "%Y-%m-%dT%H:%M:%S",
     "value_columns": {
       "heart_rate": "Heart rate (bpm)",
       "glucose": "Blood glucose (mg/dL)"

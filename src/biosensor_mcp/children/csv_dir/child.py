@@ -28,6 +28,7 @@ Config shape (in ``~/.biosensor-mcp/user_config.json``):
 from __future__ import annotations
 
 import csv
+import io
 import json
 import logging
 import os
@@ -71,6 +72,10 @@ SUBJECT_ID_PARAM_DOC = {
 # traversal sequences (no slashes, no '..' via pattern).
 FILE_ID_PATTERN = r"^[A-Za-z0-9_\-\.]{1,255}$"
 
+# Maximum file size (bytes) the child will load into memory.
+# Files larger than this return an error suggesting csv_downsampled.
+MAX_CSV_BYTES = 100 * 1024 * 1024  # 100 MB
+
 
 class CSVDirectoryChild(ChildMCP):
     """
@@ -94,12 +99,29 @@ class CSVDirectoryChild(ChildMCP):
         cfg = self._load_user_config(config_dir)
         csv_cfg = cfg.get("csv_dir", {})
 
-        self._csv_path = Path(csv_cfg.get("path", "")).expanduser().resolve()
+        raw_path = csv_cfg.get("path")
+        if not raw_path:
+            raise ValueError(
+                "csv_dir.path is required in user_config.json. "
+                "Set it to the directory containing your CSV files."
+            )
+        self._csv_path = Path(raw_path).expanduser().resolve()
+        if not self._csv_path.is_dir():
+            log.warning(
+                f"csv_dir.path does not exist or is not a directory: "
+                f"{self._csv_path}. Tools will return errors until "
+                f"the directory is created."
+            )
         self._timestamp_column: str | None = csv_cfg.get("timestamp_column")
         self._timestamp_format: str | None = csv_cfg.get("timestamp_format")
 
-        # value_columns: {"col_name": "Human Label", ...} or None
-        self._value_columns: dict[str, str] | None = csv_cfg.get("value_columns")
+        # value_columns: {"col_name": "Human Label", ...}
+        # If not configured, auto-detect numeric columns from the first CSV.
+        configured_cols: dict[str, str] | None = csv_cfg.get("value_columns")
+        if configured_cols:
+            self._value_columns: dict[str, str] = configured_cols
+        else:
+            self._value_columns = self._auto_detect_columns()
 
         # Column names used as the equivalent of ALL_STREAM_TYPES
         self._column_names: list[str] | None = (
@@ -123,6 +145,48 @@ class CSVDirectoryChild(ChildMCP):
         except (json.JSONDecodeError, OSError) as exc:
             log.warning(f"Could not read {path}: {exc}")
             return {}
+
+    def _auto_detect_columns(self) -> dict[str, str]:
+        """Scan the first CSV in the directory to discover numeric columns.
+
+        Returns a dict mapping column name to a generic label, excluding
+        the timestamp column.  Returns empty dict if no CSV files exist
+        or no numeric columns are found.
+        """
+        if not self._csv_path.is_dir():
+            return {}
+        csvs = sorted(self._csv_path.glob("*.csv"))
+        if not csvs:
+            return {}
+        headers = self._read_headers(csvs[0])
+        if not headers:
+            return {}
+        ts_col = (
+            self._timestamp_column
+            or self._processing.detect_timestamp_column(headers)
+        )
+        # Read a sample of rows to classify columns
+        try:
+            _, rows = self._read_csv(csvs[0])
+        except OSError:
+            return {}
+        sample = rows[:20]
+        result: dict[str, str] = {}
+        for col in headers:
+            if col == ts_col:
+                continue
+            # A column is numeric if at least one sample row parses as float
+            for row in sample:
+                val = row.get(col) or ""
+                try:
+                    float(val)
+                    result[col] = col  # use column name as label
+                    break
+                except (ValueError, TypeError):
+                    continue
+        if result:
+            log.info(f"Auto-detected numeric columns: {list(result.keys())}")
+        return result
 
     # ══════════════════════════════════════════════════════════
     # IDENTITY
@@ -373,13 +437,32 @@ class CSVDirectoryChild(ChildMCP):
             return []
 
     @staticmethod
-    def _read_csv(filepath: Path) -> tuple[list[str], list[dict]]:
-        """Read a CSV file.  Returns (headers, rows)."""
+    def _read_csv(
+        filepath: Path, *, max_bytes: int = 0,
+    ) -> tuple[list[str], list[dict]]:
+        """Read a CSV file.  Returns (headers, rows).
+
+        If *max_bytes* is non-zero the file size is checked first and
+        an ``OSError`` is raised when it exceeds the limit.
+        """
+        if max_bytes and filepath.stat().st_size > max_bytes:
+            size_mb = filepath.stat().st_size / (1024 * 1024)
+            raise OSError(
+                f"File is too large ({size_mb:.0f} MB, limit "
+                f"{max_bytes // (1024 * 1024)} MB). Use csv_downsampled "
+                f"for large files."
+            )
         with open(filepath, encoding="utf-8", errors="replace", newline="") as f:
-            reader = csv.DictReader(f)
-            headers = reader.fieldnames or []
-            rows = list(reader)
-        return list(headers), rows
+            raw = f.read()
+        if "\ufffd" in raw:
+            log.warning(
+                f"{filepath.name} contains non-UTF-8 bytes "
+                f"(replaced with \ufffd). Consider re-encoding the file."
+            )
+        reader = csv.DictReader(io.StringIO(raw))
+        headers = list(reader.fieldnames or [])
+        rows = list(reader)
+        return headers, rows
 
     @staticmethod
     def _quick_row_count(filepath: Path) -> int:
@@ -400,10 +483,10 @@ class CSVDirectoryChild(ChildMCP):
             return None
 
     def _numeric_values(self, rows: list[dict], column: str) -> list[float]:
-        """Extract numeric values from a column, skipping non-numeric."""
+        """Extract numeric values from a column, skipping non-numeric and None."""
         values: list[float] = []
         for row in rows:
-            v = self._try_float(row.get(column, ""))
+            v = self._try_float(row.get(column) or "")
             if v is not None:
                 values.append(v)
         return values
@@ -431,7 +514,10 @@ class CSVDirectoryChild(ChildMCP):
         if not filepath:
             return {"error": f"File not found: {params['file_id']}"}
 
-        headers, rows = self._read_csv(filepath)
+        try:
+            headers, rows = self._read_csv(filepath, max_bytes=MAX_CSV_BYTES)
+        except OSError as exc:
+            return {"error": str(exc)}
         ts_col = self._timestamp_column or self._processing.detect_timestamp_column(headers)
 
         column_stats: dict[str, dict] = {}
@@ -469,7 +555,10 @@ class CSVDirectoryChild(ChildMCP):
         if not filepath:
             return {"error": f"File not found: {params['file_id']}"}
 
-        headers, rows = self._read_csv(filepath)
+        try:
+            headers, rows = self._read_csv(filepath, max_bytes=MAX_CSV_BYTES)
+        except OSError as exc:
+            return {"error": str(exc)}
         ts_col = self._timestamp_column or self._processing.detect_timestamp_column(headers)
 
         # Per-column summaries
@@ -490,7 +579,10 @@ class CSVDirectoryChild(ChildMCP):
         total = len(rows)
         if total > 0:
             for col in headers:
-                present = sum(1 for r in rows if r.get(col, "").strip())
+                present = sum(
+                    1 for r in rows
+                    if (r.get(col) or "").strip()
+                )
                 completeness[col] = round(present / total * 100, 1)
 
         result: dict = {
@@ -524,7 +616,10 @@ class CSVDirectoryChild(ChildMCP):
         if not filepath:
             return {"error": f"File not found: {params['file_id']}"}
 
-        headers, rows = self._read_csv(filepath)
+        try:
+            headers, rows = self._read_csv(filepath, max_bytes=MAX_CSV_BYTES)
+        except OSError as exc:
+            return {"error": str(exc)}
         interval = params.get("interval", 5)
         requested = params.get("columns")
 
@@ -559,7 +654,10 @@ class CSVDirectoryChild(ChildMCP):
         if not filepath:
             return {"error": f"File not found: {params['file_id']}"}
 
-        headers, rows = self._read_csv(filepath)
+        try:
+            headers, rows = self._read_csv(filepath, max_bytes=MAX_CSV_BYTES)
+        except OSError as exc:
+            return {"error": str(exc)}
         requested = params.get("columns")
 
         # Filter to requested columns (plus timestamp)

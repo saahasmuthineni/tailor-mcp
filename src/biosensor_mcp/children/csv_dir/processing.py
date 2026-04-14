@@ -42,13 +42,26 @@ class CSVProcessing:
 
     @staticmethod
     def detect_timestamp_column(headers: list[str]) -> str | None:
-        """Heuristic: return the first header matching a common timestamp name."""
-        candidates = {
+        """Heuristic: return the first header matching a common timestamp name.
+
+        Checks exact matches first, then substring matches for names
+        like ``reading_time`` or ``event_timestamp``.
+        """
+        # Exact matches (highest confidence)
+        exact = {
             "timestamp", "time", "datetime", "date",
             "recorded_at", "created_at", "date_time",
+            "ts", "event_time", "reading_time", "sample_time",
+            "start_time", "end_time", "epoch", "unix_time",
         }
         for header in headers:
-            if header.strip().lower() in candidates:
+            if header.strip().lower() in exact:
+                return header
+        # Substring matches (lower confidence)
+        substrings = ("timestamp", "datetime", "date_time", "_time", "_date")
+        for header in headers:
+            lower = header.strip().lower()
+            if any(s in lower for s in substrings):
                 return header
         return None
 

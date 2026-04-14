@@ -373,3 +373,126 @@ class TestFileIdSecurity:
         )
         assert isinstance(result, dict)
         assert "error" in result
+
+
+# ═══════════════════════════════════════════════════════════════
+# MISSING PATH VALIDATION
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestMissingPathValidation:
+    """Missing csv_dir.path raises ValueError on init."""
+
+    def test_missing_path_raises(self):
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_dir = root / "config"
+            data_dir = root / "data"
+            config_dir.mkdir()
+            data_dir.mkdir()
+            # Config with csv_dir but no path
+            user_config = {"csv_dir": {}}
+            (config_dir / "user_config.json").write_text(
+                json.dumps(user_config), encoding="utf-8",
+            )
+            with pytest.raises(ValueError, match="csv_dir.path is required"):
+                CSVDirectoryChild(config_dir, data_dir)
+
+
+# ═══════════════════════════════════════════════════════════════
+# MALFORMED CSV HANDLING
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestMalformedCsvHandling:
+    """Malformed CSVs return results without crashing."""
+
+    def test_inconsistent_columns_do_not_crash(self):
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_dir = root / "config"
+            data_dir = root / "data"
+            csv_dir = root / "csv_files"
+            config_dir.mkdir()
+            data_dir.mkdir()
+            csv_dir.mkdir()
+
+            # CSV with inconsistent column counts
+            (csv_dir / "bad.csv").write_text(
+                "timestamp,heart_rate,glucose\n"
+                "2026-01-01T10:00:00Z,72,95\n"
+                "2026-01-01T10:01:00Z,74\n"       # missing glucose
+                "2026-01-01T10:02:00Z,73,96\n",
+                encoding="utf-8",
+            )
+            user_config = {
+                "csv_dir": {
+                    "path": str(csv_dir),
+                    "timestamp_column": "timestamp",
+                    "value_columns": {
+                        "heart_rate": "Heart rate (bpm)",
+                        "glucose": "Blood glucose (mg/dL)",
+                    },
+                },
+            }
+            (config_dir / "user_config.json").write_text(
+                json.dumps(user_config), encoding="utf-8",
+            )
+            child = CSVDirectoryChild(config_dir, data_dir)
+
+            # summary_report should not crash
+            result = asyncio.run(
+                child.execute("csv_summary_report", {"file_id": "bad.csv"})
+            )
+            assert isinstance(result, dict)
+            assert "error" not in result
+            assert result["row_count"] == 3
+
+            # file_detail should not crash
+            result = asyncio.run(
+                child.execute("csv_file_detail", {"file_id": "bad.csv"})
+            )
+            assert isinstance(result, dict)
+            assert "error" not in result
+
+
+# ═══════════════════════════════════════════════════════════════
+# AUTO-DETECTION
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestAutoDetection:
+    """Value columns are auto-detected when not configured."""
+
+    def test_auto_detects_numeric_columns(self):
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_dir = root / "config"
+            data_dir = root / "data"
+            csv_dir = root / "csv_files"
+            config_dir.mkdir()
+            data_dir.mkdir()
+            csv_dir.mkdir()
+
+            (csv_dir / "data.csv").write_text(
+                "timestamp,heart_rate,notes\n"
+                "2026-01-01T10:00:00Z,72,normal\n"
+                "2026-01-01T10:01:00Z,74,elevated\n",
+                encoding="utf-8",
+            )
+            user_config = {
+                "csv_dir": {
+                    "path": str(csv_dir),
+                    # no value_columns — should auto-detect
+                },
+            }
+            (config_dir / "user_config.json").write_text(
+                json.dumps(user_config), encoding="utf-8",
+            )
+            child = CSVDirectoryChild(config_dir, data_dir)
+
+            # heart_rate should be detected, notes should not
+            assert child._column_names is not None
+            assert "heart_rate" in child._column_names
+            assert "notes" not in child._column_names
+            assert "timestamp" not in child._column_names

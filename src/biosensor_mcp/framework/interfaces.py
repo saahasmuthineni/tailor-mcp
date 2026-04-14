@@ -264,6 +264,14 @@ class ChildMCP(ABC):
         """
         return self.consent_info.data_types
 
+    def close(self) -> None:
+        """Release resources (storage connections, file handles).
+
+        Override in children that own a ``BaseStorage`` subclass or
+        other closeable resources.  The router calls this on shutdown
+        to release SQLite WAL file locks (required on Windows).
+        """
+
     def get_tier(self, tool_name: str) -> int:
         """Get the access tier for a tool."""
         for tool in self.tool_definitions:

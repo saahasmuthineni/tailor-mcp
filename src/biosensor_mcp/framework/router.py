@@ -855,6 +855,8 @@ class RouterMCP:
         self._audit.close()
         if self._vault_layer is not None:
             self._vault_layer.close()
+        for child in self._children.values():
+            child.close()
 
     def run(self):
         """Start the MCP server via stdio transport."""

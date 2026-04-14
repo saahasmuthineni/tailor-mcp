@@ -39,7 +39,9 @@ def running_child() -> RunningChild:
         data_dir = root / "data"
         config_dir.mkdir()
         data_dir.mkdir()
-        yield RunningChild(config_dir, data_dir)
+        child = RunningChild(config_dir, data_dir)
+        yield child
+        child.close()
 
 
 class TestSubjectIdDeclaredOnEveryTool:

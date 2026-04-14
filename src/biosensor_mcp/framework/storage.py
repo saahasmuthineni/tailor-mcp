@@ -94,3 +94,10 @@ class BaseStorage:
 
     def fetchall(self, sql: str, params: tuple = ()) -> list[tuple]:
         return self._get_conn().execute(sql, params).fetchall()
+
+    def close(self):
+        """Close the thread-local connection. Required on Windows to release WAL file lock."""
+        conn = getattr(self._local, "conn", None)
+        if conn is not None:
+            conn.close()
+            self._local.conn = None

@@ -363,12 +363,7 @@ class VaultStorage(BaseStorage):
         self.execute("DELETE FROM vault_themes WHERE slug=?", (slug,))
         self.commit()
 
-    def close(self):
-        """Close the thread-local connection (required on Windows to release WAL lock)."""
-        conn = getattr(self._local, "conn", None)
-        if conn is not None:
-            conn.close()
-            self._local.conn = None
+    # close() is inherited from BaseStorage.
 
     # ── Internal ──
 

@@ -71,9 +71,7 @@ def run_demo():
             print()
 
         # Close SQLite connections to release WAL locks (Windows compatibility)
-        conn = getattr(child._storage._local, "conn", None)
-        if conn:
-            conn.close()
+        child.close()
 
     print("=" * 50)
     print("Demo complete. All analytics computed server-side from synthetic data.")

@@ -210,6 +210,9 @@ class RunningChild(ChildMCP):
                 log.warning(f"Could not read user_config.json: {exc}")
         return {}
 
+    def close(self):
+        self._storage.close()
+
     @property
     def domain(self) -> str:
         return "running"

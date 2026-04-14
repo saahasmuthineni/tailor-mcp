@@ -8,7 +8,7 @@ one- or two-sentence pitch plus context; no implementation details.
 
 | Item | Effort | Impact | Unblocks |
 |---|---|---|---|
-| [New ChildMCPs (CGM / sleep / ECG / CSV / EDF / FHIR)](#new-childmcps-for-research-relevant-data-sources) *(template skeleton shipped — see that section)* | M–L | High | Second worked example, broader adoption |
+| [New ChildMCPs (CGM / sleep / ECG / EDF / FHIR)](#new-childmcps-for-research-relevant-data-sources) *(template skeleton + CSV child shipped — see that section)* | M–L | High | Broader adoption |
 | [Per-subject `subject_id` on vault tools](#per-subject-parameter-scoping-on-vault-tools) | S–M | Medium | Multi-participant vault organization |
 | [Real PHI-scrubbing implementations](#real-phi-scrubbing-implementations-behind-the-phiscrubber-slot) | M | High | Any deployment with actual PHI |
 | [Per-analyst attribution on vault evidence](#per-analyst-attribution-on-vault-evidence-blocks) | S | Medium | Multi-analyst studies |
@@ -51,10 +51,11 @@ group that doesn't want to start from scratch:
   efficiency, latency, fragmentation indices, REM/NREM structure.
 - **ECG child** against MIT-BIH — rhythm classification, HRV windows,
   QT intervals, beat-level anomaly flagging.
-- **Generic CSV directory child** — given a directory of per-subject
-  CSVs with a declared timestamp column and value schema, expose
-  tiered analytical tools. The lowest-lift path from bespoke
-  per-study scripts to framework-governed tooling.
+- ~~**Generic CSV directory child**~~ **Shipped** — see
+  `src/biosensor_mcp/children/csv_dir/`. Given a directory of
+  per-subject CSVs with a declared timestamp column and value schema,
+  exposes 5 tiered analytical tools. Opt-in via `csv_dir` key in
+  `user_config.json`.
 - **EDF file child** — direct ingestion of European Data Format
   recordings common in sleep and EEG research.
 - **FHIR bundle child** — ingestion of FHIR bundles for lab values,

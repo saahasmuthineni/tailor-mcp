@@ -76,6 +76,10 @@ src/biosensor_mcp/
       child.py             # RunningChild(ChildMCP) — 12 tools, 3 tiers
       processing.py        # RunningProcessing — stateless analytics
       strava_api.py        # OAuth + rate-limited Strava API client
+    csv_dir/               # Generic CSV directory child
+      __init__.py          # Exports CSVDirectoryChild, CSVProcessing
+      child.py             # CSVDirectoryChild(ChildMCP) — 5 tools, 3 tiers
+      processing.py        # CSVProcessing — stateless analytics
   demo/
     __init__.py            # Exports run_demo
     sample_data.py         # Synthetic 60-minute run data (reproducible, stdlib-only)
@@ -100,6 +104,9 @@ tests/                     # Mirrors src/ layout
   children/
     running/
       test_processing.py   # Pure-function analytics tests (no I/O)
+    csv_dir/
+      test_csv_shape.py    # Shape contract tests (ported from template)
+      test_csv_processing.py  # Pure-function analytics tests
 ```
 
 ## Security Pipeline (Cheapest First)
@@ -143,6 +150,18 @@ Most analytical questions are answerable at Tier 1 with zero raw biometric data 
 | `strava_compare_runs` | 1 | Side-by-side comparison of 2–5 runs |
 | `strava_downsampled_streams` | 2 | HR, pace, GPS at 5–30s intervals |
 | `strava_full_streams` | 3 | Per-second data with precision reduction |
+
+## CSV Directory Child — 5 Tools
+
+Opt-in via `csv_dir` key in `user_config.json`. Wraps a local directory of per-subject CSV files — no OAuth, no vendor API. The "ingest a directory" pattern complementing the running child's "wrap an API" pattern.
+
+| Tool | Tier | Description |
+|------|------|-------------|
+| `csv_list_files` | 1 | List CSV files with size and column names |
+| `csv_file_detail` | 1 | Single-file metadata + per-column stats |
+| `csv_summary_report` | 1 | Per-column summaries, time range, completeness |
+| `csv_downsampled` | 2 | Decimated rows at every Nth interval |
+| `csv_raw_stream` | 3 | Full per-row data with precision reduction |
 
 ## Running and Testing
 
@@ -201,7 +220,18 @@ architectural decisions in the ADR sense:
 
 User config at `~/.biosensor-mcp/user_config.json`:
 ```json
-{ "max_hr": 185, "resting_hr": 55, "home_lat": 42.360, "home_lng": -71.058 }
+{
+  "max_hr": 185, "resting_hr": 55,
+  "home_lat": 42.360, "home_lng": -71.058,
+  "csv_dir": {
+    "path": "/path/to/csv/directory",
+    "timestamp_column": "timestamp",
+    "value_columns": {
+      "heart_rate": "Heart rate (bpm)",
+      "glucose": "Blood glucose (mg/dL)"
+    }
+  }
+}
 ```
 
 ## Claude Desktop Integration

@@ -63,6 +63,9 @@ def cmd_serve():
     running = RunningChild(config_dir=CONFIG_DIR, data_dir=DATA_DIR)
     router.register_child(running)
 
+    # CSV directory child (opt-in — requires csv_dir in user_config.json)
+    csv_child = None
+
     # Vault integration (opt-in — requires vault_path in user_config.json)
     _ucfg_path = CONFIG_DIR / "user_config.json"
     _ucfg: dict = {}
@@ -97,6 +100,12 @@ def cmd_serve():
                 f"Vault integration disabled until the file is readable."
             )
 
+    csv_dir_config = _ucfg.get("csv_dir")
+    if csv_dir_config:
+        from biosensor_mcp.children.csv_dir import CSVDirectoryChild
+        csv_child = CSVDirectoryChild(config_dir=CONFIG_DIR, data_dir=DATA_DIR)
+        router.register_child(csv_child)
+
     if _vault_path:
         import logging as _log_mod
         _vlog = _log_mod.getLogger("biosensor-mcp")
@@ -124,7 +133,10 @@ def cmd_serve():
             )
         from biosensor_mcp.framework.vault import VaultLayer, VaultWriter
         vaultable: set[str] = set()
-        for _child in [running]:
+        _registered = [running]
+        if csv_child is not None:
+            _registered.append(csv_child)
+        for _child in _registered:
             vaultable.update(getattr(_child, "vaultable_tools", []))
         # max_hr from user config (same source RunningChild reads from).
         # _ucfg is guaranteed to be a dict here — it is initialized to {} above
@@ -150,9 +162,8 @@ def cmd_serve():
             },
         ))
 
-    # Future children would register here:
-    # cgm = CGMChild(config_dir=CONFIG_DIR, data_dir=DATA_DIR)
-    # router.register_child(cgm)
+    # Future children (CGM, sleep, ECG, EDF, FHIR) would register here
+    # following the same opt-in pattern as csv_dir above.
 
     router.run()
 

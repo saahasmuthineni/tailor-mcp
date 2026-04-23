@@ -496,3 +496,52 @@ class TestAutoDetection:
             assert "heart_rate" in child._column_names
             assert "notes" not in child._column_names
             assert "timestamp" not in child._column_names
+
+    def test_auto_detect_streams_sample_only(self, monkeypatch):
+        """Auto-detection must not load the full file.
+
+        Regression: prior implementation called _read_csv() without
+        max_bytes, loading the entire CSV into memory during init.
+        A directory containing a file larger than MAX_CSV_BYTES must
+        still initialize successfully and block oversized reads only
+        at tool-call time.
+        """
+        from biosensor_mcp.children.csv_dir import child as child_mod
+
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_dir = root / "config"
+            data_dir = root / "data"
+            csv_dir = root / "csv_files"
+            config_dir.mkdir()
+            data_dir.mkdir()
+            csv_dir.mkdir()
+
+            # Write a CSV bigger than the (lowered) size guard.
+            big = csv_dir / "big.csv"
+            with open(big, "w", encoding="utf-8") as f:
+                f.write("timestamp,heart_rate,notes\n")
+                row = "2026-01-01T10:00:00Z,72," + ("x" * 200) + "\n"
+                for _ in range(2000):
+                    f.write(row)
+            assert big.stat().st_size > 100_000
+
+            user_config = {"csv_dir": {"path": str(csv_dir)}}
+            (config_dir / "user_config.json").write_text(
+                json.dumps(user_config), encoding="utf-8",
+            )
+
+            # Lower the guard below the CSV size for this test.
+            monkeypatch.setattr(child_mod, "MAX_CSV_BYTES", 10_000)
+
+            # Init must succeed without loading the full file.
+            child = CSVDirectoryChild(config_dir, data_dir)
+            assert child._column_names is not None
+            assert "heart_rate" in child._column_names
+
+            # Tool calls still enforce the size guard.
+            result = asyncio.run(
+                child.execute("csv_file_detail", {"file_id": "big.csv"})
+            )
+            assert "error" in result
+            assert "too large" in result["error"].lower()

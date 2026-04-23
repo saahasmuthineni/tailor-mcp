@@ -377,6 +377,46 @@ class TestVaultWriterAppendThemeEvidence:
             writer.close()
 
 
+class TestVaultWriterAppendThemeEvidenceProvenance:
+    def test_evidence_with_provenance_renders_source_line(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            writer.write_theme(_minimal_theme())
+            writer.append_theme_evidence(
+                "dehydration-drift",
+                "Mile 6: HR 8bpm higher.",
+                source_tier=1,
+                source_tool="strava_run_report",
+                source_domain="running",
+                verification="computed",
+            )
+            content = (Path(vault_dir) / "themes/dehydration-drift.md").read_text(encoding="utf-8")
+            assert "> Source: running/strava_run_report (Tier 1)" in content
+            assert "Verification: computed" in content
+            writer.close()
+
+    def test_evidence_without_provenance_no_source_line(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            writer.write_theme(_minimal_theme())
+            writer.append_theme_evidence("dehydration-drift", "Some observation.")
+            content = (Path(vault_dir) / "themes/dehydration-drift.md").read_text(encoding="utf-8")
+            assert "> Source:" not in content
+            writer.close()
+
+    def test_evidence_partial_provenance(self):
+        """Only tier supplied — still renders a source line without a tool label."""
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            writer.write_theme(_minimal_theme())
+            writer.append_theme_evidence(
+                "dehydration-drift", "Partial observation.", source_tier=2,
+            )
+            content = (Path(vault_dir) / "themes/dehydration-drift.md").read_text(encoding="utf-8")
+            assert "> Source: Tier 2" in content
+            writer.close()
+
+
 class TestVaultWriterRendererRegistry:
     def test_register_custom_renderer(self):
         with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:

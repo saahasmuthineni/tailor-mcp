@@ -27,9 +27,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .renderer import (
+    _format_evidence_block,
     render_compare_note,
     render_moment_note,
     render_run_note,
+    render_snapshot_note,
     render_theme_note,
     render_trend_note,
 )
@@ -101,6 +103,7 @@ class VaultWriter:
             "strava_compare_runs": lambda r: render_compare_note(r),
             "vault_theme": lambda r: render_theme_note(r),
             "vault_moment": lambda r: render_moment_note(r),
+            "vault_snapshot": lambda r: render_snapshot_note(r),
         }
 
     # ── Hook interface ──
@@ -150,7 +153,28 @@ class VaultWriter:
         self._index_note(filename, "vault_moment", {}, content)
         return filename
 
-    def append_theme_evidence(self, slug: str, evidence: str) -> str:
+    def write_snapshot(self, snapshot: dict) -> str:
+        """
+        Write ``snapshot.md`` in the vault root.  The snapshot is a
+        compressed state note — new sessions read it first to orient
+        quickly without scanning every source note.
+        """
+        filename, content = render_snapshot_note(snapshot)
+        self._atomic_write(filename, content)
+        self._index_note(filename, "vault_snapshot", {}, content)
+        return filename
+
+    def append_theme_evidence(
+        self,
+        slug: str,
+        evidence: str,
+        *,
+        source_tier: int | None = None,
+        source_tool: str | None = None,
+        source_domain: str | None = None,
+        verification: str | None = None,
+        tag_suffix: str = "",
+    ) -> str:
         """
         Append a timestamped evidence block to ``themes/<slug>.md``.
 
@@ -158,6 +182,10 @@ class VaultWriter:
         before end-of-file.  Rewrites the whole file atomically.  Returns
         the relative filename.  Raises ValueError on bad input,
         FileNotFoundError if the theme note does not exist.
+
+        Optional provenance kwargs stamp the evidence block with a
+        ``> Source: …`` blockquote so readers can see which tool / tier /
+        verification level the observation came from.
         """
         evidence = _sanitize(evidence.strip())
         if not evidence:
@@ -178,7 +206,15 @@ class VaultWriter:
 
         existing = abs_path.read_text(encoding="utf-8")
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        block = f"### Evidence — {timestamp}\n\n{evidence}\n"
+        block = _format_evidence_block(
+            evidence,
+            source_tier=source_tier,
+            source_tool=source_tool,
+            source_domain=source_domain,
+            verification=verification,
+            tag_suffix=tag_suffix,
+            timestamp=timestamp,
+        )
 
         # Drop the placeholder if this is the first evidence entry
         placeholder = "*(No evidence recorded yet.)*"
@@ -210,6 +246,294 @@ class VaultWriter:
         self._index_note(filename, "vault_theme", {}, updated)
         log.info(f"VaultWriter: evidence appended to {filename}")
         return filename
+
+    def append_theme_thinking(self, slug: str, thinking: str) -> str:
+        """
+        Append a ``### Thinking — TIMESTAMP`` block to a theme note.
+
+        Mirrors ``append_theme_evidence`` but uses a distinct block header
+        so 'partial progress' entries are visually separable from settled
+        evidence in Obsidian.
+        """
+        thinking = _sanitize(thinking.strip())
+        if not thinking:
+            raise ValueError("Thinking entry must not be empty.")
+        if len(thinking) > _MAX_EVIDENCE_CHARS:
+            raise ValueError(
+                f"Thinking entry too long: {len(thinking)} chars "
+                f"(max {_MAX_EVIDENCE_CHARS})."
+            )
+
+        slug = _sanitize(slug.strip())
+        if not slug or "/" in slug or slug.startswith("."):
+            raise ValueError(f"Invalid theme slug: {slug!r}")
+
+        filename = f"themes/{slug}.md"
+        abs_path = self._safe_path(filename)
+        if not abs_path.exists():
+            raise FileNotFoundError(f"Theme note not found: {filename}")
+
+        existing = abs_path.read_text(encoding="utf-8")
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        block = f"### Thinking — {timestamp}\n\n{thinking}\n"
+
+        # Place before ## Resolution if present, else append at end
+        resolution_header = "\n## Resolution"
+        idx = existing.find(resolution_header)
+        if idx != -1:
+            updated = existing[:idx].rstrip() + "\n\n" + block + "\n" + existing[idx + 1:]
+        else:
+            updated = existing.rstrip() + "\n\n" + block
+
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        updated = re.sub(
+            r'^last_updated:\s*".*?"$',
+            f'last_updated: "{today}"',
+            updated,
+            count=1,
+            flags=re.MULTILINE,
+        )
+
+        self._atomic_write_abs(abs_path, updated)
+        self._index_note(filename, "vault_theme", {}, updated)
+        log.info(f"VaultWriter: thinking appended to {filename}")
+        return filename
+
+    def reframe_theme(
+        self, slug: str, new_hypothesis: str, old_hypothesis: str
+    ) -> str:
+        """
+        Move the current hypothesis into a dated ``## Prior Framings``
+        entry and replace ``## Hypothesis`` with ``new_hypothesis``.
+
+        Idempotent on repeated calls with the same arguments: subsequent
+        reframes append fresh dated entries above the existing ones.
+        """
+        new_hypothesis = _sanitize(new_hypothesis.strip())
+        old_hypothesis = _sanitize((old_hypothesis or "").strip())
+        if not new_hypothesis:
+            raise ValueError("New hypothesis must not be empty.")
+
+        slug = _sanitize(slug.strip())
+        filename = f"themes/{slug}.md"
+        abs_path = self._safe_path(filename)
+        if not abs_path.exists():
+            raise FileNotFoundError(f"Theme note not found: {filename}")
+
+        existing = abs_path.read_text(encoding="utf-8")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        # Replace the ## Hypothesis block text with new_hypothesis.
+        hyp_header = "## Hypothesis"
+        hyp_idx = existing.find(hyp_header)
+        if hyp_idx == -1:
+            raise ValueError(f"Theme {slug!r} has no '## Hypothesis' section.")
+        # Find the next top-level '## ' header after hypothesis
+        after_header_idx = hyp_idx + len(hyp_header)
+        next_section_idx = existing.find("\n## ", after_header_idx)
+        if next_section_idx == -1:
+            next_section_idx = len(existing)
+
+        new_section = f"{hyp_header}\n\n{new_hypothesis}\n\n"
+        updated = existing[:hyp_idx] + new_section + existing[next_section_idx + 1 :]
+
+        # Insert or extend ## Prior Framings above next major section.
+        prior_block = (
+            f"### {today}\n\n"
+            f"{old_hypothesis if old_hypothesis else '*(No prior hypothesis recorded.)*'}\n"
+        )
+        prior_header = "## Prior Framings"
+        if prior_header in updated:
+            # Append a new dated entry at the top of the existing section
+            # (directly after the header line).
+            marker = prior_header + "\n"
+            pos = updated.find(marker) + len(marker)
+            # Skip any leading blank line after the header
+            if updated[pos : pos + 1] == "\n":
+                pos += 1
+            updated = updated[:pos] + "\n" + prior_block + "\n" + updated[pos:]
+        else:
+            # Create the section immediately after the Hypothesis block.
+            pf_block = f"## Prior Framings\n\n{prior_block}\n"
+            # Reparse next-section boundary (content shifted).
+            hyp_idx2 = updated.find(hyp_header)
+            after_hyp2 = hyp_idx2 + len(new_section)
+            updated = updated[:after_hyp2] + pf_block + updated[after_hyp2:]
+
+        # Refresh last_updated
+        updated = re.sub(
+            r'^last_updated:\s*".*?"$',
+            f'last_updated: "{today}"',
+            updated,
+            count=1,
+            flags=re.MULTILINE,
+        )
+
+        self._atomic_write_abs(abs_path, updated)
+        self._index_note(filename, "vault_theme", {}, updated)
+        log.info(f"VaultWriter: theme {slug} reframed")
+        return filename
+
+    def correct_theme_evidence(
+        self,
+        slug: str,
+        evidence_timestamp: str,
+        correction: str,
+        corrected_by: str | None = None,
+    ) -> str:
+        """
+        Insert a ``> [CORRECTED <ts>]: …`` blockquote immediately after the
+        ``### Evidence — <evidence_timestamp>`` header, then append a new
+        evidence block tagged ``[correction]`` logging the correction itself.
+
+        Preserves the original evidence block verbatim — the append-only
+        invariant of the evidence log is maintained.
+        """
+        correction = _sanitize(correction.strip())
+        if not correction:
+            raise ValueError("Correction text must not be empty.")
+        if len(correction) > _MAX_EVIDENCE_CHARS:
+            raise ValueError(
+                f"Correction too long: {len(correction)} chars "
+                f"(max {_MAX_EVIDENCE_CHARS})."
+            )
+
+        slug = _sanitize(slug.strip())
+        if not slug or "/" in slug or slug.startswith("."):
+            raise ValueError(f"Invalid theme slug: {slug!r}")
+
+        filename = f"themes/{slug}.md"
+        abs_path = self._safe_path(filename)
+        if not abs_path.exists():
+            raise FileNotFoundError(f"Theme note not found: {filename}")
+
+        existing = abs_path.read_text(encoding="utf-8")
+        target_header = f"### Evidence — {evidence_timestamp}"
+        idx = existing.find(target_header)
+        if idx == -1:
+            raise ValueError(
+                f"Evidence block with timestamp {evidence_timestamp!r} not "
+                f"found in {filename}."
+            )
+
+        now_ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        by_suffix = f" (by {corrected_by})" if corrected_by else ""
+        marker_line = (
+            f"> [CORRECTED {now_ts}]:{by_suffix} {correction}"
+        )
+
+        # Insert after the header's newline.
+        newline_after = existing.find("\n", idx)
+        if newline_after == -1:
+            updated = existing + "\n" + marker_line + "\n"
+        else:
+            # Place the marker right after the header line.
+            updated = (
+                existing[: newline_after + 1]
+                + marker_line
+                + "\n"
+                + existing[newline_after + 1 :]
+            )
+
+        self._atomic_write_abs(abs_path, updated)
+        self._index_note(filename, "vault_theme", {}, updated)
+
+        # Also append a new evidence block tagged [correction] so the
+        # correction itself is a first-class entry in the log.
+        self.append_theme_evidence(
+            slug,
+            f"Correction of {evidence_timestamp}: {correction}",
+            tag_suffix="[correction]",
+        )
+
+        log.info(f"VaultWriter: correction inserted on {filename}")
+        return filename
+
+    # ── Inbox (v6) ──
+
+    def append_inbox_item(self, text: str, tags: list[str] | None = None) -> str:
+        """
+        Append a timestamped entry to ``inbox.md`` in the vault root.
+        Creates the file if missing.  Returns the written line.
+        """
+        text = _sanitize(text.strip())
+        if not text:
+            raise ValueError("Inbox item must not be empty.")
+        if len(text) > 2000:
+            raise ValueError(
+                f"Inbox item too long: {len(text)} chars (max 2000)."
+            )
+
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        tag_part = ""
+        if tags:
+            tag_part = " " + " ".join(
+                f"#{_sanitize(str(t).strip()).lstrip('#')}"
+                for t in tags if t and str(t).strip()
+            )
+        line = f"- **{timestamp}:** {text}{tag_part}"
+
+        inbox_path = self._safe_path("inbox.md")
+        existing = ""
+        if inbox_path.exists():
+            existing = inbox_path.read_text(encoding="utf-8")
+        if existing and not existing.endswith("\n"):
+            existing += "\n"
+        updated = existing + line + "\n"
+        self._atomic_write_abs(inbox_path, updated)
+        return line
+
+    def read_inbox(self) -> list[dict]:
+        """Parse ``inbox.md`` into a list of ``{timestamp, text, tags, raw}``."""
+        inbox_path = self._safe_path("inbox.md")
+        if not inbox_path.exists():
+            return []
+        content = inbox_path.read_text(encoding="utf-8")
+        items: list[dict] = []
+        for line in content.splitlines():
+            stripped = line.rstrip()
+            if not stripped.startswith("- **"):
+                continue
+            # Format: "- **<ts>:** <body> [#tag ...]"
+            try:
+                ts_start = stripped.index("**") + 2
+                ts_end = stripped.index(":**", ts_start)
+                ts = stripped[ts_start:ts_end]
+                body = stripped[ts_end + 3 :].strip()
+            except ValueError:
+                continue
+            tokens = body.split()
+            tags = [t[1:] for t in tokens if t.startswith("#") and len(t) > 1]
+            text_tokens = [t for t in tokens if not t.startswith("#")]
+            items.append({
+                "timestamp": ts,
+                "text": " ".join(text_tokens).strip(),
+                "tags": tags,
+                "raw": stripped,
+            })
+        return items
+
+    def drain_inbox_items(self, indices_to_remove: set[int]) -> None:
+        """Rewrite ``inbox.md`` without the lines at ``indices_to_remove``."""
+        inbox_path = self._safe_path("inbox.md")
+        if not inbox_path.exists():
+            return
+        content = inbox_path.read_text(encoding="utf-8")
+        lines = content.splitlines()
+        # Build list of (is_item, line); we preserve non-item lines verbatim.
+        kept: list[str] = []
+        item_idx = 0
+        for raw in lines:
+            if raw.startswith("- **"):
+                if item_idx not in indices_to_remove:
+                    kept.append(raw)
+                item_idx += 1
+            else:
+                kept.append(raw)
+        updated = "\n".join(kept)
+        if updated and not updated.endswith("\n"):
+            updated += "\n"
+        self._atomic_write_abs(inbox_path, updated)
 
     def append_insight_notes(self, filename: str, notes: str) -> None:
         """

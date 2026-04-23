@@ -1,5 +1,12 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.0 (2026-04-23)** — vault-only release. The reorientation tier
+> gained seven governance features (snapshot, inbox, health check,
+> evidence provenance, theme lifecycle enrichment, corrections,
+> session divergence); see
+> [ADR 0006](docs/adr/0006-vault-overhaul-v6.md). No router, security,
+> child, or CLI changes.
+
 ## What This Project Is
 
 **Local-first infrastructure for LLM-assisted analysis of high-frequency biometric data — built for health research workflows where data governance, audit trails, and reproducibility matter.**
@@ -42,7 +49,7 @@ Markdown files in the Obsidian vault are the **source of truth** for analytical 
 
 ```
 src/biosensor_mcp/
-  __init__.py              # Package metadata (v5.0.0)
+  __init__.py              # Package metadata (v6.0.0)
   __main__.py              # CLI: serve | setup | status | demo | uninstall | --help
   wizard.py                # OAuth setup wizard (localhost callback server)
   config.py                # Centralised env-var + user_config.json reader
@@ -62,9 +69,9 @@ src/biosensor_mcp/
     vault/                 # Reorientation tier (framework-level
                            #   infrastructure, not a ChildMCP)
       __init__.py          # Exports VaultLayer, VaultWriter
-      layer.py             # VaultLayer — 7 tools
+      layer.py             # VaultLayer — 22 tools (v6.0)
       writer.py            # Post-execute hook; atomic file writes → Obsidian
-      renderer.py          # Pure markdown generation (run/trend/compare notes)
+      renderer.py          # Pure markdown (run/trend/compare/theme/moment/snapshot)
       parser.py            # Frontmatter / YAML parsing for vault notes
       rescan.py            # Filesystem → SQLite index revalidation
       storage.py           # VaultStorage — SQLite index of vault notes
@@ -320,6 +327,44 @@ Key differences from a ChildMCP:
 - Dispatch skips circuit breaker, consent gate, cost gate, PHI-scrub seam, and post-execute hooks
 - Only param validation + audit apply
 - Tools must still have unique names (collision with any registered child is rejected)
+
+### VaultLayer — 22 Tools (v6.0)
+
+All tools are Tier 1 and skip the biosensor-tier gates.
+
+Orientation & browse:
+| Tool | Description |
+|------|-------------|
+| `vault_get_snapshot` | Read `snapshot.md` — fastest session-start orientation. Falls back to `vault_get_fitness_summary` when no snapshot exists. |
+| `vault_generate_snapshot` | (Re)write `snapshot.md` with open themes, recent moments, weekly run aggregates, and vault health. Call at session end. |
+| `vault_get_fitness_summary` | Older orientation tool: aggregate weekly fitness + open themes + recent moments by scanning the index. |
+| `vault_list_notes` / `vault_read_note` / `vault_search_notes` | Browse, read, full-text search. |
+| `vault_list_anomalies` | Runs with `anomaly_count > 0`. |
+| `vault_traverse_links` | Wikilink neighbourhood of a note (no bodies). |
+
+Themes & moments:
+| Tool | Description |
+|------|-------------|
+| `vault_list_themes` / `vault_read_theme` | Compact rows or full body of a persistent hypothesis. |
+| `vault_upsert_theme` | Create or update. Supports reframe (new hypothesis → `## Prior Framings`), thinking entries, evidence provenance (`evidence_source_*` + `evidence_verification`), and fold-back on resolution. |
+| `vault_correct_evidence` | Mark a specific evidence block as superseded by timestamp; preserves the original. |
+| `vault_list_moments` / `vault_capture_moment` | Aha-moment notes. |
+| `vault_capture_session` | Session-boundary bundle: summary moment + N theme updates + N moments + optional `divergence`. |
+
+Annotation & maintenance:
+| Tool | Description |
+|------|-------------|
+| `vault_annotate_run` | Persist insight notes back to a run note. |
+| `vault_backfill` | LLM-driven, server-orchestrated note generation for cached activities. |
+| `vault_rescan` | Full filesystem sweep — reconcile SQLite index with user edits. |
+| `vault_health_check` | Stale themes, orphaned moments, themes without evidence, inbox depth, counts by status. |
+
+Inbox (low-friction capture):
+| Tool | Description |
+|------|-------------|
+| `vault_inbox_add` | Append a timestamped line to `inbox.md`. |
+| `vault_inbox_list` | Parse inbox lines into structured items. |
+| `vault_inbox_drain` | Bulk process items: promote to moment / append to theme as evidence / discard. |
 
 ## Further reading
 

@@ -611,14 +611,80 @@ def render_theme_note(theme: dict) -> tuple[str, str]:
     return filename, content
 
 
-def _format_evidence_block(evidence: str, date_str: str) -> str:
+def _format_evidence_block(
+    evidence: str,
+    date_str: str | None = None,
+    *,
+    source_tier: int | None = None,
+    source_tool: str | None = None,
+    source_domain: str | None = None,
+    verification: str | None = None,
+    tag_suffix: str = "",
+    timestamp: str | None = None,
+) -> str:
     """
     Render one evidence entry.  Uses the same ``### Insight — TIMESTAMP``
     header convention as existing insight annotations in writer.py so
     the two logs look consistent in Obsidian.
+
+    If any of the provenance kwargs (source_tier/source_tool/source_domain/
+    verification) is provided, a blockquote line is added after the header
+    recording the origin of the observation.  ``tag_suffix`` appends a
+    bracketed tag to the header (e.g. ``[correction]``).
     """
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    return f"### Evidence — {ts}\n\n{evidence.strip()}\n"
+    ts = timestamp or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    suffix = f" {tag_suffix}" if tag_suffix else ""
+    header = f"### Evidence — {ts}{suffix}"
+
+    has_prov = (
+        source_tier is not None
+        or bool(source_tool)
+        or bool(source_domain)
+        or bool(verification)
+    )
+    if has_prov:
+        prov_line = _format_provenance_line(
+            source_tier=source_tier,
+            source_tool=source_tool,
+            source_domain=source_domain,
+            verification=verification,
+        )
+        if prov_line:
+            return f"{header}\n{prov_line}\n\n{evidence.strip()}\n"
+    return f"{header}\n\n{evidence.strip()}\n"
+
+
+def _format_provenance_line(
+    *,
+    source_tier: int | None = None,
+    source_tool: str | None = None,
+    source_domain: str | None = None,
+    verification: str | None = None,
+) -> str:
+    """Compose a ``> Source: …`` blockquote line from whatever is provided."""
+    parts: list[str] = []
+    if source_domain and source_tool:
+        src_label = f"{source_domain}/{source_tool}"
+    elif source_tool:
+        src_label = source_tool
+    elif source_domain:
+        src_label = source_domain
+    else:
+        src_label = ""
+
+    if src_label and source_tier is not None:
+        parts.append(f"Source: {src_label} (Tier {source_tier})")
+    elif src_label:
+        parts.append(f"Source: {src_label}")
+    elif source_tier is not None:
+        parts.append(f"Source: Tier {source_tier}")
+
+    if verification:
+        parts.append(f"Verification: {verification}")
+
+    if not parts:
+        return ""
+    return "> " + " · ".join(parts)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -637,6 +703,10 @@ def render_moment_note(moment: dict) -> tuple[str, str]:
         linked_themes:     list of theme slugs
         tags:              list of strings
         slug:              explicit slug override (default: derived from title)
+        divergence:        optional prose — what the analytical goal was
+                           versus what actually happened.  Rendered as a
+                           ``## Divergence`` section and stored in
+                           frontmatter so it's searchable.
     """
     title = str(moment.get("title") or "").strip()
     body = str(moment.get("body") or "").strip()
@@ -653,6 +723,8 @@ def render_moment_note(moment: dict) -> tuple[str, str]:
     tags = list(moment.get("tags") or [])
     if "moment" not in tags:
         tags = ["moment"] + tags
+    divergence = moment.get("divergence")
+    divergence = str(divergence).strip() if divergence else ""
 
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -666,9 +738,11 @@ def render_moment_note(moment: dict) -> tuple[str, str]:
         f"date: {_yaml_scalar(date_str)}",
         f"linked_runs: {_yaml_int_list(linked_runs)}",
         f"linked_themes: {_yaml_string_list(linked_themes)}",
-        f'generated_at: "{now_iso}"',
-        "tags:",
     ]
+    if divergence:
+        fm_lines.append(f"divergence: {_yaml_scalar(divergence)}")
+    fm_lines.append(f'generated_at: "{now_iso}"')
+    fm_lines.append("tags:")
     fm_lines += [f"  - {t}" for t in tags]
     fm_lines.append("---")
 
@@ -692,9 +766,118 @@ def render_moment_note(moment: dict) -> tuple[str, str]:
         body_parts += [f"- {format_wikilink(s)}" for s in linked_themes]
         body_parts.append("")
 
+    if divergence:
+        body_parts += ["## Divergence", "", divergence, ""]
+
     content = "\n".join(fm_lines) + "\n" + "\n".join(body_parts)
     filename = f"moments/{date_str}-{slug}.md"
     return filename, content
+
+
+def render_snapshot_note(snapshot: dict) -> tuple[str, str]:
+    """
+    Render a compressed vault snapshot as ``snapshot.md`` in the vault root.
+
+    Expected ``snapshot`` fields (all optional, rendered when present):
+        open_themes:         list[dict] with slug/status/confidence/evidence_count
+        recent_moments:      list[dict] with date/title/linked_themes
+        weekly_summary:      list[dict] with week/runs/total_miles/avg_hr
+        vault_health:        dict: notes_indexed, themes_open, themes_resolved,
+                             moments, stale_themes (list[str]), inbox_items
+        warnings:            list[str]
+        written_by:          optional session identifier
+    """
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    written_by = str(snapshot.get("written_by") or "claude-session")
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    fm_lines = [
+        "---",
+        "domain: vault",
+        "note_type: snapshot",
+        f"last_written: {_yaml_scalar(today)}",
+        f"written_by: {_yaml_scalar(written_by)}",
+        f'generated_at: "{now_iso}"',
+        "tags:",
+        "  - snapshot",
+        "---",
+    ]
+
+    body_parts = ["# Vault Snapshot", ""]
+
+    # Open themes
+    body_parts += ["## Open Themes", ""]
+    open_themes = snapshot.get("open_themes") or []
+    if open_themes:
+        for t in open_themes:
+            slug = t.get("slug", "")
+            status = t.get("status", "open")
+            conf = t.get("confidence") or "—"
+            ev_count = t.get("evidence_count")
+            ev_part = f", {ev_count} evidence block{'s' if ev_count != 1 else ''}" if ev_count is not None else ""
+            body_parts.append(
+                f"- **{slug}** ({status}, {conf} confidence{ev_part})"
+            )
+    else:
+        body_parts.append("*(No open themes.)*")
+    body_parts.append("")
+
+    # Recent moments
+    body_parts += ["## Recent Moments (last 14 days)", ""]
+    recent_moments = snapshot.get("recent_moments") or []
+    if recent_moments:
+        for m in recent_moments:
+            date = m.get("date", "")
+            title = m.get("title", "")
+            linked = m.get("linked_themes") or []
+            link_part = f" → linked to {', '.join(linked)}" if linked else ""
+            body_parts.append(f'- {date}: "{title}"{link_part}')
+    else:
+        body_parts.append("*(No recent moments.)*")
+    body_parts.append("")
+
+    # Weekly summary
+    body_parts += ["## Weekly Summary (last 4 weeks)", ""]
+    weekly = snapshot.get("weekly_summary") or []
+    if weekly:
+        body_parts.append("| Week | Runs | Miles | Avg HR |")
+        body_parts.append("|------|------|-------|--------|")
+        for w in weekly:
+            week = w.get("week", "—")
+            runs = w.get("runs", 0)
+            miles = w.get("total_miles", 0)
+            avg_hr = w.get("avg_hr", "—") or "—"
+            body_parts.append(f"| {week} | {runs} | {miles} | {avg_hr} |")
+    else:
+        body_parts.append("*(No recent run data.)*")
+    body_parts.append("")
+
+    # Vault health
+    body_parts += ["## Vault Health", ""]
+    health = snapshot.get("vault_health") or {}
+    body_parts.append(f"- Notes indexed: {health.get('notes_indexed', 0)}")
+    themes_open = health.get("themes_open", 0)
+    themes_resolved = health.get("themes_resolved", 0)
+    body_parts.append(f"- Themes: {themes_open} open, {themes_resolved} resolved")
+    body_parts.append(f"- Moments: {health.get('moments', 0)}")
+    stale = health.get("stale_themes") or []
+    stale_label = ", ".join(stale) if stale else "none"
+    body_parts.append(f"- Stale themes (>30d no evidence): {stale_label}")
+    body_parts.append(f"- Inbox items: {health.get('inbox_items', 0)}")
+    body_parts.append("")
+
+    # Warnings
+    warnings = snapshot.get("warnings") or []
+    body_parts += ["## Warnings", ""]
+    if warnings:
+        for w in warnings:
+            body_parts.append(f"- {w}")
+    else:
+        body_parts.append("*(No warnings.)*")
+    body_parts.append("")
+
+    content = "\n".join(fm_lines) + "\n" + "\n".join(body_parts)
+    return "snapshot.md", content
 
 
 def _slugify_title(title: str) -> str:

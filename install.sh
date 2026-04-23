@@ -13,7 +13,7 @@ VENV_DIR="$INSTALL_DIR/venv"
 SRC_DIR="$INSTALL_DIR/src"
 
 echo "╔══════════════════════════════════════╗"
-echo "║  Biosensor MCP — Installer v4.0       ║"
+echo "║  Biosensor MCP — Installer v6.0       ║"
 echo "╚══════════════════════════════════════╝"
 echo ""
 

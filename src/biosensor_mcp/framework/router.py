@@ -26,6 +26,7 @@ that might end up in a paper.
 
 import logging
 import time
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -103,12 +104,12 @@ class RouterMCP:
         self._cost_gate = CostGate(threshold=cost_threshold)
         # PHI scrubbing seam. Ships as a no-op; institutions swap in a
         # subclass that drops/hashes identifying fields on a per-child
-        # basis once their policy is defined. See middleware.PHIScrubber.
+        # basis once their policy is defined. See framework.security.PHIScrubber.
         self._phi_scrubber = PHIScrubber()
         self._audit = AuditLog(data_dir / "audit.db")
         self._ledger = TokenLedger()
         self._validator = ParamValidator()
-        self._post_execute_hooks: list[callable] = []
+        self._post_execute_hooks: list[Callable] = []
 
         log.info(f"Router MCP '{name}' initialized (JSON backend: {JSON_BACKEND})")
 
@@ -142,7 +143,7 @@ class RouterMCP:
             f"with {len(child.tool_definitions)} tools"
         )
 
-    def register_post_execute_hook(self, hook: callable) -> None:
+    def register_post_execute_hook(self, hook: Callable) -> None:
         """
         Register a callable that fires after every successful tool execution.
 
@@ -509,7 +510,7 @@ class RouterMCP:
             # ── PHI scrubbing seam (runs before tokens are counted or
             # the result is audited, so the scrubbed form is what every
             # downstream consumer sees). Default no-op; institutions
-            # override by subclassing middleware.PHIScrubber.
+            # override by subclassing framework.security.PHIScrubber.
             if isinstance(result, dict):
                 result = self._phi_scrubber.scrub(result)
 

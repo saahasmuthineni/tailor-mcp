@@ -87,6 +87,10 @@ src/biosensor_mcp/
       __init__.py          # Exports CSVDirectoryChild, CSVProcessing
       child.py             # CSVDirectoryChild(ChildMCP) — 5 tools, 3 tiers
       processing.py        # CSVProcessing — stateless analytics
+    template/              # Runnable starting-point child (copy + rename)
+      __init__.py          # Rename checklist for new children
+      child.py             # TemplateChild(ChildMCP) — minimal 3-tier skeleton
+      processing.py        # TemplateProcessing — stateless analytics stubs
   demo/
     __init__.py            # Exports run_demo
     sample_data.py         # Synthetic 60-minute run data (reproducible, stdlib-only)
@@ -110,10 +114,14 @@ tests/                     # Mirrors src/ layout
       test_rescan.py       # Vault index revalidation tests
   children/
     running/
+      test_child_schema.py # Schema contract tests for RunningChild tools
       test_processing.py   # Pure-function analytics tests (no I/O)
     csv_dir/
       test_csv_shape.py    # Shape contract tests (ported from template)
       test_csv_processing.py  # Pure-function analytics tests
+    template/
+      test_template_shape.py     # Shape contract tests for the template child
+      test_template_processing.py # Pure-function analytics tests
 ```
 
 ## Security Pipeline (Cheapest First)
@@ -213,7 +221,7 @@ architectural decisions in the ADR sense:
 - **Grade precision at 1 decimal**: GAP calculation uses `cost = 1 + 0.03 * grade%`. Rounding grade to integer introduces ~3% split error. All other numerics are reduced more aggressively.
 - **0.5 m/s stop threshold**: 0.3 m/s was too aggressive (flagged slow shuffles at end of hard efforts). 0.5 m/s (~1.8 km/h) is the designed "completely stopped" signal.
 - **Spike detection 30-second cooldown**: A single Apple Watch sensor catchup burst can generate dozens of overlapping anomaly entries without the cooldown.
-- **orjson with stdlib fallback**: `_dumps`/`_loads` wrappers in `middleware.py` are transparent to all consumers.
+- **orjson with stdlib fallback**: `_dumps`/`_loads` wrappers in `framework/audit.py` are transparent to all consumers.
 - **`router.close()` on Windows**: SQLite WAL connections must be explicitly closed before the process exits on Windows. Call `router.close()` in tests and server shutdown to release file locks.
 - **`subject_id` on `strava_*` tools**: All 12 running tools declare an optional `subject_id` parameter (pattern `^[A-Za-z0-9_\-]{1,64}$`) for audit-log scoping. Does not filter Strava data — one authenticated Strava account may cover multiple study participants, and `subject_id` is the caller's statement of which one this call is about. Vault tools do not yet declare it (ADR 0002, ROADMAP).
 

@@ -149,41 +149,37 @@ class CSVDirectoryChild(ChildMCP):
     def _auto_detect_columns(self) -> dict[str, str]:
         """Scan the first CSV in the directory to discover numeric columns.
 
-        Returns a dict mapping column name to a generic label, excluding
-        the timestamp column.  Returns empty dict if no CSV files exist
-        or no numeric columns are found.
+        Streams at most 20 rows — never loads the full file — so it is
+        safe to run at init time regardless of CSV size.
         """
         if not self._csv_path.is_dir():
             return {}
         csvs = sorted(self._csv_path.glob("*.csv"))
         if not csvs:
             return {}
-        headers = self._read_headers(csvs[0])
+        try:
+            with open(
+                csvs[0], encoding="utf-8", errors="replace", newline="",
+            ) as f:
+                reader = csv.DictReader(f)
+                headers = list(reader.fieldnames or [])
+                sample = [row for row, _ in zip(reader, range(20))]
+        except OSError:
+            return {}
         if not headers:
             return {}
         ts_col = (
             self._timestamp_column
             or self._processing.detect_timestamp_column(headers)
         )
-        # Read a sample of rows to classify columns
-        try:
-            _, rows = self._read_csv(csvs[0])
-        except OSError:
-            return {}
-        sample = rows[:20]
         result: dict[str, str] = {}
         for col in headers:
             if col == ts_col:
                 continue
-            # A column is numeric if at least one sample row parses as float
             for row in sample:
-                val = row.get(col) or ""
-                try:
-                    float(val)
-                    result[col] = col  # use column name as label
+                if self._try_float(row.get(col) or "") is not None:
+                    result[col] = col
                     break
-                except (ValueError, TypeError):
-                    continue
         if result:
             log.info(f"Auto-detected numeric columns: {list(result.keys())}")
         return result
@@ -447,9 +443,10 @@ class CSVDirectoryChild(ChildMCP):
         """
         if max_bytes and filepath.stat().st_size > max_bytes:
             size_mb = filepath.stat().st_size / (1024 * 1024)
+            limit_mb = max_bytes / (1024 * 1024)
             raise OSError(
-                f"File is too large ({size_mb:.0f} MB, limit "
-                f"{max_bytes // (1024 * 1024)} MB). Use csv_downsampled "
+                f"File is too large ({size_mb:.1f} MB, limit "
+                f"{limit_mb:.1f} MB). Use csv_downsampled "
                 f"for large files."
             )
         with open(filepath, encoding="utf-8", errors="replace", newline="") as f:

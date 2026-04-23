@@ -19,7 +19,7 @@ $VENV_DIR = Join-Path $INSTALL_DIR "venv"
 $SRC_DIR = Join-Path $INSTALL_DIR "src"
 
 Write-Host ""
-Write-Host "  Biosensor MCP - Installer v4.0" -ForegroundColor Cyan
+Write-Host "  Biosensor MCP - Installer v6.0" -ForegroundColor Cyan
 Write-Host "  ================================" -ForegroundColor Cyan
 Write-Host ""
 

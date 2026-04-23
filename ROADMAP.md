@@ -21,6 +21,30 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.0 (2026-04-23)
+
+The vault overhaul ported seven governance features from personal
+knowledge-management practice into the VaultLayer; these items are no
+longer on the roadmap and are documented in
+[ADR 0006](docs/adr/0006-vault-overhaul-v6.md) and the v6.0 CHANGELOG
+entry:
+
+- **Vault snapshot** — compressed `snapshot.md` state note
+  (`vault_generate_snapshot` + `vault_get_snapshot`).
+- **Vault inbox** — low-friction capture pipeline
+  (`vault_inbox_add` / `_list` / `_drain`).
+- **Vault health check** — diagnostic sweep over stale themes,
+  orphaned moments, and unprocessed inbox items.
+- **Evidence provenance** — source tier / tool / domain / verification
+  stamped on evidence blocks.
+- **Theme lifecycle enrichment** — reframing with prior-framings
+  preservation, thinking entries distinct from evidence, and
+  fold-back of resolutions onto linked notes.
+- **Analytical corrections** — `vault_correct_evidence` marks
+  superseded blocks without rewriting them.
+- **Session divergence** — optional `divergence` field on
+  `vault_capture_session` recording goal-vs-actual.
+
 ---
 
 ## Real PHI-scrubbing implementations behind the `PHIScrubber` slot

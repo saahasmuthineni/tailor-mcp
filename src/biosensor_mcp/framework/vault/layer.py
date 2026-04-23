@@ -335,6 +335,46 @@ class VaultLayer:
                         ),
                         "required": False,
                     },
+                    "thinking": {
+                        "type": "string",
+                        "description": (
+                            "Partial-progress note (max 2000 chars) appended as "
+                            "a '### Thinking — TIMESTAMP' block. Use when a "
+                            "session worked on the theme without resolving it."
+                        ),
+                        "required": False,
+                    },
+                    "evidence_source_tier": {
+                        "type": "integer",
+                        "description": (
+                            "Provenance: data tier (1-3) the evidence was "
+                            "derived from."
+                        ),
+                        "required": False,
+                    },
+                    "evidence_source_tool": {
+                        "type": "string",
+                        "description": (
+                            "Provenance: tool that produced the evidence (e.g. "
+                            "'strava_run_report')."
+                        ),
+                        "required": False,
+                    },
+                    "evidence_source_domain": {
+                        "type": "string",
+                        "description": (
+                            "Provenance: child domain (e.g. 'running')."
+                        ),
+                        "required": False,
+                    },
+                    "evidence_verification": {
+                        "type": "string",
+                        "description": (
+                            "Provenance: observed | computed | inferred | "
+                            "unverified."
+                        ),
+                        "required": False,
+                    },
                 },
             ),
             ToolDefinition(
@@ -419,7 +459,132 @@ class VaultLayer:
                         ),
                         "required": False,
                     },
+                    "divergence": {
+                        "type": "string",
+                        "description": (
+                            "Optional prose (max 1000 chars) recording what the "
+                            "session's analytical goal was versus what actually "
+                            "happened. Rendered as a '## Divergence' section "
+                            "on the summary moment and stored in frontmatter."
+                        ),
+                        "required": False,
+                    },
                 },
+            ),
+            ToolDefinition(
+                "vault_health_check", 1,
+                "Diagnostic sweep of vault maintenance state: stale themes, "
+                "orphaned moments, themes with no evidence, inbox depth, and "
+                "total counts. Use to decide what to tidy up at session end.",
+                {
+                    "stale_threshold_days": {
+                        "type": "integer",
+                        "description": "Days since last_updated to flag a theme as stale (default 30).",
+                        "required": False,
+                    },
+                },
+            ),
+            ToolDefinition(
+                "vault_correct_evidence", 1,
+                "Mark a specific evidence block as superseded. Inserts a "
+                "'[CORRECTED <ts>]' blockquote after the targeted evidence "
+                "block's header and appends a new evidence block tagged "
+                "[correction]. The original block is preserved (append-only "
+                "invariant).",
+                {
+                    "theme_slug": {
+                        "type": "string",
+                        "description": "Slug of the theme containing the evidence.",
+                        "required": True,
+                    },
+                    "evidence_timestamp": {
+                        "type": "string",
+                        "description": (
+                            "ISO timestamp from the '### Evidence — <ts>' header "
+                            "of the block being corrected."
+                        ),
+                        "required": True,
+                    },
+                    "correction": {
+                        "type": "string",
+                        "description": "Explanation + replacement text (max 2000 chars).",
+                        "required": True,
+                    },
+                    "corrected_by": {
+                        "type": "string",
+                        "description": "Tool or session that discovered the error.",
+                        "required": False,
+                    },
+                },
+            ),
+            ToolDefinition(
+                "vault_inbox_add", 1,
+                "Append a low-friction capture to 'inbox.md' in the vault "
+                "root. Use for half-formed observations that aren't yet a "
+                "moment or theme evidence. Drain later with vault_inbox_drain.",
+                {
+                    "text": {
+                        "type": "string",
+                        "description": "Free-form observation (max 2000 chars).",
+                        "required": True,
+                    },
+                    "tags": {
+                        "type": "array",
+                        "description": "Optional hashtags to annotate the item.",
+                        "required": False,
+                    },
+                },
+            ),
+            ToolDefinition(
+                "vault_inbox_list", 1,
+                "Return parsed items from 'inbox.md' (timestamp + text + tags). "
+                "Use to review uncurated captures before draining.",
+                {
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max items returned (default 20).",
+                        "required": False,
+                    },
+                },
+            ),
+            ToolDefinition(
+                "vault_inbox_drain", 1,
+                "Process inbox items in bulk. Each item specifies an index "
+                "and an action (moment | evidence | discard). Successful "
+                "items are removed from 'inbox.md'.",
+                {
+                    "items": {
+                        "type": "array",
+                        "description": (
+                            "List of {index, action, ...action-specific-fields}. "
+                            "action=moment requires title/body; action=evidence "
+                            "requires theme_slug."
+                        ),
+                        "required": True,
+                    },
+                },
+            ),
+            ToolDefinition(
+                "vault_generate_snapshot", 1,
+                "Regenerate the compressed vault state note at 'snapshot.md' — "
+                "open themes, recent moments, weekly run aggregates, vault "
+                "health, and any warnings. Call at the end of substantive "
+                "analytical sessions so the next session has a fast orientation.",
+                {
+                    "written_by": {
+                        "type": "string",
+                        "description": "Session identifier recorded in frontmatter.",
+                        "required": False,
+                    },
+                },
+            ),
+            ToolDefinition(
+                "vault_get_snapshot", 1,
+                "Read 'snapshot.md' from the vault root. This is the new "
+                "'call first' tool — one file, compressed, versus the wider "
+                "sweep of vault_get_fitness_summary. Falls back to the "
+                "fitness-summary shape when no snapshot exists.",
+                {},
             ),
             ToolDefinition(
                 "vault_rescan", 1,
@@ -516,7 +681,8 @@ class VaultLayer:
                 "hypothesis": ValidationSchema(type=str, max_len=2000),
                 "evidence": ValidationSchema(type=str, max_len=2000),
                 "status": ValidationSchema(
-                    type=str, allowed_values=["open", "resolved", "rejected"],
+                    type=str,
+                    allowed_values=["open", "resolved", "rejected", "reframed"],
                 ),
                 "confidence": ValidationSchema(
                     type=str, allowed_values=["low", "medium", "high"],
@@ -526,6 +692,14 @@ class VaultLayer:
                 "tags": ValidationSchema(type=list),
                 "title": ValidationSchema(type=str, max_len=200),
                 "resolution": ValidationSchema(type=str, max_len=2000),
+                "thinking": ValidationSchema(type=str, max_len=2000),
+                "evidence_source_tier": ValidationSchema(type=int, min=1, max=3),
+                "evidence_source_tool": ValidationSchema(type=str, max_len=200),
+                "evidence_source_domain": ValidationSchema(type=str, max_len=200),
+                "evidence_verification": ValidationSchema(
+                    type=str,
+                    allowed_values=["observed", "computed", "inferred", "unverified"],
+                ),
             },
             "vault_list_moments": {
                 "date_from": ValidationSchema(type=str, pattern=r"^\d{4}-\d{2}-\d{2}$"),
@@ -547,7 +721,39 @@ class VaultLayer:
                 # so we hand-validate inside the handler.
                 "update_themes": ValidationSchema(type=list, max_len=20),
                 "new_moments": ValidationSchema(type=list, max_len=20),
+                "divergence": ValidationSchema(type=str, max_len=1000),
             },
+            "vault_health_check": {
+                "stale_threshold_days": ValidationSchema(
+                    type=int, min=1, max=3650, default=30,
+                ),
+            },
+            "vault_correct_evidence": {
+                "theme_slug": ValidationSchema(
+                    type=str, required=True, pattern=r"^[a-z0-9][a-z0-9\-]{0,63}$",
+                ),
+                "evidence_timestamp": ValidationSchema(
+                    type=str, required=True, max_len=40,
+                ),
+                "correction": ValidationSchema(
+                    type=str, required=True, max_len=2000,
+                ),
+                "corrected_by": ValidationSchema(type=str, max_len=200),
+            },
+            "vault_inbox_add": {
+                "text": ValidationSchema(type=str, required=True, max_len=2000),
+                "tags": ValidationSchema(type=list),
+            },
+            "vault_inbox_list": {
+                "limit": ValidationSchema(type=int, min=1, max=100, default=20),
+            },
+            "vault_inbox_drain": {
+                "items": ValidationSchema(type=list, required=True, max_len=50),
+            },
+            "vault_generate_snapshot": {
+                "written_by": ValidationSchema(type=str, max_len=200),
+            },
+            "vault_get_snapshot": {},
             "vault_rescan": {},
             "vault_traverse_links": {
                 "filename": ValidationSchema(type=str, required=True),
@@ -575,6 +781,13 @@ class VaultLayer:
             "vault_capture_session": self._handle_capture_session,
             "vault_rescan": self._handle_rescan,
             "vault_traverse_links": self._handle_traverse_links,
+            "vault_generate_snapshot": self._handle_generate_snapshot,
+            "vault_get_snapshot": self._handle_get_snapshot,
+            "vault_health_check": self._handle_health_check,
+            "vault_correct_evidence": self._handle_correct_evidence,
+            "vault_inbox_add": self._handle_inbox_add,
+            "vault_inbox_list": self._handle_inbox_list,
+            "vault_inbox_drain": self._handle_inbox_drain,
         }
         handler = handlers.get(tool_name)
         if not handler:
@@ -1040,10 +1253,36 @@ class VaultLayer:
                 log.warning(f"vault_upsert_theme: revalidate_file failed: {exc}")
             existing = self._storage.get_theme(slug) or existing
 
+            # Reframe detection: new hypothesis that differs from the one
+            # on disk means the old framing is preserved under
+            # ## Prior Framings and the body's hypothesis is replaced.
+            # The user may also send status="reframed" as an explicit
+            # signal; either way, status persists as "open" (reframed is
+            # a transitional event, not a terminal state).
+            new_hypothesis = (params.get("hypothesis") or "").strip()
+            reframed = False
+            if new_hypothesis:
+                old_hypothesis = self._read_theme_hypothesis(slug) or ""
+                if old_hypothesis and old_hypothesis != new_hypothesis:
+                    try:
+                        self._writer.reframe_theme(
+                            slug, new_hypothesis, old_hypothesis
+                        )
+                        reframed = True
+                    except (ValueError, FileNotFoundError) as exc:
+                        return {"error": str(exc)}
+
+            # Normalize status: "reframed" is a signal, not a stored state.
+            effective_params = dict(params)
+            if effective_params.get("status") == "reframed":
+                effective_params["status"] = "open"
+
             # Merge frontmatter-level fields in place by rewriting only the
             # frontmatter block — body is preserved.
             try:
-                updated_filename = self._merge_theme_frontmatter(slug, params, existing or {})
+                updated_filename = self._merge_theme_frontmatter(
+                    slug, effective_params, existing or {}
+                )
             except (ValueError, FileNotFoundError) as exc:
                 return {"error": str(exc)}
 
@@ -1051,17 +1290,60 @@ class VaultLayer:
             evidence = params.get("evidence")
             if evidence:
                 try:
-                    self._writer.append_theme_evidence(slug, evidence)
+                    self._writer.append_theme_evidence(
+                        slug,
+                        evidence,
+                        source_tier=params.get("evidence_source_tier"),
+                        source_tool=params.get("evidence_source_tool"),
+                        source_domain=params.get("evidence_source_domain"),
+                        verification=params.get("evidence_verification"),
+                    )
                 except (ValueError, FileNotFoundError) as exc:
                     return {"error": str(exc)}
 
-            return {
+            # Append thinking block, if provided (Feature 2B)
+            thinking = params.get("thinking")
+            if thinking:
+                try:
+                    self._writer.append_theme_thinking(slug, thinking)
+                except (ValueError, FileNotFoundError) as exc:
+                    return {"error": str(exc)}
+
+            # Fold-back on resolution (Feature 2C): when the theme reaches
+            # a terminal state, annotate linked run + theme notes so
+            # browsing them surfaces that this thread closed.
+            final_status = effective_params.get("status") or (existing or {}).get("status") or "open"
+            if final_status in ("resolved", "rejected"):
+                resolution_text = (
+                    params.get("resolution")
+                    or f"Theme {slug} marked {final_status}."
+                )
+                try:
+                    self._foldback_resolution(
+                        slug,
+                        final_status,
+                        resolution_text,
+                        linked_runs=params.get("linked_runs")
+                        or (existing or {}).get("linked_runs") or [],
+                        linked_themes=params.get("linked_themes") or [],
+                    )
+                except Exception as exc:  # pragma: no cover
+                    log.warning(f"vault_upsert_theme: foldback failed: {exc}")
+
+            response = {
                 "upserted": True,
                 "created": False,
                 "filename": updated_filename,
                 "slug": slug,
                 "note": "Frontmatter merged; evidence appended as a new block.",
             }
+            if reframed:
+                response["reframed"] = True
+                response["note"] = (
+                    "Theme reframed: prior hypothesis preserved under "
+                    "## Prior Framings."
+                )
+            return response
 
         # New theme — write the full note
         if not params.get("hypothesis"):
@@ -1099,6 +1381,123 @@ class VaultLayer:
             "slug": slug,
             "note": "New theme note created. Future calls will append evidence.",
         }
+
+    def _read_theme_hypothesis(self, slug: str) -> str | None:
+        """Extract the current ``## Hypothesis`` prose from the theme file."""
+        filename = f"themes/{slug}.md"
+        try:
+            abs_path = self._writer._safe_path(filename)  # type: ignore[attr-defined]
+        except ValueError:
+            return None
+        if not abs_path.exists():
+            return None
+        content = abs_path.read_text(encoding="utf-8")
+        header = "## Hypothesis"
+        idx = content.find(header)
+        if idx == -1:
+            return None
+        after = idx + len(header)
+        next_idx = content.find("\n## ", after)
+        if next_idx == -1:
+            next_idx = len(content)
+        section = content[after:next_idx].strip()
+        if section.startswith("*(No hypothesis yet."):
+            return None
+        return section or None
+
+    def _foldback_resolution(
+        self,
+        slug: str,
+        status: str,
+        resolution_text: str,
+        linked_runs: list,
+        linked_themes: list,
+    ) -> None:
+        """
+        Best-effort: append a one-line annotation to each linked note
+        recording that this theme reached a terminal state.
+        """
+        marker = (
+            f"> Theme [[{slug}]] {status}: {resolution_text.strip()}"
+        )
+
+        # Run notes — find by activity_id
+        for activity_id in linked_runs:
+            run_note = self._find_run_note_by_activity_id(activity_id)
+            if not run_note:
+                continue
+            self._append_under_section(run_note, "## Insights", marker)
+
+        # Theme notes — filename is themes/<slug>.md
+        for other_slug in linked_themes:
+            other_slug = str(other_slug).strip()
+            if not other_slug or other_slug == slug:
+                continue
+            other_filename = f"themes/{other_slug}.md"
+            if not self._storage.get_note(other_filename):
+                continue
+            self._append_under_section(other_filename, "## Linked Themes", marker)
+
+    def _find_run_note_by_activity_id(self, activity_id) -> str | None:
+        """Best-effort: locate a run note whose frontmatter has this activity_id."""
+        try:
+            aid_int = int(activity_id)
+        except (TypeError, ValueError):
+            return None
+        # Scan run_report notes; small in practice.
+        notes = self._storage.list_notes(
+            domain="running", note_type="run_report", limit=500
+        )
+        for n in notes:
+            if n.get("activity_id") == aid_int:
+                return n["filename"]
+        return None
+
+    def _append_under_section(
+        self, filename: str, section_header: str, marker_line: str
+    ) -> None:
+        """
+        Append ``marker_line`` immediately before the next ``## `` header
+        after ``section_header``, or at end of file if no next section.
+        If the marker line is already present, do nothing (idempotent).
+        """
+        try:
+            abs_path = self._writer._safe_path(filename)  # type: ignore[attr-defined]
+        except ValueError:
+            return
+        if not abs_path.exists():
+            return
+        content = abs_path.read_text(encoding="utf-8")
+        if marker_line in content:
+            return
+
+        hdr_idx = content.find(section_header)
+        if hdr_idx == -1:
+            # Section missing — create it at end of file.
+            updated = content.rstrip() + f"\n\n{section_header}\n\n{marker_line}\n"
+        else:
+            after_hdr = hdr_idx + len(section_header)
+            next_section = content.find("\n## ", after_hdr)
+            if next_section == -1:
+                updated = content.rstrip() + f"\n\n{marker_line}\n"
+            else:
+                updated = (
+                    content[:next_section].rstrip()
+                    + f"\n\n{marker_line}\n\n"
+                    + content[next_section + 1 :]
+                )
+
+        try:
+            self._writer._atomic_write_abs(abs_path, updated)  # type: ignore[attr-defined]
+            self._writer._index_note(  # type: ignore[attr-defined]
+                filename,
+                self._storage.get_note(filename).get("note_type", "unknown")
+                if self._storage.get_note(filename) else "unknown",
+                {},
+                updated,
+            )
+        except Exception as exc:  # pragma: no cover
+            log.warning(f"_append_under_section({filename}) failed: {exc}")
 
     def _merge_theme_frontmatter(
         self, slug: str, params: dict, existing_theme: dict
@@ -1285,15 +1684,19 @@ class VaultLayer:
         }
 
         # 1) Summary moment
+        divergence = params.get("divergence")
         try:
-            results["summary_filename"] = self._writer.write_moment({
+            summary_payload = {
                 "title": summary["title"],
                 "body": summary["body"],
                 "linked_runs": summary.get("linked_runs") or [],
                 "linked_themes": summary.get("linked_themes") or [],
                 "tags": (summary.get("tags") or []) + ["session-summary"],
                 "date": summary.get("date"),
-            })
+            }
+            if divergence:
+                summary_payload["divergence"] = divergence
+            results["summary_filename"] = self._writer.write_moment(summary_payload)
         except Exception as exc:
             results["errors"].append({"stage": "summary", "error": str(exc)})
 
@@ -1334,6 +1737,363 @@ class VaultLayer:
             "vault_get_fitness_summary in the next session."
         )
         return results
+
+    async def _handle_generate_snapshot(self, params: dict) -> dict:
+        written_by = params.get("written_by") or "claude-session"
+        snapshot = self._build_snapshot_payload(written_by)
+        try:
+            filename = self._writer.write_snapshot(snapshot)
+        except (ValueError, FileNotFoundError) as exc:
+            return {"error": str(exc)}
+        return {
+            "generated": True,
+            "filename": filename,
+            "open_theme_count": len(snapshot["open_themes"]),
+            "recent_moment_count": len(snapshot["recent_moments"]),
+            "note": (
+                "Snapshot regenerated. Future sessions should call "
+                "vault_get_snapshot first for fast orientation."
+            ),
+        }
+
+    async def _handle_get_snapshot(self, params: dict) -> dict:
+        snapshot_path = (self._vault_path / "snapshot.md").resolve()
+        vault_resolved = self._vault_path.resolve()
+        if not _is_relative_to(snapshot_path, vault_resolved):
+            return {"error": "Invalid snapshot path."}
+        if not snapshot_path.exists():
+            # Fall back to fitness summary
+            fallback = await self._handle_fitness_summary({})
+            return {
+                "snapshot_exists": False,
+                "fallback": fallback,
+                "note": (
+                    "No snapshot.md yet — call vault_generate_snapshot at the "
+                    "end of a session to create one."
+                ),
+            }
+        content = snapshot_path.read_text(encoding="utf-8")
+        from .parser import split_frontmatter
+        fm, _body = split_frontmatter(content)
+        return {
+            "snapshot_exists": True,
+            "filename": "snapshot.md",
+            "frontmatter": fm,
+            "content": content,
+        }
+
+    def _build_snapshot_payload(self, written_by: str) -> dict:
+        """
+        Gather the data the snapshot renderer expects from live storage
+        and the filesystem.
+        """
+        from collections import defaultdict
+        from datetime import datetime, timedelta, timezone
+
+        now = datetime.now(timezone.utc)
+        moment_cutoff = (now - timedelta(days=14)).strftime("%Y-%m-%d")
+        week_cutoff = (now - timedelta(weeks=4)).strftime("%Y-%m-%d")
+        stale_cutoff = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+
+        # Open themes (with evidence counts)
+        open_themes_rows = self._storage.list_themes(status="open", limit=20)
+        open_themes: list[dict] = []
+        stale_themes: list[str] = []
+        for t in open_themes_rows:
+            slug = t["slug"]
+            ev_count = self._count_theme_evidence_blocks(slug)
+            open_themes.append({
+                "slug": slug,
+                "status": t["status"],
+                "confidence": t.get("confidence") or "—",
+                "evidence_count": ev_count,
+            })
+            if t.get("last_updated") and str(t["last_updated"]) < stale_cutoff:
+                stale_themes.append(slug)
+
+        # Recent moments (last 14 days)
+        recent_note_rows = self._storage.list_notes(
+            domain="vault", note_type="moment", date_from=moment_cutoff, limit=20,
+        )
+        recent_moments = [
+            {
+                "date": n["date"],
+                "title": (n.get("frontmatter") or {}).get("title")
+                or _title_from_filename(n["filename"]),
+                "linked_themes": (n.get("frontmatter") or {}).get("linked_themes") or [],
+            }
+            for n in recent_note_rows
+        ]
+
+        # Weekly summary (last 4 weeks of run notes)
+        run_rows = self._storage.list_notes(
+            domain="running", note_type="run_report",
+            date_from=week_cutoff, limit=500,
+        )
+        weeks: dict = defaultdict(lambda: {
+            "runs": 0, "total_miles": 0.0, "hrs": [],
+        })
+        for n in run_rows:
+            fm = n.get("frontmatter", {}) or {}
+            week = fm.get("week") or n.get("week") or "unknown"
+            w = weeks[week]
+            w["runs"] += 1
+            w["total_miles"] += float(fm.get("distance_miles", 0) or 0)
+            if fm.get("avg_hr"):
+                w["hrs"].append(int(fm["avg_hr"]))
+        weekly_summary = []
+        for week_key in sorted(weeks.keys(), reverse=True)[:4]:
+            w = weeks[week_key]
+            avg_hr = round(sum(w["hrs"]) / len(w["hrs"])) if w["hrs"] else None
+            weekly_summary.append({
+                "week": week_key,
+                "runs": w["runs"],
+                "total_miles": round(w["total_miles"], 1),
+                "avg_hr": avg_hr,
+            })
+
+        # Counts
+        notes_indexed = self._storage.count_notes()
+        resolved_rows = self._storage.list_themes(status="resolved", limit=10000)
+        moments_total = len(self._storage.list_notes(
+            domain="vault", note_type="moment", limit=10000,
+        ))
+
+        inbox_items = self._count_inbox_items()
+
+        warnings: list[str] = []
+        themes_without_evidence = [
+            t["slug"] for t in open_themes_rows
+            if self._count_theme_evidence_blocks(t["slug"]) == 0
+        ]
+        if themes_without_evidence:
+            warnings.append(
+                "Open themes with no evidence: " + ", ".join(themes_without_evidence)
+            )
+        orphaned = self._list_orphaned_moments()
+        if orphaned:
+            warnings.append(
+                f"{len(orphaned)} moment(s) not linked to any theme."
+            )
+
+        return {
+            "written_by": written_by,
+            "open_themes": open_themes,
+            "recent_moments": recent_moments,
+            "weekly_summary": weekly_summary,
+            "vault_health": {
+                "notes_indexed": notes_indexed,
+                "themes_open": len(open_themes_rows),
+                "themes_resolved": len(resolved_rows),
+                "moments": moments_total,
+                "stale_themes": stale_themes,
+                "inbox_items": inbox_items,
+            },
+            "warnings": warnings,
+        }
+
+    def _count_theme_evidence_blocks(self, slug: str) -> int:
+        """Count ``### Evidence —`` headers in the theme file."""
+        filename = f"themes/{slug}.md"
+        try:
+            abs_path = self._writer._safe_path(filename)  # type: ignore[attr-defined]
+        except ValueError:
+            return 0
+        if not abs_path.exists():
+            return 0
+        content = abs_path.read_text(encoding="utf-8")
+        return content.count("### Evidence —")
+
+    def _count_inbox_items(self) -> int:
+        inbox_path = self._vault_path / "inbox.md"
+        if not inbox_path.exists():
+            return 0
+        content = inbox_path.read_text(encoding="utf-8")
+        # Count the bullet-entry headers we emit
+        return sum(1 for line in content.splitlines() if line.startswith("- **"))
+
+    def _list_orphaned_moments(self) -> list[str]:
+        """Return filenames of moments with no linked_themes."""
+        notes = self._storage.list_notes(
+            domain="vault", note_type="moment", limit=10000,
+        )
+        out = []
+        for n in notes:
+            fm = n.get("frontmatter") or {}
+            if not (fm.get("linked_themes") or []):
+                out.append(n["filename"])
+        return out
+
+    async def _handle_health_check(self, params: dict) -> dict:
+        from datetime import datetime, timedelta, timezone
+
+        stale_days = params.get("stale_threshold_days", 30)
+        cutoff = (
+            datetime.now(timezone.utc) - timedelta(days=stale_days)
+        ).strftime("%Y-%m-%d")
+
+        stale_themes = self._storage.list_stale_themes(cutoff)
+        orphaned_moments = self._storage.list_orphaned_moments()
+        by_status = self._storage.count_themes_by_status()
+
+        open_theme_rows = self._storage.list_themes(status="open", limit=10000)
+        themes_without_evidence = [
+            t["slug"] for t in open_theme_rows
+            if self._count_theme_evidence_blocks(t["slug"]) == 0
+        ]
+
+        total_moments = len(self._storage.list_notes(
+            domain="vault", note_type="moment", limit=10000,
+        ))
+
+        total_themes = sum(by_status.values())
+
+        return {
+            "stale_threshold_days": stale_days,
+            "stale_themes": stale_themes,
+            "orphaned_moments": orphaned_moments,
+            "themes_without_evidence": themes_without_evidence,
+            "inbox_item_count": self._count_inbox_items(),
+            "total_notes": self._storage.count_notes(),
+            "total_themes": total_themes,
+            "total_moments": total_moments,
+            "themes_by_status": {
+                "open": by_status.get("open", 0),
+                "resolved": by_status.get("resolved", 0),
+                "rejected": by_status.get("rejected", 0),
+            },
+        }
+
+    async def _handle_correct_evidence(self, params: dict) -> dict:
+        try:
+            filename = self._writer.correct_theme_evidence(
+                slug=params["theme_slug"],
+                evidence_timestamp=params["evidence_timestamp"],
+                correction=params["correction"],
+                corrected_by=params.get("corrected_by"),
+            )
+        except (ValueError, FileNotFoundError) as exc:
+            return {"error": str(exc)}
+        return {
+            "corrected": True,
+            "filename": filename,
+            "note": (
+                "Correction marker inserted and a [correction] evidence "
+                "block appended. Original evidence preserved."
+            ),
+        }
+
+    async def _handle_inbox_add(self, params: dict) -> dict:
+        text = params["text"]
+        tags = params.get("tags") or []
+        try:
+            line = self._writer.append_inbox_item(text, tags=tags)
+        except (ValueError, FileNotFoundError) as exc:
+            return {"error": str(exc)}
+        return {
+            "added": True,
+            "line": line,
+            "note": "Inbox item appended to inbox.md.",
+        }
+
+    async def _handle_inbox_list(self, params: dict) -> dict:
+        limit = params.get("limit", 20)
+        try:
+            items = self._writer.read_inbox()
+        except ValueError as exc:
+            return {"error": str(exc)}
+        return {
+            "count": len(items),
+            "items": [
+                {
+                    "index": i,
+                    "timestamp": it["timestamp"],
+                    "text": it["text"],
+                    "tags": it["tags"],
+                }
+                for i, it in enumerate(items[:limit])
+            ],
+        }
+
+    async def _handle_inbox_drain(self, params: dict) -> dict:
+        items = params.get("items") or []
+        try:
+            current = self._writer.read_inbox()
+        except ValueError as exc:
+            return {"error": str(exc)}
+
+        moments_created = 0
+        evidence_appended = 0
+        discarded = 0
+        errors: list[dict] = []
+        to_remove: set[int] = set()
+
+        for entry in items:
+            if not isinstance(entry, dict):
+                errors.append({"item": entry, "error": "not an object"})
+                continue
+            idx = entry.get("index")
+            action = entry.get("action")
+            if not isinstance(idx, int) or idx < 0 or idx >= len(current):
+                errors.append({"index": idx, "error": "index out of range"})
+                continue
+            item = current[idx]
+
+            if action == "discard":
+                to_remove.add(idx)
+                discarded += 1
+                continue
+            if action == "moment":
+                title = entry.get("title") or (item["text"][:60] or "Inbox item")
+                body = entry.get("body") or item["text"]
+                try:
+                    self._writer.write_moment({
+                        "title": title,
+                        "body": body,
+                        "linked_runs": entry.get("linked_runs") or [],
+                        "linked_themes": entry.get("linked_themes") or [],
+                        "tags": entry.get("tags") or item.get("tags") or [],
+                        "date": entry.get("date"),
+                    })
+                    to_remove.add(idx)
+                    moments_created += 1
+                except Exception as exc:
+                    errors.append({"index": idx, "error": str(exc)})
+                continue
+            if action == "evidence":
+                theme_slug = entry.get("theme_slug")
+                if not theme_slug:
+                    errors.append({"index": idx, "error": "missing theme_slug"})
+                    continue
+                try:
+                    self._writer.append_theme_evidence(
+                        theme_slug,
+                        entry.get("text") or item["text"],
+                        source_tier=entry.get("evidence_source_tier"),
+                        source_tool=entry.get("evidence_source_tool"),
+                        source_domain=entry.get("evidence_source_domain"),
+                        verification=entry.get("evidence_verification"),
+                    )
+                    to_remove.add(idx)
+                    evidence_appended += 1
+                except Exception as exc:
+                    errors.append({"index": idx, "error": str(exc)})
+                continue
+
+            errors.append({"index": idx, "error": f"unknown action: {action!r}"})
+
+        if to_remove:
+            try:
+                self._writer.drain_inbox_items(to_remove)
+            except Exception as exc:  # pragma: no cover
+                errors.append({"stage": "rewrite", "error": str(exc)})
+
+        return {
+            "moments_created": moments_created,
+            "evidence_appended": evidence_appended,
+            "discarded": discarded,
+            "errors": errors,
+        }
 
     async def _handle_rescan(self, params: dict) -> dict:
         counts = rescan_vault(self._vault_path, self._storage)

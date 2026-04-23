@@ -359,6 +359,45 @@ class VaultStorage(BaseStorage):
         )
         return [self._theme_row(r) for r in rows]
 
+    def count_themes_by_status(self) -> dict[str, int]:
+        """Return a {status: count} map across all themes."""
+        rows = self.fetchall(
+            "SELECT status, COUNT(*) FROM vault_themes GROUP BY status"
+        )
+        return {r[0]: r[1] for r in rows}
+
+    def list_orphaned_moments(self) -> list[str]:
+        """
+        Return filenames of moment notes whose frontmatter's linked_themes
+        is empty.  'Orphaned' = not associated with any theme.
+        """
+        rows = self.fetchall(
+            "SELECT filename, frontmatter_json FROM vault_notes"
+            " WHERE note_type='moment'"
+        )
+        out: list[str] = []
+        for filename, fm_json in rows:
+            try:
+                fm = _loads(fm_json) if fm_json else {}
+            except (ValueError, TypeError):
+                continue
+            if not (fm.get("linked_themes") or []):
+                out.append(filename)
+        return out
+
+    def list_stale_themes(self, cutoff_date: str) -> list[str]:
+        """
+        Return slugs of themes whose last_updated predates ``cutoff_date``
+        (inclusive of status == 'open' only; resolved/rejected don't rot).
+        """
+        rows = self.fetchall(
+            "SELECT slug FROM vault_themes"
+            " WHERE status='open' AND last_updated<?"
+            " ORDER BY last_updated ASC",
+            (cutoff_date,),
+        )
+        return [r[0] for r in rows]
+
     def delete_theme(self, slug: str) -> None:
         self.execute("DELETE FROM vault_themes WHERE slug=?", (slug,))
         self.commit()

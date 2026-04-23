@@ -5,9 +5,82 @@ All notable changes to this project are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims at [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [6.0.0] — 2026-04-23
+
+Vault-only release: the router, security pipeline, children, CLI, and
+demo are untouched. Every change in this version lives under
+`biosensor_mcp.framework.vault` and makes the reorientation tier a real
+longitudinal research tool rather than just a note archive.
 
 ### Added
+- **Vault snapshot** (`vault_generate_snapshot`, `vault_get_snapshot`):
+  a compressed `snapshot.md` at the vault root that summarises open
+  themes, recent moments, weekly run aggregates, inbox depth, and vault
+  health. Intended as the new "call this first" orientation tool in new
+  sessions — one file instead of many.
+- **Theme lifecycle enrichment** on `vault_upsert_theme`:
+  - `reframed` status and automatic prior-framing preservation when a
+    new hypothesis is supplied that differs from the one on disk. The
+    old framing lands under a `## Prior Framings` section; status
+    persists as `open` (reframed is transitional).
+  - `thinking` parameter that appends a `### Thinking — TIMESTAMP`
+    block inside the evidence log for partial-progress notes distinct
+    from settled evidence.
+  - Fold-back on resolution: when status flips to `resolved` or
+    `rejected`, linked run and theme notes receive a one-line
+    `> Theme [[slug]] resolved: …` annotation so browsing them
+    surfaces the closed thread.
+- **Evidence provenance** on `vault_upsert_theme`: optional
+  `evidence_source_tier`, `evidence_source_tool`, `evidence_source_domain`,
+  and `evidence_verification` parameters. When any is provided, the new
+  evidence block carries a `> Source: …` blockquote so readers can trace
+  which tool and data tier produced the observation.
+- **Vault inbox** (`vault_inbox_add`, `vault_inbox_list`,
+  `vault_inbox_drain`): a single `inbox.md` file at the vault root for
+  low-friction capture of half-formed observations, plus a bulk drain
+  operation that promotes items to moments, theme evidence, or
+  discards them in one audited call.
+- **Session divergence** on `vault_capture_session`: optional
+  `divergence` parameter (max 1000 chars) recording what the
+  analytical goal was versus what actually happened. Rendered as a
+  `## Divergence` section on the summary moment and mirrored into
+  frontmatter so it's searchable.
+- **Analytical corrections** (`vault_correct_evidence`): mark a
+  specific evidence block as superseded by timestamp. Inserts a
+  `[CORRECTED <ts>]` blockquote after the targeted header and appends
+  a new `### Evidence — … [correction]` block logging the correction
+  itself. The original evidence is preserved (append-only invariant).
+- **Vault health check** (`vault_health_check`): diagnostic sweep that
+  returns stale themes, orphaned moments, themes without evidence,
+  inbox depth, and counts by status. Use at session end to decide what
+  to tidy up.
+- `biosensor_mcp.framework.vault.storage.VaultStorage` gains
+  `count_themes_by_status()`, `list_orphaned_moments()`, and
+  `list_stale_themes()` helpers backing the health-check tool.
+- `render_snapshot_note()` pure renderer in
+  `biosensor_mcp.framework.vault.renderer`.
+- `VaultWriter` gains `write_snapshot()`, `append_theme_thinking()`,
+  `reframe_theme()`, `correct_theme_evidence()`, `append_inbox_item()`,
+  `read_inbox()`, and `drain_inbox_items()` public methods.
+- ADR 0006 — documents the vault overhaul and the governance patterns
+  borrowed from personal knowledge-management practice.
+
+### Changed
+- Vault tool count: 15 → 22.
+- `VaultLayer.tool_definitions`: added the seven new tools above.
+- `render_moment_note()` accepts an optional `divergence` kwarg and
+  renders a `## Divergence` section + frontmatter key when provided.
+- `_format_evidence_block()` accepts optional provenance kwargs
+  (`source_tier`, `source_tool`, `source_domain`, `verification`,
+  `tag_suffix`, `timestamp`) and renders a provenance blockquote when
+  any are set.
+- `VaultWriter.append_theme_evidence()` gained matching optional
+  kwargs; callers that don't pass them continue to get the v5
+  behaviour.
+- `vault_upsert_theme` `status` param now accepts `reframed` in
+  addition to `open` / `resolved` / `rejected`.
+
+### Also included (from the prior unreleased stream, shipping with 6.0.0)
 - `RunningChild` now declares `subject_id` on all 12 `strava_*` tools
   in both `ToolDefinition.params` (MCP `list_tools` discoverability)
   and `param_schemas` (validator-side pattern enforcement:

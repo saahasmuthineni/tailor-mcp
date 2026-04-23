@@ -96,13 +96,14 @@ def _setup_vault(vault_dir, data_dir, activity_id=12345678, backfill_config=None
 class TestVaultLayerMetadata:
     def test_has_expected_tools(self):
         """
-        VaultLayer exposes 15 Tier-1 tools: the 7 original + 8 new
-        (themes, moments, session capture, rescan, traverse).
+        VaultLayer v6 exposes 22 Tier-1 tools: the 15 carried over from
+        v5 plus 7 added for the vault overhaul (snapshot pair, inbox
+        trio, corrections, health check).
         """
         with TemporaryDirectory() as v, TemporaryDirectory() as d:
             layer, writer, _, _date = _setup_vault(v, d)
             names = {t.name for t in layer.tool_definitions}
-            assert len(layer.tool_definitions) == 15
+            assert len(layer.tool_definitions) == 22
             expected = {
                 "vault_get_fitness_summary",
                 "vault_list_notes",
@@ -119,6 +120,13 @@ class TestVaultLayerMetadata:
                 "vault_capture_session",
                 "vault_rescan",
                 "vault_traverse_links",
+                "vault_generate_snapshot",
+                "vault_get_snapshot",
+                "vault_inbox_add",
+                "vault_inbox_list",
+                "vault_inbox_drain",
+                "vault_correct_evidence",
+                "vault_health_check",
             }
             assert names == expected
             layer.close()
@@ -400,6 +408,172 @@ class TestVaultUpsertTheme:
                 layer.close()
 
 
+class TestVaultThemeLifecycle:
+    def test_reframe_preserves_old_hypothesis(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift",
+                    "hypothesis": "HR drifts on hot days.",
+                }))
+                result = _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift",
+                    "hypothesis": "HR drifts on under-fueled runs.",
+                }))
+                assert result.get("reframed") is True
+                content = (Path(v) / "themes/drift.md").read_text(encoding="utf-8")
+                assert "HR drifts on hot days." in content
+                assert "HR drifts on under-fueled runs." in content
+            finally:
+                layer.close()
+
+    def test_reframe_writes_prior_framings_section(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift",
+                    "hypothesis": "Original framing.",
+                }))
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift",
+                    "hypothesis": "New framing.",
+                }))
+                content = (Path(v) / "themes/drift.md").read_text(encoding="utf-8")
+                assert "## Prior Framings" in content
+                # New hypothesis should be in the Hypothesis section
+                hyp_idx = content.find("## Hypothesis")
+                prior_idx = content.find("## Prior Framings")
+                assert hyp_idx < prior_idx
+                # New hypothesis appears before Prior Framings
+                new_idx = content.find("New framing.")
+                old_idx = content.find("Original framing.")
+                assert new_idx < prior_idx < old_idx
+            finally:
+                layer.close()
+
+    def test_reframe_keeps_status_open(self):
+        """status=reframed in params should normalize to 'open' in storage."""
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift",
+                    "hypothesis": "Original.",
+                }))
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift",
+                    "hypothesis": "Different.",
+                    "status": "reframed",
+                }))
+                theme = writer._storage.get_theme("drift")
+                assert theme["status"] == "open"
+            finally:
+                layer.close()
+
+    def test_thinking_entry_appended(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift",
+                    "hypothesis": "Original.",
+                }))
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift",
+                    "thinking": "Tried to correlate with weather but data is sparse.",
+                }))
+                content = (Path(v) / "themes/drift.md").read_text(encoding="utf-8")
+                assert "### Thinking —" in content
+                assert "Tried to correlate with weather" in content
+            finally:
+                layer.close()
+
+    def test_thinking_entry_distinct_from_evidence(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift",
+                    "hypothesis": "H",
+                }))
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift",
+                    "evidence": "Real evidence.",
+                    "thinking": "Partial thought.",
+                }))
+                content = (Path(v) / "themes/drift.md").read_text(encoding="utf-8")
+                assert "### Evidence —" in content
+                assert "### Thinking —" in content
+                assert "Real evidence." in content
+                assert "Partial thought." in content
+            finally:
+                layer.close()
+
+    def test_resolution_folds_back_to_linked_run_note(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            # _setup_vault pre-writes a run note for activity 12345678
+            layer, writer, run_filename, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift",
+                    "hypothesis": "H",
+                    "linked_runs": [12345678],
+                }))
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift",
+                    "status": "resolved",
+                    "resolution": "Confirmed by heat-wave runs.",
+                }))
+                run_content = (Path(v) / run_filename).read_text(encoding="utf-8")
+                assert "> Theme [[drift]] resolved" in run_content
+                assert "Confirmed by heat-wave runs." in run_content
+            finally:
+                layer.close()
+
+    def test_resolution_folds_back_to_linked_theme(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "a", "hypothesis": "H1",
+                }))
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "b", "hypothesis": "H2",
+                    "linked_themes": ["a"],
+                }))
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "b",
+                    "status": "resolved",
+                    "resolution": "Closed.",
+                    "linked_themes": ["a"],
+                }))
+                a_content = (Path(v) / "themes/a.md").read_text(encoding="utf-8")
+                assert "> Theme [[b]] resolved" in a_content
+            finally:
+                layer.close()
+
+    def test_foldback_skips_missing_linked_notes(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift",
+                    "hypothesis": "H",
+                    "linked_runs": [99999999],  # does not exist
+                }))
+                # Should not error
+                result = _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift",
+                    "status": "resolved",
+                    "resolution": "Done.",
+                }))
+                assert "error" not in result
+            finally:
+                layer.close()
+
+
 class TestVaultListThemes:
     def test_lists_themes(self):
         with TemporaryDirectory() as v, TemporaryDirectory() as d:
@@ -582,6 +756,57 @@ class TestVaultCaptureSession:
             finally:
                 layer.close()
 
+    def test_session_capture_with_divergence_in_body(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                result = _run(layer.execute("vault_capture_session", {
+                    "summary": {
+                        "title": "Tuesday session",
+                        "body": "Worked on drift hypothesis.",
+                        "date": "2026-04-10",
+                    },
+                    "divergence": "Planned to investigate fueling, ended up on HR drift.",
+                }))
+                assert result["summary_filename"] is not None
+                content = (Path(v) / result["summary_filename"]).read_text(encoding="utf-8")
+                assert "## Divergence" in content
+                assert "Planned to investigate fueling" in content
+            finally:
+                layer.close()
+
+    def test_session_capture_divergence_in_frontmatter(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                result = _run(layer.execute("vault_capture_session", {
+                    "summary": {
+                        "title": "T",
+                        "body": "B",
+                        "date": "2026-04-10",
+                    },
+                    "divergence": "Scope drifted.",
+                }))
+                content = (Path(v) / result["summary_filename"]).read_text(encoding="utf-8")
+                assert "divergence:" in content.split("---")[1]  # frontmatter block
+            finally:
+                layer.close()
+
+    def test_session_capture_without_divergence_unchanged(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                result = _run(layer.execute("vault_capture_session", {
+                    "summary": {
+                        "title": "S", "body": "B", "date": "2026-04-10",
+                    },
+                }))
+                content = (Path(v) / result["summary_filename"]).read_text(encoding="utf-8")
+                assert "## Divergence" not in content
+                assert "divergence:" not in content.split("---")[1]
+            finally:
+                layer.close()
+
     def test_invalid_theme_update_aggregated_in_errors(self):
         with TemporaryDirectory() as v, TemporaryDirectory() as d:
             layer, writer, _, _date = _setup_vault(v, d)
@@ -671,6 +896,350 @@ class TestVaultFitnessSummaryExtended:
                 assert "recent_moments" in result
                 assert any(t["slug"] == "drift" for t in result["open_themes"])
                 assert any(m["title"] == "Aha" for m in result["recent_moments"])
+            finally:
+                layer.close()
+
+
+class TestVaultSnapshot:
+    def test_generate_snapshot_creates_file(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                result = _run(layer.execute("vault_generate_snapshot", {}))
+                assert result.get("generated") is True
+                assert result["filename"] == "snapshot.md"
+                assert (Path(v) / "snapshot.md").exists()
+            finally:
+                layer.close()
+
+    def test_get_snapshot_returns_content(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_generate_snapshot", {}))
+                result = _run(layer.execute("vault_get_snapshot", {}))
+                assert result.get("snapshot_exists") is True
+                assert "Vault Snapshot" in result["content"]
+            finally:
+                layer.close()
+
+    def test_get_snapshot_fallback_when_no_snapshot(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                result = _run(layer.execute("vault_get_snapshot", {}))
+                assert result.get("snapshot_exists") is False
+                assert "fallback" in result
+            finally:
+                layer.close()
+
+    def test_snapshot_includes_open_themes(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift", "hypothesis": "H",
+                }))
+                _run(layer.execute("vault_generate_snapshot", {}))
+                content = (Path(v) / "snapshot.md").read_text(encoding="utf-8")
+                assert "drift" in content
+                assert "## Open Themes" in content
+            finally:
+                layer.close()
+
+    def test_snapshot_includes_recent_moments(self):
+        from datetime import datetime, timezone
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_capture_moment", {
+                    "title": "Recent aha",
+                    "body": "Noticed drift.",
+                    "date": today,
+                }))
+                _run(layer.execute("vault_generate_snapshot", {}))
+                content = (Path(v) / "snapshot.md").read_text(encoding="utf-8")
+                assert "Recent aha" in content
+            finally:
+                layer.close()
+
+
+class TestVaultHealthCheck:
+    def test_health_check_returns_all_fields(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                result = _run(layer.execute("vault_health_check", {}))
+                for key in (
+                    "stale_themes",
+                    "orphaned_moments",
+                    "themes_without_evidence",
+                    "inbox_item_count",
+                    "total_notes",
+                    "total_themes",
+                    "total_moments",
+                    "themes_by_status",
+                ):
+                    assert key in result
+                assert set(result["themes_by_status"].keys()) == {
+                    "open", "resolved", "rejected",
+                }
+            finally:
+                layer.close()
+
+    def test_health_check_identifies_stale_themes(self):
+        """Theme with last_updated well in the past should surface as stale."""
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                # Write a theme directly with an old last_updated via writer
+                writer.write_theme({
+                    "slug": "ancient",
+                    "hypothesis": "Old.",
+                    "opened": "2020-01-01",
+                    "last_updated": "2020-01-01",
+                })
+                result = _run(layer.execute("vault_health_check", {
+                    "stale_threshold_days": 30,
+                }))
+                assert "ancient" in result["stale_themes"]
+            finally:
+                layer.close()
+
+    def test_health_check_identifies_orphaned_moments(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                # Moment with no linked_themes → orphaned
+                _run(layer.execute("vault_capture_moment", {
+                    "title": "Orphan",
+                    "body": "Unattached observation.",
+                    "date": "2026-04-10",
+                }))
+                # Moment with linked_themes → not orphaned
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift", "hypothesis": "H",
+                }))
+                _run(layer.execute("vault_capture_moment", {
+                    "title": "Attached",
+                    "body": "Linked.",
+                    "date": "2026-04-11",
+                    "linked_themes": ["drift"],
+                }))
+                result = _run(layer.execute("vault_health_check", {}))
+                assert len(result["orphaned_moments"]) == 1
+                assert "orphan" in result["orphaned_moments"][0].lower()
+            finally:
+                layer.close()
+
+    def test_health_check_counts_inbox_items(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_inbox_add", {"text": "One."}))
+                _run(layer.execute("vault_inbox_add", {"text": "Two."}))
+                result = _run(layer.execute("vault_health_check", {}))
+                assert result["inbox_item_count"] == 2
+            finally:
+                layer.close()
+
+
+class TestVaultCorrectEvidence:
+    def _seed_theme_with_evidence(self, layer, slug="drift"):
+        """Upsert a theme, append one evidence block, return its timestamp."""
+        _run(layer.execute("vault_upsert_theme", {
+            "slug": slug, "hypothesis": "H",
+        }))
+        _run(layer.execute("vault_upsert_theme", {
+            "slug": slug, "evidence": "Original observation about mile 6.",
+        }))
+        # Pull the timestamp out of the theme file
+        import re as _re
+        from pathlib import Path as _Path
+        content = (_Path(layer._vault_path) / f"themes/{slug}.md").read_text(encoding="utf-8")
+        m = _re.search(r"### Evidence — (\S+)", content)
+        return m.group(1)
+
+    def test_correct_evidence_inserts_correction_marker(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                ts = self._seed_theme_with_evidence(layer)
+                result = _run(layer.execute("vault_correct_evidence", {
+                    "theme_slug": "drift",
+                    "evidence_timestamp": ts,
+                    "correction": "Mile 6 was actually mile 7.",
+                    "corrected_by": "strava_run_report",
+                }))
+                assert result["corrected"] is True
+                content = (Path(v) / "themes/drift.md").read_text(encoding="utf-8")
+                assert "[CORRECTED" in content
+                assert "Mile 6 was actually mile 7." in content
+            finally:
+                layer.close()
+
+    def test_correct_evidence_preserves_original(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                ts = self._seed_theme_with_evidence(layer)
+                _run(layer.execute("vault_correct_evidence", {
+                    "theme_slug": "drift",
+                    "evidence_timestamp": ts,
+                    "correction": "The mile was different.",
+                }))
+                content = (Path(v) / "themes/drift.md").read_text(encoding="utf-8")
+                # Original evidence still present
+                assert "Original observation about mile 6." in content
+            finally:
+                layer.close()
+
+    def test_correct_evidence_missing_timestamp_returns_error(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift", "hypothesis": "H",
+                }))
+                result = _run(layer.execute("vault_correct_evidence", {
+                    "theme_slug": "drift",
+                    "evidence_timestamp": "9999-01-01T00:00:00Z",
+                    "correction": "Never happened.",
+                }))
+                assert "error" in result
+            finally:
+                layer.close()
+
+    def test_correct_evidence_appends_correction_block(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                ts = self._seed_theme_with_evidence(layer)
+                _run(layer.execute("vault_correct_evidence", {
+                    "theme_slug": "drift",
+                    "evidence_timestamp": ts,
+                    "correction": "Swap X for Y.",
+                }))
+                content = (Path(v) / "themes/drift.md").read_text(encoding="utf-8")
+                # A new evidence block tagged [correction] was added
+                assert "[correction]" in content
+                # There should be at least two `### Evidence` headers now
+                assert content.count("### Evidence —") >= 2
+            finally:
+                layer.close()
+
+
+class TestVaultInbox:
+    def test_inbox_add_creates_file_if_missing(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                result = _run(layer.execute("vault_inbox_add", {
+                    "text": "Odd HR spike around mile 4.",
+                    "tags": ["anomaly"],
+                }))
+                assert result["added"] is True
+                assert (Path(v) / "inbox.md").exists()
+                content = (Path(v) / "inbox.md").read_text(encoding="utf-8")
+                assert "Odd HR spike around mile 4." in content
+                assert "#anomaly" in content
+            finally:
+                layer.close()
+
+    def test_inbox_add_appends_to_existing(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_inbox_add", {"text": "First."}))
+                _run(layer.execute("vault_inbox_add", {"text": "Second."}))
+                content = (Path(v) / "inbox.md").read_text(encoding="utf-8")
+                assert "First." in content
+                assert "Second." in content
+                assert content.count("- **") == 2
+            finally:
+                layer.close()
+
+    def test_inbox_list_returns_parsed_items(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_inbox_add", {
+                    "text": "Observation.", "tags": ["obs"],
+                }))
+                result = _run(layer.execute("vault_inbox_list", {}))
+                assert result["count"] == 1
+                assert result["items"][0]["text"] == "Observation."
+                assert result["items"][0]["tags"] == ["obs"]
+            finally:
+                layer.close()
+
+    def test_inbox_list_empty_file(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                result = _run(layer.execute("vault_inbox_list", {}))
+                assert result["count"] == 0
+                assert result["items"] == []
+            finally:
+                layer.close()
+
+    def test_inbox_drain_moment_creates_note_and_removes(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_inbox_add", {"text": "Interesting observation."}))
+                result = _run(layer.execute("vault_inbox_drain", {
+                    "items": [{
+                        "index": 0, "action": "moment",
+                        "title": "Interesting observation",
+                        "body": "Interesting observation about HR drift.",
+                        "date": "2026-04-10",
+                    }],
+                }))
+                assert result["moments_created"] == 1
+                assert result["errors"] == []
+                # Verify a moment file exists
+                assert any(
+                    p.name.startswith("2026-04-10-") for p in (Path(v) / "moments").glob("*.md")
+                )
+                # Verify inbox empty
+                content = (Path(v) / "inbox.md").read_text(encoding="utf-8")
+                assert "- **" not in content
+            finally:
+                layer.close()
+
+    def test_inbox_drain_evidence_appends_and_removes(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift", "hypothesis": "HR drifts.",
+                }))
+                _run(layer.execute("vault_inbox_add", {"text": "Candidate evidence line."}))
+                result = _run(layer.execute("vault_inbox_drain", {
+                    "items": [{
+                        "index": 0, "action": "evidence",
+                        "theme_slug": "drift",
+                    }],
+                }))
+                assert result["evidence_appended"] == 1
+                theme_content = (Path(v) / "themes/drift.md").read_text(encoding="utf-8")
+                assert "Candidate evidence line." in theme_content
+            finally:
+                layer.close()
+
+    def test_inbox_drain_discard_removes(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_inbox_add", {"text": "Throwaway."}))
+                result = _run(layer.execute("vault_inbox_drain", {
+                    "items": [{"index": 0, "action": "discard"}],
+                }))
+                assert result["discarded"] == 1
+                content = (Path(v) / "inbox.md").read_text(encoding="utf-8")
+                assert "Throwaway." not in content
             finally:
                 layer.close()
 

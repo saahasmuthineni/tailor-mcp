@@ -264,7 +264,7 @@ class ChildMCP(ABC):
         """
         return self.consent_info.data_types
 
-    def close(self) -> None:
+    def close(self) -> None:  # noqa: B027 — intentional optional hook, no-op default
         """Release resources (storage connections, file handles).
 
         Override in children that own a ``BaseStorage`` subclass or

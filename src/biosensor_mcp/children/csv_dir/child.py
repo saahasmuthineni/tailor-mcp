@@ -31,7 +31,6 @@ import csv
 import io
 import json
 import logging
-import os
 from pathlib import Path
 
 from ...framework.interfaces import (
@@ -163,7 +162,9 @@ class CSVDirectoryChild(ChildMCP):
             ) as f:
                 reader = csv.DictReader(f)
                 headers = list(reader.fieldnames or [])
-                sample = [row for row, _ in zip(reader, range(20))]
+                sample = [
+                    row for row, _ in zip(reader, range(20), strict=False)
+                ]
         except OSError:
             return {}
         if not headers:

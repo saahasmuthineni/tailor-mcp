@@ -77,11 +77,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      # 4. Run the test suite with coverage. Floor is set below current
-      #    baseline (~65%) to leave slack for routine PRs; raise it as
-      #    the untested CLI/OAuth/demo paths gain tests.
+      # 4. Run the test suite with coverage. Floor sits ~2pp below current
+      #    baseline (82%) — intentionally undertested paths (CLI, OAuth
+      #    wizard, demo, strava_api) are excluded via [tool.coverage.run]
+      #    in pyproject.toml so this number reflects the framework code
+      #    we expect to keep tested.
       - name: Run tests
-        run: pytest -v --cov=biosensor_mcp --cov-report=term-missing --cov-report=xml --cov-fail-under=60
+        run: pytest -v --cov=biosensor_mcp --cov-report=term-missing --cov-report=xml --cov-fail-under=80
 
       # 5. Run standalone security probe
       - name: Security probe

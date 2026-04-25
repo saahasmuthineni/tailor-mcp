@@ -685,3 +685,106 @@ class TestDispatchInternalProvenance:
             assert meta["tool_name"] == "alpha_free_tool"
             assert meta["source"] == "INTERNAL"
             router.close()
+
+
+class TestRunningChildEndToEnd:
+    """
+    End-to-end dispatch of the canonical Tier-1 tool against synthetic
+    run data. Until this class was added, no test pushed a realistic
+    report dict through ``_dispatch``: unit tests hit compute_* functions
+    directly, and the router tests used a MockChild that returned
+    string-keyed dicts. That left the orjson strict-key behaviour
+    (``compute_hr_zones`` keyes by zone int 1..5) undetected — every
+    real strava_run_report call failed with ``{"error": "Dict key must
+    be str"}`` and was audited as ERROR.
+
+    These tests are the floor: every supported Tier-1 tool must return
+    a usable dict through the full router pipeline, on every supported
+    JSON backend.
+    """
+
+    @staticmethod
+    def _seeded_router(tmpdir: str) -> tuple[RouterMCP, int]:
+        """Build a router with a RunningChild pre-seeded with one synthetic run."""
+        import json
+
+        from biosensor_mcp.children.running import RunningChild
+        from biosensor_mcp.demo.sample_data import (
+            SAMPLE_ACTIVITY_ID,
+            generate_sample_activity,
+            generate_sample_streams,
+        )
+
+        config_dir = Path(tmpdir) / "config"
+        data_dir = Path(tmpdir) / "data"
+        config_dir.mkdir()
+        data_dir.mkdir()
+        (config_dir / "user_config.json").write_text(
+            json.dumps({"max_hr": 185, "resting_hr": 52})
+        )
+        (config_dir / "tokens.json").write_text(json.dumps({
+            "client_id": "demo", "client_secret": "demo",
+            "access_token": "demo", "refresh_token": "demo", "expires_at": 0,
+        }))
+
+        router = RouterMCP("e2e-test", data_dir)
+        child = RunningChild(config_dir=config_dir, data_dir=data_dir)
+        router.register_child(child)
+        child._storage.save_activity(SAMPLE_ACTIVITY_ID, generate_sample_activity())
+        child._storage.save_streams(SAMPLE_ACTIVITY_ID, generate_sample_streams())
+        return router, SAMPLE_ACTIVITY_ID
+
+    def test_strava_run_report_roundtrips_through_dispatch(self):
+        with TemporaryDirectory() as tmpdir:
+            router, activity_id = self._seeded_router(tmpdir)
+            try:
+                chunks = _run(router._dispatch(
+                    "strava_run_report", {"activity_id": activity_id}
+                ))
+                result = _loads(chunks[0].text)
+            finally:
+                router.close()
+
+        # The serialization bug surfaced as {"error": "Dict key must be str"}.
+        assert "error" not in result, f"dispatch failed: {result.get('error')}"
+        assert result["activity_id"] == activity_id
+
+        # hr_zones is the canonical int-keyed dict. Orjson coerces keys to
+        # strings; stdlib does the same. Accept either — what matters is
+        # that the call succeeded and the zone rollup is present.
+        assert "hr_zones" in result
+        zone_seconds = result["hr_zones"]["zone_seconds"]
+        assert sum(zone_seconds.values()) > 0
+
+        # _meta is unconditional on success.
+        assert result["_meta"]["tool_name"] == "strava_run_report"
+        assert result["_meta"]["tier"] == 1
+
+    def test_strava_run_report_audit_row_is_success_not_error(self):
+        """The bug audited the call as ERROR while returning an error dict."""
+        import sqlite3
+
+        with TemporaryDirectory() as tmpdir:
+            router, activity_id = self._seeded_router(tmpdir)
+            data_dir = router.data_dir
+            try:
+                _run(router._dispatch(
+                    "strava_run_report", {"activity_id": activity_id}
+                ))
+            finally:
+                router.close()
+
+            conn = sqlite3.connect(str(data_dir / "audit.db"))
+            try:
+                (outcome,) = conn.execute(
+                    "SELECT outcome FROM audit_log "
+                    "WHERE tool_name = 'strava_run_report' "
+                    "ORDER BY id DESC LIMIT 1"
+                ).fetchone()
+            finally:
+                conn.close()
+
+        assert outcome == "SUCCESS", (
+            f"expected SUCCESS, got {outcome!r} — indicates the tool "
+            f"raised inside the router's pipeline"
+        )

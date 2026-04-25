@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
-from biosensor_mcp.framework.audit import AuditLog
+from biosensor_mcp.framework.audit import JSON_BACKEND, AuditLog, _dumps, _loads
 
 
 class TestAuditLogSubjectId:
@@ -156,6 +156,39 @@ class TestAuditParamsSizeBound:
 
         assert "truncated" not in stored
         assert "12345" in stored
+
+
+class TestJSONBackendCoercion:
+    """
+    The orjson-backed ``_dumps`` must coerce non-string dict keys the same
+    way stdlib json does. Before the fix this raised ``TypeError: Dict key
+    must be str`` at the router's cost-estimation step whenever a tool
+    returned an int-keyed dict (e.g. ``compute_hr_zones`` which keyes by
+    zone number 1..5). No test dispatched ``strava_run_report`` end-to-end
+    through ``_dispatch``, so the regression was silent. Both backends
+    must agree.
+    """
+
+    def test_int_keyed_dict_serializes(self):
+        encoded = _dumps({1: 10, 2: 20, 3: 30})
+        # Keys come back as strings — matches stdlib json's behavior.
+        assert _loads(encoded) == {"1": 10, "2": 20, "3": 30}
+
+    def test_mixed_str_and_int_keys(self):
+        encoded = _dumps({"pct": 0.6, 1: "a", 2: "b"})
+        assert _loads(encoded) == {"pct": 0.6, "1": "a", "2": "b"}
+
+    def test_nested_hr_zones_shape_serializes(self):
+        # The exact shape RunningChild.compute_hr_zones() returns.
+        zones = {
+            "zone_seconds": {1: 0, 2: 0, 3: 291, 4: 3270, 5: 39},
+            "zone_pct": {1: 0.0, 2: 0.0, 3: 8.1, 4: 90.8, 5: 1.1},
+            "avg_hr": 156,
+        }
+        round_tripped = _loads(_dumps(zones))
+        assert round_tripped["avg_hr"] == 156
+        assert round_tripped["zone_seconds"]["4"] == 3270
+        assert round_tripped["zone_pct"]["3"] == 8.1
 
 
 class TestAuditErrorKeywordOnly:

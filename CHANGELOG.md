@@ -21,6 +21,14 @@ and this project aims at [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   `tests/framework/test_audit.py::TestJSONBackendCoercion` and
   `tests/framework/test_router.py::TestRunningChildEndToEnd`.
 
+### Added
+- **10-minute worked-example notebook** at
+  [docs/guides/worked-example.ipynb](docs/guides/worked-example.ipynb).
+  End-to-end walkthrough of router wiring, a Tier-1 call, the audit
+  row, the Tier-2 consent gate, and a vault theme round-tripping to
+  Obsidian markdown — all on bundled synthetic run data, no OAuth, no
+  network. Marked as shipped in [ROADMAP.md](ROADMAP.md).
+
 ## [6.0.0] — 2026-04-23
 
 Vault-only release: the router, security pipeline, children, CLI, and

@@ -19,9 +19,11 @@ biosensor-mcp demo           # analytics on synthetic data — no OAuth, no netw
 biosensor-mcp --help         # see all commands
 ```
 
+Then open [**docs/guides/worked-example.ipynb**](docs/guides/worked-example.ipynb) for a 10-minute end-to-end walkthrough: the router pipeline, a Tier-1 call, an audit row, the consent gate firing, and a vault theme round-tripping to Obsidian-compatible markdown — all on synthetic data, no credentials required.
+
 ### Start here
 
-- **Researcher / research-software engineer** → [Why this exists](#why-this-exists) · [How data minimization works](#how-data-minimization-works)
+- **Researcher / research-software engineer** → [Why this exists](#why-this-exists) · [How data minimization works](#how-data-minimization-works) · [10-minute worked example notebook](docs/guides/worked-example.ipynb)
 - **Developer trying the demo** → [Install & run](#install--run) · [Running child tools](#running-child-tools)
 - **Architect / integrator** → [Architecture](#architecture) · [Adding a new child data source](CLAUDE.md#adding-a-new-childmcp-new-data-source)
 - **Curious where this is going** → [What's next](#whats-next) · [full ROADMAP.md](ROADMAP.md)

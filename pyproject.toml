@@ -36,6 +36,7 @@ dev = [
     "pytest>=9.0.3",
     "pytest-asyncio>=1.3.0",
     "pytest-cov>=7.1.0",
+    "pytest-timeout>=2.3.0",
     "ruff>=0.15.10",
     "mypy>=1.10",
 ]
@@ -52,6 +53,43 @@ biosensor_mcp = ["py.typed"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# --strict-markers: a typo'd marker (`@pytest.mark.prob` instead of `probe`)
+#   becomes an error instead of silently skipping the assertion.
+# --strict-config: unknown ini keys fail loudly instead of being ignored.
+# -ra: print a short summary of non-passing tests at the end of the run so
+#   CI logs surface failure reasons without hunting through dots.
+addopts = ["--strict-markers", "--strict-config", "-ra"]
+# Per-test timeout catches the Windows SQLite-WAL hang documented in
+# CLAUDE.md (forgotten router.close() can deadlock on file locks).
+# `thread` method works on Windows; the default `signal` does not.
+timeout = 30
+timeout_method = "thread"
+
+[tool.coverage.run]
+source = ["biosensor_mcp"]
+# Excluded paths are intentionally undertested today — keeping them in the
+# coverage denominator forces an artificially low floor that hides real
+# regressions in the framework/children code that IS tested.
+#   __main__.py  — CLI argparse plumbing exercised by the smoke test
+#   wizard.py    — interactive OAuth flow (localhost callback server)
+#   demo/*       — synthetic-data demo runner, exercised manually
+#   strava_api.py — network I/O against the live Strava API
+omit = [
+    "*/biosensor_mcp/__main__.py",
+    "*/biosensor_mcp/wizard.py",
+    "*/biosensor_mcp/demo/*",
+    "*/biosensor_mcp/children/running/strava_api.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+show_missing = true
+skip_covered = false
 
 [tool.mypy]
 # mypy runs informationally in CI today (continue-on-error). Over time,

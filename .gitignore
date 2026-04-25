@@ -30,6 +30,9 @@ htmlcov/
 *.swp
 *.swo
 
+# ── Claude Code (per-machine local settings) ────────────────
+.claude/
+
 # ── OS cruft ────────────────────────────────────────────────
 .DS_Store
 Thumbs.db

@@ -15,7 +15,7 @@ one- or two-sentence pitch plus context; no implementation details.
 | [Deterministic mode + seed control](#deterministic-mode-with-seed-control) | S | Medium | Reproducible paper results |
 | [Provenance hashing on derived metrics](#real-provenance-hashing-on-derived-metrics) | M | Medium | Byte-level reviewer traceability |
 | [Vault-freeze for manuscript submission](#freeze-vault-operation-for-manuscript-submission) | S | Medium | Submission-ready snapshots |
-| [Worked-example notebook on a public dataset](#worked-example-notebook-against-a-published-analytical-question) | S | Medium | Onboarding PIs and RSEs |
+| ~~[Worked-example notebook](#worked-example-notebook-against-a-published-analytical-question)~~ *(shipped — [docs/guides/worked-example.ipynb](docs/guides/worked-example.ipynb))* | — | — | — |
 | [LLM-client evaluation harness](#evaluation-harness-for-llm-client-behavior) | M | Medium | Making the governance claim measurable |
 
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
@@ -147,11 +147,18 @@ manuscript submission. Complements the audit log as the canonical
 
 ## Worked-example notebook against a published analytical question
 
-One end-to-end walkthrough — from raw dataset through tiered access,
-vault theme creation, evidence accumulation, and final derived
-metric — against a published analytical question on a public dataset.
-This is the document an RSE sends to a PI to explain what the
-framework actually buys them.
+**Shipped** (first pass) — [docs/guides/worked-example.ipynb](docs/guides/worked-example.ipynb).
+A 10-minute end-to-end walkthrough on the bundled synthetic run data:
+router wiring, a Tier-1 call, the audit row, the Tier-2 consent gate
+firing and being approved, a vault theme round-tripping to
+Obsidian-compatible markdown. No Strava account, OAuth, or network.
+
+What's still deferred: a second notebook against a *public dataset*
+answering a *published analytical question*. That version demonstrates
+the framework on a reference result an outside reviewer can check,
+rather than on synthetic data. Best paired with the CGM or Sleep
+child once one of those lands — OhioT1DM or PhysioNet Sleep-EDF are
+natural candidates.
 
 ## Evaluation harness for LLM-client behavior
 

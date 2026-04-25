@@ -34,8 +34,14 @@ from pathlib import Path
 try:
     import orjson as _orjson
 
+    # OPT_NON_STR_KEYS matches stdlib json's key coercion. Without it, any
+    # dict with non-string keys (e.g. compute_hr_zones' {1..5: count}) raises
+    # "Dict key must be str" and the tool call is audited as ERROR. The two
+    # backends should be behaviourally identical.
+    _ORJSON_OPT = _orjson.OPT_NON_STR_KEYS
+
     def _dumps(obj, **kw) -> str:
-        return _orjson.dumps(obj, default=str).decode()
+        return _orjson.dumps(obj, default=str, option=_ORJSON_OPT).decode()
 
     def _loads(s):
         return _orjson.loads(s)

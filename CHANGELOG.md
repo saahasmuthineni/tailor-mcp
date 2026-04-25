@@ -5,6 +5,30 @@ All notable changes to this project are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims at [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- `framework.audit._dumps` passes `orjson.OPT_NON_STR_KEYS` so int-keyed
+  dicts (e.g. `compute_hr_zones`' `{1..5: count}`) serialize the same way
+  stdlib json would coerce them. Before the fix, any tool result
+  containing a non-string dict key raised `TypeError: Dict key must be
+  str` inside the router's cost-estimation step, causing the call to be
+  audited as `ERROR` and returning `{"error": "Dict key must be str"}`
+  to the LLM. Every `strava_run_report` call on the orjson backend hit
+  this — surfaced by the new worked-example notebook, which was the
+  first thing to take a realistic result through the full
+  `router._dispatch` pipeline. Regression coverage added in
+  `tests/framework/test_audit.py::TestJSONBackendCoercion` and
+  `tests/framework/test_router.py::TestRunningChildEndToEnd`.
+
+### Added
+- **10-minute worked-example notebook** at
+  [docs/guides/worked-example.ipynb](docs/guides/worked-example.ipynb).
+  End-to-end walkthrough of router wiring, a Tier-1 call, the audit
+  row, the Tier-2 consent gate, and a vault theme round-tripping to
+  Obsidian markdown — all on bundled synthetic run data, no OAuth, no
+  network. Marked as shipped in [ROADMAP.md](ROADMAP.md).
+
 ## [6.0.0] — 2026-04-23
 
 Vault-only release: the router, security pipeline, children, CLI, and

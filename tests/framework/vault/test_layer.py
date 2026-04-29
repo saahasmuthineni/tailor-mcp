@@ -96,14 +96,14 @@ def _setup_vault(vault_dir, data_dir, activity_id=12345678, backfill_config=None
 class TestVaultLayerMetadata:
     def test_has_expected_tools(self):
         """
-        VaultLayer v6 exposes 22 Tier-1 tools: the 15 carried over from
-        v5 plus 7 added for the vault overhaul (snapshot pair, inbox
-        trio, corrections, health check).
+        VaultLayer v6.1 exposes 25 Tier-1 tools: the 22 from v6.0 plus
+        three added in v6.1 — failure-mode lifecycle (log + list) and
+        the dual-output dashboards refresh tool (ADR 0007).
         """
         with TemporaryDirectory() as v, TemporaryDirectory() as d:
             layer, writer, _, _date = _setup_vault(v, d)
             names = {t.name for t in layer.tool_definitions}
-            assert len(layer.tool_definitions) == 22
+            assert len(layer.tool_definitions) == 25
             expected = {
                 "vault_get_fitness_summary",
                 "vault_list_notes",
@@ -127,6 +127,9 @@ class TestVaultLayerMetadata:
                 "vault_inbox_drain",
                 "vault_correct_evidence",
                 "vault_health_check",
+                "vault_log_failure_mode",
+                "vault_list_failure_modes",
+                "vault_refresh_dashboards",
             }
             assert names == expected
             layer.close()
@@ -1270,5 +1273,354 @@ class TestVaultListNotesKindFilter:
                 assert result["count"] >= 1
                 for note in result["notes"]:
                     assert note["note_type"] == "moment"
+            finally:
+                layer.close()
+
+
+# ════════════════════════════════════════════════════════════════
+# Correction propagation (v6.1)
+# ════════════════════════════════════════════════════════════════
+
+
+class TestVaultCorrectEvidencePropagation:
+    """
+    The propagate=True path appends a [!warning] callout to every note
+    that wikilinks to the corrected theme. Append-only and idempotent
+    on (theme_slug, evidence_timestamp).
+    """
+
+    @staticmethod
+    def _seed_theme_with_evidence(layer):
+        _run(layer.execute("vault_upsert_theme", {
+            "slug": "drift",
+            "hypothesis": "Late-run HR drift looks dehydration-driven.",
+            "evidence": "Original observation about mile 6.",
+        }))
+        # Pull the timestamp for later correction
+        import re as _re
+        from pathlib import Path as _Path
+        content = (_Path(layer._vault_path) / "themes/drift.md").read_text(encoding="utf-8")
+        m = _re.search(r"### Evidence — (\S+)", content)
+        return m.group(1)
+
+    @staticmethod
+    def _seed_moment_referencing(layer, slug="drift"):
+        _run(layer.execute("vault_capture_moment", {
+            "title": "Mile 6 oddity",
+            "body": (
+                f"Saw something strange around mile 6. See [[{slug}]] for the "
+                "running hypothesis."
+            ),
+            "linked_themes": [slug],
+            "date": "2026-04-10",
+        }))
+
+    def test_propagate_appends_callout_to_referencing_note(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                ts = self._seed_theme_with_evidence(layer)
+                self._seed_moment_referencing(layer)
+                result = _run(layer.execute("vault_correct_evidence", {
+                    "theme_slug": "drift",
+                    "evidence_timestamp": ts,
+                    "correction": "Mile 6 was actually mile 7.",
+                    "propagate": True,
+                }))
+                assert result["corrected"] is True
+                assert len(result["propagated_to"]) >= 1
+                target = result["propagated_to"][0]
+                content = (Path(v) / target).read_text(encoding="utf-8")
+                assert "[!warning]" in content
+                assert "[CORRECTED-EV " in content
+                assert "## Corrections" in content
+            finally:
+                layer.close()
+
+    def test_propagate_default_false_does_not_touch_referencing(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                ts = self._seed_theme_with_evidence(layer)
+                self._seed_moment_referencing(layer)
+                result = _run(layer.execute("vault_correct_evidence", {
+                    "theme_slug": "drift",
+                    "evidence_timestamp": ts,
+                    "correction": "Mile 6 was actually mile 7.",
+                }))
+                assert result["corrected"] is True
+                assert result["propagated_to"] == []
+                # The moment file is unchanged — no [!warning] block.
+                moments = list((Path(v) / "moments").rglob("*.md"))
+                for m in moments:
+                    assert "[!warning]" not in m.read_text(encoding="utf-8")
+            finally:
+                layer.close()
+
+    def test_propagate_is_idempotent(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                ts = self._seed_theme_with_evidence(layer)
+                self._seed_moment_referencing(layer)
+                _run(layer.execute("vault_correct_evidence", {
+                    "theme_slug": "drift",
+                    "evidence_timestamp": ts,
+                    "correction": "First pass.",
+                    "propagate": True,
+                }))
+                # Re-run with the same (slug, timestamp) — must not duplicate.
+                _run(layer.execute("vault_correct_evidence", {
+                    "theme_slug": "drift",
+                    "evidence_timestamp": ts,
+                    "correction": "Second pass should not duplicate marker.",
+                    "propagate": True,
+                }))
+                # Find the moment and assert exactly one [CORRECTED-EV <ts>] marker.
+                moments = list((Path(v) / "moments").rglob("*.md"))
+                assert moments, "expected a moment file to exist"
+                content = moments[0].read_text(encoding="utf-8")
+                marker = f"[CORRECTED-EV {ts}]"
+                assert content.count(marker) == 1
+            finally:
+                layer.close()
+
+    def test_propagate_with_no_referencing_notes_returns_empty(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                ts = self._seed_theme_with_evidence(layer)
+                # No moment seeded — nothing wikilinks to drift.
+                result = _run(layer.execute("vault_correct_evidence", {
+                    "theme_slug": "drift",
+                    "evidence_timestamp": ts,
+                    "correction": "Lone correction.",
+                    "propagate": True,
+                }))
+                assert result["corrected"] is True
+                assert result["propagated_to"] == []
+            finally:
+                layer.close()
+
+
+# ════════════════════════════════════════════════════════════════
+# Failure-mode lifecycle (v6.1)
+# ════════════════════════════════════════════════════════════════
+
+
+class TestVaultFailureMode:
+    @staticmethod
+    def _create_default(layer, **overrides):
+        params = {
+            "slug": "hr-spike-misread",
+            "title": "HR spike misread as fitness signal",
+            "symptom": "We flagged a steep HR spike as zone drift.",
+            "diagnosis": "Sensor catchup burst from the watch was treated as physiology.",
+            "mitigation": "Apply the 30s spike-detection cooldown before zone classification.",
+        }
+        params.update(overrides)
+        return _run(layer.execute("vault_log_failure_mode", params))
+
+    def test_create_writes_file_with_required_sections(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                result = self._create_default(layer)
+                assert result.get("created") is True
+                path = Path(v) / "failure-modes" / "hr-spike-misread.md"
+                assert path.exists()
+                content = path.read_text(encoding="utf-8")
+                assert "## Symptom" in content
+                assert "## Diagnosis" in content
+                assert "## Mitigation" in content
+                assert "## Evidence" in content
+            finally:
+                layer.close()
+
+    def test_create_requires_symptom_diagnosis_mitigation(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                result = _run(layer.execute("vault_log_failure_mode", {
+                    "slug": "incomplete-fm",
+                    "title": "missing fields",
+                }))
+                assert "error" in result
+                assert "symptom" in result["error"]
+            finally:
+                layer.close()
+
+    def test_update_appends_evidence_does_not_overwrite(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                self._create_default(layer, evidence="First observation of the failure.")
+                # Update with a new evidence block.
+                result = _run(layer.execute("vault_log_failure_mode", {
+                    "slug": "hr-spike-misread",
+                    "evidence": "Second observation, different week.",
+                }))
+                assert result.get("updated") is True
+                assert result["evidence_appended"] is True
+                content = (Path(v) / "failure-modes/hr-spike-misread.md").read_text(encoding="utf-8")
+                assert "First observation of the failure." in content
+                assert "Second observation, different week." in content
+            finally:
+                layer.close()
+
+    def test_update_status_to_mitigated(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                self._create_default(layer)
+                result = _run(layer.execute("vault_log_failure_mode", {
+                    "slug": "hr-spike-misread",
+                    "status": "mitigated",
+                }))
+                assert result.get("updated") is True
+                assert result["status"] == "mitigated"
+                content = (Path(v) / "failure-modes/hr-spike-misread.md").read_text(encoding="utf-8")
+                assert 'status: "mitigated"' in content or "status: mitigated" in content
+            finally:
+                layer.close()
+
+    def test_invalid_status_returns_error(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                result = self._create_default(layer, status="bogus")
+                assert "error" in result
+            finally:
+                layer.close()
+
+
+class TestVaultListFailureModes:
+    def test_lists_only_failure_modes(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_log_failure_mode", {
+                    "slug": "fm-one",
+                    "symptom": "S1", "diagnosis": "D1", "mitigation": "M1",
+                }))
+                _run(layer.execute("vault_log_failure_mode", {
+                    "slug": "fm-two",
+                    "symptom": "S2", "diagnosis": "D2", "mitigation": "M2",
+                }))
+                result = _run(layer.execute("vault_list_failure_modes", {}))
+                slugs = {fm["slug"] for fm in result["failure_modes"]}
+                assert {"fm-one", "fm-two"}.issubset(slugs)
+                # No bodies returned — only summary fields.
+                for fm in result["failure_modes"]:
+                    assert "symptom" not in fm
+                    assert "diagnosis" not in fm
+            finally:
+                layer.close()
+
+    def test_filter_by_status(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_log_failure_mode", {
+                    "slug": "fm-active",
+                    "symptom": "S", "diagnosis": "D", "mitigation": "M",
+                }))
+                _run(layer.execute("vault_log_failure_mode", {
+                    "slug": "fm-mitigated",
+                    "symptom": "S", "diagnosis": "D", "mitigation": "M",
+                    "status": "mitigated",
+                }))
+                active = _run(layer.execute("vault_list_failure_modes", {
+                    "status": "active",
+                }))
+                slugs = {fm["slug"] for fm in active["failure_modes"]}
+                assert "fm-active" in slugs
+                assert "fm-mitigated" not in slugs
+            finally:
+                layer.close()
+
+
+# ════════════════════════════════════════════════════════════════
+# Dashboards refresh (v6.1, ADR 0007)
+# ════════════════════════════════════════════════════════════════
+
+
+class TestVaultRefreshDashboards:
+    def test_refresh_writes_three_dashboards(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                result = _run(layer.execute("vault_refresh_dashboards", {}))
+                assert result["refreshed"] is True
+                names = {dash["name"] for dash in result["dashboards"]}
+                assert names == {"open-themes", "active-failure-modes", "recent-moments"}
+                for dash in result["dashboards"]:
+                    assert (Path(v) / dash["filename"]).exists()
+            finally:
+                layer.close()
+
+    def test_refresh_includes_dataview_block_by_default(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_refresh_dashboards", {}))
+                content = (Path(v) / "dashboards/open-themes.md").read_text(encoding="utf-8")
+                assert "```dataview" in content
+                # Snapshot table is always present (ADR 0007: source-of-truth view).
+                assert "## Snapshot" in content
+            finally:
+                layer.close()
+
+    def test_refresh_without_dataview_keeps_snapshot(self):
+        """
+        ADR 0007 invariant: the snapshot is the source-of-truth view
+        and must always render, even when the additive Dataview block
+        is suppressed.
+        """
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_refresh_dashboards", {
+                    "with_dataview_blocks": False,
+                }))
+                content = (Path(v) / "dashboards/open-themes.md").read_text(encoding="utf-8")
+                assert "```dataview" not in content
+                assert "## Snapshot" in content
+            finally:
+                layer.close()
+
+    def test_refresh_includes_themes_in_snapshot(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_upsert_theme", {
+                    "slug": "drift",
+                    "hypothesis": "H",
+                    "confidence": "medium",
+                }))
+                _run(layer.execute("vault_refresh_dashboards", {}))
+                content = (Path(v) / "dashboards/open-themes.md").read_text(encoding="utf-8")
+                assert "[[drift]]" in content
+                assert "medium" in content
+            finally:
+                layer.close()
+
+    def test_refresh_includes_active_failure_modes_only(self):
+        with TemporaryDirectory() as v, TemporaryDirectory() as d:
+            layer, writer, _, _date = _setup_vault(v, d)
+            try:
+                _run(layer.execute("vault_log_failure_mode", {
+                    "slug": "fm-active",
+                    "symptom": "S", "diagnosis": "D", "mitigation": "M",
+                }))
+                _run(layer.execute("vault_log_failure_mode", {
+                    "slug": "fm-mitigated",
+                    "symptom": "S", "diagnosis": "D", "mitigation": "M",
+                    "status": "mitigated",
+                }))
+                _run(layer.execute("vault_refresh_dashboards", {}))
+                content = (Path(v) / "dashboards/active-failure-modes.md").read_text(encoding="utf-8")
+                assert "[[fm-active]]" in content
+                assert "[[fm-mitigated]]" not in content
             finally:
                 layer.close()

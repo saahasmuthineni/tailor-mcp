@@ -95,6 +95,27 @@ Biosensor MCP is a local MCP server that sits between any MCP-speaking
 client and your data sources, owning the cross-cutting concerns — gating,
 scrubbing, audit, provenance, durable memory — that each problem needs.
 
+### "Why not just use Claude's memory tool?"
+
+Hosted Memory is a chat-convenience feature: cross-session continuity
+inside one vendor's product, opaque to the user, mutable, and
+conversation-scoped. Biosensor MCP's vault is governance
+infrastructure: append-only markdown that survives the LLM client,
+human-readable in Obsidian or any text editor, supersession-tracked
+via [`vault_correct_evidence`](CLAUDE.md#vaultlayer--22-tools-v60),
+study-scoped via `subject_id`, and inspectable down to the SQLite
+index. Same word, different artifact category. For a chat assistant
+remembering your name across conversations, Hosted Memory is the right
+tool. For an analytical record an IRB or PI can attach to a protocol
+amendment six months later, it is not. Biosensor MCP's vault layer
+exists for the second case.
+
+For the related question of *"can I use Anthropic Managed Agents on
+top of Biosensor MCP?"* — yes, the framework supports a network-MCP
+deployment where a hosted agent calls Biosensor MCP as a governed
+data boundary. See [docs/design/managed-agents-compat.md](docs/design/managed-agents-compat.md)
+for which threat models that path addresses and which it doesn't.
+
 ---
 
 ## How data minimization works

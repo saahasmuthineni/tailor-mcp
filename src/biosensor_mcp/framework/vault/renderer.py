@@ -887,3 +887,236 @@ def _slugify_title(title: str) -> str:
     s = _re.sub(r"[^a-z0-9]+", "-", s)
     s = s.strip("-")
     return s or "moment"
+
+
+# ═══════════════════════════════════════════════════════════════
+# FAILURE-MODE NOTE — durable record of "we got this wrong"
+# ═══════════════════════════════════════════════════════════════
+
+# Allowed status values for a failure-mode note.
+_FAILURE_MODE_STATUSES = ("active", "mitigated", "superseded")
+
+
+def render_failure_mode_note(failure_mode: dict) -> tuple[str, str]:
+    """
+    Render a failure-mode note — a durable record of an analytical
+    pattern the study has gotten wrong before, with diagnosis,
+    mitigation, and an append-only evidence log.
+
+    Expected ``failure_mode`` fields:
+        slug (required):       lowercase-dashed identifier
+        title (required):      short human title
+        symptom (required):    1–3 sentences — what the failure looks like
+        diagnosis (required):  why it happened (what went wrong upstream)
+        mitigation (required): how to avoid recurrence
+        status:                active | mitigated | superseded (default: active)
+        opened:                YYYY-MM-DD (default: today)
+        last_updated:          YYYY-MM-DD (default: today)
+        related_themes:        list of theme slugs implicated by this failure
+        related_subjects:      list of subject_ids it has affected
+        tags:                  list of strings (always merged with ['failure_mode'])
+        evidence:              optional initial evidence block (str)
+
+    Body shape:
+        # Title
+        ## Symptom
+        ## Diagnosis
+        ## Mitigation
+        ## Related (optional — only when related_themes / related_subjects)
+        ## Evidence (append-only log)
+    """
+    slug = str(failure_mode.get("slug") or "").strip()
+    if not slug:
+        raise ValueError("failure_mode.slug is required")
+
+    title = str(failure_mode.get("title") or slug.replace("-", " ").title())
+    symptom = str(failure_mode.get("symptom") or "").strip()
+    diagnosis = str(failure_mode.get("diagnosis") or "").strip()
+    mitigation = str(failure_mode.get("mitigation") or "").strip()
+    if not symptom:
+        raise ValueError("failure_mode.symptom is required")
+    if not diagnosis:
+        raise ValueError("failure_mode.diagnosis is required")
+    if not mitigation:
+        raise ValueError("failure_mode.mitigation is required")
+
+    status = str(failure_mode.get("status") or "active").strip()
+    if status not in _FAILURE_MODE_STATUSES:
+        raise ValueError(
+            f"failure_mode.status must be one of {_FAILURE_MODE_STATUSES}, got {status!r}"
+        )
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    opened = str(failure_mode.get("opened") or today)
+    last_updated = str(failure_mode.get("last_updated") or today)
+    related_themes = list(failure_mode.get("related_themes") or [])
+    related_subjects = [str(s) for s in (failure_mode.get("related_subjects") or []) if s]
+    tags = list(failure_mode.get("tags") or [])
+    if "failure_mode" not in tags:
+        tags = ["failure_mode"] + tags
+
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    fm_lines = [
+        "---",
+        "domain: vault",
+        "note_type: failure_mode",
+        "kind: failure_mode",
+        f"slug: {_yaml_scalar(slug)}",
+        f"title: {_yaml_scalar(title)}",
+        f"status: {_yaml_scalar(status)}",
+        f"opened: {_yaml_scalar(opened)}",
+        f"last_updated: {_yaml_scalar(last_updated)}",
+        f"date: {_yaml_scalar(last_updated)}",
+        f"related_themes: {_yaml_string_list(related_themes)}",
+        f"related_subjects: {_yaml_string_list(related_subjects)}",
+        f'generated_at: "{now_iso}"',
+        "tags:",
+    ] + [f"  - {t}" for t in tags] + ["---"]
+
+    body_parts = [
+        f"# {title}",
+        "",
+        "## Symptom",
+        "",
+        symptom,
+        "",
+        "## Diagnosis",
+        "",
+        diagnosis,
+        "",
+        "## Mitigation",
+        "",
+        mitigation,
+        "",
+    ]
+
+    if related_themes or related_subjects:
+        body_parts += ["## Related", ""]
+        if related_themes:
+            body_parts.append("**Themes:**")
+            body_parts += [f"- {format_wikilink(s)}" for s in related_themes]
+            body_parts.append("")
+        if related_subjects:
+            body_parts.append("**Subjects:** " + ", ".join(related_subjects))
+            body_parts.append("")
+
+    body_parts += ["## Evidence", ""]
+    initial_evidence = failure_mode.get("evidence")
+    if isinstance(initial_evidence, str) and initial_evidence.strip():
+        body_parts.append(_format_evidence_block(initial_evidence, last_updated))
+    else:
+        body_parts.append("*(No evidence recorded yet.)*")
+        body_parts.append("")
+
+    content = "\n".join(fm_lines) + "\n" + "\n".join(body_parts)
+    filename = f"failure-modes/{slug}.md"
+    return filename, content
+
+
+# ═══════════════════════════════════════════════════════════════
+# DASHBOARD NOTE — dual-output materialised view (ADR 0007)
+# ═══════════════════════════════════════════════════════════════
+
+def render_dashboard_note(
+    *,
+    name: str,
+    title: str,
+    description: str,
+    columns: list[str],
+    rows: list[list],
+    dataview_query: str | None = None,
+    dataview_note: str | None = None,
+    last_updated: str | None = None,
+) -> tuple[str, str]:
+    """
+    Render a dashboard note implementing the ADR 0007 dual-output
+    pattern: the framework writes a plain-markdown snapshot table
+    (the source-of-truth view that any reader and the LLM see),
+    optionally accompanied by a Dataview live-query block (an
+    additive view rendered for analysts using Obsidian + Dataview).
+
+    Both views are materialised from the same SQLite vault index,
+    so they cannot disagree about anything except freshness.
+
+    Args:
+        name:            slug-like dashboard identifier (e.g. ``"open-themes"``).
+        title:           Human title rendered as the H1 heading.
+        description:     1–2 sentences explaining what the dashboard shows.
+        columns:         Snapshot table column headers.
+        rows:            List of rows; each row is a list aligned with ``columns``.
+        dataview_query:  Optional Dataview DQL. When provided, an extra
+                         ```` ```dataview ```` fence is emitted above the
+                         snapshot. Renders only for users with the plugin;
+                         degrades gracefully (the snapshot is always present).
+        dataview_note:   Optional one-line note printed above the Dataview
+                         block (e.g. "Requires Obsidian + Dataview plugin").
+        last_updated:    UTC ISO timestamp; defaults to ``datetime.now(utc)``.
+
+    Returns:
+        (filename, markdown). Filename is ``dashboards/{name}.md``.
+    """
+    if not name or not name.strip():
+        raise ValueError("dashboard name is required")
+    name = name.strip()
+    last_updated = last_updated or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    fm_lines = [
+        "---",
+        "domain: vault",
+        "note_type: dashboard",
+        "kind: dashboard",
+        f"slug: {_yaml_scalar(name)}",
+        f"title: {_yaml_scalar(title)}",
+        f'last_updated: "{last_updated}"',
+        "tags:",
+        "  - dashboard",
+        "---",
+    ]
+
+    body_parts = [
+        f"# {title}",
+        "",
+        description.strip(),
+        "",
+        f"_Snapshot last updated: {last_updated}._",
+        "",
+    ]
+
+    if dataview_query:
+        body_parts += [
+            "## Live view",
+            "",
+        ]
+        if dataview_note:
+            body_parts += [f"_{dataview_note}_", ""]
+        else:
+            body_parts += [
+                "_Requires Obsidian + Dataview plugin. Falls back to the "
+                "snapshot table below for any reader without the plugin._",
+                "",
+            ]
+        body_parts += [
+            "```dataview",
+            dataview_query.strip(),
+            "```",
+            "",
+        ]
+
+    body_parts += [
+        "## Snapshot",
+        "",
+    ]
+    if not rows:
+        body_parts += ["*(No rows.)*", ""]
+    else:
+        body_parts.append("| " + " | ".join(columns) + " |")
+        body_parts.append("|" + "|".join(["---"] * len(columns)) + "|")
+        for row in rows:
+            cells = [str(c) if c is not None else "—" for c in row]
+            body_parts.append("| " + " | ".join(cells) + " |")
+        body_parts.append("")
+
+    content = "\n".join(fm_lines) + "\n" + "\n".join(body_parts)
+    filename = f"dashboards/{name}.md"
+    return filename, content

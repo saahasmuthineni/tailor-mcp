@@ -29,6 +29,8 @@ from pathlib import Path
 from .renderer import (
     _format_evidence_block,
     render_compare_note,
+    render_dashboard_note,
+    render_failure_mode_note,
     render_moment_note,
     render_run_note,
     render_snapshot_note,
@@ -380,7 +382,9 @@ class VaultWriter:
         evidence_timestamp: str,
         correction: str,
         corrected_by: str | None = None,
-    ) -> str:
+        *,
+        propagate_to_referencing_notes: bool = False,
+    ) -> dict:
         """
         Insert a ``> [CORRECTED <ts>]: …`` blockquote immediately after the
         ``### Evidence — <evidence_timestamp>`` header, then append a new
@@ -388,6 +392,22 @@ class VaultWriter:
 
         Preserves the original evidence block verbatim — the append-only
         invariant of the evidence log is maintained.
+
+        When ``propagate_to_referencing_notes`` is True, scans the SQLite
+        link index for notes that wikilink to this theme and appends a
+        ``> [!warning]`` callout to each one's ``## Corrections`` section
+        (creating the section if needed).  The append is idempotent on
+        the (theme_slug, evidence_timestamp) pair — re-running with the
+        same args does not duplicate markers.
+
+        Returns a dict:
+            {
+                "filename":      str — the corrected theme note,
+                "propagated_to": list[str] — referencing notes that received a
+                                 callout (empty when propagate=False, or when
+                                 propagate=True but nothing references this
+                                 theme).
+            }
         """
         correction = _sanitize(correction.strip())
         if not correction:
@@ -446,7 +466,367 @@ class VaultWriter:
             tag_suffix="[correction]",
         )
 
-        log.info(f"VaultWriter: correction inserted on {filename}")
+        propagated: list[str] = []
+        if propagate_to_referencing_notes:
+            propagated = self._propagate_correction_to_referencing_notes(
+                theme_filename=filename,
+                theme_slug=slug,
+                evidence_timestamp=evidence_timestamp,
+                correction=correction,
+                corrected_by=corrected_by,
+                correction_timestamp=now_ts,
+            )
+
+        log.info(
+            f"VaultWriter: correction inserted on {filename} "
+            f"(propagated to {len(propagated)})"
+        )
+        return {"filename": filename, "propagated_to": propagated}
+
+    def _propagate_correction_to_referencing_notes(
+        self,
+        *,
+        theme_filename: str,
+        theme_slug: str,
+        evidence_timestamp: str,
+        correction: str,
+        corrected_by: str | None,
+        correction_timestamp: str,
+    ) -> list[str]:
+        """
+        For every note that wikilinks to ``theme_filename``, append a
+        ``> [!warning]``-styled correction callout under a ``## Corrections``
+        section (created if missing).  Idempotent on (theme_slug,
+        evidence_timestamp): re-running with the same identifiers leaves
+        the file unchanged.
+
+        Append-only: never rewrites or removes existing callouts.  Each
+        propagation event leaves a new callout pointing at the evidence
+        timestamp it superseded.
+        """
+        sources = self._storage.get_incoming_links(target=theme_filename)
+        propagated: list[str] = []
+        marker_token = f"[CORRECTED-EV {evidence_timestamp}]"
+        by_suffix = f" (by {corrected_by})" if corrected_by else ""
+        callout = (
+            f"> [!warning] {marker_token} {correction_timestamp}{by_suffix}\n"
+            f"> Theme [[{theme_slug}]] evidence at `{evidence_timestamp}` "
+            f"was superseded.\n"
+            f"> {correction}\n"
+        )
+
+        for row in sources:
+            source = row.get("source")
+            if not source or source == theme_filename:
+                continue
+            try:
+                src_path = self._safe_path(source)
+            except ValueError:
+                continue
+            if not src_path.exists():
+                continue
+            try:
+                content = src_path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+
+            # Idempotency: same (theme, evidence_timestamp) pair already on file?
+            if marker_token in content and f"[[{theme_slug}]]" in content:
+                # Look for the precise pairing on adjacent lines to avoid
+                # false-match across unrelated callouts in the same file.
+                if self._already_propagated(content, marker_token, theme_slug):
+                    continue
+
+            updated = self._append_corrections_callout(content, callout)
+            if updated == content:
+                continue
+            try:
+                self._atomic_write_abs(src_path, updated)
+            except OSError as exc:
+                log.warning(
+                    f"VaultWriter: propagation skipped {source}: {exc}"
+                )
+                continue
+            try:
+                self._index_note(source, "vault_correction_propagation", {}, updated)
+            except Exception as exc:  # pragma: no cover — defensive
+                log.warning(
+                    f"VaultWriter: re-index after propagation failed for {source}: {exc}"
+                )
+            propagated.append(source)
+
+        return propagated
+
+    @staticmethod
+    def _already_propagated(content: str, marker_token: str, theme_slug: str) -> bool:
+        """
+        True iff a callout with the same marker token already exists in the
+        same window as a wikilink to the theme slug.  Tolerates re-runs
+        (idempotent propagation) without false-matching unrelated content
+        that happens to mention either token in isolation.
+        """
+        lines = content.splitlines()
+        target_link = f"[[{theme_slug}]]"
+        for i, line in enumerate(lines):
+            if marker_token in line and line.lstrip().startswith(">"):
+                # Check the next 3 callout-continuation lines for the link.
+                for j in range(i, min(len(lines), i + 4)):
+                    if target_link in lines[j]:
+                        return True
+        return False
+
+    @staticmethod
+    def _append_corrections_callout(content: str, callout: str) -> str:
+        """
+        Append ``callout`` to a ``## Corrections`` section.  If the section
+        does not exist, create it at end-of-file.  Always preserves all
+        existing content.
+        """
+        section_header = "## Corrections"
+        if section_header in content:
+            # Append to the end of the existing section: place callout at EOF.
+            tail = content if content.endswith("\n") else content + "\n"
+            return tail + "\n" + callout
+        # Create the section at EOF.
+        tail = content if content.endswith("\n") else content + "\n"
+        return tail + "\n" + section_header + "\n\n" + callout
+
+    # ── Failure-mode notes (v6.1) ──
+
+    def write_failure_mode(self, failure_mode: dict) -> str:
+        """
+        Create or overwrite a failure-mode note.  ``failure_mode`` is
+        passed directly to ``render_failure_mode_note``.  Use
+        ``append_failure_mode_evidence`` to add subsequent evidence
+        entries instead of rewriting the whole file.
+        """
+        filename, content = render_failure_mode_note(failure_mode)
+        self._atomic_write(filename, content)
+        self._index_note(filename, "vault_failure_mode", {}, content)
+        return filename
+
+    def update_failure_mode_metadata(
+        self,
+        slug: str,
+        *,
+        status: str | None = None,
+        related_themes: list | None = None,
+        related_subjects: list | None = None,
+        tags: list | None = None,
+        title: str | None = None,
+    ) -> str:
+        """
+        Patch a failure-mode note's frontmatter in place — preserves the
+        body (including the entire append-only evidence log) verbatim.
+
+        Body sections (symptom / diagnosis / mitigation) are intentionally
+        not editable through this method.  Update them by hand in
+        Obsidian; the index revalidates lazily on next read.
+        """
+        slug = _sanitize(slug.strip())
+        if not slug or "/" in slug or slug.startswith("."):
+            raise ValueError(f"Invalid failure-mode slug: {slug!r}")
+
+        filename = f"failure-modes/{slug}.md"
+        abs_path = self._safe_path(filename)
+        if not abs_path.exists():
+            raise FileNotFoundError(f"Failure-mode note not found: {filename}")
+
+        existing = abs_path.read_text(encoding="utf-8")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        if status is not None:
+            if status not in ("active", "mitigated", "superseded"):
+                raise ValueError(
+                    f"Invalid status: {status!r} "
+                    "(active | mitigated | superseded)."
+                )
+            existing = re.sub(
+                r'^status:\s*.*$', f'status: "{status}"',
+                existing, count=1, flags=re.MULTILINE,
+            )
+
+        if title is not None:
+            title = _sanitize(title.strip())
+            if title:
+                existing = re.sub(
+                    r'^title:\s*.*$', f'title: "{title}"',
+                    existing, count=1, flags=re.MULTILINE,
+                )
+
+        if related_themes is not None:
+            existing = self._replace_yaml_list(
+                existing, "related_themes",
+                [_sanitize(str(t).strip()) for t in related_themes if t],
+            )
+
+        if related_subjects is not None:
+            existing = self._replace_yaml_list(
+                existing, "related_subjects",
+                [_sanitize(str(s).strip()) for s in related_subjects if s],
+            )
+
+        if tags is not None:
+            merged = ["failure_mode"] + [
+                _sanitize(str(t).strip()) for t in tags if t
+            ]
+            # Tags is rendered as a YAML block with `tags:` line followed
+            # by "  - …" entries. Replace the whole block, ending at "---".
+            existing = self._replace_yaml_tags(existing, merged)
+
+        existing = re.sub(
+            r'^last_updated:\s*.*$', f'last_updated: "{today}"',
+            existing, count=1, flags=re.MULTILINE,
+        )
+
+        self._atomic_write_abs(abs_path, existing)
+        self._index_note(filename, "vault_failure_mode", {}, existing)
+        return filename
+
+    @staticmethod
+    def _replace_yaml_list(content: str, key: str, items: list) -> str:
+        """
+        Replace a single-line ``key: [...]`` list value in the YAML
+        frontmatter.  The renderer always emits these as one-line lists
+        (via ``_yaml_string_list``), so this only needs to handle the
+        single-line form.
+        """
+        rendered = "[]" if not items else (
+            "[" + ", ".join(f'"{i}"' for i in items) + "]"
+        )
+        return re.sub(
+            rf'^{re.escape(key)}:\s*.*$',
+            f'{key}: {rendered}',
+            content, count=1, flags=re.MULTILINE,
+        )
+
+    @staticmethod
+    def _replace_yaml_tags(content: str, tags: list) -> str:
+        """
+        Replace the multi-line ``tags:`` block in YAML frontmatter,
+        preserving everything before/after.  The renderer emits:
+
+            tags:
+              - failure_mode
+              - other
+
+        followed by ``---``.  We replace from the ``tags:`` line through
+        the final ``  - …`` entry, before the closing ``---``.
+        """
+        # Deduplicate while preserving order.
+        seen: set = set()
+        deduped: list = []
+        for t in tags:
+            if t and t not in seen:
+                seen.add(t)
+                deduped.append(t)
+        replacement = "tags:\n" + "\n".join(f"  - {t}" for t in deduped)
+        # Match `tags:` followed by 1+ "  - …" entries, stopping at `---`
+        # or the next top-level key (a line not starting with whitespace).
+        return re.sub(
+            r'^tags:\s*\n(?:[ \t]+-[^\n]*\n)+',
+            replacement + "\n",
+            content, count=1, flags=re.MULTILINE,
+        )
+
+    def append_failure_mode_evidence(
+        self,
+        slug: str,
+        evidence: str,
+        *,
+        source_tier: int | None = None,
+        source_tool: str | None = None,
+        source_domain: str | None = None,
+        verification: str | None = None,
+    ) -> str:
+        """
+        Append a timestamped evidence block to ``failure-modes/<slug>.md``.
+
+        Mirrors ``append_theme_evidence`` but for failure-mode notes.
+        Preserves the append-only invariant of the evidence log.
+        """
+        evidence = _sanitize(evidence.strip())
+        if not evidence:
+            raise ValueError("Evidence must not be empty.")
+        if len(evidence) > _MAX_EVIDENCE_CHARS:
+            raise ValueError(
+                f"Evidence too long: {len(evidence)} chars (max {_MAX_EVIDENCE_CHARS})."
+            )
+
+        slug = _sanitize(slug.strip())
+        if not slug or "/" in slug or slug.startswith("."):
+            raise ValueError(f"Invalid failure-mode slug: {slug!r}")
+
+        filename = f"failure-modes/{slug}.md"
+        abs_path = self._safe_path(filename)
+        if not abs_path.exists():
+            raise FileNotFoundError(f"Failure-mode note not found: {filename}")
+
+        existing = abs_path.read_text(encoding="utf-8")
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        block = _format_evidence_block(
+            evidence,
+            source_tier=source_tier,
+            source_tool=source_tool,
+            source_domain=source_domain,
+            verification=verification,
+            timestamp=timestamp,
+        )
+
+        placeholder = "*(No evidence recorded yet.)*"
+        if placeholder in existing:
+            updated = existing.replace(placeholder + "\n", block, 1)
+            if updated == existing:
+                updated = existing.replace(placeholder, block, 1)
+        else:
+            updated = existing.rstrip() + "\n\n" + block
+
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        updated = re.sub(
+            r'^last_updated:\s*".*?"$',
+            f'last_updated: "{today}"',
+            updated,
+            count=1,
+            flags=re.MULTILINE,
+        )
+
+        self._atomic_write_abs(abs_path, updated)
+        self._index_note(filename, "vault_failure_mode", {}, updated)
+        log.info(f"VaultWriter: evidence appended to {filename}")
+        return filename
+
+    # ── Dashboards (v6.1, ADR 0007 dual-output) ──
+
+    def write_dashboard(
+        self,
+        *,
+        name: str,
+        title: str,
+        description: str,
+        columns: list[str],
+        rows: list[list],
+        dataview_query: str | None = None,
+        dataview_note: str | None = None,
+        last_updated: str | None = None,
+    ) -> str:
+        """
+        Materialise a dashboard note (ADR 0007 dual-output).  The
+        snapshot table is the source-of-truth view; the optional
+        Dataview block is an additive view that renders only when the
+        Dataview plugin is installed.
+        """
+        filename, content = render_dashboard_note(
+            name=name,
+            title=title,
+            description=description,
+            columns=columns,
+            rows=rows,
+            dataview_query=dataview_query,
+            dataview_note=dataview_note,
+            last_updated=last_updated,
+        )
+        self._atomic_write(filename, content)
+        self._index_note(filename, "vault_dashboard", {}, content)
         return filename
 
     # ── Inbox (v6) ──

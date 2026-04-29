@@ -229,6 +229,10 @@ def _infer_note_type(filename: str) -> str:
         return "theme"
     if filename.startswith("moments/"):
         return "moment"
+    if filename.startswith("failure-modes/"):
+        return "failure_mode"
+    if filename.startswith("dashboards/"):
+        return "dashboard"
     if filename.startswith("running/trends/"):
         return "trend_report"
     if filename.startswith("running/compare/"):
@@ -239,7 +243,12 @@ def _infer_note_type(filename: str) -> str:
 
 
 def _infer_domain(filename: str) -> str:
-    if filename.startswith("themes/") or filename.startswith("moments/"):
+    if (
+        filename.startswith("themes/")
+        or filename.startswith("moments/")
+        or filename.startswith("failure-modes/")
+        or filename.startswith("dashboards/")
+    ):
         return "vault"
     if filename.startswith("running/"):
         return "running"

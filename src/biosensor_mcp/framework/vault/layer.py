@@ -32,10 +32,18 @@ Reasoning-persistence tools (narrative continuity across sessions):
     vault_list_themes           Browse persistent hypotheses (compact rows).
     vault_read_theme            Full body of a theme + resolved wikilinks.
     vault_upsert_theme          Create or update a theme; evidence appends.
+    vault_correct_evidence      Mark a specific evidence block superseded;
+                                optionally propagates a callout to every
+                                note that wikilinks the theme.
+    vault_log_failure_mode      Create or update a failure-mode note (the
+                                'how we got it wrong' counterpart to themes).
+    vault_list_failure_modes    Compact listing of failure-mode notes.
     vault_list_moments          Browse aha-moment notes.
     vault_capture_moment        Write a single aha-moment note.
     vault_capture_session       Session-boundary bundle: summary moment +
                                 N theme updates in one audited call.
+    vault_refresh_dashboards    Materialise dashboards/* as plain-markdown
+                                snapshots (ADR 0007 dual-output).
     vault_rescan                Full filesystem sweep — pick up user edits.
     vault_traverse_links        Neighbourhood of wikilinks (no bodies).
 """
@@ -55,7 +63,10 @@ log = logging.getLogger("biosensor-mcp.vault")
 _MAX_NOTES_CHARS = 2000
 
 # Allowed note kinds surfaced to users of the kind filter
-_ALLOWED_KINDS = ("run_report", "trend_report", "compare_runs", "theme", "moment")
+_ALLOWED_KINDS = (
+    "run_report", "trend_report", "compare_runs",
+    "theme", "moment", "failure_mode", "dashboard",
+)
 
 # Max nodes returned by vault_traverse_links (prevents runaway traversal)
 _TRAVERSE_MAX_NODES = 40
@@ -515,6 +526,124 @@ class VaultLayer:
                         "description": "Tool or session that discovered the error.",
                         "required": False,
                     },
+                    "propagate": {
+                        "type": "boolean",
+                        "description": (
+                            "When true, append a '[!warning]' callout to "
+                            "every note that wikilinks to this theme so "
+                            "downstream readers see the supersession in "
+                            "context. Append-only and idempotent."
+                        ),
+                        "required": False,
+                    },
+                },
+            ),
+            ToolDefinition(
+                "vault_log_failure_mode", 1,
+                "Create or update a failure-mode note — a durable record "
+                "of an analytical pattern that has gone wrong before, with "
+                "symptom / diagnosis / mitigation and an append-only "
+                "evidence log. New evidence APPENDS (existing entries are "
+                "never overwritten). Mirrors the theme lifecycle but is "
+                "scoped to 'how we got it wrong'.",
+                {
+                    "slug": {
+                        "type": "string",
+                        "description": "Slug (lowercase, dashes).",
+                        "required": True,
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "Short human title (defaults to titlecased slug).",
+                        "required": False,
+                    },
+                    "symptom": {
+                        "type": "string",
+                        "description": (
+                            "1–3 sentences — what the failure looks like "
+                            "from the analyst's seat. Required when creating."
+                        ),
+                        "required": False,
+                    },
+                    "diagnosis": {
+                        "type": "string",
+                        "description": (
+                            "Why it happened (what went wrong upstream). "
+                            "Required when creating."
+                        ),
+                        "required": False,
+                    },
+                    "mitigation": {
+                        "type": "string",
+                        "description": "How to avoid recurrence. Required when creating.",
+                        "required": False,
+                    },
+                    "status": {
+                        "type": "string",
+                        "description": "active | mitigated | superseded (default active).",
+                        "required": False,
+                    },
+                    "evidence": {
+                        "type": "string",
+                        "description": (
+                            "New evidence block to APPEND (max 2000 chars). "
+                            "On create, becomes the first evidence entry."
+                        ),
+                        "required": False,
+                    },
+                    "related_themes": {
+                        "type": "array",
+                        "description": "Theme slugs implicated by this failure.",
+                        "required": False,
+                    },
+                    "related_subjects": {
+                        "type": "array",
+                        "description": "Subject_ids it has affected.",
+                        "required": False,
+                    },
+                    "tags": {
+                        "type": "array",
+                        "description": "Additional tags (merged with existing).",
+                        "required": False,
+                    },
+                    "evidence_source_tier": {
+                        "type": "integer",
+                        "description": "Provenance: data tier (1-3) the evidence came from.",
+                        "required": False,
+                    },
+                    "evidence_source_tool": {
+                        "type": "string",
+                        "description": "Provenance: tool that produced the evidence.",
+                        "required": False,
+                    },
+                    "evidence_source_domain": {
+                        "type": "string",
+                        "description": "Provenance: child domain.",
+                        "required": False,
+                    },
+                    "evidence_verification": {
+                        "type": "string",
+                        "description": "observed | computed | inferred | unverified.",
+                        "required": False,
+                    },
+                },
+            ),
+            ToolDefinition(
+                "vault_list_failure_modes", 1,
+                "List failure-mode notes (compact rows). Returns slug, "
+                "status, opened, last_updated, related_theme_count, and "
+                "title — no bodies. ~300 tokens for 20 entries.",
+                {
+                    "status": {
+                        "type": "string",
+                        "description": "Filter: active | mitigated | superseded.",
+                        "required": False,
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max results (default 20, max 100).",
+                        "required": False,
+                    },
                 },
             ),
             ToolDefinition(
@@ -594,6 +723,26 @@ class VaultLayer:
                 "also revalidates each note lazily on read, so explicit rescan is "
                 "only needed after large bulk edits.",
                 {},
+            ),
+            ToolDefinition(
+                "vault_refresh_dashboards", 1,
+                "Materialise the standard dashboards under 'dashboards/' as "
+                "plain-markdown snapshot tables (ADR 0007 dual-output). "
+                "Refreshes 'open-themes', 'active-failure-modes', and "
+                "'recent-moments' from the SQLite index. Each dashboard is "
+                "always readable without the Dataview plugin; an optional "
+                "'```dataview' block above the snapshot renders for analysts "
+                "who do have the plugin.",
+                {
+                    "with_dataview_blocks": {
+                        "type": "boolean",
+                        "description": (
+                            "When true, include the Dataview live-query "
+                            "block above each snapshot table (default true)."
+                        ),
+                        "required": False,
+                    },
+                },
             ),
             ToolDefinition(
                 "vault_traverse_links", 1,
@@ -739,6 +888,38 @@ class VaultLayer:
                     type=str, required=True, max_len=2000,
                 ),
                 "corrected_by": ValidationSchema(type=str, max_len=200),
+                "propagate": ValidationSchema(type=bool, default=False),
+            },
+            "vault_log_failure_mode": {
+                "slug": ValidationSchema(
+                    type=str, required=True, pattern=r"^[a-z0-9][a-z0-9\-]{0,63}$",
+                ),
+                "title": ValidationSchema(type=str, max_len=200),
+                "symptom": ValidationSchema(type=str, max_len=2000),
+                "diagnosis": ValidationSchema(type=str, max_len=2000),
+                "mitigation": ValidationSchema(type=str, max_len=2000),
+                "status": ValidationSchema(
+                    type=str,
+                    allowed_values=["active", "mitigated", "superseded"],
+                ),
+                "evidence": ValidationSchema(type=str, max_len=2000),
+                "related_themes": ValidationSchema(type=list),
+                "related_subjects": ValidationSchema(type=list),
+                "tags": ValidationSchema(type=list),
+                "evidence_source_tier": ValidationSchema(type=int, min=1, max=3),
+                "evidence_source_tool": ValidationSchema(type=str, max_len=200),
+                "evidence_source_domain": ValidationSchema(type=str, max_len=200),
+                "evidence_verification": ValidationSchema(
+                    type=str,
+                    allowed_values=["observed", "computed", "inferred", "unverified"],
+                ),
+            },
+            "vault_list_failure_modes": {
+                "status": ValidationSchema(
+                    type=str,
+                    allowed_values=["active", "mitigated", "superseded"],
+                ),
+                "limit": ValidationSchema(type=int, min=1, max=100, default=20),
             },
             "vault_inbox_add": {
                 "text": ValidationSchema(type=str, required=True, max_len=2000),
@@ -755,6 +936,9 @@ class VaultLayer:
             },
             "vault_get_snapshot": {},
             "vault_rescan": {},
+            "vault_refresh_dashboards": {
+                "with_dataview_blocks": ValidationSchema(type=bool, default=True),
+            },
             "vault_traverse_links": {
                 "filename": ValidationSchema(type=str, required=True),
                 "depth": ValidationSchema(type=int, min=1, max=3, default=1),
@@ -785,6 +969,9 @@ class VaultLayer:
             "vault_get_snapshot": self._handle_get_snapshot,
             "vault_health_check": self._handle_health_check,
             "vault_correct_evidence": self._handle_correct_evidence,
+            "vault_log_failure_mode": self._handle_log_failure_mode,
+            "vault_list_failure_modes": self._handle_list_failure_modes,
+            "vault_refresh_dashboards": self._handle_refresh_dashboards,
             "vault_inbox_add": self._handle_inbox_add,
             "vault_inbox_list": self._handle_inbox_list,
             "vault_inbox_drain": self._handle_inbox_drain,
@@ -1965,21 +2152,347 @@ class VaultLayer:
         }
 
     async def _handle_correct_evidence(self, params: dict) -> dict:
+        propagate = bool(params.get("propagate", False))
         try:
-            filename = self._writer.correct_theme_evidence(
+            result = self._writer.correct_theme_evidence(
                 slug=params["theme_slug"],
                 evidence_timestamp=params["evidence_timestamp"],
                 correction=params["correction"],
                 corrected_by=params.get("corrected_by"),
+                propagate_to_referencing_notes=propagate,
             )
         except (ValueError, FileNotFoundError) as exc:
             return {"error": str(exc)}
+        propagated = result["propagated_to"]
+        note = (
+            "Correction marker inserted and a [correction] evidence "
+            "block appended. Original evidence preserved."
+        )
+        if propagate:
+            note += (
+                f" Propagated correction callout to {len(propagated)} "
+                "referencing note(s)."
+            )
         return {
             "corrected": True,
-            "filename": filename,
+            "filename": result["filename"],
+            "propagated_to": propagated,
+            "note": note,
+        }
+
+    async def _handle_log_failure_mode(self, params: dict) -> dict:
+        """
+        Create or update a failure-mode note.
+
+        On create: requires symptom + diagnosis + mitigation; writes the
+        full note via VaultWriter.write_failure_mode and (if provided)
+        appends an initial evidence block.
+
+        On update: any of (status, related_themes, related_subjects,
+        tags) may be merged in; if ``evidence`` is provided, it APPENDS
+        a new timestamped evidence block — the existing log is never
+        rewritten.
+        """
+        slug = params["slug"]
+        filename = f"failure-modes/{slug}.md"
+        try:
+            revalidate_file(filename, self._vault_path, self._storage)
+        except Exception as exc:  # pragma: no cover — defensive
+            log.warning(f"vault_log_failure_mode: revalidate_file failed: {exc}")
+        existing = self._storage.get_note(filename)
+
+        evidence = params.get("evidence")
+        provenance = {
+            "source_tier": params.get("evidence_source_tier"),
+            "source_tool": params.get("evidence_source_tool"),
+            "source_domain": params.get("evidence_source_domain"),
+            "verification": params.get("evidence_verification"),
+        }
+
+        if existing is None:
+            # Fresh note — require the structural fields.
+            missing = [
+                k for k in ("symptom", "diagnosis", "mitigation")
+                if not (params.get(k) or "").strip()
+            ]
+            if missing:
+                return {
+                    "error": (
+                        "Creating a failure-mode requires: "
+                        + ", ".join(missing)
+                    ),
+                }
+            failure_mode = {
+                "slug": slug,
+                "title": params.get("title"),
+                "symptom": params["symptom"],
+                "diagnosis": params["diagnosis"],
+                "mitigation": params["mitigation"],
+                "status": params.get("status") or "active",
+                "related_themes": params.get("related_themes") or [],
+                "related_subjects": params.get("related_subjects") or [],
+                "tags": params.get("tags") or [],
+            }
+            if evidence:
+                failure_mode["evidence"] = evidence
+            try:
+                written = self._writer.write_failure_mode(failure_mode)
+            except (ValueError, OSError) as exc:
+                return {"error": str(exc)}
+            return {
+                "created": True,
+                "filename": written,
+                "evidence_appended": bool(evidence),
+                "note": (
+                    "Failure-mode created. Use vault_log_failure_mode "
+                    "again with `evidence` to APPEND new entries; the "
+                    "log is never overwritten."
+                ),
+            }
+
+        # Update path — frontmatter-only mutations (preserve body + the
+        # entire append-only evidence log).  Body sections (symptom,
+        # diagnosis, mitigation) are intentionally read-only via this
+        # tool: edit them by hand in Obsidian and the index will pick
+        # the change up on next read.
+        body_attempts = [
+            k for k in ("symptom", "diagnosis", "mitigation")
+            if (params.get(k) or "").strip()
+        ]
+        if body_attempts:
+            return {
+                "error": (
+                    f"Body sections cannot be updated through "
+                    f"vault_log_failure_mode after creation: "
+                    f"{', '.join(body_attempts)}. Edit "
+                    f"failure-modes/{slug}.md directly in Obsidian."
+                ),
+            }
+
+        fm = dict(existing.get("frontmatter") or {})
+        new_status = params.get("status")
+        if new_status and new_status not in ("active", "mitigated", "superseded"):
+            return {
+                "error": (
+                    f"Invalid status: {new_status!r} "
+                    "(active | mitigated | superseded)."
+                ),
+            }
+
+        merged_related_themes = None
+        if params.get("related_themes") is not None:
+            merged_related_themes = list(dict.fromkeys([
+                *(fm.get("related_themes") or []),
+                *(params.get("related_themes") or []),
+            ]))
+        merged_related_subjects = None
+        if params.get("related_subjects") is not None:
+            merged_related_subjects = list(dict.fromkeys([
+                *(str(s) for s in (fm.get("related_subjects") or [])),
+                *(str(s) for s in (params.get("related_subjects") or [])),
+            ]))
+        merged_tags = None
+        if params.get("tags") is not None:
+            merged_tags = list(dict.fromkeys([
+                *(fm.get("tags") or []),
+                *(params.get("tags") or []),
+            ]))
+
+        try:
+            written = self._writer.update_failure_mode_metadata(
+                slug,
+                status=new_status,
+                related_themes=merged_related_themes,
+                related_subjects=merged_related_subjects,
+                tags=merged_tags,
+                title=params.get("title"),
+            )
+        except (ValueError, FileNotFoundError, OSError) as exc:
+            return {"error": str(exc)}
+
+        evidence_appended = False
+        if evidence:
+            try:
+                self._writer.append_failure_mode_evidence(
+                    slug,
+                    evidence,
+                    source_tier=provenance["source_tier"],
+                    source_tool=provenance["source_tool"],
+                    source_domain=provenance["source_domain"],
+                    verification=provenance["verification"],
+                )
+                evidence_appended = True
+            except (ValueError, FileNotFoundError) as exc:
+                return {"error": str(exc)}
+
+        return {
+            "updated": True,
+            "filename": written,
+            "evidence_appended": evidence_appended,
+            "status": new_status or fm.get("status") or "active",
+        }
+
+    async def _handle_list_failure_modes(self, params: dict) -> dict:
+        """
+        Compact listing of failure-mode notes.  Filters by status
+        (active | mitigated | superseded) when supplied; otherwise
+        returns all known failure-modes.  Body is never returned.
+        """
+        status = params.get("status")
+        limit = params.get("limit", 20)
+
+        rows = self._storage.list_notes(
+            domain="vault", note_type="failure_mode",
+            limit=max(limit * 2, limit),
+        )
+        out: list[dict] = []
+        for row in rows:
+            fm = row.get("frontmatter") or {}
+            row_status = fm.get("status") or "active"
+            if status and row_status != status:
+                continue
+            slug = (
+                fm.get("slug")
+                or row["filename"].rsplit("/", 1)[-1].rsplit(".md", 1)[0]
+            )
+            out.append({
+                "slug": slug,
+                "title": fm.get("title") or slug.replace("-", " ").title(),
+                "status": row_status,
+                "opened": fm.get("opened"),
+                "last_updated": fm.get("last_updated") or row.get("date"),
+                "related_theme_count": len(fm.get("related_themes") or []),
+                "related_subject_count": len(fm.get("related_subjects") or []),
+            })
+            if len(out) >= limit:
+                break
+
+        return {
+            "count": len(out),
+            "status_filter": status,
+            "failure_modes": out,
+        }
+
+    async def _handle_refresh_dashboards(self, params: dict) -> dict:
+        """
+        Materialise the standard dashboards under ``dashboards/`` from
+        the live SQLite index.  ADR 0007 dual-output: every dashboard
+        ships a plain-markdown snapshot table (always rendered) plus an
+        optional Dataview live-query block (renders only with the
+        plugin).  The two views are derived from the same source so
+        they cannot disagree about anything except freshness.
+        """
+        with_dv = bool(params.get("with_dataview_blocks", True))
+        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        written: list[dict] = []
+
+        # 1) Open themes dashboard
+        themes = self._storage.list_themes(status="open", limit=200)
+        theme_rows = [
+            [
+                f"[[{t['slug']}]]",
+                t.get("confidence") or "—",
+                t.get("last_updated") or "—",
+                len(t.get("linked_runs") or []),
+                (t.get("excerpt") or "").replace("|", "\\|")[:80],
+            ]
+            for t in themes
+        ]
+        themes_filename = self._writer.write_dashboard(
+            name="open-themes",
+            title="Open themes",
+            description=(
+                "Persistent hypotheses currently being tracked. Click any "
+                "row to open the theme note."
+            ),
+            columns=["Theme", "Confidence", "Last updated", "Linked runs", "Excerpt"],
+            rows=theme_rows,
+            dataview_query=(
+                "TABLE confidence, last_updated, length(linked_runs) AS \"Runs\"\n"
+                "FROM \"themes\"\nWHERE status = \"open\"\nSORT last_updated DESC"
+            ) if with_dv else None,
+            last_updated=now_iso,
+        )
+        written.append({"name": "open-themes", "filename": themes_filename, "rows": len(theme_rows)})
+
+        # 2) Active failure-modes dashboard
+        fm_rows_raw = self._storage.list_notes(
+            domain="vault", note_type="failure_mode", limit=200,
+        )
+        fm_rows: list[list] = []
+        for row in fm_rows_raw:
+            fm = row.get("frontmatter") or {}
+            if (fm.get("status") or "active") != "active":
+                continue
+            slug = (
+                fm.get("slug")
+                or row["filename"].rsplit("/", 1)[-1].rsplit(".md", 1)[0]
+            )
+            fm_rows.append([
+                f"[[{slug}]]",
+                fm.get("title") or slug.replace("-", " ").title(),
+                fm.get("opened") or "—",
+                fm.get("last_updated") or "—",
+                len(fm.get("related_themes") or []),
+            ])
+        fm_filename = self._writer.write_dashboard(
+            name="active-failure-modes",
+            title="Active failure-modes",
+            description=(
+                "Open analytical failure-modes — patterns this study has "
+                "gotten wrong before that have not yet been mitigated."
+            ),
+            columns=["Failure-mode", "Title", "Opened", "Last updated", "Related themes"],
+            rows=fm_rows,
+            dataview_query=(
+                "TABLE title, opened, last_updated, length(related_themes) AS \"Themes\"\n"
+                "FROM \"failure-modes\"\nWHERE status = \"active\"\nSORT last_updated DESC"
+            ) if with_dv else None,
+            last_updated=now_iso,
+        )
+        written.append({"name": "active-failure-modes", "filename": fm_filename, "rows": len(fm_rows)})
+
+        # 3) Recent moments dashboard
+        moments = self._storage.list_notes(
+            domain="vault", note_type="moment", limit=20,
+        )
+        moment_rows: list[list] = []
+        for row in moments:
+            fm = row.get("frontmatter") or {}
+            slug_path = row["filename"]
+            display_slug = slug_path.rsplit("/", 1)[-1].rsplit(".md", 1)[0]
+            moment_rows.append([
+                f"[[{display_slug}]]",
+                fm.get("title") or display_slug,
+                row.get("date") or fm.get("date") or "—",
+                len(fm.get("linked_themes") or []),
+            ])
+        moments_filename = self._writer.write_dashboard(
+            name="recent-moments",
+            title="Recent moments",
+            description=(
+                "Latest aha-moments captured in the vault — surfacing "
+                "session-level analytical observations."
+            ),
+            columns=["Moment", "Title", "Date", "Linked themes"],
+            rows=moment_rows,
+            dataview_query=(
+                "TABLE title, date, length(linked_themes) AS \"Themes\"\n"
+                "FROM \"moments\"\nSORT date DESC\nLIMIT 20"
+            ) if with_dv else None,
+            last_updated=now_iso,
+        )
+        written.append({"name": "recent-moments", "filename": moments_filename, "rows": len(moment_rows)})
+
+        return {
+            "refreshed": True,
+            "with_dataview_blocks": with_dv,
+            "dashboards": written,
             "note": (
-                "Correction marker inserted and a [correction] evidence "
-                "block appended. Original evidence preserved."
+                "Dashboards rewritten. The snapshot tables render for "
+                "any reader; the Dataview blocks (if present) render "
+                "only inside Obsidian with the Dataview plugin."
             ),
         }
 

@@ -21,6 +21,38 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.1.0 (2026-04-29)
+
+The vault layer gained dual-output rendering policy plus three new
+tools that round out the analytical-memory model. No router, security,
+or child changes.
+
+- **[ADR 0007 — Rendering-layers policy](docs/adr/0007-rendering-layers-policy.md)** —
+  source-of-truth markdown stays plain and AI-readable; plugin-enhanced
+  views (Dataview, Templater) are additive only. Framework-emitted
+  notes that include plugin syntax must ship a snapshot fallback so
+  the same content renders for any reader.
+- **`vault_refresh_dashboards`** — materialises `dashboards/open-themes.md`,
+  `active-failure-modes.md`, and `recent-moments.md` from the live
+  SQLite index. Each dashboard ships an always-rendered snapshot table
+  plus an optional Dataview live-query block above it. Reference
+  implementation of ADR 0007 dual-output.
+- **Failure-mode lifecycle** — `vault_log_failure_mode` and
+  `vault_list_failure_modes` add the "how we got it wrong" counterpart
+  to themes. Symptom / diagnosis / mitigation are body-only and set on
+  creation; metadata (status, related_themes, related_subjects, tags)
+  updates in place to preserve the append-only evidence log.
+- **Correction propagation** — `vault_correct_evidence` gained a
+  `propagate=true` mode that appends a `[!warning]` callout to every
+  note that wikilinks to the corrected theme. Idempotent on the
+  `(theme_slug, evidence_timestamp)` pair, so re-running the same
+  correction never duplicates markers.
+- **[docs/design/managed-agents-compat.md](docs/design/managed-agents-compat.md)** —
+  positions Biosensor MCP relative to Anthropic Managed Agents over
+  network MCP. Path A (local-first orchestration, default) vs Path B
+  (Managed Agent calling the local router); both preserve the same
+  governance pipeline.
+
 ## Shipped in v6.0 (2026-04-23)
 
 The vault overhaul ported seven governance features from personal

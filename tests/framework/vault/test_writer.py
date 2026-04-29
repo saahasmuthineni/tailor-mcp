@@ -467,3 +467,266 @@ class TestVaultWriterRendererRegistry:
             _, content = writer._render("tool_x", {})
             assert content == "second"
             writer.close()
+
+
+# ════════════════════════════════════════════════════════════════
+# Failure-mode writer (v6.1)
+# ════════════════════════════════════════════════════════════════
+
+
+def _failure_mode_payload(**overrides):
+    fm = {
+        "slug": "hr-spike-misread",
+        "title": "HR spike misread as fitness signal",
+        "symptom": "Steep mid-run HR spike treated as drift.",
+        "diagnosis": "Sensor catchup burst from the watch.",
+        "mitigation": "Apply 30s cooldown before zone classification.",
+    }
+    fm.update(overrides)
+    return fm
+
+
+class TestVaultWriterFailureMode:
+    def test_write_failure_mode_creates_file_and_indexes(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            try:
+                filename = writer.write_failure_mode(_failure_mode_payload())
+                assert filename == "failure-modes/hr-spike-misread.md"
+                path = Path(vault_dir) / filename
+                assert path.exists()
+                # Indexed: get_note returns a row with note_type == failure_mode.
+                row = writer._storage.get_note(filename)
+                assert row is not None
+                assert row["note_type"] == "failure_mode"
+            finally:
+                writer.close()
+
+    def test_append_evidence_replaces_placeholder_first_time(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            try:
+                writer.write_failure_mode(_failure_mode_payload())
+                writer.append_failure_mode_evidence(
+                    "hr-spike-misread",
+                    "Spike on 2026-04-10 around mile 4.",
+                    source_tier=1, source_tool="strava_run_report",
+                )
+                content = (Path(vault_dir) / "failure-modes/hr-spike-misread.md").read_text(encoding="utf-8")
+                assert "Spike on 2026-04-10 around mile 4." in content
+                assert "*(No evidence recorded yet.)*" not in content
+            finally:
+                writer.close()
+
+    def test_append_evidence_is_additive(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            try:
+                writer.write_failure_mode(_failure_mode_payload())
+                writer.append_failure_mode_evidence("hr-spike-misread", "First.")
+                writer.append_failure_mode_evidence("hr-spike-misread", "Second.")
+                content = (Path(vault_dir) / "failure-modes/hr-spike-misread.md").read_text(encoding="utf-8")
+                assert "First." in content
+                assert "Second." in content
+                assert content.count("### Evidence —") >= 2
+            finally:
+                writer.close()
+
+    def test_append_evidence_to_missing_file_raises(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            try:
+                with pytest.raises(FileNotFoundError):
+                    writer.append_failure_mode_evidence("does-not-exist", "anything")
+            finally:
+                writer.close()
+
+    def test_invalid_slug_rejected(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            try:
+                writer.write_failure_mode(_failure_mode_payload())
+                # path-traversal style slug
+                with pytest.raises(ValueError):
+                    writer.append_failure_mode_evidence("../etc/passwd", "x")
+            finally:
+                writer.close()
+
+
+# ════════════════════════════════════════════════════════════════
+# Correction propagation (v6.1)
+# ════════════════════════════════════════════════════════════════
+
+
+class TestCorrectionPropagation:
+    """
+    correct_theme_evidence(propagate_to_referencing_notes=True) walks
+    the SQLite link index, appends a [!warning] callout to every note
+    that wikilinks to the theme, and is idempotent on (slug, ts).
+    """
+
+    @staticmethod
+    def _seed(writer):
+        # Theme with one evidence block.
+        writer.write_theme({
+            "slug": "drift",
+            "title": "Drift",
+            "hypothesis": "H",
+            "evidence": "Original observation.",
+            "status": "open",
+        })
+        # Pull the timestamp.
+        import re as _re
+        from pathlib import Path as _Path
+        content = (_Path(writer._vault_path) / "themes/drift.md").read_text(encoding="utf-8")
+        m = _re.search(r"### Evidence — (\S+)", content)
+        ts = m.group(1)
+        # A moment that wikilinks to drift.
+        writer.write_moment({
+            "title": "Mile 6 oddity",
+            "body": "See [[drift]] for the running hypothesis.",
+            "linked_themes": ["drift"],
+            "date": "2026-04-10",
+        })
+        return ts
+
+    def test_propagate_appends_callout_to_referencing(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            try:
+                ts = self._seed(writer)
+                result = writer.correct_theme_evidence(
+                    slug="drift",
+                    evidence_timestamp=ts,
+                    correction="Mile 6 was actually mile 7.",
+                    propagate_to_referencing_notes=True,
+                )
+                assert isinstance(result, dict)
+                assert result["filename"] == "themes/drift.md"
+                assert len(result["propagated_to"]) >= 1
+                target = result["propagated_to"][0]
+                content = (Path(vault_dir) / target).read_text(encoding="utf-8")
+                assert "[!warning]" in content
+                assert "## Corrections" in content
+                assert f"[CORRECTED-EV {ts}]" in content
+            finally:
+                writer.close()
+
+    def test_propagate_default_false(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            try:
+                ts = self._seed(writer)
+                result = writer.correct_theme_evidence(
+                    slug="drift",
+                    evidence_timestamp=ts,
+                    correction="X",
+                )
+                assert result["propagated_to"] == []
+            finally:
+                writer.close()
+
+    def test_propagate_idempotent(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            try:
+                ts = self._seed(writer)
+                writer.correct_theme_evidence(
+                    slug="drift", evidence_timestamp=ts,
+                    correction="First.", propagate_to_referencing_notes=True,
+                )
+                writer.correct_theme_evidence(
+                    slug="drift", evidence_timestamp=ts,
+                    correction="Second.", propagate_to_referencing_notes=True,
+                )
+                moments = list((Path(vault_dir) / "moments").rglob("*.md"))
+                assert moments
+                content = moments[0].read_text(encoding="utf-8")
+                marker = f"[CORRECTED-EV {ts}]"
+                assert content.count(marker) == 1
+            finally:
+                writer.close()
+
+    def test_already_propagated_helper(self):
+        from biosensor_mcp.framework.vault.writer import VaultWriter
+        # Same window — should detect.
+        co_occur = (
+            "Some text\n"
+            "> [!warning] [CORRECTED-EV 2026-04-10T00:00:00Z]\n"
+            "> Theme [[drift]] evidence superseded.\n"
+        )
+        assert VaultWriter._already_propagated(
+            co_occur, "[CORRECTED-EV 2026-04-10T00:00:00Z]", "drift"
+        )
+        # Marker but link is well outside the 4-line co-occurrence window —
+        # should NOT detect (the helper requires the wikilink within the
+        # callout's continuation lines, not anywhere in the file).
+        far_apart = (
+            "> [!warning] [CORRECTED-EV 2026-04-10T00:00:00Z]\n"
+            "Line 1.\nLine 2.\nLine 3.\nLine 4.\nLine 5.\nLine 6.\n"
+            "[[drift]] mentioned much later.\n"
+        )
+        assert not VaultWriter._already_propagated(
+            far_apart, "[CORRECTED-EV 2026-04-10T00:00:00Z]", "drift"
+        )
+
+    def test_append_corrections_callout_creates_section_at_eof(self):
+        from biosensor_mcp.framework.vault.writer import VaultWriter
+        original = "# Note\n\nSome body content.\n"
+        callout = "> [!warning] x\n> y\n"
+        result = VaultWriter._append_corrections_callout(original, callout)
+        assert "## Corrections" in result
+        assert result.endswith(callout)
+        # Original content preserved.
+        assert "Some body content." in result
+
+    def test_append_corrections_callout_extends_existing_section(self):
+        from biosensor_mcp.framework.vault.writer import VaultWriter
+        original = "# Note\n\n## Corrections\n\n> [!warning] earlier\n> first\n"
+        callout = "> [!warning] new\n> second\n"
+        result = VaultWriter._append_corrections_callout(original, callout)
+        # Both callouts present.
+        assert "earlier" in result
+        assert "new" in result
+        # Section header appears exactly once.
+        assert result.count("## Corrections") == 1
+
+
+# ════════════════════════════════════════════════════════════════
+# Dashboard writer (v6.1, ADR 0007)
+# ════════════════════════════════════════════════════════════════
+
+
+class TestVaultWriterDashboard:
+    def test_write_dashboard_creates_file(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            try:
+                filename = writer.write_dashboard(
+                    name="open-themes",
+                    title="Open themes",
+                    description="d",
+                    columns=["Theme"],
+                    rows=[["[[drift]]"]],
+                )
+                assert filename == "dashboards/open-themes.md"
+                assert (Path(vault_dir) / filename).exists()
+            finally:
+                writer.close()
+
+    def test_write_dashboard_indexes_as_dashboard(self):
+        with TemporaryDirectory() as vault_dir, TemporaryDirectory() as data_dir:
+            writer = _make_writer(Path(vault_dir), Path(data_dir))
+            try:
+                writer.write_dashboard(
+                    name="recent-moments",
+                    title="Recent moments",
+                    description="d",
+                    columns=["A"],
+                    rows=[["1"]],
+                )
+                row = writer._storage.get_note("dashboards/recent-moments.md")
+                assert row is not None
+                assert row["note_type"] == "dashboard"
+            finally:
+                writer.close()

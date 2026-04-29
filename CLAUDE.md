@@ -1,5 +1,13 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.1.0 (2026-04-29)** — vault-only release. Adds the rendering-
+> layers policy ([ADR 0007](docs/adr/0007-rendering-layers-policy.md)),
+> three new vault tools (failure-mode lifecycle, dashboards refresh),
+> correction propagation across referencing notes, and a positioning
+> document for Anthropic Managed Agents
+> ([docs/design/managed-agents-compat.md](docs/design/managed-agents-compat.md)).
+> 25 vault tools (was 22). No router, security, child, or CLI changes.
+>
 > **v6.0 (2026-04-23)** — vault-only release. The reorientation tier
 > gained seven governance features (snapshot, inbox, health check,
 > evidence provenance, theme lifecycle enrichment, corrections,
@@ -212,6 +220,7 @@ to the full record.
 - **[ADR 0003 — PHI scrubbing is a seam, not a policy](docs/adr/0003-phi-scrubber-seam.md).** `PHIScrubber.scrub()` is a no-op by default; institutions subclass. The default emits a one-time warning on first construction and exposes `scrubber_id` so audit rows distinguish misconfigured deployments from real policies.
 - **[ADR 0004 — Structured `LLMInstruction`](docs/adr/0004-structured-llm-instruction.md).** Consent and cost gates return a JSON object with individually checkable `must_do`, `must_not_do`, and `on_ambiguous_reply` fields — not a free-text paragraph. Makes compliance auditable.
 - **[ADR 0005 — Pre-estimation, not post-billing](docs/adr/0005-cost-pre-estimation.md).** `CostGate` calls `child.estimate_cost()` before execution using stream metadata (point counts), never the full payload. Estimator failures fail closed.
+- **[ADR 0007 — Rendering-layers policy](docs/adr/0007-rendering-layers-policy.md).** Source-of-truth markdown is plain and AI-readable; plugin-enhanced views (Dataview, Templater) are additive. Any framework-emitted note that uses plugin syntax must ship a snapshot fallback so the same content renders for any reader. The dashboards refresh tool is the reference implementation.
 
 ### Implementation notes
 
@@ -336,7 +345,7 @@ Key differences from a ChildMCP:
 - Only param validation + audit apply
 - Tools must still have unique names (collision with any registered child is rejected)
 
-### VaultLayer — 22 Tools (v6.0)
+### VaultLayer — 25 Tools (v6.1)
 
 All tools are Tier 1 and skip the biosensor-tier gates.
 
@@ -346,7 +355,7 @@ Orientation & browse:
 | `vault_get_snapshot` | Read `snapshot.md` — fastest session-start orientation. Falls back to `vault_get_fitness_summary` when no snapshot exists. |
 | `vault_generate_snapshot` | (Re)write `snapshot.md` with open themes, recent moments, weekly run aggregates, and vault health. Call at session end. |
 | `vault_get_fitness_summary` | Older orientation tool: aggregate weekly fitness + open themes + recent moments by scanning the index. |
-| `vault_list_notes` / `vault_read_note` / `vault_search_notes` | Browse, read, full-text search. |
+| `vault_list_notes` / `vault_read_note` / `vault_search_notes` | Browse, read, full-text search. Kind filter accepts `failure_mode` and `dashboard` in v6.1. |
 | `vault_list_anomalies` | Runs with `anomaly_count > 0`. |
 | `vault_traverse_links` | Wikilink neighbourhood of a note (no bodies). |
 
@@ -355,9 +364,15 @@ Themes & moments:
 |------|-------------|
 | `vault_list_themes` / `vault_read_theme` | Compact rows or full body of a persistent hypothesis. |
 | `vault_upsert_theme` | Create or update. Supports reframe (new hypothesis → `## Prior Framings`), thinking entries, evidence provenance (`evidence_source_*` + `evidence_verification`), and fold-back on resolution. |
-| `vault_correct_evidence` | Mark a specific evidence block as superseded by timestamp; preserves the original. |
+| `vault_correct_evidence` | Mark a specific evidence block as superseded by timestamp; preserves the original. New `propagate=true` mode appends a `[!warning]` callout to every note that wikilinks to the theme (idempotent on the (slug, evidence_timestamp) pair). |
 | `vault_list_moments` / `vault_capture_moment` | Aha-moment notes. |
 | `vault_capture_session` | Session-boundary bundle: summary moment + N theme updates + N moments + optional `divergence`. |
+
+Failure-modes (v6.1):
+| Tool | Description |
+|------|-------------|
+| `vault_log_failure_mode` | Create or update a failure-mode note — symptom / diagnosis / mitigation + append-only evidence log. The "how we got it wrong" counterpart to themes. Body sections are creation-only; metadata (status, related_themes, related_subjects, tags) updates in-place to preserve the evidence log. |
+| `vault_list_failure_modes` | Compact listing — slug, status, opened, last_updated, related_theme_count. |
 
 Annotation & maintenance:
 | Tool | Description |
@@ -365,6 +380,7 @@ Annotation & maintenance:
 | `vault_annotate_run` | Persist insight notes back to a run note. |
 | `vault_backfill` | LLM-driven, server-orchestrated note generation for cached activities. |
 | `vault_rescan` | Full filesystem sweep — reconcile SQLite index with user edits. |
+| `vault_refresh_dashboards` | Materialise `dashboards/open-themes.md`, `active-failure-modes.md`, and `recent-moments.md` from the SQLite index. ADR 0007 dual-output: snapshot table is always rendered (source of truth); optional Dataview live-query block above renders only with the plugin. |
 | `vault_health_check` | Stale themes, orphaned moments, themes without evidence, inbox depth, counts by status. |
 
 Inbox (low-friction capture):
@@ -378,6 +394,7 @@ Inbox (low-friction capture):
 
 - [README.md](README.md) — audience-facing overview.
 - [docs/design/research-framing.md](docs/design/research-framing.md) — the longer-form document aimed at health-research reviewers and RSEs.
+- [docs/design/managed-agents-compat.md](docs/design/managed-agents-compat.md) — Path A (local-first) vs Path B (Anthropic Managed Agents over network MCP), threat models, and which deployment shape suits which IRB profile.
 - [docs/adr/](docs/adr/) — Architecture Decision Records for the framework's load-bearing choices.
 - [ROADMAP.md](ROADMAP.md) — explicitly deferred work with effort/impact triage (real PHI scrubbing, new children, deterministic replay, full provenance hashing, per-subject tool-parameter scoping, multi-analyst vault attribution, vault freeze, worked-example notebook, evaluation harness).
 

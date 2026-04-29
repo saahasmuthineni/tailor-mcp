@@ -1,6 +1,6 @@
 ---
 name: release-shipper
-description: Runs the Biosensor MCP release ritual end-to-end given a one-line summary of what shipped. Bumps version in __init__.py and pyproject.toml, updates the CLAUDE.md release banner, adds a "Shipped in vX.Y.Z" section to ROADMAP.md, commits with a structured message, pushes the branch, and opens a PR via `gh`. After PR creation, waits for the boss's "ship it" / "merge it" authorization, then executes `gh pr merge --admin <PR>` (per project memory — GitHub Actions are disabled on this repo). Also accepts merge-only invocations against an existing PR number.
+description: Runs the Biosensor MCP release ritual end-to-end given a one-line summary of what shipped. Bumps version in __init__.py and pyproject.toml, updates the CLAUDE.md release banner, adds a "Shipped in vX.Y.Z" section to ROADMAP.md, commits with a structured message, pushes the branch, and opens a PR via `gh`. After PR creation, waits for the boss's "ship it" / "merge it" authorization, then executes `gh pr merge --admin --merge <PR>` (per project memory — GitHub Actions are disabled on this repo). Also accepts merge-only invocations against an existing PR number.
 tools: Bash, Read, Edit, Grep, Glob
 model: sonnet
 ---
@@ -169,9 +169,9 @@ Procedure:
    - You re-ran gates after `gh pr checkout <PR>` (Mode B) and they passed.
 2. Run the merge:
    ```
-   gh pr merge --admin <PR-number>
+   gh pr merge --admin --merge <PR-number>
    ```
-   Default merge strategy (a merge commit) matches the project's existing PR history (`git log --merges` shows `Merge pull request #N from ...` for #38–#42).
+   The explicit `--merge` flag is required when running non-interactively (without it, `gh` errors with "--merge, --rebase, or --squash required"). The merge-commit strategy matches the project's existing PR history (`git log --merges` shows `Merge pull request #N from ...` for #38–#44). For extra safety against the head moving between audit and merge, also pass `--match-head-commit <SHA>` with the SHA you ran gates against.
 3. Confirm:
    ```
    gh pr view <PR-number> --json state,mergedAt,mergeCommit
@@ -200,7 +200,7 @@ Branch {feature-branch}: still present locally and on origin (delete? y/n)
 ## Hard rules
 
 - **Never merge without explicit authorization.** "Looks good" is not authorization. "Ship it" / "ok merge" / "merge #N" / `merge_authorized=true` is.
-- **Never push directly to main.** Even with merge authorization, the merge happens via `gh pr merge --admin`, never `git push origin main`.
+- **Never push directly to main.** Even with merge authorization, the merge happens via `gh pr merge --admin --merge`, never `git push origin main`.
 - **Never `--amend` or `--no-verify` or `--force` (push).** If a hook fails, fix it and create a new commit.
 - **Never bump version without the explicit `bump_kind`.** Don't infer from diff size.
 - **Never skip the gates.** A red gate means the release is not shipping today, period. In Mode B (merge-only), re-run gates against the latest PR head — the head may have moved since the PR opened.

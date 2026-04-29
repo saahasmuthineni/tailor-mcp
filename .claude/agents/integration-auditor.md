@@ -156,9 +156,9 @@ Diff: NNNN insertions, MMMM deletions, K files changed
   REGRESSION: behavioural change matches a documented bug pattern; investigate before merge.
 ```
 
-## When to spawn the debugger
+## When to spawn the triage-debugger
 
-If you find a Suspicious behavioural change and the diff alone doesn't make the intent clear, spawn the `debugger` agent with the specific file:line and "explain why this changed." The debugger reads the surrounding code and the commit history to form a hypothesis. Then resume your audit with the debugger's finding folded in.
+If you find a Suspicious behavioural change and the diff alone doesn't make the intent clear, spawn the `triage-debugger` agent with the specific file:line and "explain why this changed." The triage-debugger reads the surrounding code and the commit history to form a hypothesis. Then resume your audit with the triage-debugger's finding folded in.
 
 ## Hard rules
 

@@ -17,9 +17,7 @@ The running child (Strava data) is one **worked example** of the ChildMCP patter
 
 ## Workflow: manager mode
 
-Default collaboration shape on this repo: the boss (Saahas) gives one-sentence intent; the main session acts as tech lead and delegates to specialist agents under [.claude/agents/](.claude/agents/). The boss reviews outputs, makes go/no-go calls, and stays out of step-by-step implementation. The main session is responsible for decomposition, dispatch, integration, and reporting.
-
-**The team:**
+Manager mode is the default working style on this repo. The general conventions — invocation pattern, reporting cadence, when to interrupt vs proceed, the "promote at 3+ uses" bar for new agents — live in `~/.claude/CLAUDE.md` (the global file) so they're consistent across projects. This section names the **specialists this repo provides**.
 
 | Agent | Owns | When to fire |
 |---|---|---|
@@ -30,26 +28,7 @@ Default collaboration shape on this repo: the boss (Saahas) gives one-sentence i
 | [`adr-drafter`](.claude/agents/adr-drafter.md) | Drafts a numbered ADR matching the existing voice | When the boss says "ADR this" or a non-obvious decision needs a permanent record |
 | [`debugger`](.claude/agents/debugger.md) | Diagnoses a single failure, reports root cause + suggested fix without applying it. Spawnable by *any* agent | When ci-gate-runner, integration-auditor, vault-smoke-validator, or the main session hits a failure they want triaged |
 
-**Invocation pattern (main session):**
-
-- For trivial tasks (single-file edit, one grep), do it directly.
-- For tasks with 3+ independent steps, dispatch in parallel via the `Agent` tool — multiple `subagent_type` calls in one message run concurrently.
-- For recurring rituals (gates, release, ADR), prefer the specialist agent over inlining the work. The agents encode the "what could go wrong" knowledge so the main session doesn't have to re-derive it.
-
-**Reporting cadence:**
-
-- Lead each turn with what changed, in one sentence.
-- Show evidence (tool output, file paths) only when failure or ambiguity is involved.
-- End with what's next or what decision the boss needs to make.
-- Don't narrate internal deliberation — the boss reads outcomes, not commentary.
-
-**When to interrupt the boss vs proceed:**
-
-- Proceed: reversible work in the boss's repo (edits, tests, agent invocations).
-- Interrupt: irreversible actions (force-push, delete branches, merge to main, post outside the repo), or when the conceptual goal is ambiguous in a way that materially changes the implementation.
-- Never: ask permission for routine work the boss has already authorized in this section.
-
-**Adding a new specialist:** if the same kind of work shows up in 3+ sessions, that's the bar for promoting it to a checked-in agent. The agent file goes under `.claude/agents/` (committed; per `.gitignore` the agents subdir is whitelisted while per-machine settings stay ignored). Keep prompts narrow — one craft per agent.
+The agents are checked into the repo so the team is reproducible across machines. Per `.gitignore`: `.claude/*` ignores per-machine settings; `!.claude/agents/` re-includes the roster. New specialists land here when the same kind of work has shown up in 3+ sessions on this project.
 
 ## Problems this is built against
 

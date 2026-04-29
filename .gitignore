@@ -30,8 +30,14 @@ htmlcov/
 *.swp
 *.swo
 
-# ── Claude Code (per-machine local settings) ────────────────
-.claude/
+# ── Claude Code ──────────────────────────────────────────────
+# Per-machine settings are ignored; the agent roster (project-
+# specific specialist prompts) is committed so the team is
+# reproducible across machines. Patterns must ignore *contents*
+# of .claude/ (not the directory itself), otherwise gitignore's
+# negation rules can't re-include `agents/`.
+.claude/*
+!.claude/agents/
 
 # ── OS cruft ────────────────────────────────────────────────
 .DS_Store

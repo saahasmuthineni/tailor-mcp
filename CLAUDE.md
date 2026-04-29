@@ -15,6 +15,40 @@ The intended users are health researchers (academic medical centers, mHealth lab
 
 The running child (Strava data) is one **worked example** of the ChildMCP pattern — a complete, copyable template for wrapping a streaming biometric source. It is retained for teaching value; it is not the canonical use case.
 
+## Workflow: manager mode
+
+Default collaboration shape on this repo: the boss (Saahas) gives one-sentence intent; the main session acts as tech lead and delegates to specialist agents under [.claude/agents/](.claude/agents/). The boss reviews outputs, makes go/no-go calls, and stays out of step-by-step implementation. The main session is responsible for decomposition, dispatch, integration, and reporting.
+
+**The team:**
+
+| Agent | Owns | When to fire |
+|---|---|---|
+| [`vault-smoke-validator`](.claude/agents/vault-smoke-validator.md) | End-to-end vault behaviour against a temp vault | After any change to `framework/vault/` |
+| [`ci-gate-runner`](.claude/agents/ci-gate-runner.md) | pytest + ruff + security probe + CLI smoke, with failure forensics | Before any commit/PR; whenever asking "is the working tree shippable?" |
+| [`release-shipper`](.claude/agents/release-shipper.md) | Version bump → CLAUDE.md banner → ROADMAP.md "Shipped in" → commit → push → PR | When a feature is ready to ship. Stops short of merging — that's the boss's call. |
+| [`adr-drafter`](.claude/agents/adr-drafter.md) | Drafts a numbered ADR matching the existing voice | When the boss says "ADR this" or a non-obvious decision needs a permanent record |
+
+**Invocation pattern (main session):**
+
+- For trivial tasks (single-file edit, one grep), do it directly.
+- For tasks with 3+ independent steps, dispatch in parallel via the `Agent` tool — multiple `subagent_type` calls in one message run concurrently.
+- For recurring rituals (gates, release, ADR), prefer the specialist agent over inlining the work. The agents encode the "what could go wrong" knowledge so the main session doesn't have to re-derive it.
+
+**Reporting cadence:**
+
+- Lead each turn with what changed, in one sentence.
+- Show evidence (tool output, file paths) only when failure or ambiguity is involved.
+- End with what's next or what decision the boss needs to make.
+- Don't narrate internal deliberation — the boss reads outcomes, not commentary.
+
+**When to interrupt the boss vs proceed:**
+
+- Proceed: reversible work in the boss's repo (edits, tests, agent invocations).
+- Interrupt: irreversible actions (force-push, delete branches, merge to main, post outside the repo), or when the conceptual goal is ambiguous in a way that materially changes the implementation.
+- Never: ask permission for routine work the boss has already authorized in this section.
+
+**Adding a new specialist:** if the same kind of work shows up in 3+ sessions, that's the bar for promoting it to a checked-in agent. The agent file goes under `.claude/agents/` (committed; per `.gitignore` the agents subdir is whitelisted while per-machine settings stay ignored). Keep prompts narrow — one craft per agent.
+
 ## Problems this is built against
 
 1. **Data governance.** Hosted LLMs are the wrong home for participant biometric data. The tier model and local-first processing are the structural response.

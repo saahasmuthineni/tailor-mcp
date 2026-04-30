@@ -1,5 +1,32 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.2.1 (2026-04-29)** — pilot-wizard release. Collapses the
+> seven-step multi-subject pilot quickstart into two terminal commands
+> and three prompts via the new `biosensor-mcp pilot` CLI subcommand
+> (`src/biosensor_mcp/pilot.py`). The wizard auto-detects CSV schema
+> across all files in the directory, writes `user_config.json`
+> atomically, optionally registers with Claude Desktop on Win/macOS,
+> and runs an end-to-end smoke check. Ships three audit-driven
+> hardenings baked in from day one: F1 smoke check scans every CSV
+> (not just alphabetically first — closes the "P001 looks fine, P004
+> breaks at runtime" failure mode); F2 Claude Desktop config write is
+> atomic via `os.replace`, BOM-round-tripped, and deep-merges into
+> existing `mcpServers` (preserves sibling MCP servers); C3
+> cloud-sync warning on `csv_dir.path` mirrors the existing
+> `vault_path` warning (OneDrive, iCloud, Dropbox, Box, Google Drive,
+> pCloud, Nextcloud, MEGA). Synthetic CSV fixtures (P001/P002/P003)
+> moved from `examples/` into the package at
+> `src/biosensor_mcp/_fixtures/` so they ship in the wheel — wheel
+> install and source-tree work identically. `docs/guides/multi-subject-pilot.md`
+> rewritten to lead with `biosensor-mcp pilot` as the primary path.
+> 9 new tests in `tests/test_pilot_wizard.py`; full suite 496/496.
+> New `ROADMAP.md` deferred entry: `setup` → `setup-strava` rename
+> (disambiguation handled in `--help` text for now; re-evaluate when
+> external doc references stabilise). No router, security-pipeline,
+> child, or vault-layer architecture changes. References
+> [ADR 0009](docs/adr/0009-vault-subject-keying.md) for vault
+> subject-keying context carried forward from v6.2.0.
+>
 > **v6.2.0 (2026-04-29)** — pilot-ready release. Closes the
 > multi-subject vault failure mode the proposal-mode auditor named
 > for the v6.2 framing (one PI + one analyst, 5–20 participants,

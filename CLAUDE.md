@@ -1,5 +1,44 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.4.0 (2026-04-30)** — cache-only purge on consent revocation.
+> Closes the v6.3.0 hygiene-pass Lens 6 retention WATCH (cached
+> participant biometric data surviving `revoke_consent_*`) with a
+> framework-tier mechanism backed by [ADR 0013](docs/adr/0013-cache-only-purge-on-consent-revocation.md).
+> New abstract method `ChildMCP.purge_cache(*, force: bool = False) -> dict`
+> on every child (mandatory, no default no-op — explicit rejection of
+> the ADR 0003 default-no-op trap). The router's
+> `_handle_consent_revocation` runs purge-before-revoke synchronously
+> (`framework/router.py:841-940`); purge failure aborts revocation
+> with consent intact and a `PURGE_FAILED` audit row, unless
+> `force_revoke=True` swallows the error. Every successful revocation
+> writes a paired `PURGE_CACHE` row carrying `scrubber_id`,
+> `force_revoke`, and the child's full `purge_result` dict
+> (rows_purged, tables_touched, preserved, errors) — closes the
+> red-team / phi-irb-risk-reviewer audit-row provenance gap caught
+> on the v6.4.0 release-time backstop pass. RunningChild deletes
+> `streams` + `activities`, preserves `stop_labels` (analyst-authored
+> interpretation, not biometric data); CSVDirectoryChild and
+> TemplateChild return citable no-op dicts. SemVer minor bump
+> because adding an abstract method is breaking for any external
+> ChildMCP subclass. 4-backstop release pass per ADR 0010 / ADR 0011
+> (red-team, researcher-utility, phi-irb-risk-reviewer,
+> reproducibility-provenance-auditor): 3 backstops found gaps,
+> 2 fixed in code/ADR before ship, 1 documented as known limitation
+> (single-account-per-domain assumption embedded in the abstract
+> method's signature; future multi-participant child sharing one
+> account will need subject-scoped purge — fix path named in
+> ADR 0013 § Negative consequences). 6 new regression tests across
+> `TestPurgeCacheOnConsentRevocation` (5) and
+> `TestRunningChildPurgeBiometricCache` (1); full suite 510/510.
+> `docs/design/research-framing.md` gains a new "Consent withdrawal
+> under this profile" section codifying the IRB-profile language
+> ADR 0013's reversal condition cites. `docs/adr/0013-...md` cites
+> ADRs 0001 / 0003 / 0009 / 0012. No router pipeline /
+> security-pipeline / vault-layer architecture changes beyond the
+> revocation-handler rewrite. Deferred: v6.4.1 coverage-hardening
+> release scope (refined plan pending boss approval),
+> `vault_search_notes` kind-filter inconsistency.
+>
 > **v6.3.1 (2026-04-30)** — hygiene-pass patch release. Three IRB-
 > blocking VIOLATIONS surfaced by the v6.3.0 hall-of-fame team
 > hygiene pass are patched, each bound by a regression test so the

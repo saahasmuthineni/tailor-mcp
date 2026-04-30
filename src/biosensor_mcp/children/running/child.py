@@ -147,6 +147,36 @@ class RunningStorage(BaseStorage):
         )
         return [{"stop_number": r[0], "label": r[1], "notes": r[2]} for r in rows]
 
+    def purge_biometric_cache(self) -> dict:
+        """
+        Delete every cached row that derives from raw biometric data.
+
+        Removes ``activities`` (Strava-API metadata + summary HR/pace)
+        and ``streams`` (per-second HR / pace / GPS — the highest-PHI
+        cache). Preserves ``stop_labels``: those are analyst-authored
+        annotations, not participant biometric data, and are scoped
+        with the analyst's interpretive role per ADR 0013 § Decision.
+
+        Returns row counts so the router's PURGE_CACHE audit row
+        carries provenance — a future IRB query can show exactly how
+        many activity records and stream records were removed at
+        the moment of consent withdrawal.
+        """
+        cur = self.execute("DELETE FROM streams")
+        streams_deleted = cur.rowcount if cur is not None else 0
+        cur = self.execute("DELETE FROM activities")
+        activities_deleted = cur.rowcount if cur is not None else 0
+        self.commit()
+        return {
+            "rows_purged": streams_deleted + activities_deleted,
+            "tables_touched": ["streams", "activities"],
+            "preserved": ["stop_labels"],
+            "detail": {
+                "streams_deleted": streams_deleted,
+                "activities_deleted": activities_deleted,
+            },
+        }
+
 
 # ═══════════════════════════════════════════════════════════════
 # CHILD IMPLEMENTATION
@@ -199,6 +229,38 @@ class RunningChild(ChildMCP):
 
     def close(self):
         self._storage.close()
+
+    def purge_cache(self, *, force: bool = False) -> dict:
+        """
+        Purge cached Strava activities + streams on consent revocation.
+
+        Per ADR 0013 — cache-only: removes the biometric cache
+        (`activities`, `streams`) and preserves analyst-authored
+        annotations (`stop_labels`). Vault notes are not touched
+        here; vault is a separate persistence tier and is governed
+        by ADR 0009 / ADR 0012.
+
+        ``force=False`` (default) propagates I/O errors so the router
+        fails closed and the revocation does not complete — the loud
+        signal an IRB committee would expect. ``force=True`` swallows
+        the error into the return dict for the rare edge case where
+        the storage file is locked by an external process and the
+        deployer wants revocation to complete anyway.
+        """
+        try:
+            return self._storage.purge_biometric_cache()
+        except Exception as exc:
+            log.error(
+                f"RunningChild.purge_cache failed: {exc}", exc_info=True
+            )
+            if not force:
+                raise
+            return {
+                "rows_purged": 0,
+                "tables_touched": [],
+                "preserved": ["stop_labels"],
+                "errors": [str(exc)],
+            }
 
     @property
     def domain(self) -> str:

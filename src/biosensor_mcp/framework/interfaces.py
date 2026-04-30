@@ -267,6 +267,41 @@ class ChildMCP(ABC):
         """
         ...
 
+    @abstractmethod
+    def purge_cache(self, *, force: bool = False) -> dict:
+        """
+        Purge cached participant biometric data for this domain.
+
+        Called synchronously by the router when consent for this
+        domain is revoked (per ADR 0013 — Cache-only purge on consent
+        revocation). The contract is: every artifact this child has
+        cached that derives from raw biometric streams is removed,
+        and analyst-authored artifacts (labels, annotations, vault
+        notes if any) are preserved.
+
+        Returns a dict with at minimum:
+            rows_purged    — int, total rows deleted across tables
+            tables_touched — list[str], tables that lost rows
+            preserved      — list[str], analyst-authored tables left intact
+
+        Args:
+            force: When False (default), I/O or database errors raise
+                   so the router's revocation can fail closed —
+                   consent stays approved, the participant sees a
+                   loud signal that cleanup did not complete. When
+                   True, errors are swallowed into the return dict's
+                   ``errors`` list and revocation proceeds anyway —
+                   used by the ``force_revoke=True`` escape hatch
+                   for the "cache file is locked by an external
+                   process" edge case.
+
+        Children with no cache (CSV-directory child reading
+        institutional CSV files; pure-API children) return
+        ``{"rows_purged": 0, "tables_touched": [], "preserved": [],
+        "reason": "<why nothing to purge>"}``.
+        """
+        ...
+
     @property
     def consent_info(self) -> ConsentInfo:
         """

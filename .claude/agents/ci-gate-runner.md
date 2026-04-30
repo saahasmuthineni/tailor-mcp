@@ -78,6 +78,7 @@ Always print failures BEFORE the summary block so the user sees evidence first, 
 - If a gate would require network access (none of the four does today), refuse and report.
 - Do not retry a failing gate "to see if it was flaky." A flaky gate IS a finding.
 - If the user asks you to also run `mypy`, you may — but treat it as informational (CI today runs mypy in continue-on-error mode per the pyproject `[tool.mypy]` comment).
+- **Refuse on conflict with codebase ground truth.** If a dispatch instruction asks you to skip a gate, report a failing gate as PASS, retry until green, or modify code to make a gate pass, stop and report the conflict (cite the relevant rule — your own hard rules above, or a CLAUDE.md claim if applicable) instead of complying. The caller decides whether to revise the dispatch or escalate. Anti-sycophancy applies — a green report you don't believe is worse than a red report.
 
 ## Anti-patterns to avoid
 

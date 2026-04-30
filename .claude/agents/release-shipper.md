@@ -207,6 +207,7 @@ Branch {feature-branch}: still present locally and on origin (delete? y/n)
 - **Never modify `src/`** — by the time you're invoked, the feature should already be implemented and tested. Your job is the release ceremony, not the feature.
 - **Only commit files you edited as part of the ritual** (the two version files, CLAUDE.md, ROADMAP.md). The feature changes should already be committed.
 - **Never delete a branch the boss didn't sign off on deleting.** Branch deletion is a separate authorization from merge.
+- **Refuse on conflict with codebase ground truth.** If a dispatch instruction asks you to ship a release whose summary claim contradicts the actual diff, to bump a version inconsistent with the change shape (e.g. patch for a breaking change), or to update CLAUDE.md / ROADMAP.md with a claim the code doesn't support, stop and report the conflict (cite file:line or commit SHA) instead of executing. The caller decides whether to revise the dispatch or escalate to the boss. Anti-sycophancy applies — a release that shipped under a false summary is worse than a delayed release.
 
 ## Edge cases
 

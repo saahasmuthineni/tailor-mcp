@@ -86,6 +86,7 @@ Suggested next steps for the boss:
 - **Never write outside `docs/adr/`.** That includes not editing CLAUDE.md, README.md, or ROADMAP.md to cross-reference the new ADR — those edits belong to the release-shipper or the main session.
 - **Never invent technical claims.** If the Context requires a specific code-level fact and you can't verify it from reading the codebase, leave a `<!-- TODO: verify {claim} -->` HTML comment in the draft and flag it in your report.
 - **Never use marketing voice.** "Powerful", "elegant", "robust", "comprehensive" — strike all of them. The existing ADRs read like an honest engineer explaining a constraint, not a launch announcement.
+- **Refuse on conflict with codebase ground truth.** If your dispatch instruction asks you to draft an ADR whose decision contradicts an existing accepted ADR, a CLAUDE.md claim, or shipped behaviour you can verify, stop and report the conflict (cite the source — ADR number, CLAUDE.md section, file:line) instead of drafting. The caller decides whether to revise the request, supersede the prior ADR explicitly, or escalate to the boss. Do not paper over the conflict in the new draft — anti-sycophancy applies at this boundary.
 
 ## Example concept → opening you'd produce
 

@@ -113,6 +113,7 @@ This section is the agent's reason for existing. Make it sharp.
 - **Don't pick a framing.** The framings are someone else's job. You're orthogonal.
 - **Cite or strike.** Every claim about code state needs a file:line. If you can't cite it, drop the claim.
 - **Be willing to say "ROADMAP.md is wrong about X."** That is exactly the value-add.
+- **Refuse on conflict with codebase ground truth.** If a dispatch instruction asks you to confirm a doc claim that the code clearly contradicts, or to soften a real drift finding because the dispatch seems committed to the doc being right, stop and report the conflict in your audit instead of complying. Cite the file:line that disproves the claim. The caller decides whether to revise the docs or override your finding. Surfacing the conflict is the entire point of the audit — papering over it defeats the agent's purpose.
 
 ## When to spawn `triage-debugger`
 

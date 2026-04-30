@@ -17,9 +17,46 @@ one- or two-sentence pitch plus context; no implementation details.
 | [Vault-freeze for manuscript submission](#freeze-vault-operation-for-manuscript-submission) | S | Medium | Submission-ready snapshots |
 | ~~[Worked-example notebook](#worked-example-notebook-against-a-published-analytical-question)~~ *(shipped — [docs/guides/worked-example.ipynb](docs/guides/worked-example.ipynb))* | — | — | — |
 | [LLM-client evaluation harness](#evaluation-harness-for-llm-client-behavior) | M | Medium | Making the governance claim measurable |
+| [CLI UX: rename `setup` → `setup-strava`](#cli-ux-rename-setup--setup-strava) | XS | Low | Disambiguating the two wizards |
 
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
+
+## Shipped in v6.2.1 (2026-04-29)
+
+The pilot-wizard release. Closes the install-and-configure friction for
+non-technical PIs by collapsing the seven-step multi-subject pilot
+quickstart into two terminal commands and three prompts. No router,
+security-pipeline, child, or vault-layer architecture changes.
+
+- **`biosensor-mcp pilot` CLI subcommand** (`src/biosensor_mcp/pilot.py`) —
+  three-prompt wizard: auto-detects CSV schema across all files in the
+  directory, writes `user_config.json` atomically, optionally registers
+  with Claude Desktop on Win/macOS (skipped on Linux), runs an end-to-end
+  smoke check against every CSV file.
+- **F1 — full-directory smoke check** — wizard scans every CSV in the
+  directory, not just the alphabetically first one. Closes the
+  "P001 looks fine, P004 breaks at runtime" failure mode named by the
+  audit.
+- **F2 — atomic Claude Desktop config write** — `os.replace` + BOM
+  round-trip + deep-merge into existing `mcpServers`. Preserves sibling
+  MCP servers; asks user to quit Claude Desktop first to avoid clobbering
+  an open config.
+- **C3 — cloud-sync warning on `csv_dir.path`** — mirrors the existing
+  `vault_path` warning for OneDrive, iCloud, Dropbox, Box, Google Drive,
+  pCloud, Nextcloud, and MEGA.
+- **Synthetic CSV fixtures moved into package** — P001/P002/P003 moved
+  from `examples/multi_subject_pilot/csv/` to
+  `src/biosensor_mcp/_fixtures/multi_subject_pilot/csv/`. pyproject.toml
+  `package-data` globs `_fixtures/**/*.csv`. Wheel install and source-tree
+  work identically.
+- **`docs/guides/multi-subject-pilot.md` rewritten** — `biosensor-mcp pilot`
+  is now the primary path; manual setup demoted to advanced fallback.
+  Install command updated to `uv tool install git+...`.
+- **9 new tests** in `tests/test_pilot_wizard.py`; full suite 496/496 green.
+- **Deferred: `setup` → `setup-strava` rename** — disambiguation currently
+  handled in `--help` text; re-evaluate when external doc references
+  stabilise (see ROADMAP entry below).
 
 ## Shipped in v6.2.0 (2026-04-29)
 
@@ -287,6 +324,20 @@ scope drift (did the LLM expand the scope of a consent it was
 granted?), and vault-recall accuracy (did the LLM actually consult
 existing themes before writing a new one?) would make the "client-
 agnostic governance" claim measurable.
+
+## CLI UX: rename `setup` → `setup-strava`
+
+After v6.2.1, the framework ships two wizard subcommands under
+generic English verbs: `biosensor-mcp setup` (Strava OAuth, the
+worked-example child) and `biosensor-mcp pilot` (the multi-subject
+CSV setup, the v6.2 flagship use case). Disambiguation today lives
+in `--help` text only; the cleaner long-term answer is to rename
+`setup` → `setup-strava` so each verb names what it actually
+configures. Deferred from v6.2.1 because the doc-churn cost (every
+README, every quickstart, every notebook reference) exceeds the
+present UX gain — the disambiguation note in `--help` is doing the
+heavy lifting fine for now. Re-evaluate when external doc
+references stabilise or when a third wizard joins the lineup.
 
 ---
 

@@ -1,5 +1,32 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.2.1 (2026-04-29)** — pilot-wizard release. Collapses the
+> seven-step multi-subject pilot quickstart into two terminal commands
+> and three prompts via the new `biosensor-mcp pilot` CLI subcommand
+> (`src/biosensor_mcp/pilot.py`). The wizard auto-detects CSV schema
+> across all files in the directory, writes `user_config.json`
+> atomically, optionally registers with Claude Desktop on Win/macOS,
+> and runs an end-to-end smoke check. Ships three audit-driven
+> hardenings baked in from day one: F1 smoke check scans every CSV
+> (not just alphabetically first — closes the "P001 looks fine, P004
+> breaks at runtime" failure mode); F2 Claude Desktop config write is
+> atomic via `os.replace`, BOM-round-tripped, and deep-merges into
+> existing `mcpServers` (preserves sibling MCP servers); C3
+> cloud-sync warning on `csv_dir.path` mirrors the existing
+> `vault_path` warning (OneDrive, iCloud, Dropbox, Box, Google Drive,
+> pCloud, Nextcloud, MEGA). Synthetic CSV fixtures (P001/P002/P003)
+> moved from `examples/` into the package at
+> `src/biosensor_mcp/_fixtures/` so they ship in the wheel — wheel
+> install and source-tree work identically. `docs/guides/multi-subject-pilot.md`
+> rewritten to lead with `biosensor-mcp pilot` as the primary path.
+> 9 new tests in `tests/test_pilot_wizard.py`; full suite 496/496.
+> New `ROADMAP.md` deferred entry: `setup` → `setup-strava` rename
+> (disambiguation handled in `--help` text for now; re-evaluate when
+> external doc references stabilise). No router, security-pipeline,
+> child, or vault-layer architecture changes. References
+> [ADR 0009](docs/adr/0009-vault-subject-keying.md) for vault
+> subject-keying context carried forward from v6.2.0.
+>
 > **v6.2.0 (2026-04-29)** — pilot-ready release. Closes the
 > multi-subject vault failure mode the proposal-mode auditor named
 > for the v6.2 framing (one PI + one analyst, 5–20 participants,
@@ -301,8 +328,18 @@ Opt-in via `csv_dir` key in `user_config.json`. Wraps a local directory of per-s
 
 ## Running and Testing
 
+For end users (PIs, analysts), the canonical install path is uv (or
+pipx) against the GitHub URL — no Python install, no venv ritual:
+
 ```bash
-# Install in dev mode
+uv tool install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
+biosensor-mcp pilot     # Three-prompt wizard for the multi-subject CSV pilot
+```
+
+For development on the framework itself:
+
+```bash
+# Install in dev mode (editable, source tree on disk)
 pip install -e ".[dev]"
 
 # Run tests
@@ -311,14 +348,12 @@ pytest -v
 # CLI smoke test
 biosensor-mcp --help
 
-# Demo mode (no Strava account needed)
-biosensor-mcp demo
-
-# OAuth setup
-biosensor-mcp setup
-
-# Start MCP server
-biosensor-mcp serve
+# Subcommands
+biosensor-mcp pilot      # Multi-subject CSV pilot setup wizard (v6.2.1+)
+biosensor-mcp setup      # Strava OAuth wizard for the worked-example child
+biosensor-mcp demo       # Run analytics on synthetic data (no setup needed)
+biosensor-mcp serve      # Start MCP server (Claude Desktop calls this)
+biosensor-mcp status     # Diagnostic check
 ```
 
 ## Key Design Decisions

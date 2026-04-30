@@ -26,7 +26,11 @@ from pathlib import Path
 
 _RNG = random.Random(42)
 HERE = Path(__file__).parent
-OUT = HERE / "csv"
+# Canonical fixture home is inside the package so they ship in the wheel
+# and `importlib.resources` can find them in any install shape (source,
+# pip, uv tool, PyInstaller). See ADR forthcoming or pyproject.toml.
+REPO_ROOT = HERE.parent.parent
+OUT = REPO_ROOT / "src" / "biosensor_mcp" / "_fixtures" / "multi_subject_pilot" / "csv"
 
 
 # ── Per-participant baselines ──
@@ -125,16 +129,16 @@ def main() -> None:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(rows)
-        print(f"wrote {len(rows)} rows -> {path.relative_to(HERE.parent.parent)}")
+        print(f"wrote {len(rows)} rows -> {path.relative_to(REPO_ROOT)}")
 
     # Also emit a portable user_config.example.json with a placeholder
-    # path. Each machine fills in <REPO_ROOT> when copying to
-    # ~/.biosensor-mcp/user_config.json.
+    # path. The recommended path is `biosensor-mcp pilot`, which writes
+    # this file for the user; this artifact remains as a manual fallback.
     cfg_path = HERE / "user_config.example.json"
     cfg = (
         "{\n"
         '  "csv_dir": {\n'
-        '    "path": "<REPO_ROOT>/examples/multi_subject_pilot/csv",\n'
+        '    "path": "<REPO_ROOT>/src/biosensor_mcp/_fixtures/multi_subject_pilot/csv",\n'
         '    "timestamp_column": "timestamp",\n'
         '    "timestamp_format": "%Y-%m-%dT%H:%M:%S",\n'
         '    "value_columns": {\n'
@@ -145,7 +149,7 @@ def main() -> None:
         "}\n"
     )
     cfg_path.write_text(cfg, encoding="utf-8")
-    print(f"wrote {cfg_path.relative_to(HERE.parent.parent)}")
+    print(f"wrote {cfg_path.relative_to(REPO_ROOT)}")
 
 
 if __name__ == "__main__":

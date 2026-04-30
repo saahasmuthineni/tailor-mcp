@@ -1,19 +1,18 @@
 # Multi-subject pilot quickstart
 
-This guide walks a research lab from a fresh clone of the repo to a
-working multi-subject pilot in roughly fifteen minutes. The target
+This guide walks a research lab from "I just heard about this tool"
+to a working multi-subject pilot in roughly five minutes. The target
 shape is the one v6.2 was built around: one PI, one analyst, 5–20
 participants, light IRB review, biometric data arriving as CSV
 exports (CGM, sleep tracker, ECG patch — anything tabular). For the
-single-vendor-API shape (Strava-style OAuth) see the existing
+single-vendor-API shape (Strava-style OAuth) see the
 [worked-example notebook](worked-example.ipynb); the steps here apply
 identically once OAuth is configured.
 
-The bundled [`examples/multi_subject_pilot/`](../../examples/multi_subject_pilot)
-directory ships with three synthetic participants (P001, P002, P003)
-so you can verify the end-to-end flow before pointing the server at
-real data. Replace the synthetic CSVs with real per-participant
-exports when you're ready.
+The package ships with three synthetic participants (P001, P002,
+P003) so you can verify the end-to-end flow before pointing the
+server at real data. Replace the synthetic CSVs with real per-
+participant exports when you're ready.
 
 ## What you'll have when you're done
 
@@ -27,90 +26,78 @@ exports when you're ready.
 - An audit row per call, attachable to a protocol amendment if your
   IRB asks how the analyst accessed the data
 
-## Step 1 — Clone, install, verify
+## Recommended path — `biosensor-mcp pilot`
+
+Two terminal commands, three prompts. No Python install, no virtual
+environment, no manual config editing.
+
+### Step 1 — Install the package
+
+The framework runs as a stdio MCP server. The cleanest way to install
+it without touching your system Python is [uv](https://docs.astral.sh/uv/),
+which fetches its own private interpreter:
 
 ```bash
-git clone https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
-cd Biosensor-to-LLM-Connector
-python -m venv .venv && source .venv/bin/activate    # or .venv\Scripts\activate on Windows
-pip install -e ".[dev]"
-biosensor-mcp --help     # smoke-test the CLI
+# Install uv (one-line installer from Astral)
+# macOS/Linux:
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# Windows PowerShell:
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Install Biosensor MCP into uv's tool environment
+uv tool install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
 ```
 
-If you see the CLI usage banner, the framework imports cleanly and
-you're ready to configure data.
-
-## Step 2 — Inspect the synthetic participants
+If your institution blocks uv's installer (PowerShell ExecutionPolicy
+restrictions on managed Windows are the most common reason), the
+`pipx` alternative works identically:
 
 ```bash
-ls examples/multi_subject_pilot/csv/
-# P001.csv  P002.csv  P003.csv
-
-head -3 examples/multi_subject_pilot/csv/P001.csv
+pipx install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
 ```
 
-Each file is 72 hourly rows over three days, with a single deliberate
-"anomaly" hour the LLM will be able to find — a glucose spike on
-P001, a nighttime HR spike on P002, a combined excursion on P003.
-
-To regenerate the data (or adjust the participant baselines):
+Verify the install:
 
 ```bash
-python examples/multi_subject_pilot/generate.py
+biosensor-mcp --help
 ```
 
-The generator is deterministic — same seed, same output. Per ADR
-0008, all analytical processing in this project is PRNG-free; the
-seeded `random.Random(42)` here lives in `examples/`, not on the
-analytical hot path.
+### Step 2 — Run the pilot wizard
 
-## Step 3 — Configure the CSV child
-
-Copy [`examples/multi_subject_pilot/user_config.example.json`](../../examples/multi_subject_pilot/user_config.example.json)
-to `~/.biosensor-mcp/user_config.json` and replace `<REPO_ROOT>` with
-your actual clone path. The relevant fragment:
-
-```json
-{
-  "csv_dir": {
-    "path": "/absolute/path/to/Biosensor-to-LLM-Connector/examples/multi_subject_pilot/csv",
-    "timestamp_column": "timestamp",
-    "timestamp_format": "%Y-%m-%dT%H:%M:%S",
-    "value_columns": {
-      "heart_rate": "Heart rate (bpm)",
-      "glucose": "Blood glucose (mg/dL)"
-    }
-  }
-}
+```bash
+biosensor-mcp pilot
 ```
 
-Real-data tip: for a real pilot, name your CSV files by participant
-(`P001.csv`, `P002.csv`, …) so an analyst can pass `file_id="P001.csv"`
-and `subject_id="P001"` together. The framework does not auto-link
-filenames to `subject_id` in v6.2 — that's a deliberate design
-boundary (the analyst is the source of truth for which participant a
-call is about).
+The wizard does what Steps 3–6 of the old quickstart did manually:
 
-## Step 4 — Register with Claude Desktop
+1. **Prompts for a CSV directory** — accept the default to use the
+   bundled synthetic fixtures (P001/P002/P003), or paste the path to
+   your real per-participant exports.
+2. **Auto-detects the column schema** — scans every CSV in the
+   directory and warns loudly if files have divergent headers (the
+   "P001 looks fine, P004 breaks at runtime" failure mode).
+3. **Writes `~/.biosensor-mcp/user_config.json`** atomically. Won't
+   clobber an existing config.
+4. **Warns if your CSV directory is in OneDrive / iCloud / Dropbox /
+   Box / Google Drive** — cloud-sync providers can corrupt SQLite
+   databases mid-read; the wizard recommends moving the data first.
+5. **Registers the server with Claude Desktop** on Windows or macOS
+   (skipped on Linux, which doesn't have a Claude Desktop config).
+   Asks you to quit Claude Desktop first to avoid clobbering an open
+   config file. Preserves any other MCP servers you already have.
+6. **Runs an end-to-end smoke check** — instantiates the CSV child
+   against the freshly-written config and verifies every CSV's
+   headers match the chosen `value_columns`. Prints `OK` only if all
+   files pass.
 
-Add to `claude_desktop_config.json`:
+If anything fails, the wizard exits with a clear message and leaves
+your filesystem in a clean state.
 
-```json
-{
-  "mcpServers": {
-    "biosensor-mcp": {
-      "command": "/absolute/path/to/.venv/bin/python",
-      "args": ["-m", "biosensor_mcp", "serve"]
-    }
-  }
-}
-```
+### Step 3 — A first multi-subject conversation
 
-Restart Claude Desktop. The available-tools panel should now list the
-`csv_*` tools (Tier 1 reports, Tier 2 downsampled streams, Tier 3
-raw) plus the 25 `vault_*` tools.
-
-## Step 5 — A first multi-subject conversation
+Restart Claude Desktop. The available-tools panel should now list
+the `csv_*` tools (Tier 1 reports, Tier 2 downsampled streams,
+Tier 3 raw) plus the 25 `vault_*` tools.
 
 In Claude Desktop, try this exchange:
 
@@ -132,7 +119,7 @@ created without a `subject_id` would surface here too — that's the
 ADR 0009 IS NULL branch). Ask the same for P002 and P003 and confirm
 each call returns a different scope.
 
-## Step 6 — Inspect the audit trail
+## Inspecting the audit trail
 
 ```bash
 sqlite3 ~/.biosensor-mcp/data/audit.db \
@@ -145,7 +132,7 @@ LLM passed it. The `scrubber_id` column will read `noop` until you
 configure an institutional PHI scrubber (see [ADR 0003](../adr/0003-phi-scrubber-seam.md));
 for a light-IRB pilot on synthetic data the no-op default is fine.
 
-## Step 7 — Inspect the vault on disk
+## Inspecting the vault on disk
 
 ```bash
 ls ~/.biosensor-mcp/vault/themes/
@@ -198,6 +185,45 @@ attribution — is structurally prevented:
   per workstation. The `written_by` field on `vault_generate_snapshot`
   is the partial answer; full multi-analyst attribution on every
   evidence block is roadmap work.
+
+## Manual setup (advanced)
+
+If you'd rather clone the repository and configure by hand — to
+modify the framework, run from a development branch, or audit each
+write before it happens — the wizard's steps map cleanly onto a
+manual flow:
+
+```bash
+git clone https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
+cd Biosensor-to-LLM-Connector
+python -m venv .venv && source .venv/bin/activate    # or .venv\Scripts\activate on Windows
+pip install -e ".[dev]"
+```
+
+Copy [`examples/multi_subject_pilot/user_config.example.json`](../../examples/multi_subject_pilot/user_config.example.json)
+to `~/.biosensor-mcp/user_config.json` and replace `<REPO_ROOT>` with
+your actual clone path. The synthetic CSVs live at
+`src/biosensor_mcp/_fixtures/multi_subject_pilot/csv/`.
+
+Add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "biosensor-mcp": {
+      "command": "/absolute/path/to/.venv/bin/python",
+      "args": ["-m", "biosensor_mcp", "serve"]
+    }
+  }
+}
+```
+
+Real-data tip: name your CSV files by participant (`P001.csv`,
+`P002.csv`, …) so an analyst can pass `file_id="P001.csv"` and
+`subject_id="P001"` together. The framework does not auto-link
+filenames to `subject_id` in v6.2 — that's a deliberate design
+boundary (the analyst is the source of truth for which participant a
+call is about).
 
 ## Next reading
 

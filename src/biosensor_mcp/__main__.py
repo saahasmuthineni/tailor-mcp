@@ -3,6 +3,7 @@ CLI for Biosensor MCP.
 
 Usage:
     biosensor-mcp serve      # Start MCP server (Claude Desktop calls this)
+    biosensor-mcp pilot      # Configure CSV-based multi-subject pilot (start here for the v6.2 use case)
     biosensor-mcp setup      # Run Strava OAuth setup wizard
     biosensor-mcp status     # Diagnostic check
     biosensor-mcp demo       # Run analytics on synthetic data (no Strava needed)
@@ -174,6 +175,12 @@ def cmd_setup():
     # after pip install — the old path-walk approach broke in site-packages.
     from biosensor_mcp.wizard import main as wizard_main
     wizard_main()
+
+
+def cmd_pilot():
+    """Run the CSV-based multi-subject pilot setup wizard."""
+    from biosensor_mcp.pilot import main as pilot_main
+    sys.exit(pilot_main())
 
 
 def cmd_status():
@@ -353,6 +360,7 @@ def cmd_uninstall():
 def main():
     commands = {
         "serve": cmd_serve,
+        "pilot": cmd_pilot,
         "setup": cmd_setup,
         "status": cmd_status,
         "demo": cmd_demo,

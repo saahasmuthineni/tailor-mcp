@@ -48,7 +48,7 @@ biosensor-mcp = "biosensor_mcp.__main__:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-biosensor_mcp = ["py.typed"]
+biosensor_mcp = ["py.typed", "_fixtures/**/*.csv"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

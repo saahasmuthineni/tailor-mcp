@@ -664,6 +664,71 @@ class TestPHIScrubberSeam:
             router.close()
 
 
+class TestPHIScrubberAuditStamp:
+    """
+    Closes the ADR 0003 doc-lie: the documentation has claimed since v5
+    that ``scrubber_id`` is recorded in audit rows so a misconfigured
+    deployment running the no-op default is distinguishable from one
+    running an institutional subclass. Until v6.2 the property existed
+    on PHIScrubber but the router never read it. These tests pin the
+    wire-up.
+    """
+
+    def test_default_scrubber_stamps_noop_in_meta_and_audit(self):
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir)
+            try:
+                router.register_child(MockChild("alpha"))
+                r = _run(router._dispatch("alpha_free_tool", {"value": 1}))
+                data = _loads(r[0].text)
+                assert data["_meta"]["scrubber_id"] == "noop"
+
+                # Audit row carries the same value
+                import sqlite3
+                conn = sqlite3.connect(str(data_dir / "audit.db"))
+                try:
+                    rows = conn.execute(
+                        "SELECT scrubber_id FROM audit_log "
+                        "WHERE outcome = 'SUCCESS' ORDER BY id DESC LIMIT 1"
+                    ).fetchall()
+                finally:
+                    conn.close()
+                assert rows == [("noop",)]
+            finally:
+                router.close()
+
+    def test_subclass_scrubber_stamps_class_name(self):
+        from biosensor_mcp.framework.security import PHIScrubber
+
+        class HIPAASafeHarborScrubber(PHIScrubber):
+            def scrub(self, result: dict) -> dict:
+                return result
+
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir)
+            try:
+                router.register_child(MockChild("alpha"))
+                router._phi_scrubber = HIPAASafeHarborScrubber()
+                r = _run(router._dispatch("alpha_free_tool", {"value": 1}))
+                data = _loads(r[0].text)
+                assert data["_meta"]["scrubber_id"] == "HIPAASafeHarborScrubber"
+
+                import sqlite3
+                conn = sqlite3.connect(str(data_dir / "audit.db"))
+                try:
+                    (sid,) = conn.execute(
+                        "SELECT scrubber_id FROM audit_log "
+                        "WHERE outcome = 'SUCCESS' ORDER BY id DESC LIMIT 1"
+                    ).fetchone()
+                finally:
+                    conn.close()
+                assert sid == "HIPAASafeHarborScrubber"
+            finally:
+                router.close()
+
+
 class TestDispatchInternalProvenance:
     """
     Internal cross-child calls (used by vault backfill) must carry the

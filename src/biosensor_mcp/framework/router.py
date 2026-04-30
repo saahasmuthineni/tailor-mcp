@@ -312,6 +312,7 @@ class RouterMCP:
             self._audit.record(
                 domain, tool_name, tier, arguments, 0, "PARAM_INVALID", 0,
                 error=err, subject_id=subject_id,
+                scrubber_id=self._phi_scrubber.scrubber_id,
             )
             return [TextContent(type="text", text=_dumps({"error": err}))]
 
@@ -323,6 +324,7 @@ class RouterMCP:
             self._audit.record(
                 domain, tool_name, tier, cleaned, 0, "CIRCUIT_OPEN", 0,
                 error=cb_err, subject_id=subject_id,
+                scrubber_id=self._phi_scrubber.scrubber_id,
             )
             return [TextContent(type="text", text=_dumps({"error": cb_err}))]
 
@@ -333,6 +335,7 @@ class RouterMCP:
                 self._audit.record(
                     domain, tool_name, tier, cleaned, 0, "CONSENT_BLOCKED", 0,
                     subject_id=subject_id,
+                    scrubber_id=self._phi_scrubber.scrubber_id,
                 )
                 ci = child.consent_info
                 scope = ci.scope
@@ -413,6 +416,7 @@ class RouterMCP:
                     domain, tool_name, tier, cleaned, 0,
                     "COST_ESTIMATE_ERROR", duration_ms,
                     error=str(e), subject_id=subject_id,
+                    scrubber_id=self._phi_scrubber.scrubber_id,
                 )
                 log.warning(f"Cost estimation failed for {tool_name}: {e}")
                 return [
@@ -439,6 +443,7 @@ class RouterMCP:
                     "COST_GATE_TRIGGERED",
                     duration_ms,
                     subject_id=subject_id,
+                    scrubber_id=self._phi_scrubber.scrubber_id,
                 )
 
                 # Human-relatable cost context
@@ -522,6 +527,7 @@ class RouterMCP:
             self._audit.record(
                 domain, tool_name, tier, cleaned, tokens, "SUCCESS", duration_ms,
                 subject_id=subject_id,
+                scrubber_id=self._phi_scrubber.scrubber_id,
             )
 
             # ── Post-execute hooks (e.g. VaultWriter) ──
@@ -543,6 +549,7 @@ class RouterMCP:
                     "package_version": biosensor_mcp.__version__,
                     "tool_name": tool_name,
                     "called_at": datetime.now(timezone.utc).isoformat(),
+                    "scrubber_id": self._phi_scrubber.scrubber_id,
                 }
 
             return [TextContent(type="text", text=_dumps(result))]
@@ -553,6 +560,7 @@ class RouterMCP:
             self._audit.record(
                 domain, tool_name, tier, cleaned, 0, "ERROR", duration_ms,
                 error=str(e), subject_id=subject_id,
+                scrubber_id=self._phi_scrubber.scrubber_id,
             )
             log.error(f"Tool {tool_name} failed: {e}", exc_info=True)
             return [TextContent(type="text", text=_dumps({"error": str(e)}))]
@@ -590,6 +598,7 @@ class RouterMCP:
             self._audit.record(
                 "vault", tool_name, tier, arguments, 0, "PARAM_INVALID", 0,
                 error=err, subject_id=subject_id,
+                scrubber_id=self._phi_scrubber.scrubber_id,
             )
             return [TextContent(type="text", text=_dumps({"error": err}))]
 
@@ -605,6 +614,7 @@ class RouterMCP:
             self._audit.record(
                 "vault", tool_name, tier, cleaned, tokens, "SUCCESS", duration_ms,
                 subject_id=subject_id,
+                scrubber_id=self._phi_scrubber.scrubber_id,
             )
 
             if isinstance(result, dict):
@@ -616,6 +626,7 @@ class RouterMCP:
                     "package_version": biosensor_mcp.__version__,
                     "tool_name": tool_name,
                     "called_at": datetime.now(timezone.utc).isoformat(),
+                    "scrubber_id": self._phi_scrubber.scrubber_id,
                 }
 
             return [TextContent(type="text", text=_dumps(result))]
@@ -625,6 +636,7 @@ class RouterMCP:
             self._audit.record(
                 "vault", tool_name, tier, cleaned, 0, "ERROR", duration_ms,
                 error=str(e), subject_id=subject_id,
+                scrubber_id=self._phi_scrubber.scrubber_id,
             )
             log.error(f"Vault tool {tool_name} failed: {e}", exc_info=True)
             return [TextContent(type="text", text=_dumps({"error": str(e)}))]
@@ -669,6 +681,7 @@ class RouterMCP:
             self._audit.record(
                 domain, tool_name, tier, params, 0, "PARAM_INVALID_INTERNAL", 0,
                 error=err, subject_id=subject_id,
+                scrubber_id=self._phi_scrubber.scrubber_id,
             )
             return {"error": err}
 
@@ -680,6 +693,7 @@ class RouterMCP:
             self._audit.record(
                 domain, tool_name, tier, cleaned, 0, "CIRCUIT_OPEN_INTERNAL", 0,
                 error=cb_err, subject_id=subject_id,
+                scrubber_id=self._phi_scrubber.scrubber_id,
             )
             return {"error": cb_err}
 
@@ -690,6 +704,7 @@ class RouterMCP:
                 self._audit.record(
                     domain, tool_name, tier, cleaned, 0, "CONSENT_BLOCKED_INTERNAL", 0,
                     subject_id=subject_id,
+                    scrubber_id=self._phi_scrubber.scrubber_id,
                 )
                 return {"error": f"Consent not approved for domain '{domain}'"}
 
@@ -704,6 +719,7 @@ class RouterMCP:
                     domain, tool_name, tier, cleaned, 0,
                     "COST_ESTIMATE_ERROR_INTERNAL", duration_ms,
                     error=str(exc), subject_id=subject_id,
+                    scrubber_id=self._phi_scrubber.scrubber_id,
                 )
                 log.warning(
                     f"Internal dispatch: cost estimation failed for {tool_name}: {exc}"
@@ -721,6 +737,7 @@ class RouterMCP:
                     domain, tool_name, tier, cleaned, cost_est.tokens,
                     "COST_GATE_INTERNAL", duration_ms,
                     subject_id=subject_id,
+                    scrubber_id=self._phi_scrubber.scrubber_id,
                 )
                 return {"error": f"Cost gate: {cost_est.tokens} tokens exceeds threshold"}
 
@@ -740,6 +757,7 @@ class RouterMCP:
             self._audit.record(
                 domain, tool_name, tier, cleaned, tokens, "SUCCESS_INTERNAL", duration_ms,
                 subject_id=subject_id,
+                scrubber_id=self._phi_scrubber.scrubber_id,
             )
             # No post-execute hooks — caller manages side effects.
             # Stamp _meta so internal dispatch results carry the same
@@ -754,6 +772,7 @@ class RouterMCP:
                     "package_version": biosensor_mcp.__version__,
                     "tool_name": tool_name,
                     "called_at": datetime.now(timezone.utc).isoformat(),
+                    "scrubber_id": self._phi_scrubber.scrubber_id,
                     "source": "INTERNAL",
                 }
             return result
@@ -764,6 +783,7 @@ class RouterMCP:
             self._audit.record(
                 domain, tool_name, tier, cleaned, 0, "ERROR_INTERNAL", duration_ms,
                 error=str(e), subject_id=subject_id,
+                scrubber_id=self._phi_scrubber.scrubber_id,
             )
             log.error(f"Internal dispatch {tool_name} failed: {e}", exc_info=True)
             return {"error": str(e)}

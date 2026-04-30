@@ -17,6 +17,7 @@ one- or two-sentence pitch plus context; no implementation details.
 | [Vault-freeze for manuscript submission](#freeze-vault-operation-for-manuscript-submission) | S | Medium | Submission-ready snapshots |
 | ~~[Worked-example notebook](#worked-example-notebook-against-a-published-analytical-question)~~ *(shipped — [docs/guides/worked-example.ipynb](docs/guides/worked-example.ipynb))* | — | — | — |
 | [LLM-client evaluation harness](#evaluation-harness-for-llm-client-behavior) | M | Medium | Making the governance claim measurable |
+| [CLI UX: rename `setup` → `setup-strava`](#cli-ux-rename-setup--setup-strava) | XS | Low | Disambiguating the two wizards |
 
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
@@ -287,6 +288,20 @@ scope drift (did the LLM expand the scope of a consent it was
 granted?), and vault-recall accuracy (did the LLM actually consult
 existing themes before writing a new one?) would make the "client-
 agnostic governance" claim measurable.
+
+## CLI UX: rename `setup` → `setup-strava`
+
+After v6.2.1, the framework ships two wizard subcommands under
+generic English verbs: `biosensor-mcp setup` (Strava OAuth, the
+worked-example child) and `biosensor-mcp pilot` (the multi-subject
+CSV setup, the v6.2 flagship use case). Disambiguation today lives
+in `--help` text only; the cleaner long-term answer is to rename
+`setup` → `setup-strava` so each verb names what it actually
+configures. Deferred from v6.2.1 because the doc-churn cost (every
+README, every quickstart, every notebook reference) exceeds the
+present UX gain — the disambiguation note in `--help` is doing the
+heavy lifting fine for now. Re-evaluate when external doc
+references stabilise or when a third wizard joins the lineup.
 
 ---
 

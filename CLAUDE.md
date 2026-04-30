@@ -301,8 +301,18 @@ Opt-in via `csv_dir` key in `user_config.json`. Wraps a local directory of per-s
 
 ## Running and Testing
 
+For end users (PIs, analysts), the canonical install path is uv (or
+pipx) against the GitHub URL — no Python install, no venv ritual:
+
 ```bash
-# Install in dev mode
+uv tool install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
+biosensor-mcp pilot     # Three-prompt wizard for the multi-subject CSV pilot
+```
+
+For development on the framework itself:
+
+```bash
+# Install in dev mode (editable, source tree on disk)
 pip install -e ".[dev]"
 
 # Run tests
@@ -311,14 +321,12 @@ pytest -v
 # CLI smoke test
 biosensor-mcp --help
 
-# Demo mode (no Strava account needed)
-biosensor-mcp demo
-
-# OAuth setup
-biosensor-mcp setup
-
-# Start MCP server
-biosensor-mcp serve
+# Subcommands
+biosensor-mcp pilot      # Multi-subject CSV pilot setup wizard (v6.2.1+)
+biosensor-mcp setup      # Strava OAuth wizard for the worked-example child
+biosensor-mcp demo       # Run analytics on synthetic data (no setup needed)
+biosensor-mcp serve      # Start MCP server (Claude Desktop calls this)
+biosensor-mcp status     # Diagnostic check
 ```
 
 ## Key Design Decisions

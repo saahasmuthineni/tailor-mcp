@@ -534,6 +534,9 @@ def render_theme_note(theme: dict) -> tuple[str, str]:
     tags = list(theme.get("tags") or [])
     if "theme" not in tags:
         tags = ["theme"] + tags
+    # ADR 0009 — optional set-once subject scoping
+    subject_id = theme.get("subject_id")
+    subject_id = str(subject_id).strip() if subject_id else None
 
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -552,6 +555,8 @@ def render_theme_note(theme: dict) -> tuple[str, str]:
         f"linked_runs: {_yaml_int_list(linked_runs)}",
         f"linked_themes: {_yaml_string_list(linked_themes)}",
     ]
+    if subject_id:
+        fm_lines.append(f"subject_id: {_yaml_scalar(subject_id)}")
     if confidence:
         fm_lines.append(f"confidence: {_yaml_scalar(confidence)}")
     fm_lines.append(f'generated_at: "{now_iso}"')
@@ -588,9 +593,13 @@ def render_theme_note(theme: dict) -> tuple[str, str]:
     initial_evidence = theme.get("evidence")
     if isinstance(initial_evidence, list):
         for block in initial_evidence:
-            body_parts.append(_format_evidence_block(str(block), last_updated))
+            body_parts.append(_format_evidence_block(
+                str(block), last_updated, subject_id=subject_id,
+            ))
     elif isinstance(initial_evidence, str) and initial_evidence.strip():
-        body_parts.append(_format_evidence_block(initial_evidence, last_updated))
+        body_parts.append(_format_evidence_block(
+            initial_evidence, last_updated, subject_id=subject_id,
+        ))
     else:
         body_parts.append("*(No evidence recorded yet.)*")
         body_parts.append("")
@@ -621,6 +630,7 @@ def _format_evidence_block(
     verification: str | None = None,
     tag_suffix: str = "",
     timestamp: str | None = None,
+    subject_id: str | None = None,
 ) -> str:
     """
     Render one evidence entry.  Uses the same ``### Insight — TIMESTAMP``
@@ -631,11 +641,17 @@ def _format_evidence_block(
     verification) is provided, a blockquote line is added after the header
     recording the origin of the observation.  ``tag_suffix`` appends a
     bracketed tag to the header (e.g. ``[correction]``).
+
+    ``subject_id`` (ADR 0009) renders as a second blockquote line
+    (``> Subject: P004``) immediately after the source line — preserves
+    the append-only invariant on existing blocks (legacy blocks have no
+    subject line, are read as 'subject unspecified').
     """
     ts = timestamp or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     suffix = f" {tag_suffix}" if tag_suffix else ""
     header = f"### Evidence — {ts}{suffix}"
 
+    metadata_lines: list[str] = []
     has_prov = (
         source_tier is not None
         or bool(source_tool)
@@ -650,7 +666,13 @@ def _format_evidence_block(
             verification=verification,
         )
         if prov_line:
-            return f"{header}\n{prov_line}\n\n{evidence.strip()}\n"
+            metadata_lines.append(prov_line)
+    if subject_id:
+        metadata_lines.append(f"> Subject: {subject_id}")
+
+    if metadata_lines:
+        meta_block = "\n".join(metadata_lines)
+        return f"{header}\n{meta_block}\n\n{evidence.strip()}\n"
     return f"{header}\n\n{evidence.strip()}\n"
 
 
@@ -725,6 +747,9 @@ def render_moment_note(moment: dict) -> tuple[str, str]:
         tags = ["moment"] + tags
     divergence = moment.get("divergence")
     divergence = str(divergence).strip() if divergence else ""
+    # ADR 0009 — optional subject scoping
+    subject_id = moment.get("subject_id")
+    subject_id = str(subject_id).strip() if subject_id else None
 
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -739,6 +764,8 @@ def render_moment_note(moment: dict) -> tuple[str, str]:
         f"linked_runs: {_yaml_int_list(linked_runs)}",
         f"linked_themes: {_yaml_string_list(linked_themes)}",
     ]
+    if subject_id:
+        fm_lines.append(f"subject_id: {_yaml_scalar(subject_id)}")
     if divergence:
         fm_lines.append(f"divergence: {_yaml_scalar(divergence)}")
     fm_lines.append(f'generated_at: "{now_iso}"')

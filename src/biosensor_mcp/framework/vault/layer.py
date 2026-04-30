@@ -1126,6 +1126,7 @@ class VaultLayer:
             date_from=params.get("date_from"),
             date_to=params.get("date_to"),
             has_insight_notes=params.get("has_insight_notes"),
+            subject_id=params.get("subject_id"),
             limit=params.get("limit", 20),
         )
         return {
@@ -1189,6 +1190,7 @@ class VaultLayer:
         candidates = self._storage.list_notes(
             domain=_domain_for_kind(kind),
             note_type=kind,
+            subject_id=params.get("subject_id"),
             limit=500,
         )
 
@@ -1229,7 +1231,9 @@ class VaultLayer:
         anomaly_type = params.get("anomaly_type")
         limit = params.get("limit", 20)
         notes = self._storage.get_anomalous_notes(
-            anomaly_type=anomaly_type, limit=limit
+            anomaly_type=anomaly_type,
+            subject_id=params.get("subject_id"),
+            limit=limit,
         )
         return {
             "count": len(notes),
@@ -1360,9 +1364,14 @@ class VaultLayer:
     async def _handle_list_themes(self, params: dict) -> dict:
         status = params.get("status")
         tag = params.get("tag")
+        subject_id = params.get("subject_id")
         limit = params.get("limit", 20)
 
-        themes = self._storage.list_themes(status=status, limit=limit * 2 if tag else limit)
+        themes = self._storage.list_themes(
+            status=status,
+            subject_id=subject_id,
+            limit=limit * 2 if tag else limit,
+        )
 
         # Tag filter is applied post-hoc to keep the storage surface small.
         if tag:
@@ -1446,6 +1455,10 @@ class VaultLayer:
         slug = params["slug"]
         filename = f"themes/{slug}.md"
 
+        # ADR 0009 — vault subject-keying. Optional, set-once.
+        new_subject_id = params.get("subject_id")
+        new_subject_id = str(new_subject_id).strip() if new_subject_id else None
+
         existing = self._storage.get_theme(slug)
         abs_path = (self._vault_path / filename).resolve()
         on_disk = abs_path.exists()
@@ -1458,6 +1471,25 @@ class VaultLayer:
             except Exception as exc:  # pragma: no cover
                 log.warning(f"vault_upsert_theme: revalidate_file failed: {exc}")
             existing = self._storage.get_theme(slug) or existing
+
+            # Enforce set-once on theme subject. Promotion (None → P004)
+            # is allowed; reassignment (P003 → P007) is a hard error.
+            current_subject = (existing or {}).get("subject_id")
+            if (
+                new_subject_id is not None
+                and current_subject is not None
+                and new_subject_id != current_subject
+            ):
+                return {
+                    "error": (
+                        f"Theme {slug!r} is already scoped to subject "
+                        f"{current_subject!r}; cannot reassign to "
+                        f"{new_subject_id!r}. Open a new theme and "
+                        f"reframe-link the old one if a different scope is "
+                        f"genuinely needed (ADR 0009 set-once invariant)."
+                    )
+                }
+            effective_subject_id = new_subject_id or current_subject
 
             # Reframe detection: new hypothesis that differs from the one
             # on disk means the old framing is preserved under
@@ -1487,7 +1519,8 @@ class VaultLayer:
             # frontmatter block — body is preserved.
             try:
                 updated_filename = self._merge_theme_frontmatter(
-                    slug, effective_params, existing or {}
+                    slug, effective_params, existing or {},
+                    subject_id=effective_subject_id,
                 )
             except (ValueError, FileNotFoundError) as exc:
                 return {"error": str(exc)}
@@ -1503,6 +1536,7 @@ class VaultLayer:
                         source_tool=params.get("evidence_source_tool"),
                         source_domain=params.get("evidence_source_domain"),
                         verification=params.get("evidence_verification"),
+                        subject_id=new_subject_id,
                     )
                 except (ValueError, FileNotFoundError) as exc:
                     return {"error": str(exc)}
@@ -1570,6 +1604,7 @@ class VaultLayer:
             "linked_themes": params.get("linked_themes") or [],
             "tags": params.get("tags") or [],
             "resolution": params.get("resolution"),
+            "subject_id": new_subject_id,
         }
         ev = params.get("evidence")
         if ev:
@@ -1706,7 +1741,12 @@ class VaultLayer:
             log.warning(f"_append_under_section({filename}) failed: {exc}")
 
     def _merge_theme_frontmatter(
-        self, slug: str, params: dict, existing_theme: dict
+        self,
+        slug: str,
+        params: dict,
+        existing_theme: dict,
+        *,
+        subject_id: str | None = None,
     ) -> str:
         """
         Rewrite only the YAML frontmatter of an existing theme note.
@@ -1765,6 +1805,12 @@ class VaultLayer:
             f"linked_runs: {_yaml_int_list([int(x) for x in linked_runs if x is not None])}",
             f"linked_themes: {_yaml_string_list(linked_themes)}",
         ]
+        # Preserve set-once subject_id across frontmatter rewrites — read
+        # whatever is already on disk, fall back to the caller-supplied
+        # value (which has already been validated by _handle_upsert_theme).
+        effective_subject = subject_id or fm.get("subject_id")
+        if effective_subject:
+            fm_lines.append(f"subject_id: {_yaml_scalar(effective_subject)}")
         if confidence:
             fm_lines.append(f"confidence: {_yaml_scalar(confidence)}")
         fm_lines.append(f'generated_at: "{now_iso}"')
@@ -1814,6 +1860,7 @@ class VaultLayer:
             note_type="moment",
             date_from=date_from,
             date_to=date_to,
+            subject_id=params.get("subject_id"),
             limit=limit * 2 if (theme_filter or tag) else limit,
         )
 
@@ -1853,6 +1900,7 @@ class VaultLayer:
                 "linked_themes": params.get("linked_themes") or [],
                 "tags": params.get("tags") or [],
                 "date": params.get("date"),
+                "subject_id": params.get("subject_id"),  # ADR 0009
             })
         except (ValueError, KeyError, FileNotFoundError) as exc:
             return {"error": str(exc)}
@@ -2362,6 +2410,7 @@ class VaultLayer:
 
         rows = self._storage.list_notes(
             domain="vault", note_type="failure_mode",
+            subject_id=params.get("subject_id"),
             limit=max(limit * 2, limit),
         )
         out: list[dict] = []

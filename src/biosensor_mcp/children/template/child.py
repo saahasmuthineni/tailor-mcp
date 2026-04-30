@@ -26,12 +26,12 @@ import logging
 from pathlib import Path
 
 from ...framework.interfaces import (
+    SUBJECT_ID_PARAM_DOC,
+    SUBJECT_ID_SCHEMA,
     ChildMCP,
     ConsentInfo,
     ConsentScope,
     CostEstimate,
-    SUBJECT_ID_PARAM_DOC,
-    SUBJECT_ID_SCHEMA,
     ToolDefinition,
     ValidationSchema,
 )

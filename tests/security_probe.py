@@ -138,6 +138,9 @@ class MockChild(ChildMCP):
             alternative_description="Downsampled",
         )
 
+    def purge_cache(self, *, force=False):
+        return {"rows_purged": 0, "tables_touched": [], "preserved": []}
+
 
 class FailingChild(MockChild):
     async def execute(self, tool_name, params):

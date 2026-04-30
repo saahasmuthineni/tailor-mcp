@@ -280,7 +280,7 @@ class RouterMCP:
         if tool_name.startswith("approve_consent_"):
             return self._handle_consent_approval(tool_name)
         if tool_name.startswith("revoke_consent_"):
-            return self._handle_consent_revocation(tool_name)
+            return self._handle_consent_revocation(tool_name, arguments)
 
         # ── Resolve child ──
         if tool_name not in self._tool_map:
@@ -838,7 +838,20 @@ class RouterMCP:
 
     # ── Consent Revocation Handler ──
 
-    def _handle_consent_revocation(self, tool_name: str) -> list[TextContent]:
+    def _handle_consent_revocation(
+        self, tool_name: str, arguments: dict
+    ) -> list[TextContent]:
+        """
+        Revoke consent and purge the child's biometric cache atomically.
+
+        Per ADR 0013, the order is purge → revoke (fail-closed):
+        if the child's ``purge_cache()`` raises, consent stays
+        approved and the caller sees the error. The IRB invariant is
+        "revocation = no cache"; failing to revoke loudly is better
+        than declaring revocation while PHI persists. Caller can
+        pass ``force_revoke=True`` to swallow purge errors and
+        revoke anyway — used for the rare locked-cache-file edge case.
+        """
         domain = tool_name[len("revoke_consent_"):]
         if domain not in self._children:
             return [
@@ -847,39 +860,98 @@ class RouterMCP:
                     text=_dumps({"error": f"Unknown domain: {domain}"}),
                 )
             ]
-        was_approved = self._consent.revoke(domain)
         child = self._children[domain]
-        self._audit.record(
-            domain, tool_name, 0, {}, 0, "SUCCESS", 0,
-            scrubber_id=self._phi_scrubber.scrubber_id,
-        )
-        if was_approved:
+        force_revoke = bool(arguments.get("force_revoke", False)) if arguments else False
+        scrubber_id = self._phi_scrubber.scrubber_id
+
+        # If consent was never approved, there is nothing to purge —
+        # short-circuit before touching the storage layer.
+        if not self._consent.is_approved(domain):
+            self._audit.record(
+                domain, tool_name, 0, {}, 0, "SUCCESS", 0,
+                scrubber_id=scrubber_id,
+            )
             return [
                 TextContent(
                     type="text",
                     text=_dumps(
                         {
-                            "revoked": True,
+                            "revoked": False,
                             "domain": domain,
-                            "display_name": child.display_name,
                             "message": (
-                                f"Biometric data access revoked for "
-                                f"{child.display_name}. Gated tools in "
-                                f"'{domain}' will require fresh consent."
+                                f"No active consent for '{domain}' to revoke."
                             ),
                         }
                     ),
                 )
             ]
+
+        # ── Purge first (per ADR 0013 fail-closed ordering) ──
+        try:
+            purge_result = child.purge_cache(force=force_revoke)
+        except Exception as exc:
+            # Fail closed: consent stays approved, caller sees the error.
+            self._audit.record(
+                domain, tool_name, 0, {"force_revoke": force_revoke},
+                0, "PURGE_FAILED", 0,
+                error=str(exc), scrubber_id=scrubber_id,
+            )
+            log.error(
+                f"purge_cache failed for {domain}; revocation aborted "
+                f"(consent stays approved). Error: {exc}",
+                exc_info=True,
+            )
+            return [
+                TextContent(
+                    type="text",
+                    text=_dumps(
+                        {
+                            "revoked": False,
+                            "domain": domain,
+                            "error": (
+                                f"Cache purge failed; consent NOT revoked "
+                                f"to honour ADR 0013 fail-closed invariant. "
+                                f"Underlying error: {exc}. Pass "
+                                f"force_revoke=True to revoke anyway."
+                            ),
+                        }
+                    ),
+                )
+            ]
+
+        # Purge succeeded (or force=True swallowed any error). Flip
+        # consent state and record the paired audit row. The purge
+        # result (row counts, tables touched, preserved tables, any
+        # partial-failure errors) lands in the PURGE_CACHE row's
+        # params per ADR 0013 § "Paired audit rows" — the doc and
+        # code claim a single source of truth, so both must agree.
+        self._consent.revoke(domain)
+        self._audit.record(
+            domain, "purge_cache", 0,
+            {"force_revoke": force_revoke, "purge_result": purge_result},
+            0, "PURGE_CACHE", 0,
+            scrubber_id=scrubber_id,
+        )
+        self._audit.record(
+            domain, tool_name, 0, {"force_revoke": force_revoke},
+            0, "SUCCESS", 0,
+            scrubber_id=scrubber_id,
+        )
         return [
             TextContent(
                 type="text",
                 text=_dumps(
                     {
-                        "revoked": False,
+                        "revoked": True,
                         "domain": domain,
+                        "display_name": child.display_name,
+                        "purge_result": purge_result,
                         "message": (
-                            f"No active consent for '{domain}' to revoke."
+                            f"Biometric data access revoked for "
+                            f"{child.display_name} and cache purged "
+                            f"({purge_result.get('rows_purged', 0)} rows). "
+                            f"Gated tools in '{domain}' will require "
+                            f"fresh consent."
                         ),
                     }
                 ),

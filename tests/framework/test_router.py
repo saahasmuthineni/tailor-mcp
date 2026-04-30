@@ -79,6 +79,16 @@ class MockChild(ChildMCP):
             alternative_description="Cheaper alternative",
         )
 
+    def purge_cache(self, *, force: bool = False) -> dict:
+        # Records the call so tests can assert revocation invoked it.
+        self.purge_count = getattr(self, "purge_count", 0) + 1
+        return {
+            "rows_purged": 0,
+            "tables_touched": [],
+            "preserved": [],
+            "reason": "MockChild has no real cache",
+        }
+
 
 class MockFailingChild(MockChild):
     """Child that always raises on execute."""
@@ -989,3 +999,242 @@ class TestNoopScrubberWarningSurfacedInMeta:
                 assert "scrubber_warning" in data["_meta"]
             finally:
                 router.close()
+
+
+class TestPurgeCacheOnConsentRevocation:
+    """
+    ADR 0013 — Cache-only purge on consent revocation.
+
+    The IRB invariant is "revocation = no cache". Until v6.4.0
+    ``ConsentGate.revoke()`` flipped an in-memory dict and left
+    cached PHI on disk indefinitely. v6.4.0 wires
+    ``child.purge_cache()`` into the revoke pipeline with fail-closed
+    ordering: purge first, then flip consent. If purge raises,
+    consent stays approved and the caller sees the error.
+    """
+
+    def test_revoke_triggers_purge_cache_and_writes_paired_audit_row(self):
+        """Successful revocation produces both a PURGE_CACHE audit row
+        AND a SUCCESS row for the revoke tool itself, both stamped
+        with scrubber_id (ADR 0001 + ADR 0003 invariants paired)."""
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir)
+            try:
+                child = MockChild("alpha")
+                router.register_child(child)
+                _run(router._dispatch("approve_consent_alpha", {}))
+                r = _run(router._dispatch("revoke_consent_alpha", {}))
+                data = _loads(r[0].text)
+
+                assert data["revoked"] is True
+                assert "purge_result" in data
+                assert getattr(child, "purge_count", 0) == 1, (
+                    "child.purge_cache must be called exactly once "
+                    "during a successful revocation"
+                )
+
+                import sqlite3
+                conn = sqlite3.connect(str(data_dir / "audit.db"))
+                try:
+                    rows = conn.execute(
+                        "SELECT tool_name, outcome, scrubber_id "
+                        "FROM audit_log WHERE domain='alpha' "
+                        "ORDER BY id"
+                    ).fetchall()
+                finally:
+                    conn.close()
+                tool_names = [r[0] for r in rows]
+                outcomes = [r[1] for r in rows]
+                scrubbers = [r[2] for r in rows]
+                assert "purge_cache" in tool_names, (
+                    "every successful revocation must produce a "
+                    "PURGE_CACHE audit row per ADR 0013"
+                )
+                assert "PURGE_CACHE" in outcomes
+                assert all(s == "noop" for s in scrubbers), (
+                    "all revocation-path audit rows must carry "
+                    "scrubber_id (ADR 0003)"
+                )
+            finally:
+                router.close()
+
+    def test_revoke_without_prior_approval_skips_purge(self):
+        """Short-circuit when consent was never approved — calling
+        purge on an empty cache is correct but unnecessary, and the
+        absence of a PURGE_CACHE audit row keeps the trail honest."""
+        with TemporaryDirectory() as tmpdir:
+            router = RouterMCP("test", Path(tmpdir))
+            try:
+                child = MockChild("alpha")
+                router.register_child(child)
+                r = _run(router._dispatch("revoke_consent_alpha", {}))
+                data = _loads(r[0].text)
+                assert data["revoked"] is False
+                assert getattr(child, "purge_count", 0) == 0, (
+                    "purge must NOT be called when no consent was "
+                    "previously approved — there's nothing to purge"
+                )
+            finally:
+                router.close()
+
+    def test_revoke_fails_closed_when_purge_raises(self):
+        """Fail-closed: purge exception aborts revocation. Consent
+        stays approved so the participant sees a loud signal that
+        cleanup did not complete."""
+        class PurgeFailingChild(MockChild):
+            def purge_cache(self, *, force=False):
+                raise OSError("simulated cache lock")
+
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir)
+            try:
+                child = PurgeFailingChild("alpha")
+                router.register_child(child)
+                _run(router._dispatch("approve_consent_alpha", {}))
+                r = _run(router._dispatch("revoke_consent_alpha", {}))
+                data = _loads(r[0].text)
+
+                assert data["revoked"] is False
+                assert "error" in data
+                assert "fail-closed" in data["error"]
+                assert router._consent.is_approved("alpha"), (
+                    "fail-closed: consent must remain approved when "
+                    "purge fails (per ADR 0013)"
+                )
+
+                import sqlite3
+                conn = sqlite3.connect(str(data_dir / "audit.db"))
+                try:
+                    (outcome,) = conn.execute(
+                        "SELECT outcome FROM audit_log "
+                        "WHERE tool_name='revoke_consent_alpha' "
+                        "ORDER BY id DESC LIMIT 1"
+                    ).fetchone()
+                finally:
+                    conn.close()
+                assert outcome == "PURGE_FAILED"
+            finally:
+                router.close()
+
+    def test_force_revoke_swallows_purge_error(self):
+        """Escape hatch: ``force_revoke=True`` revokes consent even
+        when the cache file is locked by an external process. Used
+        rarely — the audit row records that force was used."""
+        class PurgeFailingChild(MockChild):
+            def purge_cache(self, *, force=False):
+                if not force:
+                    raise OSError("simulated cache lock")
+                return {
+                    "rows_purged": 0, "tables_touched": [],
+                    "preserved": [], "errors": ["simulated cache lock"],
+                }
+
+        with TemporaryDirectory() as tmpdir:
+            router = RouterMCP("test", Path(tmpdir))
+            try:
+                router.register_child(PurgeFailingChild("alpha"))
+                _run(router._dispatch("approve_consent_alpha", {}))
+                r = _run(router._dispatch(
+                    "revoke_consent_alpha", {"force_revoke": True}
+                ))
+                data = _loads(r[0].text)
+                assert data["revoked"] is True
+                assert not router._consent.is_approved("alpha")
+            finally:
+                router.close()
+
+    def test_purge_result_lands_in_audit_row_for_irb_retrospective(self):
+        """ADR 0013 § "Paired audit rows" claims the audit row carries
+        the rows-purged count + any partial-failure errors so an IRB
+        retrospective reading audit.db six months later can answer
+        "was data actually purged on this revocation?" — and not just
+        "was force_revoke flag passed?". Three v6.4.0 backstops (red-
+        team, phi-irb, reproducibility) flagged this as a doc-vs-code
+        gap pre-fix; this test pins the closure."""
+        class PartialFailChild(MockChild):
+            def purge_cache(self, *, force=False):
+                # Simulates the "force=True swallows errors" path.
+                return {
+                    "rows_purged": 7,
+                    "tables_touched": ["streams"],
+                    "preserved": ["stop_labels"],
+                    "errors": ["activities table locked"],
+                }
+
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir)
+            try:
+                router.register_child(PartialFailChild("alpha"))
+                _run(router._dispatch("approve_consent_alpha", {}))
+                _run(router._dispatch(
+                    "revoke_consent_alpha", {"force_revoke": True}
+                ))
+
+                import sqlite3
+                conn = sqlite3.connect(str(data_dir / "audit.db"))
+                try:
+                    (params_json,) = conn.execute(
+                        "SELECT params FROM audit_log "
+                        "WHERE outcome='PURGE_CACHE' "
+                        "ORDER BY id DESC LIMIT 1"
+                    ).fetchone()
+                finally:
+                    conn.close()
+                params = _loads(params_json)
+                assert "purge_result" in params, (
+                    "PURGE_CACHE audit row must carry the child's "
+                    "purge_result so an IRB retrospective can "
+                    "reconstruct what was purged (ADR 0013)"
+                )
+                assert params["purge_result"]["rows_purged"] == 7
+                assert params["purge_result"]["errors"] == [
+                    "activities table locked"
+                ], (
+                    "partial-failure errors must be recoverable from "
+                    "the audit row — they cannot live only in the "
+                    "response payload (red-team v6.4.0 finding)"
+                )
+            finally:
+                router.close()
+
+
+class TestRunningChildPurgeBiometricCache:
+    """
+    Storage-level contract for the only real-data child currently in
+    the framework. Pinned because RunningStorage is the reference
+    pattern other ChildMCP authors copy when implementing purge_cache.
+    """
+
+    def test_purge_deletes_streams_and_activities_preserves_labels(self):
+        from biosensor_mcp.children.running.child import RunningStorage
+        with TemporaryDirectory() as tmpdir:
+            storage = RunningStorage(Path(tmpdir) / "activities.db")
+            try:
+                # Seed three rows in each table.
+                storage.save_activity(1, {"id": 1, "name": "run-1"})
+                storage.save_activity(2, {"id": 2, "name": "run-2"})
+                storage.save_streams(1, {"hr": [120, 130, 140]})
+                storage.save_streams(2, {"hr": [110, 120]})
+                storage.save_stop_label(1, 0, "traffic light", "red light at 5th & main")
+                storage.save_stop_label(1, 1, "water stop", None)
+
+                result = storage.purge_biometric_cache()
+
+                assert result["rows_purged"] == 4
+                assert set(result["tables_touched"]) == {"streams", "activities"}
+                assert result["preserved"] == ["stop_labels"]
+
+                # Biometric tables empty
+                assert storage.fetchall("SELECT * FROM activities") == []
+                assert storage.fetchall("SELECT * FROM streams") == []
+                # Analyst-authored labels preserved
+                labels = storage.fetchall("SELECT * FROM stop_labels")
+                assert len(labels) == 2, (
+                    "stop_labels are analyst-authored interpretation "
+                    "and must survive a biometric-cache purge"
+                )
+            finally:
+                storage.close()

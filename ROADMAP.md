@@ -22,6 +22,38 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.4.0 (2026-04-30)
+
+Cache-only purge on consent revocation. SemVer minor bump (breaking:
+`ChildMCP.purge_cache` is now a mandatory abstract method). No router
+pipeline, security-pipeline, or vault-layer architecture changes beyond
+the revocation-handler rewrite.
+
+- **New abstract method `ChildMCP.purge_cache(*, force: bool = False) -> dict`** —
+  mandatory on all children; explicit rejection of the ADR 0003 default-no-op
+  trap. Returns `{rows_purged, tables_touched, preserved, errors}`.
+- **Router revocation handler rewrite** — `_handle_consent_revocation`
+  runs purge-before-revoke synchronously; purge failure aborts revocation
+  with consent intact and a `PURGE_FAILED` audit row unless `force_revoke=True`.
+- **Paired `PURGE_CACHE` audit row** — every successful revocation writes a
+  `PURGE_CACHE` row carrying `scrubber_id`, `force_revoke`, and the child's
+  full `purge_result` dict; closes the red-team / phi-irb audit-row provenance
+  gap caught on the release-time backstop pass.
+- **RunningChild** — deletes `streams` + `activities` tables; preserves
+  `stop_labels` (analyst-authored interpretation, not biometric data).
+- **CSVDirectoryChild and TemplateChild** — return citable no-op dicts.
+- **6 new regression tests** — `TestPurgeCacheOnConsentRevocation` (5) and
+  `TestRunningChildPurgeBiometricCache` (1); full suite 510/510.
+- **ADR 0013** — Cache-only purge on consent revocation; cites ADRs 0001 /
+  0003 / 0009 / 0012; names single-account-per-domain limitation.
+- **`docs/design/research-framing.md`** — new "Consent withdrawal under this
+  profile" section codifying the IRB-profile language ADR 0013 cites.
+- **4-backstop release pass** (ADR 0010 / ADR 0011) — red-team, researcher-
+  utility, phi-irb-risk-reviewer, reproducibility-provenance-auditor; 3 found
+  gaps, 2 fixed before ship, 1 documented as known limitation.
+- **Closes Lens 6 retention WATCH** from v6.3.0 hygiene-pass hall-of-fame
+  team expansion.
+
 ## Shipped in v6.3.1 (2026-04-30)
 
 Hygiene-pass patch release. Three IRB-blocking VIOLATIONS patched with

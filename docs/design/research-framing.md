@@ -185,6 +185,35 @@ submission, content-hashed provenance, the evaluation harness, the
 public-dataset worked example — but that the framing above does not
 yet need.
 
+## Consent withdrawal under this profile
+
+Consent withdrawal under the v6.2 deployment shape is treated as
+**cessation of further data collection plus removal of cached
+participant biometric data on the analyst's machine** — not as
+full erasure of every derivative analytical artifact. When a
+participant withdraws, the framework's `revoke_consent_*` tool
+synchronously deletes the cache rows that hold raw biometric data
+(per-stream samples, fetched activity rows, and equivalents in
+each child's storage layer) and refuses to flip consent state if
+that deletion fails. Analyst-authored notes, theme bodies, and
+evidence blocks created lawfully under the prior consent survive
+withdrawal in the same posture an analyst's working notebook
+would: they are work product, not raw participant data. ADR 0013
+codifies the cache-only purge mechanism that enforces this; ADR
+0009's append-only vault invariants govern the analytical-memory
+side.
+
+A study whose IRB language reads *"withdrawal removes all
+derivative records"* rather than *"withdrawal stops further data
+collection"* — for instance, a clinical-grade or GDPR-strict
+study — would need to reconsider both ADRs and pair revocation
+with full vault erasure. The framework provides the seam (the
+reversal condition named in ADR 0013) but does not pre-empt that
+decision: the cache-only-vs-full-erasure call is a study-specific
+IRB question, not a framework-level default.
+
+## Other framings explicitly out of scope today
+
 Two larger framings remain open and will be addressed in a later
 cycle: a fuller institutional deployment (multiple labs, multi-analyst
 studies, real Safe-Harbor scrubbing, manuscript submission), and a

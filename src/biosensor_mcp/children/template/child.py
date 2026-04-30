@@ -343,6 +343,33 @@ class TemplateChild(ChildMCP):
             ),
         )
 
+    def purge_cache(self, *, force: bool = False) -> dict:
+        """
+        Purge cached participant biometric data for this domain.
+        See ADR 0013 — Cache-only purge on consent revocation.
+
+        FILL IN: when you wire real storage above, replace this with
+        a call into your storage layer that DELETEs from the tables
+        holding raw biometric data (raw streams, raw activity rows)
+        and PRESERVES analyst-authored tables (labels, annotations).
+        Pattern: see ``running/child.py::RunningStorage.purge_biometric_cache``.
+        Return rows_purged, tables_touched, preserved so the router's
+        PURGE_CACHE audit row carries provenance.
+
+        The skeleton has only an in-memory fixtures dict, so there
+        is nothing on-disk to purge — return zero with a reason note.
+        """
+        return {
+            "rows_purged": 0,
+            "tables_touched": [],
+            "preserved": [],
+            "reason": (
+                "TemplateChild ships with in-memory fixtures only; "
+                "real children must DELETE rows from biometric tables "
+                "and preserve analyst-authored tables here."
+            ),
+        }
+
     # ══════════════════════════════════════════════════════════
     # EXECUTION
     # ══════════════════════════════════════════════════════════

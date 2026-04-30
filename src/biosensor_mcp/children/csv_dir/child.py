@@ -372,6 +372,32 @@ class CSVDirectoryChild(ChildMCP):
             ),
         )
 
+    def purge_cache(self, *, force: bool = False) -> dict:
+        """
+        No-op for CSV-directory children: the framework does not own
+        the source data.
+
+        Per ADR 0013 § "Children with no framework-owned cache":
+        the CSV files at ``csv_dir.path`` are institutional artifacts
+        the deployer manages — likely a research-data-management
+        system (REDCap export, lab CSV dump). The framework reads
+        them and never writes a derivative cache. Revocation here is
+        therefore correctly a no-op at the framework boundary;
+        institution-side retention policy applies to the source
+        files.
+        """
+        return {
+            "rows_purged": 0,
+            "tables_touched": [],
+            "preserved": [],
+            "reason": (
+                "csv_dir reads institutional CSV files at csv_dir.path; "
+                "the framework owns no derivative cache to purge. "
+                "Source-file retention is the deployer's responsibility "
+                "per ADR 0013."
+            ),
+        }
+
     # ══════════════════════════════════════════════════════════
     # EXECUTION
     # ══════════════════════════════════════════════════════════

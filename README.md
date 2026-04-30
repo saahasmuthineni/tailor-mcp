@@ -1,6 +1,6 @@
 # Biosensor MCP — LLM-Assisted Analysis for Health Research
 
-[![CI](https://github.com/saahasmuthineni/biosensor-to-llm-middleware/actions/workflows/ci.yml/badge.svg)](https://github.com/saahasmuthineni/biosensor-to-llm-middleware/actions/workflows/ci.yml)
+[![CI](https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector/actions/workflows/ci.yml/badge.svg)](https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector/actions/workflows/ci.yml)
 [![Python 3.10 | 3.11 | 3.12](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/downloads/)
 [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows-lightgrey)](.github/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
@@ -12,8 +12,8 @@ governance, audit trails, and reproducibility matter.
 ## 30-second quickstart
 
 ```bash
-git clone https://github.com/saahasmuthineni/biosensor-to-llm-middleware.git
-cd biosensor-to-llm-middleware
+git clone https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
+cd Biosensor-to-LLM-Connector
 pip install -e ".[dev]"
 biosensor-mcp demo           # analytics on synthetic data — no OAuth, no network
 biosensor-mcp --help         # see all commands
@@ -47,7 +47,7 @@ extensible research infrastructure.
 
 | Capability | What it does |
 |---|---|
-| **Local-first router** | Runs next to the data. Raw streams never leave the machine. Only server-computed summaries cross the boundary, and only when a tier and consent gate say they should. |
+| **Local-first router** | Runs next to the data. Only what the active tier permits crosses the boundary — Tier 1 ships server-computed summaries; Tiers 2 and 3 release stream data behind the analyst-side consent gate. |
 | **Tiered access** | Every tool declares an access tier: 1 returns computed summaries, 2 returns downsampled views behind a consent gate, 3 returns raw streams behind consent + cost approval. Data minimization, implemented. |
 | **Durable audit log** | Every call lands in SQLite: timestamp, tool, tier, parameters, outcome, latency, optional `subject_id`. Attachable to a protocol amendment or replication package. |
 | **Provenance stamps** | Every result carries a `_meta` block — package version, tool name, UTC timestamp — so any output in a paper is traceable to the code that produced it. |
@@ -64,9 +64,11 @@ Claude: [calls strava_run_report — Tier 1, no consent required]
 
 Tool:   {"summary": "6.2 mi · 48:12 · avg HR 152",
          "drift_pct": 3.2, "efficiency_factor": 1.71,
-         "_meta": {"package_version": "6.3.1",
-                   "tool_name": "strava_run_report",
-                   "called_at": "2026-04-13T15:42:11Z"}}
+         "_meta": {"package_version":   "6.4.1",
+                   "tool_name":         "strava_run_report",
+                   "called_at":         "2026-04-13T15:42:11Z",
+                   "scrubber_id":       "noop",
+                   "scrubber_warning":  "PHIScrubber is a no-op default; subclass and wire your institution's policy before processing real PHI"}}
 
 Claude: Your last run was 6.2 miles in 48:12 with 3.2 % HR drift and
         an efficiency factor of 1.71 — aerobic base looks solid.
@@ -143,7 +145,8 @@ what happened:
   "token_estimate": 1180,
   "outcome":        "ok",
   "duration_ms":    142,
-  "subject_id":     "P-017"
+  "subject_id":     "P-017",
+  "scrubber_id":    "noop"
 }
 ```
 
@@ -152,9 +155,11 @@ Every successful result carries a `_meta` provenance stamp:
 ```json
 {
   "_meta": {
-    "package_version": "6.3.1",
-    "tool_name":       "strava_run_report",
-    "called_at":       "2026-04-13T15:42:11.345Z"
+    "package_version":  "6.4.1",
+    "tool_name":        "strava_run_report",
+    "called_at":        "2026-04-13T15:42:11.345Z",
+    "scrubber_id":      "noop",
+    "scrubber_warning": "PHIScrubber is a no-op default; subclass and wire your institution's policy before processing real PHI"
   }
 }
 ```
@@ -176,9 +181,9 @@ for the full treatment.
 - One child ships: a Strava running child exercising all three tiers,
   OAuth, cached streams, and the vault writer. Treat it as a template,
   not a dependency.
-- A generic CSV-directory child shipped in v6.1 (one OAuth-free, no-
-  vendor-API path for institutional CSV exports). CGM, sleep, ECG,
-  EDF, and FHIR children are roadmap. See [ROADMAP.md](ROADMAP.md).
+- A generic CSV-directory child ships alongside the running child (one
+  OAuth-free, no-vendor-API path for institutional CSV exports). CGM,
+  sleep, ECG, EDF, and FHIR children are roadmap. See [ROADMAP.md](ROADMAP.md).
 - PHI scrubbing ships as a documented no-op seam. Institutions subclass
   once their policy is defined. The default scrubber surfaces a warning
   in every successful result's `_meta` block so a no-op deployment
@@ -209,8 +214,8 @@ full statement.
 ### Install
 
 ```bash
-git clone https://github.com/saahasmuthineni/biosensor-to-llm-middleware.git
-cd biosensor-to-llm-middleware
+git clone https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
+cd Biosensor-to-LLM-Connector
 pip install -e ".[dev]"
 ```
 
@@ -299,7 +304,7 @@ reason it matters, not just a title:
 
 | Next up | Why it matters |
 |---|---|
-| [**New ChildMCPs**](ROADMAP.md#new-childmcps-for-research-relevant-data-sources) (CGM, sleep, ECG, EDF, FHIR) | A generic CSV-directory child shipped in v6.1; the next domain-specific children unlock broader adoption. The `children/template/` skeleton cuts onboarding from 1,500 lines of reading to filling five blanks. |
+| [**New ChildMCPs**](ROADMAP.md#new-childmcps-for-research-relevant-data-sources) (CGM, sleep, ECG, EDF, FHIR) | A generic CSV-directory child has shipped; the next domain-specific children unlock broader adoption. The `children/template/` skeleton cuts onboarding to filling a small set of named blanks. |
 | [**Real PHI-scrubbing implementations**](ROADMAP.md#real-phi-scrubbing-implementations-behind-the-phiscrubber-slot) | The seam is wired and instrumented; a real policy per child is what any deployment touching actual PHI needs. |
 | [**Deterministic mode + provenance hashing**](ROADMAP.md#deterministic-mode-with-seed-control) | Lets a reviewer re-run an analysis and trace every published number to exact code + exact input bytes. |
 | [**"Freeze vault" for manuscript submission**](ROADMAP.md#freeze-vault-operation-for-manuscript-submission) | One-command archive of vault + audit + code version for attaching to a submission. |

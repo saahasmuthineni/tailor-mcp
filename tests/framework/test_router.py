@@ -853,3 +853,139 @@ class TestRunningChildEndToEnd:
             f"expected SUCCESS, got {outcome!r} — indicates the tool "
             f"raised inside the router's pipeline"
         )
+
+
+class TestConsentHandlerScrubberIdAuditStamp:
+    """
+    Regression coverage for v6.3.1 hygiene-pass finding: until v6.3.1 the
+    ``approve_consent_*`` and ``revoke_consent_*`` handlers wrote audit
+    rows with NULL ``scrubber_id``, breaking the ADR 0003 promise that
+    every audit row carries scrubber identity. The two timeline-anchor
+    rows (when consent was granted / revoked) were the only ones in
+    audit.db that did not distinguish a real-PHI-policy deployment from
+    the no-op default.
+    """
+
+    def test_approve_consent_audit_row_carries_scrubber_id(self):
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir)
+            try:
+                router.register_child(MockChild("alpha"))
+                _run(router._dispatch("approve_consent_alpha", {}))
+
+                import sqlite3
+                conn = sqlite3.connect(str(data_dir / "audit.db"))
+                try:
+                    (sid,) = conn.execute(
+                        "SELECT scrubber_id FROM audit_log "
+                        "WHERE tool_name = 'approve_consent_alpha' "
+                        "ORDER BY id DESC LIMIT 1"
+                    ).fetchone()
+                finally:
+                    conn.close()
+                assert sid == "noop", (
+                    "approve_consent_* audit row must carry scrubber_id "
+                    "(ADR 0003); got NULL/None means the consent timeline "
+                    "rows are indistinguishable between scrubbed and "
+                    "no-op deployments."
+                )
+            finally:
+                router.close()
+
+    def test_revoke_consent_audit_row_carries_scrubber_id(self):
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir)
+            try:
+                router.register_child(MockChild("alpha"))
+                _run(router._dispatch("approve_consent_alpha", {}))
+                _run(router._dispatch("revoke_consent_alpha", {}))
+
+                import sqlite3
+                conn = sqlite3.connect(str(data_dir / "audit.db"))
+                try:
+                    (sid,) = conn.execute(
+                        "SELECT scrubber_id FROM audit_log "
+                        "WHERE tool_name = 'revoke_consent_alpha' "
+                        "ORDER BY id DESC LIMIT 1"
+                    ).fetchone()
+                finally:
+                    conn.close()
+                assert sid == "noop"
+            finally:
+                router.close()
+
+
+class TestNoopScrubberWarningSurfacedInMeta:
+    """
+    Regression coverage for v6.3.1 hygiene-pass finding: stderr warnings
+    on default-scrubber construction are swallowed by Claude Desktop's
+    spawned-subprocess process model. ADR 0003 promised the no-op
+    default surfaces "loudly" — but no analyst reads the rolling log.
+    The fix surfaces the warning into every successful ``_meta`` block
+    so the LLM transcript itself shows the misconfiguration, satisfying
+    ADR 0003 in any deployment shape.
+    """
+
+    def test_default_scrubber_emits_warning_in_meta(self):
+        with TemporaryDirectory() as tmpdir:
+            router = RouterMCP("test", Path(tmpdir))
+            try:
+                router.register_child(MockChild("alpha"))
+                r = _run(router._dispatch("alpha_free_tool", {"value": 1}))
+                data = _loads(r[0].text)
+                assert "scrubber_warning" in data["_meta"], (
+                    "default PHIScrubber must surface its warning into "
+                    "_meta so the LLM transcript shows the no-op state"
+                )
+                assert "no-op" in data["_meta"]["scrubber_warning"]
+                assert "ADR 0003" in data["_meta"]["scrubber_warning"]
+            finally:
+                router.close()
+
+    def test_subclass_scrubber_omits_warning_from_meta(self):
+        from biosensor_mcp.framework.security import PHIScrubber
+
+        class HIPAASafeHarborScrubber(PHIScrubber):
+            def scrub(self, result: dict) -> dict:
+                return result
+
+        with TemporaryDirectory() as tmpdir:
+            router = RouterMCP("test", Path(tmpdir))
+            try:
+                router.register_child(MockChild("alpha"))
+                router._phi_scrubber = HIPAASafeHarborScrubber()
+                r = _run(router._dispatch("alpha_free_tool", {"value": 1}))
+                data = _loads(r[0].text)
+                assert "scrubber_warning" not in data["_meta"], (
+                    "subclass scrubbers must not stamp the no-op warning"
+                )
+            finally:
+                router.close()
+
+    def test_vault_dispatch_meta_carries_warning_under_default(self):
+        """Vault path uses dict-merge syntax for the conditional add;
+        prove it lands in the ``_meta`` block too."""
+        from biosensor_mcp.framework.vault import VaultLayer, VaultWriter
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            vault_root = root / "vault"
+            vault_root.mkdir()
+            data_dir = root / "data"
+            data_dir.mkdir()
+            router = RouterMCP("test", data_dir)
+            try:
+                router.register_child(MockChild("alpha"))
+                writer = VaultWriter(
+                    vault_path=vault_root,
+                    data_dir=data_dir,
+                    vaultable_tools=set(),
+                    max_hr=195,
+                )
+                router.register_vault_layer(VaultLayer(vault_root, writer))
+                r = _run(router._dispatch("vault_list_notes", {}))
+                data = _loads(r[0].text)
+                assert "scrubber_warning" in data["_meta"]
+            finally:
+                router.close()

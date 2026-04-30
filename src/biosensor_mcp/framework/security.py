@@ -245,6 +245,26 @@ class PHIScrubber:
         """Short identifier stamped into _meta for audit traceability."""
         return "noop" if type(self) is PHIScrubber else type(self).__name__
 
+    @property
+    def scrubber_warning(self) -> str | None:
+        """
+        Optional warning surfaced into every successful result's ``_meta``
+        block when the no-op default scrubber is in use. Subclasses signal
+        an active policy by inheriting the ``None`` return.
+
+        Why surface here, not just stderr: stderr from a Claude-Desktop-
+        spawned MCP server is invisible to the analyst. Stamping the
+        warning into ``_meta`` makes the misconfiguration visible in the
+        LLM transcript on every call, satisfying ADR 0003's intent that
+        a no-op deployment surface "loudly" in any environment.
+        """
+        if type(self) is PHIScrubber:
+            return (
+                "PHIScrubber default is a no-op; production deployments "
+                "must subclass PHIScrubber. See ADR 0003."
+            )
+        return None
+
     def scrub(self, result: dict) -> dict:
         """
         Return ``result`` unchanged. Subclasses override this method

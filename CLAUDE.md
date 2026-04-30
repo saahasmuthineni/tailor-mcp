@@ -1,5 +1,22 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.1.1 (2026-04-29)** — docs/governance release. Adds the
+> boss-architect protocols section to CLAUDE.md (five Tier-1 rules
+> governing the main session at the boss-facing boundary: intent →
+> options, pre-implementation audit, plain-language framing,
+> anti-sycophancy / conflict pushback, demo-before-commit; plus a
+> "failure modes to watch" callout naming main-session sycophancy as
+> the structural risk the boss cannot self-detect). Adds
+> `docs/design/operating-model.md` — a two-tier architecture memo
+> covering the boss ↔ main-session ↔ specialist-agent hierarchy,
+> heritage citations (PARC / Bell Labs / Apollo / Mac team / Brooks),
+> and the agent roster in plain terms. All 8 agent prompts gain a
+> "Refuse on conflict with codebase ground truth" hard rule as a
+> Tier-2 anti-sycophancy backstop, tailored per agent.
+> `integration-auditor` also gains `--proposal-mode` for
+> pre-implementation defensive imagining. No router, security, child,
+> vault, or CLI changes.
+>
 > **v6.1.0 (2026-04-29)** — vault-only release. Adds the rendering-
 > layers policy ([ADR 0007](docs/adr/0007-rendering-layers-policy.md)),
 > three new vault tools (failure-mode lifecycle, dashboards refresh),

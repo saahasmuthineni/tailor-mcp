@@ -21,6 +21,31 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.1.1 (2026-04-29)
+
+Docs and governance release. No Python code touched; no router, security,
+child, vault, or CLI changes.
+
+- **Boss-architect protocols in CLAUDE.md** — five Tier-1 rules governing
+  the main session at the boss-facing boundary: intent → options before
+  dispatch, pre-implementation audit on non-trivial work, plain-language
+  decision-framing on every boss-facing report, anti-sycophancy and
+  mandatory conflict pushback, demo-before-commit. Plus a "failure modes to
+  watch" callout naming main-session sycophancy as the structural risk the
+  boss cannot self-detect.
+- **[docs/design/operating-model.md](docs/design/operating-model.md)** —
+  two-tier architecture memo covering the boss ↔ main-session ↔
+  specialist-agent hierarchy, heritage citations (PARC / Bell Labs / Apollo
+  / Mac team / Brooks), and the agent roster in plain terms.
+- **Agent hard rule — Refuse on conflict with codebase ground truth** — all
+  8 agent prompts gain a Tier-2 anti-sycophancy backstop tailored per agent
+  (e.g. adr-drafter refuses to draft an ADR contradicting an accepted ADR;
+  integration-auditor refuses to classify a clearly-suspicious deletion as
+  Justified without evidence).
+- **integration-auditor `--proposal-mode`** — new Mode B for
+  pre-implementation defensive imagining on a proposal description rather
+  than a diff. Own pre-flight, evaluation procedure, and report format.
+
 ## Shipped in v6.1.0 (2026-04-29)
 
 The vault layer gained dual-output rendering policy plus three new

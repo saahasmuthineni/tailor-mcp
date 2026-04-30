@@ -34,6 +34,8 @@ import logging
 from pathlib import Path
 
 from ...framework.interfaces import (
+    SUBJECT_ID_PARAM_DOC,
+    SUBJECT_ID_SCHEMA,
     ChildMCP,
     ConsentInfo,
     ConsentScope,
@@ -45,27 +47,8 @@ from .processing import CSVProcessing
 
 log = logging.getLogger("biosensor-mcp.csv_dir")
 
-
-# ─────────────────────────────────────────────────────────────────
-# Optional audit-scoping identifier declared on every tool. See
-# ADR 0002. The constant is re-declared here (not imported from the
-# running child) to keep children decoupled.
-# ─────────────────────────────────────────────────────────────────
-
-SUBJECT_ID_SCHEMA = ValidationSchema(
-    type=str,
-    required=False,
-    pattern=r"^[A-Za-z0-9_\-]{1,64}$",
-)
-
-SUBJECT_ID_PARAM_DOC = {
-    "type": "string",
-    "description": (
-        "Optional study participant identifier for audit-log scoping. "
-        "Does not filter data. Pattern: ^[A-Za-z0-9_-]{1,64}$."
-    ),
-    "required": False,
-}
+# SUBJECT_ID_SCHEMA / SUBJECT_ID_PARAM_DOC are framework-level constants
+# (see ADR 0002) — csv_* tools reference them via the import above.
 
 # Filename-safe pattern for file_id parameter — rejects path
 # traversal sequences (no slashes, no '..' via pattern).

@@ -9,10 +9,10 @@ one- or two-sentence pitch plus context; no implementation details.
 | Item | Effort | Impact | Unblocks |
 |---|---|---|---|
 | [New ChildMCPs (CGM / sleep / ECG / EDF / FHIR)](#new-childmcps-for-research-relevant-data-sources) *(template skeleton + CSV child shipped — see that section)* | M–L | High | Broader adoption |
-| [Per-subject `subject_id` on vault tools](#per-subject-parameter-scoping-on-vault-tools) | S–M | Medium | Multi-participant vault organization |
+| ~~[Per-subject `subject_id` on vault tools](#per-subject-parameter-scoping-on-vault-tools)~~ *(shipped in v6.2 — see [ADR 0009](docs/adr/0009-vault-subject-keying.md))* | — | — | — |
 | [Real PHI-scrubbing implementations](#real-phi-scrubbing-implementations-behind-the-phiscrubber-slot) | M | High | Any deployment with actual PHI |
 | [Per-analyst attribution on vault evidence](#per-analyst-attribution-on-vault-evidence-blocks) | S | Medium | Multi-analyst studies |
-| [Deterministic mode + seed control](#deterministic-mode-with-seed-control) | S | Medium | Reproducible paper results |
+| [Deterministic mode + seed control](#deterministic-mode-with-seed-control) *(prerequisite shipped silently; residual scope is the audited-flag-plus-provenance-hash pairing — see [ADR 0008](docs/adr/0008-deterministic-by-construction-processing.md))* | XS | Low | Reproducible paper results |
 | [Provenance hashing on derived metrics](#real-provenance-hashing-on-derived-metrics) | M | Medium | Byte-level reviewer traceability |
 | [Vault-freeze for manuscript submission](#freeze-vault-operation-for-manuscript-submission) | S | Medium | Submission-ready snapshots |
 | ~~[Worked-example notebook](#worked-example-notebook-against-a-published-analytical-question)~~ *(shipped — [docs/guides/worked-example.ipynb](docs/guides/worked-example.ipynb))* | — | — | — |
@@ -20,6 +20,55 @@ one- or two-sentence pitch plus context; no implementation details.
 
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
+
+## Shipped in v6.2.0 (2026-04-29)
+
+The pilot-ready release. Closes the multi-subject vault failure mode
+the proposal-mode auditor named for the v6.2 framing (a friendly
+academic lab, one PI + one analyst, 5–20 participants, light IRB).
+Also closes two latent governance-claim doc-lies the drift audit
+surfaced. No router or security-pipeline architecture changes;
+existing v6.1 vaults upgrade in place via lazy rescan.
+
+- **[ADR 0009 — Vault subject-keying](docs/adr/0009-vault-subject-keying.md)** —
+  resolves the design question ADR 0002 deliberately deferred. Themes
+  carry an optional, set-once `subject_id` in frontmatter; evidence
+  and moments stamp the subject of their writing call; search and
+  list queries filter by subject when one is provided, with cross-
+  subject themes and v6.1-era legacy notes preserved via the IS-NULL
+  branch.
+- **`subject_id` on all 25 vault tools** — surfaced in `param_schemas`
+  and rendered in tool listings so LLM clients discover the
+  parameter via `list_tools`. Storage-layer migrations
+  (`vault_notes.subject_id`, `vault_themes.subject_id`) follow the
+  same `ALTER TABLE` pattern `audit_log` used.
+- **[ADR 0008 — Analytical processing is deterministic by construction](docs/adr/0008-deterministic-by-construction-processing.md)** —
+  records the invariant the codebase already shipped: every method on
+  `RunningProcessing`, `CSVProcessing`, and `TemplateProcessing` is a
+  `@staticmethod` pure function with no PRNG and no clock reads. Names
+  the residual scope on the deterministic-mode roadmap entry (the
+  audited-flag-plus-provenance-hash pairing).
+- **`scrubber_id` in audit-log column + `_meta` block** — closes the
+  ADR 0003 doc-lie. The property existed on `PHIScrubber` since v5;
+  v6.2 wires the value into a new `audit_log.scrubber_id` column and
+  stamps it on every `_meta` block so a misconfigured `noop`
+  deployment is visibly distinguishable from one running an
+  institutional subclass.
+- **`SUBJECT_ID_SCHEMA` promotion to `framework.interfaces`** —
+  removes the triplicated `ValidationSchema` declarations across the
+  three child modules. Children re-export via existing imports;
+  vault layer references the framework-level constant directly.
+- **[Multi-subject pilot quickstart](docs/guides/multi-subject-pilot.md)** —
+  PI-facing walkthrough from `git clone` to a working multi-subject
+  vault in roughly fifteen minutes. Bundled
+  `examples/multi_subject_pilot/` with three synthetic-participant
+  CSV fixtures, a deterministic regenerator script, a portable
+  `user_config.example.json`, and a directory README pointing back
+  at the guide.
+- **Locked v6.2 deployment-shape framing in
+  [`docs/design/research-framing.md`](docs/design/research-framing.md)** —
+  names the target shape (Camp A-light) and explicitly defers the
+  fuller institutional and personal-craft framings to v6.3+.
 
 ## Shipped in v6.1.1 (2026-04-29)
 
@@ -114,11 +163,14 @@ a FHIR-bundle child, etc. Getting this right requires an actual study
 to anchor the policy against; it is deliberately not a framework-level
 decision.
 
-As of the codebase-review pass, the no-op default emits a one-time
-warning on first construction and exposes a `scrubber_id` property
-(`"noop"` vs subclass name) so audit rows on a misconfigured
-deployment are distinguishable from ones produced under a real
-policy.
+As of v6.2 (2026-04-29), the `scrubber_id` is recorded in a dedicated
+column on every `audit_log` row and stamped on every `_meta` block
+returned to the LLM. A deployment running the no-op default is
+distinguishable from one running an institutional subclass at query
+time *and* in any individual response. Earlier doc claims of this
+behaviour predated the wire-up; v6.2 closed the gap (see
+[ADR 0008](docs/adr/0008-deterministic-by-construction-processing.md)
+and the v6.2 shipped section for the drift-audit context).
 
 ## New ChildMCPs for research-relevant data sources
 
@@ -153,20 +205,20 @@ starting point for the new child's own tests.
 
 ## Per-subject parameter scoping on vault tools
 
-The research-shift release makes `subject_id` a first-class column on
-the audit log and threads it through the router from call parameters
-to every audit row in that dispatch path. `RunningChild` now declares
-`subject_id` on all 12 `strava_*` tools (audit scoping for data
-access; see ADR 0002 update). What remains is vault adoption.
+**Shipped in v6.2 (2026-04-29).** [ADR 0009](docs/adr/0009-vault-subject-keying.md)
+documents the design; all 25 vault tools now declare `subject_id` in
+their schemas; `vault_notes` and `vault_themes` carry nullable
+`subject_id` columns; `vault_upsert_theme` enforces a set-once
+invariant; evidence and moment renderers stamp the subject of the
+writing call; list and search tools filter by `subject_id` with the
+IS-NULL branch preserving cross-subject and v6.1-legacy visibility.
+Existing v6.1 vaults upgrade in place via lazy rescan — no markdown
+rewrites required.
 
-Declaring `subject_id` on vault tools is not a mechanical copy of the
-running-child work: the vault organizes analytical memory across
-sessions, and adding per-subject scoping means deciding how vault
-notes and themes are *keyed* by subject — do evidence blocks carry a
-subject, do themes span subjects, does `vault_search_notes` filter by
-subject, what happens to cross-subject insights, how do existing
-un-keyed notes migrate? That's a design question worth answering
-deliberately rather than retrofitting.
+**Not shipped (v6.3+):** subject-aware search ranking, cross-subject
+theme aggregation tools, multi-analyst attribution interaction with
+subjects, and vault-freeze export-by-subject. See the ADR for the
+full out-of-scope list.
 
 ## Per-analyst attribution on vault evidence blocks
 
@@ -178,12 +230,20 @@ frontmatter and rendered in the Obsidian view, is the clean version.
 
 ## Deterministic mode with seed control
 
-Several analytical functions touch pseudo-randomness (anomaly
-sampling, downsampling variants). For reproducibility-critical
-analyses, a deterministic-mode flag that pins every seed from a
-single audited entry point would let reviewers re-run an analysis and
-get byte-identical outputs. Coordinated with provenance hashing,
-below.
+**Partially shipped — see [ADR 0008](docs/adr/0008-deterministic-by-construction-processing.md).**
+The 2026-04-29 drift audit confirmed that no analytical function in
+`framework/` or any `children/*/processing.py` touches pseudo-
+randomness, reads a clock, or holds module state — every method is a
+`@staticmethod` pure function. The same Tier-1 call with the same
+inputs returns the same numbers across machines, runs, and Python
+versions where stdlib semantics match, *without* any runtime flag.
+
+What remains under this heading is a small, deferred residual: a
+router-level `deterministic_mode` flag stamped into the `_meta`
+block, paired with content-hashed provenance (the next item) so a
+reviewer can confirm a result was actually produced under the
+invariant. The flag is cosmetic without the hash; ADR 0008 commits
+to deferring it as joint work with the provenance-hashing item.
 
 ## Real provenance hashing on derived metrics
 

@@ -132,13 +132,13 @@ Tracked in [ROADMAP.md](../ROADMAP.md):
 - **Real PHI scrubbing implementations** behind the `PHIScrubber`
   slot. The slot exists; the implementations do not. The framework
   deliberately does not guess what PHI means in a given study.
-- **Per-subject scoping as an explicit tool parameter** on existing
-  children. The audit log captures `subject_id` when supplied, but
-  the running child's tools do not yet accept it, and the vault layer
-  does not yet key notes by subject.
-- **Deterministic replay** with seed control. Many analytical
-  functions touch pseudo-randomness (anomaly sampling, downsampling
-  variants). Deterministic mode is a dedicated piece of work.
+- **Deterministic replay** with seed control as an audited entry-
+  point flag, paired with content-hashed provenance. The analytical
+  layer is already PRNG-free and stateless by construction
+  (ADR 0008); the residual is the small router-level flag stamped
+  in `_meta` so reviewers can confirm a re-run was produced under
+  the invariant. Deferred jointly with provenance hashing because
+  the flag without the hash is cosmetic.
 - **Full provenance hashing** on derived metrics. The `_meta` stamps
   ship today; content-hashed provenance chains do not.
 - **Multi-analyst attribution on vault notes.** The vault currently

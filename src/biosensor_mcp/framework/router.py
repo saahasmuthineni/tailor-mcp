@@ -551,6 +551,8 @@ class RouterMCP:
                     "called_at": datetime.now(timezone.utc).isoformat(),
                     "scrubber_id": self._phi_scrubber.scrubber_id,
                 }
+                if self._phi_scrubber.scrubber_warning is not None:
+                    result["_meta"]["scrubber_warning"] = self._phi_scrubber.scrubber_warning
 
             return [TextContent(type="text", text=_dumps(result))]
 
@@ -585,6 +587,10 @@ class RouterMCP:
             - Circuit breaker (local SQLite + filesystem, not external API)
             - Consent gate (metadata, not biometric data)
             - Cost gate (always small, Tier 1)
+            - PHI-scrubber seam (per ADR 0012 — vault content is analyst
+              notes or already-scrubbed downstream tool results, never
+              raw biometric streams; the bypass is sound only while that
+              invariant holds)
             - Post-execute hooks (vault writes should not trigger recursive
               vault writes)
         """
@@ -627,6 +633,11 @@ class RouterMCP:
                     "tool_name": tool_name,
                     "called_at": datetime.now(timezone.utc).isoformat(),
                     "scrubber_id": self._phi_scrubber.scrubber_id,
+                    **(
+                        {"scrubber_warning": self._phi_scrubber.scrubber_warning}
+                        if self._phi_scrubber.scrubber_warning is not None
+                        else {}
+                    ),
                 }
 
             return [TextContent(type="text", text=_dumps(result))]
@@ -775,6 +786,8 @@ class RouterMCP:
                     "scrubber_id": self._phi_scrubber.scrubber_id,
                     "source": "INTERNAL",
                 }
+                if self._phi_scrubber.scrubber_warning is not None:
+                    result["_meta"]["scrubber_warning"] = self._phi_scrubber.scrubber_warning
             return result
 
         except Exception as e:
@@ -801,7 +814,10 @@ class RouterMCP:
             ]
         self._consent.approve(domain)
         child = self._children[domain]
-        self._audit.record(domain, tool_name, 0, {}, 0, "SUCCESS", 0)
+        self._audit.record(
+            domain, tool_name, 0, {}, 0, "SUCCESS", 0,
+            scrubber_id=self._phi_scrubber.scrubber_id,
+        )
         return [
             TextContent(
                 type="text",
@@ -833,7 +849,10 @@ class RouterMCP:
             ]
         was_approved = self._consent.revoke(domain)
         child = self._children[domain]
-        self._audit.record(domain, tool_name, 0, {}, 0, "SUCCESS", 0)
+        self._audit.record(
+            domain, tool_name, 0, {}, 0, "SUCCESS", 0,
+            scrubber_id=self._phi_scrubber.scrubber_id,
+        )
         if was_approved:
             return [
                 TextContent(

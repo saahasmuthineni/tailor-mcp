@@ -63,9 +63,16 @@ Concretely:
   `time.time()`, `datetime.now()`, or other clock-dependent
   functions on the analytical path. Time and clock calls in
   `framework/router.py`, `framework/audit.py`, `framework/cost.py`,
-  `framework/vault/writer.py`, and `children/*/child.py` are
-  permitted — they stamp audit rows, measure latency, and write
-  cache rows, none of which feed back into the computed result.
+  `framework/vault/writer.py`, `framework/vault/renderer.py`,
+  `framework/vault/layer.py`, `framework/vault/storage.py`, and
+  `children/*/child.py` are permitted — they stamp audit rows,
+  measure latency, write cache rows, and produce note frontmatter
+  timestamps, none of which feed back into a `*Processing`
+  numeric result. The vault-side reads (`renderer.py`, `layer.py`,
+  `storage.py`) are timestamps in human-facing markdown frontmatter
+  and SQLite index rows; they are explicitly named here per the
+  v6.3.1 hygiene-pass BORDER NOTES so a future audit does not
+  flag them as drift.
 - The single permitted exception is `demo/sample_data.py`, which
   uses `random.Random(42)` to synthesize reproducible fixture data.
   It is seeded, off the dispatch path, and excluded from coverage.

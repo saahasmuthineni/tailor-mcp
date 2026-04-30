@@ -135,7 +135,8 @@ class VaultLayer:
                         "type": "string",
                         "description": (
                             "Filter by note kind: run_report | trend_report | "
-                            "compare_runs | theme | moment"
+                            "compare_runs | theme | moment | failure_mode | "
+                            "dashboard"
                         ),
                         "required": False,
                     },

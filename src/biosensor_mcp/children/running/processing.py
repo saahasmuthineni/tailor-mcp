@@ -542,11 +542,18 @@ class RunningProcessing:
                             "classification": classification,
                         }
                         if latlng and stop_start < len(latlng):
-                            stop["location"] = latlng[stop_start]
+                            # Tier-1 GPS coarsening: 3 decimals (~111 m) is
+                            # above the residence-precision threshold for
+                            # HIPAA Safe Harbor §164.514(b)(2)(i)(B). The
+                            # full-precision stream is available behind the
+                            # Tier-2 consent gate via strava_downsampled_streams.
+                            raw = latlng[stop_start]
+                            stop["location"] = [round(raw[0], 3), round(raw[1], 3)]
                             if home_coords:
-                                dist = haversine(latlng[stop_start], home_coords)
-                                stop["distance_from_home_m"] = round(dist)
-                                stop["near_home"] = dist < 50
+                                dist = haversine(raw, home_coords)
+                                # Bucket to 100 m so the residence is not
+                                # localisable by triangulating across stops.
+                                stop["distance_from_home_m"] = int(round(dist / 100.0) * 100)
                         stops.append(stop)
                     in_stop = False
 

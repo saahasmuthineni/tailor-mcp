@@ -64,7 +64,7 @@ Claude: [calls strava_run_report — Tier 1, no consent required]
 
 Tool:   {"summary": "6.2 mi · 48:12 · avg HR 152",
          "drift_pct": 3.2, "efficiency_factor": 1.71,
-         "_meta": {"package_version": "4.0.0",
+         "_meta": {"package_version": "6.3.1",
                    "tool_name": "strava_run_report",
                    "called_at": "2026-04-13T15:42:11Z"}}
 
@@ -102,7 +102,7 @@ inside one vendor's product, opaque to the user, mutable, and
 conversation-scoped. Biosensor MCP's vault is governance
 infrastructure: append-only markdown that survives the LLM client,
 human-readable in Obsidian or any text editor, supersession-tracked
-via [`vault_correct_evidence`](CLAUDE.md#vaultlayer--22-tools-v60),
+via [`vault_correct_evidence`](CLAUDE.md#vaultlayer--25-tools-v61),
 study-scoped via `subject_id`, and inspectable down to the SQLite
 index. Same word, different artifact category. For a chat assistant
 remembering your name across conversations, Hosted Memory is the right
@@ -152,7 +152,7 @@ Every successful result carries a `_meta` provenance stamp:
 ```json
 {
   "_meta": {
-    "package_version": "4.0.0",
+    "package_version": "6.3.1",
     "tool_name":       "strava_run_report",
     "called_at":       "2026-04-13T15:42:11.345Z"
   }
@@ -176,14 +176,19 @@ for the full treatment.
 - One child ships: a Strava running child exercising all three tiers,
   OAuth, cached streams, and the vault writer. Treat it as a template,
   not a dependency.
-- CGM, sleep, ECG, EDF, CSV, and FHIR children are roadmap.
-  See [ROADMAP.md](ROADMAP.md).
+- A generic CSV-directory child shipped in v6.1 (one OAuth-free, no-
+  vendor-API path for institutional CSV exports). CGM, sleep, ECG,
+  EDF, and FHIR children are roadmap. See [ROADMAP.md](ROADMAP.md).
 - PHI scrubbing ships as a documented no-op seam. Institutions subclass
-  once their policy is defined.
+  once their policy is defined. The default scrubber surfaces a warning
+  in every successful result's `_meta` block so a no-op deployment
+  cannot silently masquerade as a scrubbed one.
 - Per-subject audit scoping is first-class. `RunningChild` declares
-  `subject_id` on all 12 `strava_*` tools; vault adoption is roadmap
-  (it raises a design question about how vault notes are keyed by
-  subject — see ROADMAP.md).
+  `subject_id` on all 12 `strava_*` tools; vault adoption shipped in
+  v6.2 ([ADR 0009](docs/adr/0009-vault-subject-keying.md)) — themes
+  carry an optional, set-once `subject_id`, evidence and moments stamp
+  the writing call's subject, and list/search filters preserve cross-
+  subject visibility via the IS-NULL branch.
 
 **Scope limit:** This is research infrastructure, not a clinical
 decision-support system. It has not been validated against any regulatory
@@ -243,6 +248,7 @@ interpreter.
 
 | Command | Description |
 |---|---|
+| `biosensor-mcp pilot` | Multi-subject CSV pilot wizard (v6.2.1) — three prompts, end-to-end smoke check |
 | `biosensor-mcp serve` | Start the MCP server (invoked by the LLM client) |
 | `biosensor-mcp demo` | Run analytics on synthetic data (no network) |
 | `biosensor-mcp setup` | Strava OAuth wizard (for the worked example) |
@@ -293,8 +299,7 @@ reason it matters, not just a title:
 
 | Next up | Why it matters |
 |---|---|
-| [**New ChildMCPs**](ROADMAP.md#new-childmcps-for-research-relevant-data-sources) (CGM, sleep, ECG, CSV, EDF, FHIR) | Second worked example unlocks broader adoption; a `children/template/` skeleton cuts onboarding from 1,500 lines of reading to filling five blanks. |
-| [**`subject_id` on vault tools**](ROADMAP.md#per-subject-parameter-scoping-on-vault-tools) | Running tools already declare it; vault adoption needs a design decision on how notes and themes are keyed by subject. |
+| [**New ChildMCPs**](ROADMAP.md#new-childmcps-for-research-relevant-data-sources) (CGM, sleep, ECG, EDF, FHIR) | A generic CSV-directory child shipped in v6.1; the next domain-specific children unlock broader adoption. The `children/template/` skeleton cuts onboarding from 1,500 lines of reading to filling five blanks. |
 | [**Real PHI-scrubbing implementations**](ROADMAP.md#real-phi-scrubbing-implementations-behind-the-phiscrubber-slot) | The seam is wired and instrumented; a real policy per child is what any deployment touching actual PHI needs. |
 | [**Deterministic mode + provenance hashing**](ROADMAP.md#deterministic-mode-with-seed-control) | Lets a reviewer re-run an analysis and trace every published number to exact code + exact input bytes. |
 | [**"Freeze vault" for manuscript submission**](ROADMAP.md#freeze-vault-operation-for-manuscript-submission) | One-command archive of vault + audit + code version for attaching to a submission. |

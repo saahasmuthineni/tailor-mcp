@@ -343,6 +343,73 @@ class TestDesignDecisionRegressions:
         )
         assert len(stops_high) == 0
 
+    def test_tier1_stop_gps_is_coarsened_to_3_decimals(self):
+        """
+        Regression coverage for v6.3.1 hygiene-pass finding (HIPAA Safe
+        Harbor §164.514(b)(2)(i)(B)): until v6.3.1 ``detect_stops``
+        returned raw 6-7 decimal GPS coordinates inside a Tier-1 tool,
+        which is the textbook re-identification pattern. The Tier-1
+        invariant is now: stop locations are coarsened to 3 decimals
+        (~111 m, above residence-precision threshold).
+        """
+        # Boston-ish coords with 6 decimals of precision.
+        raw_lat, raw_lng = 42.360123, -71.058456
+        latlng = [[raw_lat, raw_lng]] * 200
+        vel = [3.0] * 50 + [0.1] * 15 + [3.0] * 50
+        time_arr = list(range(len(vel)))
+
+        stops = RunningProcessing.detect_stops(latlng, vel, time_arr)
+        assert len(stops) == 1
+        loc = stops[0]["location"]
+        assert loc == [round(raw_lat, 3), round(raw_lng, 3)], (
+            "Tier-1 stops must return GPS coarsened to 3 decimals; full "
+            "precision is only available behind the Tier-2 consent gate"
+        )
+        # 3-decimal precision drops the 4th-decimal digits.
+        assert len(str(loc[0]).split(".")[-1]) <= 3
+        assert len(str(loc[1]).split(".")[-1]) <= 3
+
+    def test_tier1_stop_drops_near_home_boolean(self):
+        """
+        Regression coverage: the ``near_home: bool`` field was a
+        residence-re-identification signal (a flag literally named
+        ``near_home``, paired with a precise GPS coordinate, is what an
+        IRB committee flags first). It is removed entirely at Tier 1.
+        """
+        home = (42.360, -71.058)
+        latlng = [[42.3601, -71.0581]] * 200  # ~10 m from home
+        vel = [3.0] * 50 + [0.1] * 15 + [3.0] * 50
+        time_arr = list(range(len(vel)))
+        stops = RunningProcessing.detect_stops(
+            latlng, vel, time_arr, home_coords=home
+        )
+        assert len(stops) == 1
+        assert "near_home" not in stops[0], (
+            "near_home field must not appear at Tier 1 — it is the "
+            "re-identification signal the field was named after"
+        )
+
+    def test_tier1_stop_distance_from_home_is_bucketed(self):
+        """
+        Distance is preserved as analytical signal but bucketed to 100 m
+        so a triangulation across multiple stops cannot localise the
+        residence to room-scale precision.
+        """
+        home = (42.360, -71.058)
+        # ~150 m from home (between two 100 m buckets).
+        latlng = [[42.36135, -71.058]] * 200
+        vel = [3.0] * 50 + [0.1] * 15 + [3.0] * 50
+        time_arr = list(range(len(vel)))
+        stops = RunningProcessing.detect_stops(
+            latlng, vel, time_arr, home_coords=home
+        )
+        d = stops[0]["distance_from_home_m"]
+        assert d % 100 == 0, (
+            f"distance_from_home_m must be 100-m-bucketed at Tier 1; "
+            f"got {d!r}"
+        )
+        assert d in (100, 200), f"expected ~150m bucketed to 100 or 200, got {d}"
+
     def test_spike_cooldown_prevents_duplicate_anomalies(self):
         """
         CLAUDE.md: 30 s cooldown after a spike. A single sensor

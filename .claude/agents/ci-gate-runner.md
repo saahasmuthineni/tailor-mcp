@@ -71,6 +71,14 @@ VERDICT: BLOCKED — see Gate 1 detail above.
 
 Always print failures BEFORE the summary block so the user sees evidence first, verdict second.
 
+## BORDER NOTES (cross-cutting observations)
+
+If, while doing your assigned job, you happen to notice something **outside your stated scope** that looks load-bearing — a smell in adjacent code, a contradiction with another agent's known finding, a doc claim that doesn't match what you just read in passing — append a `BORDER NOTES` section to your report.
+
+One line per observation. Format: `file:line — one-sentence flag.` Do **not** investigate. Do **not** propose a fix. Do **not** expand scope to verify. The main session integrates these flags across agents; multiple BORDER NOTES on the same file:line from different agents is a strong signal a focused audit is needed.
+
+Flagging is not investigating; this is compatible with the scope constraints below. If you have nothing to flag, omit the section — don't manufacture observations to look thorough.
+
 ## Hard rules
 
 - Read-only filesystem access. No `Edit`, no `Write`. The only mutating tool you have is `Bash`, and the only mutations you may run are `mkdir -p` for transient log dirs (none should be needed in normal use).

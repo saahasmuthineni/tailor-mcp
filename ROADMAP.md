@@ -22,6 +22,35 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.3.0 (2026-04-30)
+
+Hall-of-fame team-expansion release. Governance / team-shape only — no
+router, security-pipeline, child, vault-layer, or CLI architecture
+changes. The release ships four new specialist agents, one integration-
+auditor reshape, two new ADRs, and several process hard-rails.
+
+- **4 new specialist agents** land per ADR 0011's promotion policy
+  (`researcher-utility-reviewer`, `coverage-criticality-mapper`,
+  `reproducibility-provenance-auditor`, `phi-irb-risk-reviewer`).
+- **`integration-auditor` reshape** — gains optional
+  `--invariant=schema-drift` mode for new-ChildMCP / `param_schema`
+  PR-time validation against ADR 0002. Per ADR 0011, this folds into
+  an existing agent rather than spawning a fifth new specialist.
+- **Adversarial pairing restored and codified** — `boss-report-auditor`
+  and `red-team-reviewer` rows + Tier-2 adversarial backstops
+  sub-section added to CLAUDE.md. ADR 0010 makes this a permanent
+  structural requirement, not an easily-overwritten banner detail.
+- **BORDER NOTES side-channel** added across all 10 specialist prompts.
+- **ADR 0010** (adversarial-pairing pattern — second-translator +
+  adversarial-verdict structure).
+- **ADR 0011** (promotion-policy override — project-local structural-
+  argument + severity + cost-vs-frequency bar; frequency-based "3+ uses"
+  is the fallback; four picks split 2/2 across old vs new bar).
+- **`release-shipper` hard-fail on dirty working tree** — new pre-flight
+  rail with `--include-pending=<file>:<reason>` opt-in restricted to a
+  governance-shape allowlist; reasons must cite ADR/PR/issue or contain
+  ≥5 words; trail dual-recorded in release commit body + banner summary.
+
 ## Shipped in v6.2.1 (2026-04-29)
 
 The pilot-wizard release. Closes the install-and-configure friction for

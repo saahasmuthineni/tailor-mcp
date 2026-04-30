@@ -1,5 +1,51 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.4.1 (2026-04-30)** — coverage-hardening release closing four
+> CRITICAL untested regions identified by the v6.3.0 hygiene pass and
+> the v6.4.0 release-time backstops. Adds 16 new regression tests:
+> 11 in `TestDispatchInternalProvenance` covering the cross-child
+> internal dispatch path's happy path + 7 error branches
+> (PARAM_INVALID_INTERNAL, CIRCUIT_OPEN_INTERNAL,
+> CONSENT_BLOCKED_INTERNAL, COST_ESTIMATE_ERROR_INTERNAL,
+> COST_GATE_INTERNAL, ERROR_INTERNAL, vault-tool-rejection) plus
+> PHI-scrub seam parity and ADR 0009 subject_id propagation; 1 test
+> for cost-estimator fail-closed on the public path
+> (`framework/router.py:411-422`); 1 test for unknown-domain
+> revocation guard (`framework/router.py:857`); 1 test for
+> orjson stdlib fallback (`framework/audit.py:50-59`) via
+> `sys.modules` patching + `importlib.reload`; 2 tests for vault
+> writer atomic-write cleanup covering both documented failure modes
+> (fdopen-itself-raises and write-after-fd-transfer per
+> `framework/vault/writer.py:1041-1058`); 1 schema test for the new
+> `vault_search_notes` `kind` parameter. New
+> [ADR 0014](docs/adr/0014-coverage-criticality-invariant.md)
+> codifies the coverage-criticality invariant the
+> `coverage-criticality-mapper` agent has enforced by convention
+> since v6.3.0: newly-uncovered code in CRITICAL or HIGH regions is a
+> COVERAGE REGRESSION regardless of overall percentage. CRITICAL
+> taxonomy maps to ADRs 0001 / 0003 / 0005 / 0009 / 0012 / 0013;
+> enforcement is agent-driven at PR time (same shape as ADR 0008's
+> permit-list invariant). One researcher-visible feature:
+> `vault_search_notes` ToolDefinition now surfaces the canonical
+> `kind` parameter alongside the legacy `note_type` alias, matching
+> `vault_list_notes` / `vault_read_note` (closes the v6.3.0 drift-
+> auditor finding). 4-backstop release pass per ADR 0010 / ADR 0011:
+> ci-gate-runner caught 7 ruff violations on the first run (E702 x6,
+> F841 x1) — fixed; red-team-reviewer OBJECTION (medium) on two
+> findings — both remediated with additional regression tests
+> (`test_atomic_write_cleans_up_when_fdopen_itself_raises`,
+> `test_dispatch_internal_threads_subject_id_into_audit_row`);
+> researcher-utility-reviewer ALIGNED with caveat (engineering
+> hygiene was being marketed as researcher utility on the analyst
+> persona — caveat applied to banner / synthesis); reproducibility-
+> provenance-auditor CLEAN. Boss-report-auditor returned REVISE on
+> first synthesis pass (PI persona framing leaked the same
+> engineering-hygiene-as-researcher-utility pattern); trimmed to
+> factual test-posture-parity claim. Final synthesis SHIPPABLE.
+> Package coverage 84% (was 82%); framework-level coverage at the
+> tested paths rose into the 88% range. 526 tests pass. No public
+> API changes — patch bump. SemVer-friendly.
+>
 > **v6.4.0 (2026-04-30)** — cache-only purge on consent revocation.
 > Closes the v6.3.0 hygiene-pass Lens 6 retention WATCH (cached
 > participant biometric data surviving `revoke_consent_*`) with a

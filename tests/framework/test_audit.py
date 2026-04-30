@@ -102,6 +102,100 @@ class TestAuditLogSubjectId:
         ]
 
 
+class TestAuditLogScrubberId:
+    """
+    ``scrubber_id`` is the ADR 0003 audit-row stamp that distinguishes
+    a deployment running the no-op default scrubber (``noop``) from one
+    running an institutional subclass. The column is nullable because
+    the seam-id is set by the router, not the caller — direct
+    ``AuditLog.record()`` invocations from tests don't populate it.
+    """
+
+    def test_record_with_scrubber_id_round_trips(self):
+        with TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "audit.db"
+            audit = AuditLog(db)
+            try:
+                audit.record(
+                    "running", "strava_run_report", 1, {}, 800, "SUCCESS", 15,
+                    scrubber_id="noop",
+                )
+                audit.record(
+                    "cgm", "cgm_daily_report", 1, {}, 400, "SUCCESS", 12,
+                    scrubber_id="HIPAASafeHarborScrubber",
+                )
+                audit.record(
+                    "running", "strava_list_runs", 1, {}, 200, "SUCCESS", 5,
+                )
+            finally:
+                audit.close()
+
+            conn = sqlite3.connect(str(db))
+            try:
+                rows = conn.execute(
+                    "SELECT tool_name, scrubber_id FROM audit_log ORDER BY id"
+                ).fetchall()
+            finally:
+                conn.close()
+
+        assert rows == [
+            ("strava_run_report", "noop"),
+            ("cgm_daily_report", "HIPAASafeHarborScrubber"),
+            ("strava_list_runs", None),
+        ]
+
+    def test_migrates_legacy_audit_db_without_scrubber_id(self):
+        """A v6.1 audit.db (subject_id present, scrubber_id absent) must still open."""
+        with TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "audit.db"
+
+            legacy = sqlite3.connect(str(db))
+            legacy.execute("""
+                CREATE TABLE audit_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    domain TEXT NOT NULL,
+                    tool_name TEXT NOT NULL,
+                    tier INTEGER NOT NULL,
+                    params TEXT,
+                    token_estimate INTEGER,
+                    outcome TEXT NOT NULL,
+                    duration_ms INTEGER,
+                    error TEXT,
+                    subject_id TEXT
+                )
+            """)
+            legacy.execute(
+                "INSERT INTO audit_log (timestamp, domain, tool_name, tier, outcome, subject_id)"
+                " VALUES (?,?,?,?,?,?)",
+                ("2024-01-01T00:00:00Z", "running", "legacy_tool", 1, "SUCCESS", "P001"),
+            )
+            legacy.commit()
+            legacy.close()
+
+            audit = AuditLog(db)
+            try:
+                audit.record(
+                    "running", "new_tool", 1, {}, 100, "SUCCESS", 5,
+                    subject_id="P007", scrubber_id="noop",
+                )
+            finally:
+                audit.close()
+
+            conn = sqlite3.connect(str(db))
+            try:
+                rows = conn.execute(
+                    "SELECT tool_name, subject_id, scrubber_id FROM audit_log ORDER BY id"
+                ).fetchall()
+            finally:
+                conn.close()
+
+        assert rows == [
+            ("legacy_tool", "P001", None),
+            ("new_tool", "P007", "noop"),
+        ]
+
+
 class TestAuditParamsSizeBound:
     """
     Oversized params dicts must be truncated before hitting SQLite —

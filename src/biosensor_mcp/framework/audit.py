@@ -96,18 +96,25 @@ class AuditLog:
                 outcome TEXT NOT NULL,
                 duration_ms INTEGER,
                 error TEXT,
-                subject_id TEXT
+                subject_id TEXT,
+                scrubber_id TEXT
             )
         """)
-        # Migrate pre-existing audit.db files that predate the subject_id
-        # column. Mirrors VaultStorage._ensure_db()'s approach for
-        # vault_notes.mtime_ns: detect via PRAGMA, ALTER TABLE if absent.
+        # Migrate pre-existing audit.db files that predate later columns.
+        # Mirrors VaultStorage._ensure_db()'s approach for vault_notes.mtime_ns:
+        # detect via PRAGMA, ALTER TABLE if absent. Each column added in a
+        # different release ships its own one-line migration here.
         cols = {
             row[1]
             for row in self._conn.execute("PRAGMA table_info(audit_log)").fetchall()
         }
         if "subject_id" not in cols:
             self._conn.execute("ALTER TABLE audit_log ADD COLUMN subject_id TEXT")
+        if "scrubber_id" not in cols:
+            # v6.2 — closes the ADR 0003 doc-lie. The seam recorded its
+            # scrubber identity in the property since v5; the audit row
+            # never carried it until now.
+            self._conn.execute("ALTER TABLE audit_log ADD COLUMN scrubber_id TEXT")
         self._conn.commit()
 
     @property
@@ -133,7 +140,8 @@ class AuditLog:
     def record(self, domain: str, tool_name: str, tier: int, params: dict,
                token_estimate: int, outcome: str, duration_ms: int,
                *, error: str | None = None,
-               subject_id: str | None = None):
+               subject_id: str | None = None,
+               scrubber_id: str | None = None):
         params_json = _dumps(params)
         if isinstance(params_json, bytes):
             params_repr = params_json.decode("utf-8", errors="replace")
@@ -147,15 +155,16 @@ class AuditLog:
         self._conn.execute(
             "INSERT INTO audit_log"
             " (timestamp, domain, tool_name, tier, params, token_estimate,"
-            "  outcome, duration_ms, error, subject_id)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?)",
+            "  outcome, duration_ms, error, subject_id, scrubber_id)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
             (datetime.now(timezone.utc).isoformat(), domain, tool_name, tier,
              params_repr, token_estimate, outcome, duration_ms, error,
-             subject_id),
+             subject_id, scrubber_id),
         )
         self._conn.commit()
         log.info(
             f"AUDIT | {domain}.{tool_name} | tier={tier} "
             f"| tokens~{token_estimate} | {outcome} | {duration_ms}ms"
             + (f" | subject={subject_id}" if subject_id else "")
+            + (f" | scrubber={scrubber_id}" if scrubber_id else "")
         )

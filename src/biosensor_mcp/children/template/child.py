@@ -26,6 +26,8 @@ import logging
 from pathlib import Path
 
 from ...framework.interfaces import (
+    SUBJECT_ID_PARAM_DOC,
+    SUBJECT_ID_SCHEMA,
     ChildMCP,
     ConsentInfo,
     ConsentScope,
@@ -37,29 +39,9 @@ from .processing import TemplateProcessing
 
 log = logging.getLogger("biosensor-mcp.template")
 
-
-# ─────────────────────────────────────────────────────────────────
-# Optional audit-scoping identifier declared on every tool. See
-# ADR 0002. Every new child should keep this shape so audit rows
-# stay consistent across domains. The constant is re-declared here
-# (not imported from the running child) to keep children decoupled;
-# promoting it into ``framework/`` is tracked as future work.
-# ─────────────────────────────────────────────────────────────────
-
-SUBJECT_ID_SCHEMA = ValidationSchema(
-    type=str,
-    required=False,
-    pattern=r"^[A-Za-z0-9_\-]{1,64}$",
-)
-
-SUBJECT_ID_PARAM_DOC = {
-    "type": "string",
-    "description": (
-        "Optional study participant identifier for audit-log scoping. "
-        "Does not filter data. Pattern: ^[A-Za-z0-9_-]{1,64}$."
-    ),
-    "required": False,
-}
+# SUBJECT_ID_SCHEMA / SUBJECT_ID_PARAM_DOC are imported from framework
+# (see ADR 0002). Promoted in v6.2 so every child references the same
+# definition; previously the constants were re-declared per-child.
 
 
 # The stream names this template "exposes" in its Tier-2 and Tier-3

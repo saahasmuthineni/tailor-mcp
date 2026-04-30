@@ -68,6 +68,35 @@ class ValidationSchema:
 
 
 # ═══════════════════════════════════════════════════════════════
+# SHARED PARAMETER SCHEMAS
+# ═══════════════════════════════════════════════════════════════
+
+# Optional study-participant identifier declared on every audit-
+# scoped tool (biosensor children + vault layer). See ADR 0002 for
+# the audit-scoping rationale and ADR 0009 for vault subject-keying.
+# The shared definition lives here so children, the vault layer, and
+# any future framework-level component agree on the same regex and
+# don't drift out of sync if the IRB later specifies a different
+# identifier format.
+SUBJECT_ID_SCHEMA = ValidationSchema(
+    type=str,
+    required=False,
+    pattern=r"^[A-Za-z0-9_\-]{1,64}$",
+)
+
+# MCP-surface description fragment for the same parameter — included
+# in every tool's params dict so LLM clients discover it via list_tools.
+SUBJECT_ID_PARAM_DOC = {
+    "type": "string",
+    "description": (
+        "Optional study participant identifier for audit-log scoping. "
+        "Does not filter data. Pattern: ^[A-Za-z0-9_-]{1,64}$."
+    ),
+    "required": False,
+}
+
+
+# ═══════════════════════════════════════════════════════════════
 # STRUCTURED LLM INSTRUCTION (replaces freeform string)
 # ═══════════════════════════════════════════════════════════════
 

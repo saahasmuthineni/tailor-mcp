@@ -1,5 +1,29 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.2.0 (2026-04-29)** — pilot-ready release. Closes the
+> multi-subject vault failure mode the proposal-mode auditor named
+> for the v6.2 framing (one PI + one analyst, 5–20 participants,
+> light IRB; locked at
+> [docs/design/research-framing.md](docs/design/research-framing.md)).
+> Adds [ADR 0009 — Vault subject-keying](docs/adr/0009-vault-subject-keying.md):
+> themes carry an optional, set-once `subject_id` in frontmatter;
+> evidence and moments stamp the subject of their writing call;
+> list/search filters use the IS-NULL branch so cross-subject themes
+> and v6.1-legacy notes stay visible. All 25 vault tools now declare
+> `subject_id` in their schemas. Adds [ADR 0008 — Analytical
+> processing is deterministic by construction](docs/adr/0008-deterministic-by-construction-processing.md):
+> records the invariant that already shipped silently (every
+> processing method is a `@staticmethod` pure function with no PRNG).
+> Closes the ADR 0003 doc-lie by wiring `scrubber_id` into a new
+> `audit_log` column and every `_meta` block. Promotes
+> `SUBJECT_ID_SCHEMA` to `framework.interfaces` (was triplicated
+> across the three child modules). Ships a multi-subject pilot
+> quickstart at [`docs/guides/multi-subject-pilot.md`](docs/guides/multi-subject-pilot.md)
+> with three synthetic-participant CSV fixtures under
+> `examples/multi_subject_pilot/`. No router or security-pipeline
+> architecture changes; existing v6.1 vaults upgrade in place via
+> lazy rescan.
+>
 > **v6.1.1 (2026-04-29)** — docs/governance release. Adds the
 > boss-architect protocols section to CLAUDE.md (five Tier-1 rules
 > governing the main session at the boss-facing boundary: intent →
@@ -310,6 +334,8 @@ to the full record.
 - **[ADR 0004 — Structured `LLMInstruction`](docs/adr/0004-structured-llm-instruction.md).** Consent and cost gates return a JSON object with individually checkable `must_do`, `must_not_do`, and `on_ambiguous_reply` fields — not a free-text paragraph. Makes compliance auditable.
 - **[ADR 0005 — Pre-estimation, not post-billing](docs/adr/0005-cost-pre-estimation.md).** `CostGate` calls `child.estimate_cost()` before execution using stream metadata (point counts), never the full payload. Estimator failures fail closed.
 - **[ADR 0007 — Rendering-layers policy](docs/adr/0007-rendering-layers-policy.md).** Source-of-truth markdown is plain and AI-readable; plugin-enhanced views (Dataview, Templater) are additive. Any framework-emitted note that uses plugin syntax must ship a snapshot fallback so the same content renders for any reader. The dashboards refresh tool is the reference implementation.
+- **[ADR 0008 — Analytical processing is deterministic by construction](docs/adr/0008-deterministic-by-construction-processing.md).** Every method on `RunningProcessing`, `CSVProcessing`, and `TemplateProcessing` is a `@staticmethod` pure function with no PRNG and no clock reads. The invariant is enforced by review at PR time. The same Tier-1 call with the same inputs returns the same numbers across machines — the ROADMAP "Deterministic mode" item is therefore partially resolved; what remains is a small router-level audited flag paired with content-hashed provenance.
+- **[ADR 0009 — Vault subject-keying](docs/adr/0009-vault-subject-keying.md).** Themes carry an optional, set-once `subject_id` in frontmatter — promotion (None → P004) is allowed, reassignment (P003 → P007) is a hard error. Evidence blocks and moments stamp the subject of their writing call. List/search queries filter rows match-or-NULL when `subject_id` is provided so cross-subject themes and v6.1-era legacy notes stay visible. Resolves the design question ADR 0002 deliberately deferred.
 
 ### Implementation notes
 
@@ -321,7 +347,7 @@ architectural decisions in the ADR sense:
 - **Spike detection 30-second cooldown**: A single Apple Watch sensor catchup burst can generate dozens of overlapping anomaly entries without the cooldown.
 - **orjson with stdlib fallback**: `_dumps`/`_loads` wrappers in `framework/audit.py` are transparent to all consumers.
 - **`router.close()` on Windows**: SQLite WAL connections must be explicitly closed before the process exits on Windows. Call `router.close()` in tests and server shutdown to release file locks.
-- **`subject_id` on `strava_*` tools**: All 12 running tools declare an optional `subject_id` parameter (pattern `^[A-Za-z0-9_\-]{1,64}$`) for audit-log scoping. Does not filter Strava data — one authenticated Strava account may cover multiple study participants, and `subject_id` is the caller's statement of which one this call is about. Vault tools do not yet declare it (ADR 0002, ROADMAP).
+- **`subject_id` on `strava_*` and vault tools**: All 12 running tools and all 25 vault tools declare an optional `subject_id` parameter (pattern `^[A-Za-z0-9_\-]{1,64}$`). For biosensor children it's audit-log scoping only — does not filter source data, since one authenticated Strava account may cover multiple study participants and `subject_id` is the caller's statement of which one this call is about. For vault tools (per ADR 0009) it additionally keys notes: themes have a set-once subject in frontmatter; evidence and moments stamp the subject of their writing call; list/search queries filter on it. The shared `SUBJECT_ID_SCHEMA` and `SUBJECT_ID_PARAM_DOC` constants live in `framework.interfaces`.
 
 ## Configuration
 

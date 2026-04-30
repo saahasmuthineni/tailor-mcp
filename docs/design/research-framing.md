@@ -132,13 +132,13 @@ Tracked in [ROADMAP.md](../ROADMAP.md):
 - **Real PHI scrubbing implementations** behind the `PHIScrubber`
   slot. The slot exists; the implementations do not. The framework
   deliberately does not guess what PHI means in a given study.
-- **Per-subject scoping as an explicit tool parameter** on existing
-  children. The audit log captures `subject_id` when supplied, but
-  the running child's tools do not yet accept it, and the vault layer
-  does not yet key notes by subject.
-- **Deterministic replay** with seed control. Many analytical
-  functions touch pseudo-randomness (anomaly sampling, downsampling
-  variants). Deterministic mode is a dedicated piece of work.
+- **Deterministic replay** with seed control as an audited entry-
+  point flag, paired with content-hashed provenance. The analytical
+  layer is already PRNG-free and stateless by construction
+  (ADR 0008); the residual is the small router-level flag stamped
+  in `_meta` so reviewers can confirm a re-run was produced under
+  the invariant. Deferred jointly with provenance hashing because
+  the flag without the hash is cosmetic.
 - **Full provenance hashing** on derived metrics. The `_meta` stamps
   ship today; content-hashed provenance chains do not.
 - **Multi-analyst attribution on vault notes.** The vault currently
@@ -150,6 +150,48 @@ Tracked in [ROADMAP.md](../ROADMAP.md):
   on a public dataset.
 - **Evaluation harness** for measuring gate compliance, scope drift,
   and vault-recall accuracy across different LLM clients.
+
+## Target deployment shape (v6.2)
+
+The roadmap above is long, and not every item is equally load-bearing
+for every kind of user. The v6.2 development cycle is anchored to a
+specific deployment shape — the lightest version of an institutional
+deployment — so that effort goes into the gaps that actually block
+that shape from running, rather than into items that matter only for
+larger or more ambitious uses.
+
+The picture: a friendly academic lab, one principal investigator and
+one analyst, a study with five-to-twenty participants, light IRB
+review. The lab wants to clone the repo, ingest its participants'
+biometric data (some via a vendor API like Strava, some via CSV
+exports from a sleep tracker or a CGM logger), have analytical
+conversations with an LLM that respect governance boundaries, and
+accumulate durable analytical memory across sessions and analysts'
+working days. The lab is not a clinical site, is not yet preparing a
+manuscript submission, has only one analyst at a time touching the
+vault, and is not handling data sensitive enough to demand an
+institutional Safe-Harbor scrubber on day one.
+
+Under that shape, the items most worth shipping are the ones that
+make the system actually *true* to its existing claims for one
+participant scaled out to twenty: per-subject scoping on the vault
+layer (so notes and themes can be organized by participant), an
+honest accounting of which deterministic-replay properties the system
+already has via its stateless static analytics, and any drift between
+documented governance behavior and the audit-table reality. The items
+deferred past v6.2 are the ones that materially raise the deployment
+ceiling — multi-analyst attribution, vault-freeze for manuscript
+submission, content-hashed provenance, the evaluation harness, the
+public-dataset worked example — but that the framing above does not
+yet need.
+
+Two larger framings remain open and will be addressed in a later
+cycle: a fuller institutional deployment (multiple labs, multi-analyst
+studies, real Safe-Harbor scrubbing, manuscript submission), and a
+personal-use framing where the same infrastructure is treated as a
+craft tool for a single participant analyzing their own data. Neither
+is the v6.2 target; both are explicitly on the table for v6.3 and
+beyond.
 
 ## Scope limit
 

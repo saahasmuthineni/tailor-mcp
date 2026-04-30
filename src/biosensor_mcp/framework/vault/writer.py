@@ -176,6 +176,7 @@ class VaultWriter:
         source_domain: str | None = None,
         verification: str | None = None,
         tag_suffix: str = "",
+        subject_id: str | None = None,
     ) -> str:
         """
         Append a timestamped evidence block to ``themes/<slug>.md``.
@@ -188,6 +189,10 @@ class VaultWriter:
         Optional provenance kwargs stamp the evidence block with a
         ``> Source: …`` blockquote so readers can see which tool / tier /
         verification level the observation came from.
+
+        ``subject_id`` (ADR 0009) stamps the appended block with a
+        ``> Subject: …`` blockquote so multi-subject themes carry per-
+        evidence attribution.
         """
         evidence = _sanitize(evidence.strip())
         if not evidence:
@@ -216,6 +221,7 @@ class VaultWriter:
             verification=verification,
             tag_suffix=tag_suffix,
             timestamp=timestamp,
+            subject_id=subject_id,
         )
 
         # Drop the placeholder if this is the first evidence entry
@@ -503,13 +509,27 @@ class VaultWriter:
         Append-only: never rewrites or removes existing callouts.  Each
         propagation event leaves a new callout pointing at the evidence
         timestamp it superseded.
+
+        ADR 0009: when the corrected theme carries a ``subject_id``, the
+        callout headline names the subject so a reader sees the scope
+        immediately. Propagation targets are NOT filtered by subject in
+        v6.2 — every wikilinker still receives the warning.
         """
         sources = self._storage.get_incoming_links(target=theme_filename)
         propagated: list[str] = []
         marker_token = f"[CORRECTED-EV {evidence_timestamp}]"
         by_suffix = f" (by {corrected_by})" if corrected_by else ""
+
+        # Read theme subject for the warning headline. Stays None for
+        # cross-subject themes and v6.1 legacy themes.
+        theme_subject_id = self._storage.get_theme_subject_id(theme_slug)
+        subject_clause = (
+            f" for subject {theme_subject_id}" if theme_subject_id else ""
+        )
+
         callout = (
-            f"> [!warning] {marker_token} {correction_timestamp}{by_suffix}\n"
+            f"> [!warning] Corrected evidence{subject_clause} "
+            f"{marker_token} {correction_timestamp}{by_suffix}\n"
             f"> Theme [[{theme_slug}]] evidence at `{evidence_timestamp}` "
             f"was superseded.\n"
             f"> {correction}\n"

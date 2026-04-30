@@ -12,6 +12,8 @@ from pathlib import Path
 
 from ...framework.audit import _dumps, _loads
 from ...framework.interfaces import (
+    SUBJECT_ID_PARAM_DOC,
+    SUBJECT_ID_SCHEMA,
     ChildMCP,
     ConsentInfo,
     ConsentScope,
@@ -32,23 +34,8 @@ ALL_STREAM_TYPES = [
     "grade_smooth", "distance", "time", "moving",
 ]
 
-# Optional audit-scoping identifier declared on every strava_* tool. See ADR 0002.
-# `SUBJECT_ID_SCHEMA` enforces the validator-side pattern; `SUBJECT_ID_PARAM_DOC`
-# is the MCP-surface copy so LLM clients discover the parameter via list_tools.
-SUBJECT_ID_SCHEMA = ValidationSchema(
-    type=str,
-    required=False,
-    pattern=r"^[A-Za-z0-9_\-]{1,64}$",
-)
-
-SUBJECT_ID_PARAM_DOC = {
-    "type": "string",
-    "description": (
-        "Optional study participant identifier for audit-log scoping. "
-        "Does not filter data. Pattern: ^[A-Za-z0-9_-]{1,64}$."
-    ),
-    "required": False,
-}
+# SUBJECT_ID_SCHEMA / SUBJECT_ID_PARAM_DOC are framework-level constants
+# (see ADR 0002) — strava_* tools reference them via the import above.
 
 
 # ═══════════════════════════════════════════════════════════════

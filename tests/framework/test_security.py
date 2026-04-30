@@ -174,9 +174,12 @@ class TestPHIScrubber:
 
     def test_scrubber_id_distinguishes_noop_from_subclass(self):
         """
-        `scrubber_id` lets the router stamp _meta with the scrubber in use,
-        so audit rows on a misconfigured deployment (no real scrubber wired
-        in) are distinguishable from ones produced under a real policy.
+        ``scrubber_id`` is the per-instance string the router stamps into
+        ``_meta`` and the ``audit_log.scrubber_id`` column on every call.
+        Default no-op returns ``"noop"``; subclasses return their class
+        name. End-to-end wire-up is covered by
+        ``test_router.TestPHIScrubberAuditStamp``; this test just pins
+        the property's contract.
         """
         class CustomScrubber(PHIScrubber):
             def scrub(self, result: dict) -> dict:

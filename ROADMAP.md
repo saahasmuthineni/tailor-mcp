@@ -22,6 +22,40 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.3.1 (2026-04-30)
+
+Hygiene-pass patch release. Three IRB-blocking VIOLATIONS patched with
+regression tests; documentation drift corrected; ADR 0012 added; ADR
+0008 permit-list amended. No router, security-pipeline, child, or
+vault-layer architecture changes.
+
+- **VIOLATION: consent-row `scrubber_id` absent** — `framework/router.py`
+  consent-handler audit rows (approve and revoke paths) now carry
+  `scrubber_id` per ADR 0003. Regression test in `tests/framework/test_router.py`.
+- **VIOLATION: Tier-1 GPS re-identification path** — `strava_stop_analysis`
+  coarsens GPS to 3 decimal places (~111 m), drops the `near_home`
+  boolean, and buckets `distance_from_home_m` to 100 m — closes the
+  HIPAA Safe Harbor §164.514(b)(2)(i)(B) triangulation path. Regression
+  test in `tests/children/running/test_processing.py`.
+- **VIOLATION: `PHIScrubber` warning swallowed by Claude Desktop** —
+  `framework/security.py` new `scrubber_warning` property; three
+  `_meta` stamping sites in `framework/router.py` inject the warning
+  into the LLM transcript so misconfigured deployments are visible
+  regardless of deployment shape.
+- **8 new regression tests** (total 504 = 496 + 8).
+- **ADR 0012** — Vault dispatch bypasses the PHI-scrubber seam: records
+  the previously inline-only "Skipped by design" decision with named
+  invariants and reversal conditions; cites ADRs 0003 / 0007 / 0009.
+- **ADR 0008 amended** — clock-read permit-list widened to name
+  `vault/renderer.py`, `vault/layer.py`, `vault/storage.py` per
+  v6.3.0 BORDER NOTES drift two compliance auditors independently
+  flagged.
+- **Documentation drift fixed** — README.md (four actively-false
+  claims, broken anchor, `_meta` example version, "What's next" table);
+  CLAUDE.md (file-structure block, tool count, agent count, roster
+  table); `vault/layer.py:137-140` (`vault_list_notes` kind-filter now
+  lists all 7 allowed values).
+
 ## Shipped in v6.3.0 (2026-04-30)
 
 Hall-of-fame team-expansion release. Governance / team-shape only — no
@@ -235,8 +269,12 @@ returned to the LLM. A deployment running the no-op default is
 distinguishable from one running an institutional subclass at query
 time *and* in any individual response. Earlier doc claims of this
 behaviour predated the wire-up; v6.2 closed the gap (see
-[ADR 0008](docs/adr/0008-deterministic-by-construction-processing.md)
-and the v6.2 shipped section for the drift-audit context).
+[ADR 0003](docs/adr/0003-phi-scrubber-seam.md) for the seam decision
+and the v6.2 shipped section for the drift-audit context). v6.3.1
+additionally surfaces the no-op warning into every successful result's
+`_meta` block so a misconfigured deployment is visible inside the LLM
+transcript itself, not only in stderr (which is swallowed by Claude
+Desktop's spawned-subprocess process model).
 
 ## New ChildMCPs for research-relevant data sources
 

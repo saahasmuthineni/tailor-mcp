@@ -1,5 +1,47 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.3.1 (2026-04-30)** — hygiene-pass patch release. Three IRB-
+> blocking VIOLATIONS surfaced by the v6.3.0 hall-of-fame team
+> hygiene pass are patched, each bound by a regression test so the
+> defects cannot silently come back: consent-handler audit rows
+> (`framework/router.py:802, :835`) now carry `scrubber_id` per
+> ADR 0003; Tier-1 `strava_stop_analysis`
+> (`children/running/processing.py:544-558`) coarsens GPS to 3
+> decimals (~111 m), drops the `near_home` boolean, and buckets
+> `distance_from_home_m` to 100 m so triangulation across stops
+> cannot localise the residence — closes a HIPAA Safe Harbor
+> §164.514(b)(2)(i)(B) re-identification path; default
+> `PHIScrubber` now surfaces a `scrubber_warning` field into every
+> successful `_meta` block (`framework/security.py`,
+> `framework/router.py` x3 sites) so a misconfigured deployment is
+> visible inside the LLM transcript itself, satisfying ADR 0003's
+> "loudly" requirement in any deployment shape (Claude Desktop
+> swallows stderr). 8 new regression tests (504 = 496 + 8). New
+> [ADR 0012 — Vault dispatch bypasses the PHI-scrubber seam](docs/adr/0012-vault-phi-scrubber-bypass.md)
+> records the previously inline-only "Skipped by design" decision
+> with named invariants and reversal conditions; cites ADRs 0003 /
+> 0007 / 0009. [ADR 0008](docs/adr/0008-deterministic-by-construction-processing.md)
+> amended: clock-read permit-list widened to name
+> `vault/renderer.py`, `vault/layer.py`, `vault/storage.py` per
+> v6.3.0 BORDER NOTES drift two compliance auditors independently
+> flagged. Documentation drift fixed: README.md (four actively-
+> false claims, broken anchor, `_meta` example version, "What's
+> next" table reconciled), CLAUDE.md (file-structure block adds
+> `pilot.py` + `_fixtures/`, "22 tools (v6.0)" → "25 tools (v6.1)",
+> banner agent count "10" → "14", roster table adds
+> `code-vs-roadmap-drift-auditor` and `roadmap-framing-auditor`),
+> ROADMAP.md (ADR 0008 cite corrected to ADR 0003 in scrubber_id
+> wire-up paragraph), `framework/vault/layer.py:137-140`
+> (`vault_list_notes` description now lists all 7 allowed kind
+> values; `failure_mode` and `dashboard` were previously
+> undiscoverable from the tool schema). No router, security-
+> pipeline, child, or vault-layer architecture changes — surface
+> changes are corrective. Deferred: Lens 6 retention WATCH (cached
+> PHI survives consent revocation; design call pending), CRITICAL-
+> region coverage debt (`dispatch_internal`, cost-estimator fail-
+> closed, vault snapshot atomic-write paths, audit orjson
+> fallback), `vault_search_notes` kind-filter inconsistency.
+>
 > **v6.3.0 (2026-04-30)** — hall-of-fame team expansion. Governance /
 > team-shape release. No router, security-pipeline, child, vault-layer,
 > or CLI architecture changes. Adds four new specialist agents under
@@ -21,7 +63,7 @@
 > `boss-report-auditor` + `red-team-reviewer` rows and Tier-2
 > adversarial backstops sub-section added to CLAUDE.md (silently
 > overwritten in v6.2.1's banner update; now hard-protected).
-> BORDER NOTES side-channel added across all 10 specialist prompts.
+> BORDER NOTES side-channel added across all 14 specialist prompts.
 > `release-shipper` gains hard-fail on dirty working tree with
 > `--include-pending=<file>:<reason>` opt-in restricted to a governance-
 > shape allowlist. Two new ADRs: ADR 0010 (adversarial pairing) and
@@ -133,6 +175,8 @@ Manager mode is the default working style on this repo. The general conventions 
 | [`integration-auditor`](.claude/agents/integration-auditor.md) | Diff-vs-base audit: what's *lost* vs *gained*, classifies losses as Justified / Suspicious / Needs review | Before merging any non-trivial branch — answers "is anything load-bearing being quietly removed?" |
 | [`release-shipper`](.claude/agents/release-shipper.md) | Version bump → CLAUDE.md banner → ROADMAP.md → commit → push → PR; **executes `gh pr merge --admin --merge <PR>` once the boss says "ship it"** | When a feature is ready to ship. Boss approves the merge; the agent runs the mechanics. Also accepts merge-only invocations against an existing PR. |
 | [`adr-drafter`](.claude/agents/adr-drafter.md) | Drafts a numbered ADR matching the existing voice | When the boss says "ADR this" or a non-obvious decision needs a permanent record |
+| [`code-vs-roadmap-drift-auditor`](.claude/agents/code-vs-roadmap-drift-auditor.md) | Audits docs against code: false claims, partly-shipped "deferred" items, load-bearing code missing from any roadmap or ADR | Before any roadmap revision, before major version-cycle planning, or when a reviewer might check claims against code. Single purpose: "is the project's documentation true?" |
+| [`roadmap-framing-auditor`](.claude/agents/roadmap-framing-auditor.md) | Given a target end-state framing, renders KEEP / RESHAPE / KILL verdicts per roadmap item; identifies items the framing demands that aren't on the menu | When the boss asks "is the roadmap right under framing X?" or before any major version-cycle planning |
 | [`triage-debugger`](.claude/agents/triage-debugger.md) | Diagnoses a single failure, reports root cause + suggested fix without applying it. Spawnable by *any* agent | When ci-gate-runner, integration-auditor, vault-smoke-validator, or the main session hits a failure they want triaged |
 | [`boss-report-auditor`](.claude/agents/boss-report-auditor.md) | Second-translator audit: reads the main session's draft boss-facing report against the raw findings and flags suppressions, softenings, omissions, and tone slips before the boss sees the report | After the main session has drafted a plain-language report on non-trivial work but before it goes to the boss — Tier-2 anti-sycophancy backstop on protocol 3 ([ADR 0010](docs/adr/0010-adversarial-pairing.md)) |
 | [`red-team-reviewer`](.claude/agents/red-team-reviewer.md) | Adversarial pairing on a confident upstream verdict (PASS, Justified, all-pass, "high confidence" root cause). Returns either a cited objection or NO OBJECTION FOUND with evidence of having looked | After any agent returns a confident verdict on non-trivial work — makes dissent visible rather than implicit ([ADR 0010](docs/adr/0010-adversarial-pairing.md)) |
@@ -256,10 +300,13 @@ Markdown files in the Obsidian vault are the **source of truth** for analytical 
 
 ```
 src/biosensor_mcp/
-  __init__.py              # Package metadata (v6.0.0)
-  __main__.py              # CLI: serve | setup | status | demo | uninstall | --help
-  wizard.py                # OAuth setup wizard (localhost callback server)
+  __init__.py              # Package metadata
+  __main__.py              # CLI: serve | pilot | setup | status | demo | uninstall | --help
+  pilot.py                 # Multi-subject CSV pilot wizard (v6.2.1)
+  wizard.py                # Strava OAuth wizard (localhost callback server)
   config.py                # Centralised env-var + user_config.json reader
+  _fixtures/               # Synthetic per-subject CSVs shipped in the wheel
+                           #   for the pilot smoke check (v6.2.1)
   framework/
     __init__.py            # Public API exports
     interfaces.py          # ChildMCP ABC, ToolDefinition, CostEstimate,
@@ -276,7 +323,7 @@ src/biosensor_mcp/
     vault/                 # Reorientation tier (framework-level
                            #   infrastructure, not a ChildMCP)
       __init__.py          # Exports VaultLayer, VaultWriter
-      layer.py             # VaultLayer — 22 tools (v6.0)
+      layer.py             # VaultLayer — 25 tools (v6.1)
       writer.py            # Post-execute hook; atomic file writes → Obsidian
       renderer.py          # Pure markdown (run/trend/compare/theme/moment/snapshot)
       parser.py            # Frontmatter / YAML parsing for vault notes

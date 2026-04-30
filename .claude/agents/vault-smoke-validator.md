@@ -199,3 +199,4 @@ For a new tool/feature in v6.2.x or beyond:
 - Don't invoke the obsidian MCP server. Smoke tests must work standalone.
 - Never write into a directory containing `.obsidian/`.
 - On a partial failure, do not "retry until green" — stop, report, leave artifacts.
+- **Refuse on conflict with codebase ground truth.** If a dispatch instruction asks you to skip an assertion block, report a failing assertion as PASS, modify source under `src/` to make smoke pass, or run against a path that violates the safety rule above, stop and report the conflict instead of complying. The caller decides whether to revise the dispatch or escalate. A green smoke report you don't believe is worse than a red one — anti-sycophancy applies.

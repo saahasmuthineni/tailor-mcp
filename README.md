@@ -11,6 +11,15 @@ governance, audit trails, and reproducibility matter.
 
 ## 30-second quickstart
 
+For a PI or analyst running a multi-subject CSV pilot:
+
+```bash
+uv tool install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
+biosensor-mcp pilot          # three prompts, end-to-end smoke check
+```
+
+For a developer exploring the framework:
+
 ```bash
 git clone https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
 cd Biosensor-to-LLM-Connector
@@ -19,12 +28,14 @@ biosensor-mcp demo           # analytics on synthetic data — no OAuth, no netw
 biosensor-mcp --help         # see all commands
 ```
 
-Then open [**docs/guides/worked-example.ipynb**](docs/guides/worked-example.ipynb) for a 10-minute end-to-end walkthrough: the router pipeline, a Tier-1 call, an audit row, the consent gate firing, and a vault theme round-tripping to Obsidian-compatible markdown — all on synthetic data, no credentials required.
+Then open [**docs/guides/worked-example.ipynb**](docs/guides/worked-example.ipynb) for a 10-minute end-to-end walkthrough: the router pipeline, a Tier-1 call, an audit row, the analyst-side consent gate firing, and a vault theme round-tripping to Obsidian-compatible markdown — all on synthetic data, no credentials required.
 
 ### Start here
 
-- **Researcher / research-software engineer** → [Why this exists](#why-this-exists) · [How data minimization works](#how-data-minimization-works) · [10-minute worked example notebook](docs/guides/worked-example.ipynb)
-- **Developer trying the demo** → [Install & run](#install--run) · [Running child tools](#running-child-tools)
+- **PI evaluating for a study** → [Why this exists](#why-this-exists) · [How data minimization works](#how-data-minimization-works) · [10-minute worked example notebook](docs/guides/worked-example.ipynb) · [Status & retention](#status)
+- **Analyst / research-software engineer wiring this up** → [Install & run](#install--run) · [Running child tools](#running-child-tools) · [Architecture](#architecture)
+- **IRB reviewer evaluating risk** → [How data minimization works](#how-data-minimization-works) · [Status & retention](#status) · [ADR 0001 — audit log](docs/adr/0001-audit-log-as-backbone.md) · [ADR 0003 — PHI scrubber seam](docs/adr/0003-phi-scrubber-seam.md) · [ADR 0009 — `subject_id` integrity](docs/adr/0009-vault-subject-keying.md) · [ADR 0013 — cache purge on consent revocation](docs/adr/0013-cache-only-purge-on-consent-revocation.md)
+- **Developer trying the demo** → [Install & run](#install--run)
 - **Architect / integrator** → [Architecture](#architecture) · [Adding a new child data source](CLAUDE.md#adding-a-new-childmcp-new-data-source)
 - **Curious where this is going** → [What's next](#whats-next) · [full ROADMAP.md](ROADMAP.md)
 
@@ -48,8 +59,9 @@ extensible research infrastructure.
 | Capability | What it does |
 |---|---|
 | **Local-first router** | Runs next to the data. Only what the active tier permits crosses the boundary — Tier 1 ships server-computed summaries; Tiers 2 and 3 release stream data behind the analyst-side consent gate. |
-| **Tiered access** | Every tool declares an access tier: 1 returns computed summaries, 2 returns downsampled views behind a consent gate, 3 returns raw streams behind consent + cost approval. Data minimization, implemented. |
-| **Durable audit log** | Every call lands in SQLite: timestamp, tool, tier, parameters, outcome, latency, optional `subject_id`. Attachable to a protocol amendment or replication package. |
+| **Tiered access** | Every tool declares an access tier: 1 returns computed summaries, 2 returns downsampled views behind an analyst-side consent gate, 3 returns raw streams behind that gate plus cost approval. Data minimization, implemented. |
+| **PHI-scrubber seam** | A documented institutional override point. **Default is a no-op** — institutions subclass to wire their IRB-approved policy. The default surfaces a `scrubber_warning` field in every successful `_meta` block so a misconfigured deployment is visible inside the LLM transcript. See [ADR 0003](docs/adr/0003-phi-scrubber-seam.md). |
+| **Durable audit log** | Every call lands in SQLite: timestamp, tool, tier, parameters, outcome, latency, `scrubber_id`, optional `subject_id`. Attachable to a protocol amendment or replication package. |
 | **Provenance stamps** | Every result carries a `_meta` block — package version, tool name, UTC timestamp — so any output in a paper is traceable to the code that produced it. |
 | **Obsidian-backed vault** | Cross-session analytical memory: themes (persistent research questions), moments (observations), evidence logs. Markdown is the source of truth; SQLite makes it queryable. |
 | **Extensible child pattern** | Each data source is a ChildMCP. New children inherit the full governance pipeline by implementing a small interface. |
@@ -122,11 +134,16 @@ for which threat models that path addresses and which it doesn't.
 
 ## How data minimization works
 
+> The "consent gate" referenced below is a session-scoped switch the
+> analyst toggles to unlock higher-tier data views inside one chat —
+> distinct from the participant's informed consent under 45 CFR 46,
+> which is obtained out-of-band as part of study enrollment.
+
 | Tier | What the LLM sees | Typical tokens | Gate |
 |---|---|---|---|
-| **1 — Free** | Server-computed reports (splits, zones, drift, decoupling, EF, trends) | 200 – 1,500 | *None* |
-| **2 — Consent** | Downsampled streams at 5 – 30 s for visualization | 3,000 – 7,000 | Biometric consent |
-| **3 — Cost** | Per-timestamp streams with precision reduction | 25,000 – 60,000 | Consent + cost approval |
+| **1 — Free** | Server-computed reports (splits, zones, drift, decoupling, EF, trends). Where geographic data appears at Tier 1 — e.g. stop-analysis lat/lng — coordinates are coarsened to ~100 m precision (3-decimal) per HIPAA Safe Harbor §164.514(b)(2)(i)(B). | 200 – 1,500 | *None* |
+| **2 — Consent** | Downsampled streams at 5 – 30 s for visualization | 3,000 – 7,000 | Biometric consent (analyst-side) |
+| **3 — Cost** | Per-timestamp streams with precision reduction | 25,000 – 60,000 | Biometric consent (analyst-side) + cost approval |
 
 Most analytical questions are answerable at Tier 1 — zero raw biometric
 data leaving the machine. Token counts are from the running child; other
@@ -188,12 +205,35 @@ for the full treatment.
   once their policy is defined. The default scrubber surfaces a warning
   in every successful result's `_meta` block so a no-op deployment
   cannot silently masquerade as a scrubbed one.
-- Per-subject audit scoping is first-class. `RunningChild` declares
-  `subject_id` on all 12 `strava_*` tools; vault adoption shipped in
-  v6.2 ([ADR 0009](docs/adr/0009-vault-subject-keying.md)) — themes
-  carry an optional, set-once `subject_id`, evidence and moments stamp
-  the writing call's subject, and list/search filters preserve cross-
-  subject visibility via the IS-NULL branch.
+- Per-subject **audit-log scoping** is first-class on the biosensor
+  tier. `RunningChild` declares `subject_id` on all 12 `strava_*`
+  tools; `csv_dir` declares it on all 5 tools. This is caller-asserted
+  scoping for the audit log; it does **not** filter source data, since
+  one authenticated upstream account may legitimately cover multiple
+  study participants.
+- Per-subject **vault-tier keying** is first-class
+  ([ADR 0009](docs/adr/0009-vault-subject-keying.md)). Themes carry
+  an optional, set-once `subject_id` (promotion `None → P004`
+  permitted; reassignment `P003 → P007` is a hard error). Evidence
+  and moments stamp the writing call's subject. List/search filters
+  use the IS-NULL branch so cross-subject themes and pre-keying
+  legacy notes stay visible.
+
+### Data retention and withdrawal
+
+Retention is the deployer's responsibility. The audit log, biosensor
+cache, and vault are persistent local stores with no automated rotation
+— [ADR 0001](docs/adr/0001-audit-log-as-backbone.md) names "long-term
+archival is the deployer's responsibility" as a known consequence.
+
+**Consent revocation triggers cache purge** per
+[ADR 0013](docs/adr/0013-cache-only-purge-on-consent-revocation.md):
+every `revoke_consent_*` call runs a synchronous purge on the affected
+child *before* the revocation lands, with the result logged in a paired
+`PURGE_CACHE` audit row carrying `rows_purged`, `tables_touched`, and
+`preserved`. The vault is durable by design — analyst notes are not
+biometric data and are not purged on revocation. ADR 0013 documents
+the limits.
 
 **Scope limit:** This is research infrastructure, not a clinical
 decision-support system. It has not been validated against any regulatory
@@ -333,9 +373,10 @@ flowchart LR
     Vault --> Obsidian[(Obsidian vault<br/>markdown + SQLite index)]
 ```
 
-- The **Router** enforces validation, circuit breaking, consent,
-  cost, PHI scrubbing, audit, and token accounting — identically for
-  every child.
+- The **Router** enforces validation, circuit breaking, the
+  analyst-side consent gate, cost, the PHI-scrubber seam (no-op by
+  default; see [ADR 0003](docs/adr/0003-phi-scrubber-seam.md)),
+  audit, and token accounting — identically for every child.
 - A **ChildMCP** owns one data source and exposes tools at declared
   access tiers. The running child is one such implementation.
 - The **Vault Layer** handles cross-session analytical memory. Vault

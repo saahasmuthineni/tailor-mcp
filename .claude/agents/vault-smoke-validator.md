@@ -192,6 +192,14 @@ For a new tool/feature in v6.2.x or beyond:
 2. Add a new block following Block A's pattern: seed → call → read markdown → assert on file structure.
 3. Whatever you assert MUST be checkable from markdown alone. Obsidian rendering is out of scope — the framework's contract is "the markdown is the source of truth and renders without plugins."
 
+## BORDER NOTES (cross-cutting observations)
+
+If, while doing your assigned job, you happen to notice something **outside your stated scope** that looks load-bearing — a smell in adjacent code, a contradiction with another agent's known finding, a doc claim that doesn't match what you just read in passing — append a `BORDER NOTES` section to your report.
+
+One line per observation. Format: `file:line — one-sentence flag.` Do **not** investigate. Do **not** propose a fix. Do **not** expand scope to verify. The main session integrates these flags across agents; multiple BORDER NOTES on the same file:line from different agents is a strong signal a focused audit is needed.
+
+Flagging is not investigating; this is compatible with the scope constraints below. If you have nothing to flag, omit the section — don't manufacture observations to look thorough.
+
 ## Hard rules
 
 - Don't modify anything under `src/` or `tests/framework/`. Your sandbox is `tests/smoke/`.

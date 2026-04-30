@@ -93,7 +93,7 @@ The running child (Strava data) is one **worked example** of the ChildMCP patter
 
 ## Workflow: manager mode
 
-Manager mode is the default working style on this repo. The general conventions — invocation pattern, reporting cadence, when to interrupt vs proceed, the "promote at 3+ uses" bar for new agents — live in `~/.claude/CLAUDE.md` (the global file) so they're consistent across projects. This section names the **specialists this repo provides**.
+Manager mode is the default working style on this repo. The general conventions — invocation pattern, reporting cadence, when to interrupt vs proceed — live in `~/.claude/CLAUDE.md` (the global file) so they're consistent across projects. The **promote at 3+ uses** bar named there is overridden project-locally by [ADR 0011 — promotion-policy](docs/adr/0011-promotion-policy.md): specialist additions land via structural argument + severity grounding + per-agent maintenance estimate, with frequency-based 3+-uses as the fallback signal when no structural argument exists. This section names the **specialists this repo provides**.
 
 | Agent | Owns | When to fire |
 |---|---|---|
@@ -103,8 +103,14 @@ Manager mode is the default working style on this repo. The general conventions 
 | [`release-shipper`](.claude/agents/release-shipper.md) | Version bump → CLAUDE.md banner → ROADMAP.md → commit → push → PR; **executes `gh pr merge --admin --merge <PR>` once the boss says "ship it"** | When a feature is ready to ship. Boss approves the merge; the agent runs the mechanics. Also accepts merge-only invocations against an existing PR. |
 | [`adr-drafter`](.claude/agents/adr-drafter.md) | Drafts a numbered ADR matching the existing voice | When the boss says "ADR this" or a non-obvious decision needs a permanent record |
 | [`triage-debugger`](.claude/agents/triage-debugger.md) | Diagnoses a single failure, reports root cause + suggested fix without applying it. Spawnable by *any* agent | When ci-gate-runner, integration-auditor, vault-smoke-validator, or the main session hits a failure they want triaged |
+| [`boss-report-auditor`](.claude/agents/boss-report-auditor.md) | Second-translator audit: reads the main session's draft boss-facing report against the raw findings and flags suppressions, softenings, omissions, and tone slips before the boss sees the report | After the main session has drafted a plain-language report on non-trivial work but before it goes to the boss — Tier-2 anti-sycophancy backstop on protocol 3 ([ADR 0010](docs/adr/0010-adversarial-pairing.md)) |
+| [`red-team-reviewer`](.claude/agents/red-team-reviewer.md) | Adversarial pairing on a confident upstream verdict (PASS, Justified, all-pass, "high confidence" root cause). Returns either a cited objection or NO OBJECTION FOUND with evidence of having looked | After any agent returns a confident verdict on non-trivial work — makes dissent visible rather than implicit ([ADR 0010](docs/adr/0010-adversarial-pairing.md)) |
+| [`researcher-utility-reviewer`](.claude/agents/researcher-utility-reviewer.md) | Per-persona researcher-utility verdict (PI, analyst/RSE, IRB reviewer) on any non-trivial artifact — `RESEARCHER-LOAD-BEARING / NEUTRAL / RESEARCHER-NOISE` with severity and citable persona-job grounding | Before every non-trivial release; after any `boss-report-auditor` REVISE verdict; on demand. North-star backstop per [ADR 0011](docs/adr/0011-promotion-policy.md) |
+| [`coverage-criticality-mapper`](.claude/agents/coverage-criticality-mapper.md) | Classifies uncovered code by criticality (CRITICAL / HIGH / MEDIUM / LOW) anchored on ADR-cited regions; flags newly-uncovered CRITICAL/HIGH lines as `COVERAGE REGRESSION` regardless of overall percentage | After every `ci-gate-runner` PASS on non-trivial work; spawnable from `red-team-reviewer` when its dissent target is a CI PASS |
+| [`reproducibility-provenance-auditor`](.claude/agents/reproducibility-provenance-auditor.md) | Audits a diff against the reproducibility/provenance invariants codified in ADRs 0001 / 0002 / 0008 / 0003 — no PRNG in processing, audit-log completeness, `_meta` stamping, `subject_id` propagation. Per-file HOLDS / BROKEN / NEEDS REVIEW with file:line + ADR citations | After any non-trivial diff that touches `framework/` or `children/*/processing.py`. Closes the ADR 0008 "enforced by review at PR time" gap |
+| [`phi-irb-risk-reviewer`](.claude/agents/phi-irb-risk-reviewer.md) | Hostile-IRB-committee lens on code changes — six threat-model lenses (HIPAA Safe Harbor, consent scope, audit-log completeness, ADR 0003 scrubber asymmetry, ADR 0009 subject_id integrity, retention). Returns NO RISK / WATCH / VIOLATION with IRB / HIPAA / ADR citations | After any change touching `framework/security.py`, `framework/audit.py`, `framework/router.py`, `framework/vault/`, or any child's `execute()` path; before any release involving consent or data flow |
 
-The agents are checked into the repo so the team is reproducible across machines. Per `.gitignore`: `.claude/*` ignores per-machine settings; `!.claude/agents/` re-includes the roster. New specialists land here when the same kind of work has shown up in 3+ sessions on this project.
+The agents are checked into the repo so the team is reproducible across machines. Per `.gitignore`: `.claude/*` ignores per-machine settings; `!.claude/agents/` re-includes the roster. New specialists land via [ADR 0011 — promotion-policy](docs/adr/0011-promotion-policy.md): structural argument + severity + per-agent maintenance estimate, with frequency-based 3+-uses as the fallback signal in the absence of a structural argument. The deferred roster (parked candidates with named promotion triggers) lives in [docs/design/operating-model.md § Deferred roster](docs/design/operating-model.md).
 
 ## Boss-architect protocols (Tier 1 — main-session discipline)
 
@@ -162,6 +168,28 @@ This moves misalignment-detection earlier (when revising is cheap) than the exis
 ### Failure modes to watch
 
 The most important failure to detect, **and the one the boss cannot detect himself**: the main session never pushing back. If a month passes with no protocol-4 invocations, that is not evidence the boss has been right — it is evidence the rule has quietly collapsed. The structural backstop is to periodically have a strategy specialist (e.g. `code-vs-roadmap-drift-auditor`) re-read recent boss-facing reports and check for unsurfaced conflicts the main session should have raised.
+
+### Tier-2 adversarial backstops
+
+Protocols 3 and 4 above are enforced by the entity they constrain (the main session is both the translator and the judge of whether the translation is honest). That is the structural sycophancy gap a non-technical boss cannot detect from the outside. Per [ADR 0010 — adversarial pairing](docs/adr/0010-adversarial-pairing.md), two specialists exist as designed-in checks:
+
+- **`boss-report-auditor`** — fires after the main session drafts a boss-facing report on non-trivial work, *before* the report goes to the boss. Reads the raw agent findings alongside the draft and flags suppressions, softenings, and omissions. It is the **second translator**: the main session is the first, this agent is the check on the first. The main session does not get to skip this step on non-trivial work — its absence is itself the failure mode.
+- **`red-team-reviewer`** — fires after any agent returns a confident PASS / Justified / SHIPPABLE / "high confidence" verdict on non-trivial work. Produces either a cited objection or an explicit NO OBJECTION FOUND with evidence of having looked. The dissent does not have to win; it has to be **visible** so the main session cannot silently drop it during synthesis.
+
+Both agents are tuned for refusal on conflict with codebase ground truth. Adversarial pairing is the structural import — when an agent's prompt is "do this craft well", default LLM behaviour is confirmation; when an agent's prompt is "find a flaw or prove there isn't one", the same model produces dissent. Pairing them on every high-stakes verdict is the cheapest available patch on the team's biggest gap.
+
+When *not* to fire them: trivial work (typo fixes, comment edits, one-line refactors). Same "non-trivial" definition as protocol 2.
+
+### Researcher-utility and compliance backstops
+
+Per [ADR 0011 — promotion-policy](docs/adr/0011-promotion-policy.md), four additional specialists ground the team in the project's stated north star (researcher utility) and in the architecturally codified compliance / reproducibility invariants:
+
+- **`researcher-utility-reviewer`** — reads any non-trivial artifact through three baked-in personas (PI, analyst/RSE, IRB reviewer) and renders per-persona verdicts. Catches the failure mode where the team builds for engineering elegance instead of researcher utility. Its `## Personas` section is the canonical reference; other agents (notably `phi-irb-risk-reviewer`) cite it.
+- **`coverage-criticality-mapper`** — extends `ci-gate-runner`'s coverage report with criticality classification anchored on ADR-cited regions. Newly-uncovered code in CRITICAL or HIGH regions is `COVERAGE REGRESSION` regardless of overall percentage.
+- **`reproducibility-provenance-auditor`** — closes the ADR 0008 "enforced by review at PR time" gap. Audits diffs against the determinism (no PRNG / no clock / `@staticmethod` purity), audit-log completeness, `_meta` provenance, and `subject_id` propagation invariants.
+- **`phi-irb-risk-reviewer`** — applies the IRB-committee-member lens. Six threat-model lenses (Safe Harbor, consent scope, audit completeness, scrubber asymmetry, subject_id integrity, retention) yield NO RISK / WATCH / VIOLATION verdicts with IRB / HIPAA / ADR citations.
+
+These four ground the team in the project's stated goal (CLAUDE.md § "What This Project Is" — health researchers, audit trails, reproducibility, data governance). They land via the structural-argument + severity + cost-vs-frequency criteria of ADR 0011 rather than the generic 3+-uses default.
 
 ## Problems this is built against
 

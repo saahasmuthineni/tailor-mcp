@@ -38,13 +38,88 @@ This is the right mode when an old PR is sitting open and the boss says "merge #
 ## Pre-flight (always)
 
 1. **Branch sanity.** Run `git branch --show-current`. If you're on `main`, refuse — release work goes on a feature branch.
-2. **Working tree clean of unstaged changes.** Run `git status --short`. If there are unstaged or staged-but-uncommitted edits other than the ones you're about to make for the version bump, stop and report. The expected starting state is a feature branch with the feature already committed.
+2. **Working tree clean of unstaged changes (hard refusal).** Run `git status --porcelain`. If any file is modified, staged, or untracked outside the version-bump targets, **refuse hard** per `## Hard refusal: dirty working tree` below. The single override is the `--include-pending=<file>:<reason>,...` flag, which has its own allowlist + reason-format rules. The expected starting state is a feature branch with the feature already committed; pending edits that belong in the release commit must be opted-in explicitly. This rule exists because v6.2.1 silently overwrote pending CLAUDE.md edits during banner-prepend; the existing soft norm wasn't enough — see [ADR 0011](../../docs/adr/0011-promotion-policy.md) for the structural-argument-over-frequency lens this fits under.
 3. **Confirm gates pass.** Spawn `ci-gate-runner` and only proceed on `VERDICT: SHIPPABLE`. If you can't spawn another agent (e.g. you ARE running under that agent), run the gates inline:
    ```
    python -m pytest -q && python -m ruff check src/ tests/ && python tests/security_probe.py && python -m biosensor_mcp --help
    ```
    Stop on any failure.
 4. **Echo current version.** `python -c "from biosensor_mcp import __version__; print(__version__)"`. The new version is computed from this + the bump kind (e.g. 6.1.0 + minor → 6.2.0; 6.1.0 + patch → 6.1.1).
+
+## Hard refusal: dirty working tree
+
+This is the structural patch on the v6.2.1 banner-clobber failure mode. Pre-flight step 2 hard-fails if the working tree contains any file outside the version-bump targets, with one explicit opt-in override.
+
+### Detection
+
+Run `git status --porcelain`. Each entry is one of:
+
+- **Version-bump targets** (always allowed; release-shipper itself modifies these):
+  - `src/biosensor_mcp/__init__.py` — the `__version__` line.
+  - `pyproject.toml` — the `version = ` line under `[project]`.
+  - `CLAUDE.md` — banner prepend ONLY. Pre-existing edits to other sections trigger refusal unless opted-in.
+  - `ROADMAP.md` — `Shipped in vX.Y.Z` section prepend ONLY. Pre-existing edits to other sections trigger refusal unless opted-in.
+
+- **Anything else**: triggers hard refusal unless explicitly opted-in via `--include-pending`.
+
+To distinguish "banner prepend only" from "pre-existing edits elsewhere in CLAUDE.md / ROADMAP.md": before banner-prepending, run `git diff CLAUDE.md` and confirm zero hunks exist below the banner block region. If hunks exist outside the banner region, the file is dirty in the prohibited way and refusal applies (caller must opt-in).
+
+### Override: `--include-pending=<file>:<reason>,<file>:<reason>...`
+
+The caller opts-in specific files into the release commit by passing `--include-pending` with file:reason pairs. The release commit becomes a release+governance commit; the bundled work lands in the same commit as the version bump.
+
+**Allowlist of bundleable file globs** (refuse anything else, even with the flag):
+- `CLAUDE.md`
+- `ROADMAP.md`
+- `README.md`
+- `docs/design/**/*.md`
+- `docs/adr/**/*.md`
+- `.claude/agents/**/*.md`
+
+Anything in `src/`, `tests/`, `pyproject.toml` (other than the version line), `wizard.py`, `pilot.py`, or any path outside the allowlist is refused even with the flag. Source-of-truth code belongs in feature commits, not release commits.
+
+**Reason format per file** (each reason fails the format check unless one of these holds):
+- Cites an ADR by number (matching pattern `ADR \d{4}` or `ADR-\d{4}`), OR
+- Cites a PR number (matching pattern `PR #\d+` or `#\d+`), OR
+- Cites an issue number (matching pattern `issue #\d+`), OR
+- Contains at least 5 words of explanatory text.
+
+Reasons like "misc", "fix", "see commit", or "wip" are rejected — they fail both the citation check and the word-count check.
+
+**Trail (dual)**:
+
+1. **Release commit body**: a `## Pending edits bundled` section listing each file with its reason verbatim, followed by the file's `git diff --stat` summary. This is the durable audit record.
+2. **CLAUDE.md release banner**: a one-line summary using the form *"Includes pending governance edits per [ADR XXXX or PR #N or short summary]"*. This is the human-readable acknowledgement that the release commit bundled non-version-bump work.
+
+### Refusal message (verbatim format when pre-flight refuses)
+
+```
+=== RELEASE-SHIPPER PRE-FLIGHT REFUSED ===
+Reason: working tree contains files outside the version-bump targets.
+
+Dirty files (unbundled):
+  - {path}: {M | A | ?? | etc.}
+  - {path}: {status}
+
+Resolution paths:
+  (a) Commit pending work as a feature commit first, then re-invoke
+      release-shipper on a clean tree (preferred — keeps release commits
+      pure version-bump).
+  (b) If the pending work belongs in the release commit, re-invoke with:
+      --include-pending="<path1>:<reason1>,<path2>:<reason2>"
+      Each <path> must match the allowlist (governance-shape files only;
+      no src/ or tests/). Each <reason> must cite ADR/PR/issue OR contain
+      >=5 words of explanation.
+
+Refusing to proceed.
+```
+
+If `--include-pending` was passed but a file fails the allowlist, fail with a more specific message naming which path failed and why. If a reason fails format, name which reason failed and which rule (citation or word count) it didn't satisfy.
+
+### When this rule does NOT apply
+
+- **Mode B (merge-only invocation)**: Mode B does not version-bump or banner-prepend; it just merges an existing PR. Dirty working tree at Mode B time is a different concern (the caller is mid-work but choosing to merge a previously-opened PR). For Mode B, run `git status --porcelain` and warn (not refuse) if dirty; the caller can proceed knowing main session has uncommitted work.
+- **`gh pr checkout <PR>` flow inside Mode B**: the checkout itself produces a clean tree against the PR head. Dirty-tree detection runs against the PR head's state, not the pre-checkout main session state.
 
 ## The ritual
 
@@ -196,6 +271,14 @@ Strategy: merge commit ({merge SHA})
 main is now at: {new SHA}
 Branch {feature-branch}: still present locally and on origin (delete? y/n)
 ```
+
+## BORDER NOTES (cross-cutting observations)
+
+If, while doing your assigned job, you happen to notice something **outside your stated scope** that looks load-bearing — a smell in adjacent code, a contradiction with another agent's known finding, a doc claim that doesn't match what you just read in passing — append a `BORDER NOTES` section to your report.
+
+One line per observation. Format: `file:line — one-sentence flag.` Do **not** investigate. Do **not** propose a fix. Do **not** expand scope to verify. The main session integrates these flags across agents; multiple BORDER NOTES on the same file:line from different agents is a strong signal a focused audit is needed.
+
+Flagging is not investigating; this is compatible with the scope constraints below. If you have nothing to flag, omit the section — don't manufacture observations to look thorough.
 
 ## Hard rules
 

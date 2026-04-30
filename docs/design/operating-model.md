@@ -68,14 +68,33 @@ In plain terms:
 
 - **vault-smoke-validator** — runs an end-to-end test of the analyst's notes-vault behaviour against a temp copy. Catches things pytest can't reach.
 - **ci-gate-runner** — runs all the local-CI checks (tests, linter, security probe, command-line smoke) and reports verdicts. Read-only — never modifies anything.
-- **integration-auditor** — before merging a branch, this looks at what's being *removed* (not what's being added) and flags anything load-bearing being quietly deleted. Default-skeptical lens.
+- **integration-auditor** — before merging a branch, this looks at what's being *removed* (not what's being added) and flags anything load-bearing being quietly deleted. Default-skeptical lens. Optional `--proposal-mode` for pre-implementation defensive imagining; optional `--invariant=schema-drift` for new ChildMCP / param_schema PR-time validation against ADR 0002.
 - **release-shipper** — handles the mechanical work of shipping a feature: version bump, changelog, commit, push, PR. Only mutates main after the boss explicitly says "ship it."
 - **adr-drafter** — drafts a numbered Architecture Decision Record matching the existing voice, when a non-obvious decision needs a permanent record.
 - **triage-debugger** — diagnoses a single failure (test, runtime, audit finding) and reports root cause + suggested fix without applying it. Spawnable by other agents.
-- **code-vs-roadmap-drift-auditor** — read-only audit of whether the docs (ROADMAP, CLAUDE.md, ADRs, README) still match the code. Single purpose: "is the project's documentation true?"
+- **code-vs-roadmap-drift-auditor** — read-only audit of whether the docs (ROADMAP, CLAUDE.md, ADRs, README) still match the code. Single purpose: "is the project's documentation true?" Also audits the deferred-roster table below on a cadence and flags rows whose promotion triggers have fired.
 - **roadmap-framing-auditor** — given a one-paragraph framing of who the project is for, returns KEEP / RESHAPE / KILL verdicts on each roadmap item under that framing. Strategic, not technical.
+- **boss-report-auditor** — second translator. Reads the main session's draft boss-facing report alongside the raw findings before the boss sees the report; flags suppressions, softenings, omissions, tone slips. Tier-2 anti-sycophancy backstop on protocol 3 (ADR 0010).
+- **red-team-reviewer** — adversarial pairing on confident upstream verdicts (PASS / Justified / SHIPPABLE / "high confidence" root cause). Returns a cited objection or NO OBJECTION FOUND with evidence of having looked. Makes dissent visible rather than implicit (ADR 0010).
+- **researcher-utility-reviewer** — reads any non-trivial artifact through three baked-in personas (PI, analyst/RSE, IRB reviewer) and renders per-persona verdicts. Catches the failure mode where the team builds for engineering elegance instead of researcher utility — the project's stated north star (ADR 0011).
+- **coverage-criticality-mapper** — extends ci-gate-runner's coverage report with criticality classification anchored on ADR-cited regions. Newly-uncovered code in CRITICAL or HIGH = COVERAGE REGRESSION regardless of overall percentage.
+- **reproducibility-provenance-auditor** — audits diffs against the determinism / audit-completeness / `_meta` / `subject_id` invariants in ADRs 0001 / 0002 / 0003 / 0008. Closes the ADR 0008 "enforced by review at PR time" gap.
+- **phi-irb-risk-reviewer** — hostile-IRB-committee lens on code changes. Six threat-model lenses (Safe Harbor, consent scope, audit completeness, scrubber asymmetry, subject_id integrity, retention) yield NO RISK / WATCH / VIOLATION verdicts.
 
-When new specialists are needed, they land in `.claude/agents/` per the "promote at 3+ uses" rule (the same kind of work showing up in 3+ sessions). Until then, the work is inlined or handled by the closest existing specialist.
+When new specialists are needed, they land in `.claude/agents/` per [ADR 0011 — promotion-policy](../adr/0011-promotion-policy.md): structural argument grounded in the project's stated goal + severity grounding (cost-of-absence) + per-agent maintenance estimate. Frequency-based 3+-uses is the fallback signal in the absence of a structural argument. The previous policy ("3+ uses on this project") is the global default in `~/.claude/CLAUDE.md` and is overridden project-locally because research substrates have severity asymmetries (PHI / IRB / reproducibility) the generic rule under-weights.
+
+## Deferred roster (parked candidates)
+
+The roster grows under ADR 0011's criteria; below are the candidates the team has identified but not yet built. Each carries a named promotion trigger — the concrete signal that lifts the row across the bar. `code-vs-roadmap-drift-auditor` audits this table on a cadence and flags any row whose trigger has fired without the role being promoted.
+
+| Role | Gap | Promotion trigger | Effort |
+|---|---|---|---|
+| `researcher-onboarding-friction-reporter` | No agent walks the PI/RSE/analyst journey through README → install → setup → first analysis | Onboarding friction surfaces in 3+ user-feedback sessions, OR new ChildMCP lands without a wizard, OR boss requests a journey audit | S |
+| `doc-example-freshness-auditor` | No agent runs the multi-subject pilot fixtures or doc walkthroughs end-to-end | Pilot quickstart breaks once in real use, OR `docs/guides/*.md` drift caught at PR time, OR fixtures need re-running for next ADR | S |
+| `deployment-shape-advisor` (Path A vs Path B) | No agent advises on local-first vs Anthropic Managed Agents per `docs/design/managed-agents-compat.md` | User asks "should I use Managed Agents for use-case X?" 3+ times, OR a real institutional deployment is being scoped | M |
+| `researcher-journey-runner` (combined onboarding + doc-freshness) | Combined role — if onboarding-friction promotes, build as one agent rather than two; reuses `researcher-utility-reviewer`'s persona definitions | Promotion of either onboarding-friction-reporter OR doc-example-freshness-auditor triggers this combined shape instead of two separate agents | S-M |
+| post-execution result-scrubbing audit | No agent verifies the ADR 0003 scrubber asymmetry (vault path skips scrubbing by design) holds as the codebase evolves | A real PHI-scrubber subclass lands AND has a non-trivial scrubbing policy | XS |
+| internal cross-child dispatch safety | Vault backfill calls children via the internal path, bypassing some router gates; no agent audits this | Vault backfill grows beyond its current shape, OR cross-child dispatch fails once at runtime | XS |
 
 ## Persistence and memory
 
@@ -105,7 +124,7 @@ None of these is mimicry. The model is its own thing; the protocols are concept-
 
 ## How the model evolves
 
-The system should expand by adding protocols and specialists when patterns harden, not by making the model bigger for its own sake. The "promote at 3+ uses" bar (CLAUDE.md, manager mode) is the canonical filter: new agents land only when the same kind of work has appeared in 3+ sessions.
+The system should expand by adding protocols and specialists when patterns harden, not by making the model bigger for its own sake. The promotion policy is codified in [ADR 0011 — promotion-policy](../adr/0011-promotion-policy.md): a specialist lands when a structural argument grounds it in the project's stated goal AND the maintenance cost over its expected fire-frequency is justified. Severity asymmetries (high cost-of-absence — PHI / IRB / reproducibility) override frequency thresholds. Frequency-based 3+-uses (the global default in `~/.claude/CLAUDE.md`) is the fallback signal in the absence of a structural argument, not the only signal.
 
 A good change to this model is one that:
 
@@ -113,13 +132,15 @@ A good change to this model is one that:
 - Adds a designed-in check on a failure the boss cannot detect himself
 - Reduces the cognitive load of any boss-facing decision
 - Catches a pattern of misalignment between the boss's vision and the shipped reality
+- Closes a codified hole — an architectural invariant a current ADR has named but no agent enforces
 
 A bad change to this model is one that:
 
 - Adds technical surface the boss has to learn or remember
 - Adds an agent because "another team had something similar"
 - Imposes a process step that doesn't pay for itself in caught misalignment
-- Increases the team's size without a 3+-use signal
+- Adds a specialist whose maintenance cost over its expected fire-frequency exceeds the cost of *not* having it (per ADR 0011's per-agent calculus)
+- Adds a specialist that overlaps an existing one rather than reshaping the existing one (the integration-auditor `--invariant=schema-drift` reshape is the precedent for this pattern)
 
 ## The most important failure mode to watch for
 

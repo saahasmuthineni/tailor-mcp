@@ -213,6 +213,74 @@ try:
         check("C all returned notes have note_type=dashboard",
               all_match, f"note_types found: {set(kinds)}")
 
+    # ════════════════════════════════════════════════════════════
+    # BLOCK D — Vault subject-keying (ADR 0009)
+    # ════════════════════════════════════════════════════════════
+    print()
+    print("--- Block D: Vault subject-keying (ADR 0009) ---")
+
+    # D.1  Create P004-scoped theme; subject in frontmatter + evidence block
+    res = run(layer.execute("vault_upsert_theme", {
+        "slug": "p004-drift",
+        "hypothesis": "P004 shows late-run HR drift",
+        "evidence": "Mile-15 split shows +6 bpm",
+        "subject_id": "P004",
+    }))
+    check("D.1 P004 theme created", res.get("created") is True, str(res))
+    p004_body = (vault_dir / "themes/p004-drift.md").read_text(encoding="utf-8")
+    check("D.1 P004 frontmatter carries subject_id",
+          'subject_id: "P004"' in p004_body)
+    check("D.1 P004 evidence block carries Subject blockquote",
+          "> Subject: P004" in p004_body)
+
+    # D.2  Set-once invariant — reassignment to P007 must fail
+    reassign = run(layer.execute("vault_upsert_theme", {
+        "slug": "p004-drift",
+        "evidence": "Trying to retarget to P007",
+        "subject_id": "P007",
+    }))
+    check("D.2 reassignment rejected with set-once error",
+          "error" in reassign and "set-once" in reassign["error"],
+          str(reassign))
+
+    # D.3  Cross-subject theme (no subject_id) — frontmatter has no field
+    run(layer.execute("vault_upsert_theme", {
+        "slug": "cohort-hypothesis",
+        "hypothesis": "Cohort-level claim",
+        "evidence": "Cohort observation",
+    }))
+    cohort_body = (vault_dir / "themes/cohort-hypothesis.md").read_text(encoding="utf-8")
+    check("D.3 cohort theme omits subject_id frontmatter",
+          "subject_id:" not in cohort_body)
+
+    # D.4  Subject-filtered list_themes returns matching + NULL (cohort), not P007's
+    run(layer.execute("vault_upsert_theme", {
+        "slug": "p007-only",
+        "hypothesis": "P007-specific",
+        "evidence": "P007 evidence",
+        "subject_id": "P007",
+    }))
+    filtered = run(layer.execute("vault_list_themes", {"subject_id": "P004"}))
+    slugs = {t["slug"] for t in filtered.get("themes", [])}
+    check("D.4 list_themes(P004) includes P004's theme",
+          "p004-drift" in slugs, f"slugs={slugs}")
+    check("D.4 list_themes(P004) includes cohort theme (IS NULL branch)",
+          "cohort-hypothesis" in slugs, f"slugs={slugs}")
+    check("D.4 list_themes(P004) excludes P007's theme",
+          "p007-only" not in slugs, f"slugs={slugs}")
+
+    # D.5  Promotion: cross-subject -> subject-scoped is allowed
+    promo = run(layer.execute("vault_upsert_theme", {
+        "slug": "cohort-hypothesis",
+        "evidence": "Subject-specific follow-up",
+        "subject_id": "P004",
+    }))
+    check("D.5 promotion succeeded (no error)",
+          "error" not in promo, str(promo))
+    promoted_body = (vault_dir / "themes/cohort-hypothesis.md").read_text(encoding="utf-8")
+    check("D.5 promoted theme now carries subject_id",
+          'subject_id: "P004"' in promoted_body)
+
 finally:
     layer.close()
 

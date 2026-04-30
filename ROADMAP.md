@@ -22,6 +22,33 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.4.1 (2026-04-30)
+
+Coverage-hardening patch closing four CRITICAL untested regions. No
+public API changes. 526/526 tests pass; package coverage 84% (was 82%).
+
+- **16 new regression tests** — `TestDispatchInternalProvenance` expanded
+  with 11 tests covering all error branches on the internal dispatch path
+  (PARAM_INVALID_INTERNAL, CIRCUIT_OPEN_INTERNAL, CONSENT_BLOCKED_INTERNAL,
+  COST_ESTIMATE_ERROR_INTERNAL, COST_GATE_INTERNAL, ERROR_INTERNAL,
+  vault-tool-rejection, PHI-scrub seam, subject_id propagation); 1 test
+  for cost-estimator fail-closed on the public path; 1 test for
+  unknown-domain revocation guard; 1 orjson stdlib fallback test via
+  `sys.modules` patching; 2 vault writer atomic-write cleanup tests
+  covering both failure paths; 1 schema test for `vault_search_notes`
+  `kind` parameter.
+- **ADR 0014** — Coverage criticality is an invariant: newly-uncovered
+  CRITICAL or HIGH code is a COVERAGE REGRESSION regardless of overall
+  percentage. CRITICAL taxonomy maps to ADRs 0001 / 0003 / 0005 / 0009 /
+  0012 / 0013; enforcement is agent-driven at PR time.
+- **`vault_search_notes` ToolDefinition** — surfaces canonical `kind`
+  parameter alongside legacy `note_type` alias; closes v6.3.0
+  drift-auditor finding.
+- **4-backstop release pass** — red-team OBJECTION on two findings
+  remediated; researcher-utility-reviewer ALIGNED with caveat;
+  boss-report-auditor REVISE remediated; reproducibility-provenance-auditor
+  CLEAN.
+
 ## Shipped in v6.4.0 (2026-04-30)
 
 Cache-only purge on consent revocation. SemVer minor bump (breaking:

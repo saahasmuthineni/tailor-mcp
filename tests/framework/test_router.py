@@ -744,21 +744,288 @@ class TestDispatchInternalProvenance:
     Internal cross-child calls (used by vault backfill) must carry the
     same provenance stamps as Claude-facing calls. Otherwise vault notes
     written by backfill would be untraceable.
+
+    v6.4.1 expanded coverage: every error branch on this path must be
+    audit-row-tested too, because vault backfill goes through here and
+    a silent ERROR on the backfill path would write a vault note with
+    no audit trace of why it was empty.
     """
 
     def test_dispatch_internal_stamps_meta(self):
         with TemporaryDirectory() as tmpdir:
             router = RouterMCP("test", Path(tmpdir))
-            router.register_child(MockChild("alpha"))
-            result = _run(router.dispatch_internal(
-                "alpha_free_tool", {"value": 7}
-            ))
-            assert "_meta" in result
-            meta = result["_meta"]
-            import biosensor_mcp
-            assert meta["package_version"] == biosensor_mcp.__version__
-            assert meta["tool_name"] == "alpha_free_tool"
-            assert meta["source"] == "INTERNAL"
+            try:
+                router.register_child(MockChild("alpha"))
+                result = _run(router.dispatch_internal(
+                    "alpha_free_tool", {"value": 7}
+                ))
+                assert "_meta" in result
+                meta = result["_meta"]
+                import biosensor_mcp
+                assert meta["package_version"] == biosensor_mcp.__version__
+                assert meta["tool_name"] == "alpha_free_tool"
+                assert meta["source"] == "INTERNAL"
+            finally:
+                router.close()
+
+    def test_dispatch_internal_unknown_tool(self):
+        with TemporaryDirectory() as tmpdir:
+            router = RouterMCP("test", Path(tmpdir))
+            try:
+                router.register_child(MockChild("alpha"))
+                result = _run(router.dispatch_internal("nope", {}))
+                assert "error" in result
+                assert "Unknown tool" in result["error"]
+            finally:
+                router.close()
+
+    def test_dispatch_internal_rejects_vault_tools(self):
+        """Vault tools are LLM-facing; calling them via internal dispatch
+        would bypass the documented vault-dispatch path and ADR 0012's
+        invariants."""
+        from biosensor_mcp.framework.vault import VaultLayer, VaultWriter
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            vault_root = root / "vault"
+            vault_root.mkdir()
+            data_dir = root / "data"
+            data_dir.mkdir()
+            router = RouterMCP("test", data_dir)
+            try:
+                router.register_child(MockChild("alpha"))
+                writer = VaultWriter(vault_path=vault_root, data_dir=data_dir,
+                                     vaultable_tools=set(), max_hr=195)
+                router.register_vault_layer(VaultLayer(vault_root, writer))
+                result = _run(router.dispatch_internal("vault_list_notes", {}))
+                assert "error" in result
+                assert "cannot be called internally" in result["error"]
+            finally:
+                router.close()
+
+    def test_dispatch_internal_param_invalid_writes_audit_row(self):
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir)
+            try:
+                router.register_child(MockChild("alpha"))
+                # alpha_free_tool requires value: int, min=1; sending None.
+                result = _run(router.dispatch_internal(
+                    "alpha_free_tool", {"value": None}
+                ))
+                assert "error" in result
+                import sqlite3
+                conn = sqlite3.connect(str(data_dir / "audit.db"))
+                try:
+                    (outcome,) = conn.execute(
+                        "SELECT outcome FROM audit_log "
+                        "WHERE tool_name='alpha_free_tool' "
+                        "ORDER BY id DESC LIMIT 1"
+                    ).fetchone()
+                finally:
+                    conn.close()
+                assert outcome == "PARAM_INVALID_INTERNAL"
+            finally:
+                router.close()
+
+    def test_dispatch_internal_circuit_open_writes_audit_row(self):
+        """Trip the circuit breaker on the public path, then verify
+        the internal path observes it."""
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir)
+            try:
+                router.register_child(MockFailingChild("alpha"))
+                # Trip the breaker — 3 consecutive failures.
+                for _ in range(3):
+                    _run(router._dispatch("alpha_free_tool", {"value": 1}))
+                result = _run(router.dispatch_internal(
+                    "alpha_free_tool", {"value": 1}
+                ))
+                assert "error" in result
+                import sqlite3
+                conn = sqlite3.connect(str(data_dir / "audit.db"))
+                try:
+                    (outcome,) = conn.execute(
+                        "SELECT outcome FROM audit_log "
+                        "WHERE tool_name='alpha_free_tool' AND outcome LIKE '%INTERNAL' "
+                        "ORDER BY id DESC LIMIT 1"
+                    ).fetchone()
+                finally:
+                    conn.close()
+                assert outcome == "CIRCUIT_OPEN_INTERNAL"
+            finally:
+                router.close()
+
+    def test_dispatch_internal_consent_blocked_for_tier2(self):
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir)
+            try:
+                router.register_child(MockChild("alpha"))
+                # No approve_consent_alpha — Tier 2 should block.
+                result = _run(router.dispatch_internal(
+                    "alpha_gated_tool", {"value": 1}
+                ))
+                assert "error" in result
+                assert "Consent not approved" in result["error"]
+                import sqlite3
+                conn = sqlite3.connect(str(data_dir / "audit.db"))
+                try:
+                    (outcome,) = conn.execute(
+                        "SELECT outcome FROM audit_log "
+                        "WHERE tool_name='alpha_gated_tool' "
+                        "ORDER BY id DESC LIMIT 1"
+                    ).fetchone()
+                finally:
+                    conn.close()
+                assert outcome == "CONSENT_BLOCKED_INTERNAL"
+            finally:
+                router.close()
+
+    def test_dispatch_internal_cost_estimate_error_fails_closed(self):
+        """A child whose estimate_cost raises must NOT slip past the
+        cost gate with a synthetic 0-token estimate. ADR 0005 invariant
+        on the internal dispatch path."""
+        class CostBrokenChild(MockChild):
+            async def estimate_cost(self, tool_name, params):
+                raise RuntimeError("simulated estimator crash")
+
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir, cost_threshold=35_000)
+            try:
+                router.register_child(CostBrokenChild("alpha"))
+                _run(router._dispatch("approve_consent_alpha", {}))
+                result = _run(router.dispatch_internal(
+                    "alpha_expensive_tool", {"value": 1}
+                ))
+                assert "error" in result
+                assert "estimate" in result["error"].lower()
+                import sqlite3
+                conn = sqlite3.connect(str(data_dir / "audit.db"))
+                try:
+                    (outcome,) = conn.execute(
+                        "SELECT outcome FROM audit_log "
+                        "WHERE tool_name='alpha_expensive_tool' "
+                        "ORDER BY id DESC LIMIT 1"
+                    ).fetchone()
+                finally:
+                    conn.close()
+                assert outcome == "COST_ESTIMATE_ERROR_INTERNAL"
+            finally:
+                router.close()
+
+    def test_dispatch_internal_cost_gate_blocks_over_threshold(self):
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir, cost_threshold=35_000)
+            try:
+                router.register_child(MockChild("alpha", cost=50_000))
+                _run(router._dispatch("approve_consent_alpha", {}))
+                result = _run(router.dispatch_internal(
+                    "alpha_expensive_tool", {"value": 1}
+                ))
+                assert "error" in result
+                assert "Cost gate" in result["error"]
+                import sqlite3
+                conn = sqlite3.connect(str(data_dir / "audit.db"))
+                try:
+                    (outcome,) = conn.execute(
+                        "SELECT outcome FROM audit_log "
+                        "WHERE tool_name='alpha_expensive_tool' "
+                        "ORDER BY id DESC LIMIT 1"
+                    ).fetchone()
+                finally:
+                    conn.close()
+                assert outcome == "COST_GATE_INTERNAL"
+            finally:
+                router.close()
+
+    def test_dispatch_internal_execute_exception_writes_audit_row(self):
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir)
+            try:
+                router.register_child(MockFailingChild("alpha"))
+                result = _run(router.dispatch_internal(
+                    "alpha_free_tool", {"value": 1}
+                ))
+                assert "error" in result
+                assert "Simulated failure" in result["error"]
+                import sqlite3
+                conn = sqlite3.connect(str(data_dir / "audit.db"))
+                try:
+                    (outcome,) = conn.execute(
+                        "SELECT outcome FROM audit_log "
+                        "WHERE tool_name='alpha_free_tool' "
+                        "ORDER BY id DESC LIMIT 1"
+                    ).fetchone()
+                finally:
+                    conn.close()
+                assert outcome == "ERROR_INTERNAL"
+            finally:
+                router.close()
+
+    def test_dispatch_internal_threads_subject_id_into_audit_row(self):
+        """ADR 0009 invariant on the internal dispatch path: vault
+        backfill calls children through dispatch_internal carrying a
+        subject_id; the audit row must record it so a multi-subject
+        retrospective can answer "which participant did this backfill
+        touch?". Until v6.4.1 no test asserted this — the red-team
+        v6.4.1 secondary finding."""
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir)
+            try:
+                router.register_child(MockChild("alpha"))
+                _run(router.dispatch_internal(
+                    "alpha_free_tool",
+                    {"value": 1, "subject_id": "P007"},
+                ))
+                import sqlite3
+                conn = sqlite3.connect(str(data_dir / "audit.db"))
+                try:
+                    (sid,) = conn.execute(
+                        "SELECT subject_id FROM audit_log "
+                        "WHERE tool_name='alpha_free_tool' "
+                        "ORDER BY id DESC LIMIT 1"
+                    ).fetchone()
+                finally:
+                    conn.close()
+                assert sid == "P007", (
+                    "subject_id must propagate from params into the "
+                    "INTERNAL audit row (ADR 0009); vault backfill "
+                    "subject-keying depends on this"
+                )
+            finally:
+                router.close()
+
+    def test_dispatch_internal_phi_scrub_seam_fires(self):
+        """Internal cross-child calls (vault backfill) must traverse the
+        same PHI-scrub seam as Claude-facing calls. Otherwise vault notes
+        written by backfill would carry an un-scrubbed view."""
+        from biosensor_mcp.framework.security import PHIScrubber
+
+        class StripIdScrubber(PHIScrubber):
+            def scrub(self, result):
+                result.pop("params", None)  # simulate stripping a field
+                return result
+
+        with TemporaryDirectory() as tmpdir:
+            router = RouterMCP("test", Path(tmpdir))
+            try:
+                router.register_child(MockChild("alpha"))
+                router._phi_scrubber = StripIdScrubber()
+                result = _run(router.dispatch_internal(
+                    "alpha_free_tool", {"value": 1}
+                ))
+                assert "params" not in result, (
+                    "PHI-scrubber must run on dispatch_internal too — "
+                    "ADR 0003 invariant on the cross-child path"
+                )
+                assert result["_meta"]["scrubber_id"] == "StripIdScrubber"
+            finally:
+                router.close()
             router.close()
 
 
@@ -1238,3 +1505,238 @@ class TestRunningChildPurgeBiometricCache:
                 )
             finally:
                 storage.close()
+
+
+class TestPublicPathCostEstimatorFailClosed:
+    """
+    ADR 0005: a broken estimator must NOT slip past the cost gate
+    with a synthetic 0-token estimate. The public dispatch path's
+    fail-closed branch (router.py:411-422) was untested until v6.4.1
+    — this pins the invariant on the Claude-facing path.
+    """
+
+    def test_public_dispatch_cost_estimate_error_writes_audit_row(self):
+        class CostBrokenChild(MockChild):
+            async def estimate_cost(self, tool_name, params):
+                raise RuntimeError("simulated estimator crash")
+
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir, cost_threshold=35_000)
+            try:
+                router.register_child(CostBrokenChild("alpha"))
+                _run(router._dispatch("approve_consent_alpha", {}))
+                result = _run(router._dispatch(
+                    "alpha_expensive_tool", {"value": 1}
+                ))
+                data = _loads(result[0].text)
+                assert "error" in data
+                assert "estimate" in data["error"].lower()
+                import sqlite3
+                conn = sqlite3.connect(str(data_dir / "audit.db"))
+                try:
+                    (outcome,) = conn.execute(
+                        "SELECT outcome FROM audit_log "
+                        "WHERE tool_name='alpha_expensive_tool' "
+                        "ORDER BY id DESC LIMIT 1"
+                    ).fetchone()
+                finally:
+                    conn.close()
+                assert outcome == "COST_ESTIMATE_ERROR"
+            finally:
+                router.close()
+
+
+class TestUnknownDomainRevocation:
+    """The revocation handler's unknown-domain guard at router.py:857
+    was uncovered until v6.4.1. A user mistyping a domain name should
+    get a clean error, not silently flip an unrelated consent."""
+
+    def test_revoke_unknown_domain_returns_error(self):
+        with TemporaryDirectory() as tmpdir:
+            router = RouterMCP("test", Path(tmpdir))
+            try:
+                router.register_child(MockChild("alpha"))
+                r = _run(router._dispatch(
+                    "revoke_consent_typo_domain", {}
+                ))
+                data = _loads(r[0].text)
+                assert "error" in data
+                assert "Unknown domain" in data["error"]
+                # Alpha consent unaffected.
+                assert not router._consent.is_approved("alpha")
+            finally:
+                router.close()
+
+
+class TestOrjsonStdlibFallback:
+    """
+    audit.py wraps json/orjson behind ``_dumps``/``_loads`` so the
+    audit serializer falls back to stdlib when orjson is absent.
+    Pip-minimal deployments hit this branch every call. Until v6.4.1
+    no test exercised it — the ADR 0001 backbone had an unverified
+    serialization path in stripped installs.
+    """
+
+    def test_stdlib_fallback_loads_when_orjson_absent(self):
+        import importlib
+        import sys
+        # Save the real module so we can restore it cleanly.
+        real_orjson = sys.modules.get("orjson")
+        real_audit = sys.modules.get("biosensor_mcp.framework.audit")
+        try:
+            # Force ImportError on next `import orjson`.
+            sys.modules["orjson"] = None
+            # Reload the audit module under the no-orjson regime.
+            import biosensor_mcp.framework.audit as audit_mod
+            reloaded = importlib.reload(audit_mod)
+            assert reloaded.JSON_BACKEND == "json (orjson not installed)", (
+                "stdlib fallback must declare itself in JSON_BACKEND so "
+                "deployments can surface the choice"
+            )
+            # Round-trip a non-trivial dict.
+            payload = {"force_revoke": True, "rows_purged": 42, "tables": ["a", "b"]}
+            text = reloaded._dumps(payload)
+            assert reloaded._loads(text) == payload
+        finally:
+            # Restore the real environment so subsequent tests get orjson back.
+            if real_orjson is not None:
+                sys.modules["orjson"] = real_orjson
+            else:
+                sys.modules.pop("orjson", None)
+            if real_audit is not None:
+                importlib.reload(real_audit)
+
+
+class TestVaultWriterAtomicWriteCleanup:
+    """
+    Atomic-write error cleanup at vault/writer.py:1041-1058 — if
+    writing the temp file or replace() fails, the tmp file must not
+    be left behind. ADR 0007 graceful-degradation invariant; until
+    v6.4.1 the cleanup path was untested.
+    """
+
+    def test_atomic_write_cleans_up_tmp_on_write_failure(self, monkeypatch):
+        """Path 2: fd transferred to fdopen successfully, then write()
+        raises mid-stream. Triggers the `fd_transferred=True` branch."""
+        from biosensor_mcp.framework.vault.writer import VaultWriter
+        with TemporaryDirectory() as tmpdir:
+            vault_path = Path(tmpdir) / "vault"
+            vault_path.mkdir()
+            data_dir = Path(tmpdir) / "data"
+            data_dir.mkdir()
+            writer = VaultWriter(
+                vault_path=vault_path, data_dir=data_dir,
+                vaultable_tools=set(), max_hr=195,
+            )
+            try:
+                target = vault_path / "broken.md"
+
+                # Force the write step to raise mid-write.
+                import os as os_mod
+                real_fdopen = os_mod.fdopen
+
+                def boom_fdopen(fd, *args, **kwargs):
+                    f = real_fdopen(fd, *args, **kwargs)
+                    def explode(_):
+                        raise OSError("simulated mid-write failure")
+                    f.write = explode
+                    return f
+
+                monkeypatch.setattr(os_mod, "fdopen", boom_fdopen)
+
+                with pytest.raises(OSError):
+                    writer._atomic_write_abs(target, "any content")
+
+                # No vault_tmp file lingering — cleanup ran.
+                tmp_files = list(vault_path.glob(".vault_tmp_*"))
+                assert tmp_files == [], (
+                    f"atomic-write must clean up temp files on failure "
+                    f"(ADR 0007); found leftovers: {tmp_files}"
+                )
+                assert not target.exists(), (
+                    "target must not exist after a mid-write failure"
+                )
+            finally:
+                writer.close()
+
+    def test_atomic_write_cleans_up_when_fdopen_itself_raises(self, monkeypatch):
+        """Path 1: fd-not-transferred. fdopen raises before the
+        `with` block opens — the except clause must close fd
+        explicitly via the ``not fd_transferred`` branch (writer.py:
+        1043-1046). Red-team v6.4.1 finding: the previous test only
+        covered Path 2."""
+        from biosensor_mcp.framework.vault.writer import VaultWriter
+        with TemporaryDirectory() as tmpdir:
+            vault_path = Path(tmpdir) / "vault"
+            vault_path.mkdir()
+            data_dir = Path(tmpdir) / "data"
+            data_dir.mkdir()
+            writer = VaultWriter(
+                vault_path=vault_path, data_dir=data_dir,
+                vaultable_tools=set(), max_hr=195,
+            )
+            try:
+                target = vault_path / "broken_fdopen.md"
+
+                import os as os_mod
+
+                def fdopen_raises(fd, *args, **kwargs):
+                    # Caller must close fd because we never wrap it —
+                    # the ``not fd_transferred`` branch is what does that.
+                    raise OSError("simulated fdopen failure (fd-table exhaustion)")
+
+                monkeypatch.setattr(os_mod, "fdopen", fdopen_raises)
+
+                with pytest.raises(OSError):
+                    writer._atomic_write_abs(target, "any content")
+
+                tmp_files = list(vault_path.glob(".vault_tmp_*"))
+                assert tmp_files == [], (
+                    f"atomic-write must clean up temp files even when "
+                    f"fdopen itself raises (ADR 0007 path 1); found "
+                    f"leftovers: {tmp_files}"
+                )
+                assert not target.exists()
+            finally:
+                writer.close()
+
+
+class TestVaultSearchNotesKindFilter:
+    """
+    Researcher-visible v6.4.1 fix: vault_search_notes' ToolDefinition
+    surfaces the canonical ``kind`` parameter alongside the legacy
+    ``note_type`` alias, matching vault_list_notes / vault_read_note.
+    Until v6.4.1 a client reading the tool schema saw only note_type.
+    """
+
+    def test_search_notes_tool_definition_surfaces_kind_parameter(self):
+        from biosensor_mcp.framework.vault import VaultLayer, VaultWriter
+        with TemporaryDirectory() as tmpdir:
+            vault_path = Path(tmpdir) / "vault"
+            vault_path.mkdir()
+            data_dir = Path(tmpdir) / "data"
+            data_dir.mkdir()
+            writer = VaultWriter(
+                vault_path=vault_path, data_dir=data_dir,
+                vaultable_tools=set(), max_hr=195,
+            )
+            try:
+                layer = VaultLayer(vault_path, writer)
+                # Find the search_notes ToolDefinition
+                tool_def = next(
+                    t for t in layer.tool_definitions
+                    if t.name == "vault_search_notes"
+                )
+                params = tool_def.params
+                assert "kind" in params, (
+                    "vault_search_notes must surface 'kind' as the "
+                    "canonical filter parameter (v6.3.0 drift fix)"
+                )
+                assert "failure_mode" in params["kind"]["description"]
+                assert "dashboard" in params["kind"]["description"]
+                # note_type should still work as an alias for backward compat
+                assert "note_type" in params
+                assert "alias" in params["note_type"]["description"].lower()
+            finally:
+                writer.close()

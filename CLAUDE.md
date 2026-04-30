@@ -1,5 +1,36 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.3.0 (2026-04-30)** — hall-of-fame team expansion. Governance /
+> team-shape release. No router, security-pipeline, child, vault-layer,
+> or CLI architecture changes. Adds four new specialist agents under
+> `.claude/agents/` per [ADR 0011 — promotion policy](docs/adr/0011-promotion-policy.md):
+> `researcher-utility-reviewer` (per-persona PI/analyst/IRB verdicts,
+> canonical persona definitions), `coverage-criticality-mapper` (extends
+> ci-gate-runner with ADR-anchored CRITICAL/HIGH/MEDIUM/LOW
+> classification), `reproducibility-provenance-auditor` (closes the
+> ADR 0008 "enforced by review at PR time" gap — audits diffs against
+> determinism / audit-completeness / `_meta` / `subject_id` propagation
+> invariants), and `phi-irb-risk-reviewer` (hostile-IRB-committee lens
+> across six threat-model lenses: Safe Harbor, consent scope,
+> audit-log completeness, ADR 0003 scrubber asymmetry, ADR 0009
+> `subject_id` integrity, retention). One reshape: `integration-auditor`
+> gains optional `--invariant=schema-drift` mode (per ADR 0011, this
+> folds correctly into an existing agent rather than a new specialist).
+> Adversarial pairing restored and codified in
+> [ADR 0010 — adversarial pairing](docs/adr/0010-adversarial-pairing.md):
+> `boss-report-auditor` + `red-team-reviewer` rows and Tier-2
+> adversarial backstops sub-section added to CLAUDE.md (silently
+> overwritten in v6.2.1's banner update; now hard-protected).
+> BORDER NOTES side-channel added across all 10 specialist prompts.
+> `release-shipper` gains hard-fail on dirty working tree with
+> `--include-pending=<file>:<reason>` opt-in restricted to a governance-
+> shape allowlist. Two new ADRs: ADR 0010 (adversarial pairing) and
+> ADR 0011 (promotion policy — project-local override of the global
+> "3+ uses" bar; four picks split 2/2 across old vs new bar, which is
+> the load-bearing demonstration). Dogfood: `researcher-utility-reviewer`
+> returned ALIGNED on v6.3.0 work itself; `boss-report-auditor` caught
+> 7 framing gaps in the initial demo before dispatch.
+>
 > **v6.2.1 (2026-04-29)** — pilot-wizard release. Collapses the
 > seven-step multi-subject pilot quickstart into two terminal commands
 > and three prompts via the new `biosensor-mcp pilot` CLI subcommand

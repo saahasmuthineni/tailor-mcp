@@ -189,9 +189,18 @@ class VaultLayer:
                         "description": "Search term",
                         "required": True,
                     },
+                    "kind": {
+                        "type": "string",
+                        "description": (
+                            "Filter by note kind: run_report | trend_report | "
+                            "compare_runs | theme | moment | failure_mode | "
+                            "dashboard"
+                        ),
+                        "required": False,
+                    },
                     "note_type": {
                         "type": "string",
-                        "description": "Limit to a note type (optional)",
+                        "description": "Alias for 'kind' (legacy). Same allowed values.",
                         "required": False,
                     },
                     "limit": {
@@ -199,6 +208,7 @@ class VaultLayer:
                         "description": "Max results (default 10, max 50)",
                         "required": False,
                     },
+                    "subject_id": SUBJECT_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -812,6 +822,16 @@ class VaultLayer:
                     type=str, allowed_values=list(_ALLOWED_KINDS),
                 ),
                 "limit": ValidationSchema(type=int, min=1, max=50, default=10),
+                # subject_id is intentionally not listed here. The
+                # setdefault loop in __init__ (search for "for tn,
+                # schema in self.param_schemas.items()") injects
+                # SUBJECT_ID_SCHEMA into every vault tool's schema.
+                # If that loop is ever refactored, this tool's
+                # subject_id surface goes silent — add it explicitly
+                # before touching the loop. Other vault tools follow
+                # the same pattern; this comment exists because
+                # vault_search_notes was the v6.4.1 reproducibility-
+                # auditor BORDER NOTE.
             },
             "vault_list_anomalies": {
                 "anomaly_type": ValidationSchema(type=str),

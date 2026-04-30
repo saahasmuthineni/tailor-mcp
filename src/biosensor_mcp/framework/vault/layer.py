@@ -52,7 +52,12 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ..interfaces import ToolDefinition, ValidationSchema
+from ..interfaces import (
+    SUBJECT_ID_PARAM_DOC,
+    SUBJECT_ID_SCHEMA,
+    ToolDefinition,
+    ValidationSchema,
+)
 from .rescan import rescan_vault, revalidate_file
 from .storage import VaultStorage
 from .writer import VaultWriter, _is_relative_to
@@ -105,7 +110,7 @@ class VaultLayer:
 
     @property
     def tool_definitions(self) -> list[ToolDefinition]:
-        return [
+        defs = [
             ToolDefinition(
                 "vault_get_fitness_summary", 1,
                 "Primary session orientation tool. Surfaces open themes and recent "
@@ -768,10 +773,17 @@ class VaultLayer:
                 },
             ),
         ]
+        # v6.2 — surface optional subject_id on every vault tool so LLM
+        # clients discover it via list_tools. ADR 0002 (audit-scoping)
+        # + ADR 0009 (vault subject-keying). setdefault is idempotent if
+        # any tool ever declares its own subject_id schema.
+        for td in defs:
+            td.params.setdefault("subject_id", dict(SUBJECT_ID_PARAM_DOC))
+        return defs
 
     @property
     def param_schemas(self) -> dict[str, dict[str, ValidationSchema]]:
-        return {
+        schemas = {
             "vault_get_fitness_summary": {
                 "weeks_back": ValidationSchema(type=int, min=1, max=52, default=8),
             },
@@ -947,6 +959,13 @@ class VaultLayer:
                 ),
             },
         }
+        # v6.2 — every vault tool accepts subject_id for audit-scoping
+        # and (where the handler supports it) note keying. ADR 0002 +
+        # ADR 0009. setdefault preserves any tool that ever wants a
+        # narrower schema.
+        for tool_schemas in schemas.values():
+            tool_schemas.setdefault("subject_id", SUBJECT_ID_SCHEMA)
+        return schemas
 
     async def execute(self, tool_name: str, params: dict) -> dict:
         handlers = {

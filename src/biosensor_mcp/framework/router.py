@@ -96,6 +96,13 @@ class RouterMCP:
         # Tools go in _tool_map with child=None sentinel — dispatch redirects them.
         self._vault_layer = None
 
+        # Local-LLM layer (framework-level guardian; not a ChildMCP).
+        # See ADR 0022. Tools also use the (None, tool_def) sentinel; the
+        # _framework_layer_owner dict disambiguates vault vs local_llm so
+        # _dispatch can route to the right stripped-down pipeline.
+        self._local_llm_layer = None
+        self._framework_layer_owner: dict[str, str] = {}
+
         # Middleware stack
         self._circuit = CircuitBreaker(
             threshold=circuit_threshold, reset_after=circuit_reset
@@ -177,9 +184,53 @@ class RouterMCP:
                 )
             # None sentinel marks this as a vault-layer tool
             self._tool_map[tool_def.name] = (None, tool_def)
+            self._framework_layer_owner[tool_def.name] = "vault"
 
         log.info(
             f"Registered vault layer with {len(vault_layer.tool_definitions)} tools"
+        )
+
+    def register_local_llm_layer(self, local_llm_layer) -> None:
+        """
+        Register the framework-level local-LLM guardian layer (per ADR 0022).
+
+        Local-LLM tools are added to ``_tool_map`` with a None-child sentinel
+        (same pattern as vault). Dispatch redirects them to
+        ``_dispatch_local_llm()`` — a stripped-down pipeline (param
+        validation + execute + audit) that skips consent, cost, circuit
+        breaker, PHI scrub, and post-execute hooks.
+
+        The ``_framework_layer_owner`` dict disambiguates vault vs local_llm
+        in dispatch so each framework-tier layer gets its own
+        purpose-specific pipeline.
+        """
+        if self._local_llm_layer is not None:
+            raise ValueError("Local-LLM layer already registered")
+
+        self._local_llm_layer = local_llm_layer
+        local_llm_layer._router = self
+
+        for tool_def in local_llm_layer.tool_definitions:
+            if tool_def.name in self._tool_map:
+                existing = self._tool_map[tool_def.name][0]
+                if existing is not None:
+                    existing_domain = existing.domain
+                else:
+                    existing_domain = self._framework_layer_owner.get(
+                        tool_def.name, "framework"
+                    )
+                raise ValueError(
+                    f"Tool '{tool_def.name}' already registered by '{existing_domain}'"
+                )
+            self._tool_map[tool_def.name] = (None, tool_def)
+            self._framework_layer_owner[tool_def.name] = "local_llm"
+
+        backend = local_llm_layer.backend
+        log.info(
+            f"Registered local-LLM layer "
+            f"(backend={backend.backend_id}, tier={backend.tier}, "
+            f"model={backend.model_id}) "
+            f"with {len(local_llm_layer.tool_definitions)} tools"
         )
 
     @property
@@ -297,9 +348,36 @@ class RouterMCP:
 
         child, tool_def = self._tool_map[tool_name]
 
-        # ── Vault layer fast-path (framework-level; skip consent/cost/circuit) ──
+        # ── Framework-tier layers fast-path (skip consent/cost/circuit) ──
+        # The owner dict disambiguates vault vs local_llm; both use the
+        # (None, tool_def) sentinel in _tool_map but route to different
+        # purpose-specific pipelines. A future third framework-tier
+        # layer must register its owner explicitly; an unrecognized
+        # owner fails loudly rather than silently routing to a wrong
+        # pipeline (mcp-protocol-auditor BORDER NOTE on ADR 0022).
         if child is None:
-            return await self._dispatch_vault(tool_name, tool_def, arguments, start)
+            owner = self._framework_layer_owner.get(tool_name)
+            if owner == "vault":
+                return await self._dispatch_vault(
+                    tool_name, tool_def, arguments, start,
+                )
+            if owner == "local_llm":
+                return await self._dispatch_local_llm(
+                    tool_name, tool_def, arguments, start,
+                )
+            log.error(
+                f"Framework-tier tool '{tool_name}' has no registered "
+                f"layer owner (got {owner!r}); refusing to silently "
+                f"route. This is a registration bug — a new "
+                f"framework-tier layer was added without populating "
+                f"_framework_layer_owner."
+            )
+            return [TextContent(type="text", text=_dumps({
+                "error": (
+                    f"Framework-tier tool '{tool_name}' has no registered "
+                    f"layer owner. This is a server configuration error."
+                )
+            }))]
 
         domain = child.domain
         tier = tool_def.tier
@@ -682,6 +760,156 @@ class RouterMCP:
                 scrubber_id=self._phi_scrubber.scrubber_id,
             )
             log.error(f"Vault tool {tool_name} failed: {e}", exc_info=True)
+            return [TextContent(type="text", text=_dumps({"error": str(e)}))]
+
+    async def _dispatch_local_llm(
+        self,
+        tool_name: str,
+        tool_def: ToolDefinition,
+        arguments: dict,
+        start: float,
+    ) -> list[TextContent]:
+        """
+        Dispatch a local-LLM-layer tool (per ADR 0022).
+
+        Stripped-down pipeline:
+
+            param validation → execute → audit
+
+        Skipped by design:
+            - Circuit breaker (no external API; the LLM runs on-device)
+            - Consent gate (does not access biometric data directly;
+              numerical_claims come from already-computed processing
+              output, which already passed the appropriate gates on its
+              originating Tier-1 calls)
+            - Cost gate (local resource — wall-clock + CPU + RAM, not
+              hosted-LLM tokens; ADR 0022 defers a local-resource gate
+              to a future ADR)
+            - PHI-scrubber seam (numerical claims came through processing.py
+              and the scrubber on their original Tier-1 calls; the
+              ``narrative`` field is LLM-generated prose explicitly
+              labelled non-citable in _meta — operators with strict PHI
+              policies should configure a backend that refuses to mention
+              identifiers)
+            - Post-execute hooks (oracle responses are non-citable
+              narrative + already-cited numerical claims; they do not
+              produce vaultable notes by design)
+
+        The ``OracleResponse._meta`` provenance (model_id, model_version_hash,
+        tier, latency_ms, prompt_hash, processing_calls, backend) is
+        preserved by nesting it under ``result["_meta"]["oracle"]`` while
+        the framework-level ``_meta`` keys (tokens, package_version, etc.)
+        sit at the top level — same shape every other dispatch path uses.
+        """
+        tier = tool_def.tier
+        subject_id = _coerce_subject_id(arguments)
+
+        # ── LAYER 1: Param validation ──
+        schemas = self._local_llm_layer.param_schemas.get(tool_name, {})
+        ok, err, cleaned = self._validator.validate(schemas, arguments)
+        if not ok:
+            self._audit.record(
+                "local_llm", tool_name, tier, arguments, 0, "PARAM_INVALID", 0,
+                error=err, subject_id=subject_id,
+                scrubber_id=self._phi_scrubber.scrubber_id,
+            )
+            return [TextContent(type="text", text=_dumps({"error": err}))]
+
+        subject_id = _coerce_subject_id(cleaned)
+
+        # ── EXECUTE ──
+        try:
+            result = await self._local_llm_layer.execute(tool_name, cleaned)
+            tokens = estimate_tokens(result)
+            duration_ms = int((time.time() - start) * 1000)
+
+            # Pull oracle provenance from the response so the audit row
+            # carries it as named columns (per ADR 0022 § "Architectural
+            # placement"). The provenance also stays in the response's
+            # _meta.oracle nested block for the LLM transcript — the
+            # audit row makes it queryable from audit.db without parsing
+            # the response payload.
+            oracle_meta_for_audit = (
+                result.get("_meta", {}) if isinstance(result, dict) else {}
+            )
+            oracle_confidence_raw = (
+                result.get("confidence") if isinstance(result, dict) else None
+            )
+            try:
+                oracle_confidence = (
+                    float(oracle_confidence_raw)
+                    if oracle_confidence_raw is not None
+                    else None
+                )
+            except (TypeError, ValueError):
+                oracle_confidence = None
+
+            # The audit row's `oracle_latency_ms` is the backend's
+            # compose() wall-clock alone — distinct from the row's
+            # `duration_ms` which spans the full router pipeline
+            # (validation + execute + audit-build). Querying audit.db
+            # for "how long did the on-device inference take" wants
+            # this column, not duration_ms.
+            oracle_latency_raw = oracle_meta_for_audit.get("latency_ms")
+            try:
+                oracle_latency_ms = (
+                    int(oracle_latency_raw)
+                    if oracle_latency_raw is not None
+                    else None
+                )
+            except (TypeError, ValueError):
+                oracle_latency_ms = None
+
+            self._ledger.add("local_llm", tool_name, tokens)
+            self._audit.record(
+                "local_llm", tool_name, tier, cleaned, tokens, "SUCCESS",
+                duration_ms,
+                subject_id=subject_id,
+                scrubber_id=self._phi_scrubber.scrubber_id,
+                oracle_model_id=oracle_meta_for_audit.get("model_id"),
+                oracle_model_version_hash=oracle_meta_for_audit.get(
+                    "model_version_hash"
+                ),
+                oracle_tier=oracle_meta_for_audit.get("tier"),
+                oracle_confidence=oracle_confidence,
+                oracle_prompt_hash=oracle_meta_for_audit.get("prompt_hash"),
+                oracle_latency_ms=oracle_latency_ms,
+            )
+
+            if isinstance(result, dict):
+                # Preserve OracleResponse._meta (model/tier/latency/prompt_hash)
+                # by nesting it; overlay the framework's standard _meta keys.
+                oracle_meta = result.pop("_meta", None)
+                outer_meta: dict = {
+                    "tokens_this_call": tokens,
+                    "session_total_tokens": self._ledger.total,
+                    "domain": "local_llm",
+                    "tier": tier,
+                    "package_version": biosensor_mcp.__version__,
+                    "tool_name": tool_name,
+                    "called_at": datetime.now(timezone.utc).isoformat(),
+                    "scrubber_id": self._phi_scrubber.scrubber_id,
+                }
+                if self._phi_scrubber.scrubber_warning is not None:
+                    outer_meta["scrubber_warning"] = (
+                        self._phi_scrubber.scrubber_warning
+                    )
+                if isinstance(oracle_meta, dict):
+                    outer_meta["oracle"] = oracle_meta
+                result["_meta"] = outer_meta
+
+            return [TextContent(type="text", text=_dumps(result))]
+
+        except Exception as e:
+            duration_ms = int((time.time() - start) * 1000)
+            self._audit.record(
+                "local_llm", tool_name, tier, cleaned, 0, "ERROR", duration_ms,
+                error=str(e), subject_id=subject_id,
+                scrubber_id=self._phi_scrubber.scrubber_id,
+            )
+            log.error(
+                f"Local-LLM tool {tool_name} failed: {e}", exc_info=True,
+            )
             return [TextContent(type="text", text=_dumps({"error": str(e)}))]
 
     # ══════════════════════════════════════════════════════════

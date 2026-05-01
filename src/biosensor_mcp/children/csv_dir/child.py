@@ -292,7 +292,11 @@ class CSVDirectoryChild(ChildMCP):
                 "reduces the named column to a per-file scalar by metric, "
                 "and returns per-group n/mean/std/min/max. Pure server-side "
                 "computation — no rows reach LLM context. Requires "
-                "metadata.json sidecar. ~300 tokens. See ADR 0015.",
+                "metadata.json sidecar. ~300 tokens. See ADR 0015. To "
+                "compose a structured natural-language response over this "
+                "result without any biometric data leaving the analyst's "
+                "machine, pass the result as resolved_context to "
+                "ask_local_oracle (per ADR 0022).",
                 {
                     "column": {"type": "string", "description": "Numeric column to aggregate", "required": True},
                     "group_by": {"type": "string", "description": "Metadata field name (e.g. 'sex', 'group')", "required": True},
@@ -312,7 +316,10 @@ class CSVDirectoryChild(ChildMCP):
                 "Per-file fatigue diagnostic: peak, end value, decline %, "
                 "decline rate per minute, and time-to-50%-drop. Generic over "
                 "any monotonically-fatigueing column (force, EMG envelope, "
-                "power). ~250 tokens.",
+                "power). ~250 tokens. To compose a structured natural-"
+                "language response over this result without any biometric "
+                "data leaving the analyst's machine, pass the result as "
+                "resolved_context to ask_local_oracle (per ADR 0022).",
                 {
                     "file_id": {"type": "string", "description": "CSV filename", "required": True},
                     "column": {"type": "string", "description": "Numeric column to analyse", "required": True},

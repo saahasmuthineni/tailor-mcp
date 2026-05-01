@@ -1,5 +1,52 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.6.0 (2026-05-01)** — Local-LLM guardian release. Adds
+> `framework/local_llm/` — a new framework-tier component (parallel to
+> `framework/vault/`) that enables an LLM running on the analyst's machine
+> to compose structured natural-language responses over deterministic
+> processing output, with a hard architectural rule: numbers come from
+> `processing.py`, prose comes from the local LLM, enforced by the
+> `OracleResponse` schema. New [ADR 0022](docs/adr/0022-local-llm-guardian.md)
+> (Proposed) codifies the commitment; ADR 0008 amended to extend its
+> `@staticmethod`/no-PRNG permit-list to name the new backend files.
+> Core types: `OracleRequest` / `OracleResponse` / `NumericalClaim` /
+> `OracleMeta`. Default posture: `NullBackend` (no-op — existing deployments
+> behaviorally unchanged); opt-in via `local_llm` block in `user_config.json`.
+> Real backend: `OllamaBackend` (Ollama on `localhost:11434`, JSON-mode HTTP).
+> Four named tiers: Scout (`llama3.2:1b`) / Sentinel (`phi3.5:3.8b`) /
+> Guardian (`llama3.1:8b`) / Titan (`qwen2.5:14b`) — cited numerical claims
+> identical across tiers; only the prose model differs. One new tool:
+> `ask_local_oracle`. Six new `oracle_*` columns on `audit_log` for IRB-grade
+> provenance. Cohort tools (`csv_cohort_summary` + `csv_force_decline`) gain
+> oracle-mediation hints in tool descriptions; remaining 45 tools unchanged.
+> Framing-claim strengthening (conditional on opt-in): "no biometric streams
+> leave the analyst's machine, ever, at any tier — including to hosted LLMs."
+> Operator guide at `docs/guides/local-llm-guardian.md` (tier table + Ollama
+> setup + troubleshooting). 37 new regression tests: 28 unit (oracle contract,
+> NullBackend, OllamaBackend mocked, LocalLLMLayer dispatch, hallucination-
+> prevention invariant) + 2 audit-column regression + 1 strengthened
+> hallucination guard + 6 subprocess (mcp-protocol-auditor). Total 632/632.
+> 6-agent release pass: `ci-gate-runner` SHIPPABLE;
+> `reproducibility-provenance-auditor` CLEAN; `mcp-protocol-auditor`
+> PROTOCOL OK; `researcher-utility-reviewer` HOLD (HIGH) → 5 audit-log
+> columns added before ship; `red-team-reviewer` OBJECTION (medium) →
+> `oracle_latency_ms` 6th column added + hallucination test strengthened;
+> `phi-irb-risk-reviewer` WATCH → operator-guide "Important precision"
+> section added. Includes pending CLAUDE.md governance edits (architecture
+> diagram + file-structure block updated for `local_llm/`) per ADR 0022.
+> No router-pipeline, security-pipeline, child, vault-layer, or CLI
+> architecture changes beyond the new `register_local_llm_layer()` hook.
+> Public API additions only — no breaking changes; SemVer minor bump.
+> Total framework tool surface: 25 (vault) + 12 (running) + 7 (csv_dir) +
+> 3 (template) + 1 (local_llm) = 48 (was 47). Explicitly deferred per
+> ADR 0022 § "Out of scope": verifier behavior on hosted-LLM responses,
+> sanitizer/proxy mode, conductor-mode toggle, citation-grounding
+> enforcement on manuscript drafts, migration of remaining 45 tools to
+> oracle mediation, IRB-facing threat-model update for prompt-injection
+> surface, performance characterization (cold-start / GPU vs CPU),
+> pilot-wizard tier-detection, real Ollama end-to-end smoke (all
+> OllamaBackend tests are mocked).
+>
 > **v6.5.0 (2026-04-30)** — Tier-1 cohort surface release. Adds two
 > Tier-1 tools to the CSV directory child — `csv_cohort_summary`
 > (cross-file aggregation by metadata-sidecar group) and
@@ -432,10 +479,12 @@ Token efficiency is a useful side effect of computing summaries server-side. It 
 ```
 LLM client <--> RouterMCP (validate → circuit break → consent → cost → execute
                            → PHI scrub → audit + provenance stamp)
-                   |                 ╲
-              ChildMCP                VaultLayer   ← framework-level
-     (one per data source)      (reorientation tier;  skips consent/cost gates)
-  e.g. RunningChild, CGMChild    Obsidian vault + SQLite index
+                   |                 ╲           ╲
+              ChildMCP                VaultLayer  LocalLLMLayer ← framework-level
+     (one per data source)            (reorientation tier;     (local-LLM guardian;
+  e.g. RunningChild, CGMChild        Obsidian vault + index)   skips consent/cost gates)
+                                                               ↑ ADR 0022; opt-in
+                                                                 via user_config
 ```
 
 **Two persistence tiers, architecturally distinct:**
@@ -482,6 +531,17 @@ src/biosensor_mcp/
       parser.py            # Frontmatter / YAML parsing for vault notes
       rescan.py            # Filesystem → SQLite index revalidation
       storage.py           # VaultStorage — SQLite index of vault notes
+    local_llm/             # Local-LLM guardian (framework-level
+                           #   infrastructure, not a ChildMCP) — see ADR 0022
+      __init__.py          # Public API exports
+      oracle.py            # OracleRequest/Response/Meta + tier table
+                           #   (Scout/Sentinel/Guardian/Titan)
+      layer.py             # LocalLLMLayer — exposes ask_local_oracle tool
+      backends/__init__.py # LocalLLMBackend ABC
+      backends/null.py     # NullBackend — no-op default; surfaces claims
+                           #   from resolved_context with no narrative
+      backends/ollama.py   # OllamaBackend — talks to Ollama on
+                           #   localhost:11434 via JSON-mode HTTP
   children/
     __init__.py            # Docstring framing children as the extension
                            #   point for new data sources

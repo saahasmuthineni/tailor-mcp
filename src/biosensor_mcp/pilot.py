@@ -42,6 +42,13 @@ CONFIG_PATH = CONFIG_DIR / "user_config.json"
 _CLOUD_MARKERS: tuple[tuple[str, str], ...] = (
     ("onedrive", "OneDrive"),
     ("icloud", "iCloud Drive"),
+    # macOS iCloud canonical paths do not contain the literal substring
+    # "icloud" — they live under ~/Library/Mobile Documents/com~apple~CloudDocs/
+    # for the system iCloud and ~/Library/Mobile Documents/iCloud~* for app-
+    # specific iCloud containers (e.g. Obsidian iOS). Either path is iCloud-
+    # synced and warrants the warning.
+    ("mobile documents", "iCloud Drive (macOS)"),
+    ("clouddocs", "iCloud Drive (macOS)"),
     ("dropbox", "Dropbox"),
     ("googledrive", "Google Drive"),
     ("google drive", "Google Drive"),

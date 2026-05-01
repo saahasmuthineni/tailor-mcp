@@ -136,6 +136,41 @@ class TestThemeSubjectSetOnce:
         finally:
             cleanup()
 
+    def test_reassignment_rejection_does_not_mutate_file_or_evidence(self):
+        # Integration-auditor H3 (overnight 2026-05-01): the set-once
+        # invariant is enforced by raising an error, but no test asserts
+        # that the on-disk theme file is *unchanged* after the rejected
+        # reassignment. A future refactor that reorders "validate then
+        # write" → "write then validate" would silently mutate the file
+        # before raising. This pins the post-rejection state.
+        vault_path, _data_path, layer, cleanup = _setup()
+        try:
+            _run(layer.execute("vault_upsert_theme", {
+                "slug": "reassign-immutable-test",
+                "hypothesis": "P003 fatigue pattern",
+                "evidence": "Original observation",
+                "subject_id": "P003",
+            }))
+            theme_path = vault_path / "themes/reassign-immutable-test.md"
+            before = theme_path.read_text(encoding="utf-8")
+
+            res = _run(layer.execute("vault_upsert_theme", {
+                "slug": "reassign-immutable-test",
+                "evidence": "Trying to retarget to P007",
+                "subject_id": "P007",
+            }))
+            assert "error" in res
+
+            after = theme_path.read_text(encoding="utf-8")
+            assert before == after, (
+                "rejected subject_id reassignment must not mutate the file. "
+                "Set-once is a hard error per ADR 0009."
+            )
+            # The rejected evidence string must NOT appear anywhere on disk.
+            assert "Trying to retarget to P007" not in after
+        finally:
+            cleanup()
+
     def test_promotion_from_unscoped_to_scoped_is_allowed(self):
         vault_path, _data_path, layer, cleanup = _setup()
         try:

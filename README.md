@@ -76,7 +76,7 @@ Claude: [calls strava_run_report — Tier 1, no consent required]
 
 Tool:   {"summary": "6.2 mi · 48:12 · avg HR 152",
          "drift_pct": 3.2, "efficiency_factor": 1.71,
-         "_meta": {"package_version":   "6.4.1",
+         "_meta": {"package_version":   "6.5.0",
                    "tool_name":         "strava_run_report",
                    "called_at":         "2026-04-13T15:42:11Z",
                    "scrubber_id":       "noop",
@@ -172,7 +172,7 @@ Every successful result carries a `_meta` provenance stamp:
 ```json
 {
   "_meta": {
-    "package_version":  "6.4.1",
+    "package_version":  "6.5.0",
     "tool_name":        "strava_run_report",
     "called_at":        "2026-04-13T15:42:11.345Z",
     "scrubber_id":      "noop",
@@ -207,7 +207,7 @@ for the full treatment.
   cannot silently masquerade as a scrubbed one.
 - Per-subject **audit-log scoping** is first-class on the biosensor
   tier. `RunningChild` declares `subject_id` on all 12 `strava_*`
-  tools; `csv_dir` declares it on all 5 tools. This is caller-asserted
+  tools; `csv_dir` declares it on all 7 tools. This is caller-asserted
   scoping for the audit log; it does **not** filter source data, since
   one authenticated upstream account may legitimately cover multiple
   study participants.

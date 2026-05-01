@@ -6,11 +6,11 @@ Mirrors ``tests/children/template/test_template_processing.py``.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 
-from biosensor_mcp.children.csv_dir.processing import CSVProcessing
+from biosensor_mcp.children.csv_dir.processing import COHORT_METRICS, CSVProcessing
 
 # ═══════════════════════════════════════════════════════════════
 # summarize_column
@@ -161,3 +161,218 @@ class TestReducePrecision:
 
     def test_integer_input(self):
         assert CSVProcessing.reduce_precision(42.0) == 42.0
+
+
+# ═══════════════════════════════════════════════════════════════
+# aggregate_metric (ADR 0015 — Tier-1 cohort surface)
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestAggregateMetric:
+    """Per-file scalar reduction for cohort aggregation."""
+
+    def test_mean(self):
+        assert CSVProcessing.aggregate_metric(
+            [1.0, 2.0, 3.0, 4.0, 5.0], None, "mean",
+        ) == 3.0
+
+    def test_max_and_peak_alias(self):
+        values = [10.0, 50.0, 30.0, 20.0]
+        assert CSVProcessing.aggregate_metric(values, None, "max") == 50.0
+        assert CSVProcessing.aggregate_metric(values, None, "peak") == 50.0
+
+    def test_min(self):
+        assert CSVProcessing.aggregate_metric([5.0, 2.0, 8.0], None, "min") == 2.0
+
+    def test_std_multi_sample(self):
+        result = CSVProcessing.aggregate_metric(
+            [1.0, 2.0, 3.0, 4.0, 5.0], None, "std",
+        )
+        assert result is not None
+        assert result > 0
+
+    def test_std_single_sample_is_zero(self):
+        assert CSVProcessing.aggregate_metric([42.0], None, "std") == 0.0
+
+    def test_first_and_last(self):
+        values = [10.0, 20.0, 30.0, 40.0]
+        assert CSVProcessing.aggregate_metric(values, None, "first") == 10.0
+        assert CSVProcessing.aggregate_metric(values, None, "last") == 40.0
+
+    def test_empty_returns_none(self):
+        assert CSVProcessing.aggregate_metric([], None, "mean") is None
+
+    def test_unknown_metric_raises(self):
+        with pytest.raises(ValueError, match="Unknown metric"):
+            CSVProcessing.aggregate_metric([1.0], None, "frobnicate")
+
+    def test_duration_requires_timestamps(self):
+        # Without timestamps duration_s returns None.
+        assert CSVProcessing.aggregate_metric(
+            [1.0, 2.0, 3.0], None, "duration_s",
+        ) is None
+
+    def test_duration_with_timestamps(self):
+        ts = [
+            datetime(2026, 1, 1, 10, 0, 0),
+            datetime(2026, 1, 1, 10, 0, 30),
+            datetime(2026, 1, 1, 10, 1, 0),
+        ]
+        result = CSVProcessing.aggregate_metric(
+            [1.0, 2.0, 3.0], ts, "duration_s",
+        )
+        assert result == 60.0
+
+    def test_time_to_50pct_drop_basic(self):
+        # Peak 100 at index 2; first sample <= 50 at index 4 (10 seconds later).
+        ts = [
+            datetime(2026, 1, 1, 10, 0, i * 5) for i in range(6)
+        ]
+        values = [80.0, 90.0, 100.0, 70.0, 40.0, 30.0]
+        result = CSVProcessing.aggregate_metric(
+            values, ts, "time_to_50pct_drop_s",
+        )
+        # Peak at i=2 (t=10s), 40 at i=4 (t=20s) → 10 seconds.
+        assert result == 10.0
+
+    def test_time_to_50pct_drop_never_reached_returns_none(self):
+        ts = [datetime(2026, 1, 1, 10, 0, i) for i in range(4)]
+        # Drops only 25% — never reaches 50%.
+        assert CSVProcessing.aggregate_metric(
+            [100.0, 90.0, 80.0, 75.0], ts, "time_to_50pct_drop_s",
+        ) is None
+
+    def test_time_to_50pct_drop_zero_peak_returns_none(self):
+        ts = [datetime(2026, 1, 1, 10, 0, i) for i in range(3)]
+        assert CSVProcessing.aggregate_metric(
+            [0.0, 0.0, 0.0], ts, "time_to_50pct_drop_s",
+        ) is None
+
+    def test_time_to_50pct_drop_mismatched_lengths_returns_none(self):
+        ts = [datetime(2026, 1, 1, 10, 0, 0)]
+        # Three values, one timestamp → can't compute.
+        assert CSVProcessing.aggregate_metric(
+            [100.0, 50.0, 10.0], ts, "time_to_50pct_drop_s",
+        ) is None
+
+    def test_cohort_metrics_constant_is_complete(self):
+        # All declared metrics must be implemented; this is a contract
+        # test against the COHORT_METRICS public symbol.
+        for metric in COHORT_METRICS:
+            # mean/max/etc accept empty input and return None
+            result = CSVProcessing.aggregate_metric([], None, metric)
+            assert result is None
+
+
+# ═══════════════════════════════════════════════════════════════
+# cohort_stats (ADR 0015)
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestCohortStats:
+    def test_basic_cohort(self):
+        result = CSVProcessing.cohort_stats([10.0, 20.0, 30.0, 40.0, 50.0])
+        assert result["n"] == 5
+        assert result["n_missing"] == 0
+        assert result["mean"] == 30.0
+        assert result["min"] == 10.0
+        assert result["max"] == 50.0
+        assert result["std"] > 0
+
+    def test_drops_none_entries_and_counts_missing(self):
+        result = CSVProcessing.cohort_stats([10.0, None, 30.0, None, 50.0])
+        assert result["n"] == 3
+        assert result["n_missing"] == 2
+        assert result["mean"] == 30.0
+
+    def test_all_none_returns_zero_n_and_nulls(self):
+        result = CSVProcessing.cohort_stats([None, None, None])
+        assert result["n"] == 0
+        assert result["n_missing"] == 3
+        assert result["mean"] is None
+        assert result["std"] is None
+
+    def test_empty_list_returns_zero_n(self):
+        result = CSVProcessing.cohort_stats([])
+        assert result["n"] == 0
+        assert result["n_missing"] == 0
+        assert result["mean"] is None
+
+    def test_single_sample_std_is_zero(self):
+        result = CSVProcessing.cohort_stats([42.0])
+        assert result["n"] == 1
+        assert result["std"] == 0.0
+
+
+# ═══════════════════════════════════════════════════════════════
+# force_decline_summary (ADR 0015)
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestForceDeclineSummary:
+    def test_empty_returns_error(self):
+        result = CSVProcessing.force_decline_summary([])
+        assert "error" in result
+
+    def test_basic_decline_no_timestamps(self):
+        # Simple monotonic decline from 100 to 25.
+        values = [100.0, 80.0, 60.0, 40.0, 25.0]
+        result = CSVProcessing.force_decline_summary(values)
+        assert result["peak"] == 100.0
+        assert result["peak_index"] == 0
+        assert result["end_value"] == 25.0
+        assert result["n_samples"] == 5
+        assert result["decline_pct_total"] == 75.0
+        # No timestamps supplied → decline-rate fields absent.
+        assert "decline_rate_per_min" not in result
+        assert "time_to_50pct_drop_s" not in result
+
+    def test_decline_with_timestamps(self):
+        base = datetime(2026, 1, 1, 10, 0, 0)
+        ts = [base + timedelta(seconds=i * 60) for i in range(5)]
+        values = [100.0, 80.0, 60.0, 40.0, 25.0]
+        result = CSVProcessing.force_decline_summary(values, ts)
+        # Peak at index 0, drops to 50 between index 2 (60) and index 3 (40).
+        # First sample <= 50 is at index 3, 180 seconds after peak.
+        assert result["time_to_50pct_drop_s"] == 180.0
+        assert result["peak_time_s"] == 0.0
+        assert result["duration_s"] == 240.0
+        # Total decline = 75 over 4 minutes (peak at t=0 to end at t=240s).
+        assert result["decline_rate_per_min"] == round(75 / 4, 3)
+
+    def test_peak_in_middle(self):
+        # Force ramps up before fatiguing.
+        values = [60.0, 80.0, 100.0, 70.0, 40.0]
+        result = CSVProcessing.force_decline_summary(values)
+        assert result["peak"] == 100.0
+        assert result["peak_index"] == 2
+        assert result["end_value"] == 40.0
+        assert result["decline_pct_total"] == 60.0
+
+    def test_no_decline_returns_zero_pct(self):
+        values = [50.0, 50.0, 50.0]
+        result = CSVProcessing.force_decline_summary(values)
+        assert result["decline_pct_total"] == 0.0
+        assert result["peak"] == result["end_value"] == 50.0
+
+    def test_zero_peak_decline_is_zero(self):
+        values = [0.0, 0.0, 0.0]
+        result = CSVProcessing.force_decline_summary(values)
+        assert result["decline_pct_total"] == 0.0
+
+    def test_never_drops_to_50pct(self):
+        ts = [datetime(2026, 1, 1, 10, 0, i * 10) for i in range(4)]
+        values = [100.0, 90.0, 80.0, 75.0]
+        result = CSVProcessing.force_decline_summary(values, ts)
+        assert result["time_to_50pct_drop_s"] is None
+
+    def test_mismatched_timestamp_length_skips_temporal_fields(self):
+        # When timestamps don't match values length, decline-rate fields
+        # are silently omitted rather than misreporting.
+        ts = [datetime(2026, 1, 1, 10, 0, 0)]
+        values = [100.0, 80.0, 60.0]
+        result = CSVProcessing.force_decline_summary(values, ts)
+        assert "time_to_50pct_drop_s" not in result
+        assert "decline_rate_per_min" not in result
+        # Non-temporal fields still computed.
+        assert result["peak"] == 100.0

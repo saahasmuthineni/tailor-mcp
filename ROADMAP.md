@@ -18,9 +18,72 @@ one- or two-sentence pitch plus context; no implementation details.
 | ~~[Worked-example notebook](#worked-example-notebook-against-a-published-analytical-question)~~ *(shipped — [docs/guides/worked-example.ipynb](docs/guides/worked-example.ipynb))* | — | — | — |
 | [LLM-client evaluation harness](#evaluation-harness-for-llm-client-behavior) | M | Medium | Making the governance claim measurable |
 | [CLI UX: rename `setup` → `setup-strava`](#cli-ux-rename-setup--setup-strava) | XS | Low | Disambiguating the two wizards |
+| [Pre-existing csv_dir HIGH-region coverage debt (v6.5.1)](#pre-existing-csv_dir-high-region-coverage-debt-v651) | XS | Low | Cleaner ADR-0014 baseline |
+| [PHI sidecar-schema validator (v6.6)](#phi-sidecar-schema-validator-v66) | S | High | Stronger IRB-cleared posture for csv_dir |
 
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
+
+## Shipped in v6.5.0 (2026-04-30)
+
+Tier-1 cohort surface release. SemVer minor bump — public API
+additions only, no breaking changes. CSV directory child surface
+widens from 5 to 7 tools.
+
+- **Two new Tier-1 tools on the CSV directory child** —
+  `csv_cohort_summary` (cross-file aggregation by metadata-sidecar
+  group; returns per-group n/mean/std/min/max plus subjects-per-group)
+  and `csv_force_decline` (per-file fatigue diagnostic; peak, decline %,
+  decline rate per minute, time-to-50%-drop). Both Tier 1 — no
+  consent gate, no cost gate, no rows in LLM context.
+- **`COHORT_METRICS` vocabulary** — `mean`, `max` (alias `peak`),
+  `min`, `std`, `first`, `last`, `duration_s`, `time_to_50pct_drop_s`.
+  Non-parametric threshold-crossing fatigue diagnostic; explicit
+  curve-fitting (exponential τ, polynomial) deferred per ADR 0015
+  Alternatives.
+- **Metadata sidecar pattern** — optional `<csv_dir>/metadata.json`
+  with schema `{filename: {field: value}}`, required by
+  `csv_cohort_summary`, ignored by every other tool. Matches
+  REDCap / DataCite / Frictionless Data packaging conventions.
+- **46 new regression tests** — 28 pure-function tests for
+  `aggregate_metric` (15), `cohort_stats` (5), `force_decline_summary`
+  (8); 18 handler/branch tests covering both new tools plus every
+  fail-closed path coverage-criticality-mapper flagged on the v6.5.0
+  build (sidecar JSONDecodeError + malformed-entry, csv-dir-not-found
+  guard, MAX_COHORT_FILES cap, missing-group-field surface, per-file
+  load_errors path, unknown-metric defensive double-check, force-
+  decline OSError-on-read, `_extract_timestamps` no-timestamp-col +
+  parse-failure). 576/576 tests pass.
+- **ADR 0015 — Tier-1 cohort surface + metadata sidecar.** Codifies
+  the cohort surface and the sidecar pattern; cites ADRs 0001 / 0002 /
+  0008 / 0009 / 0014. Includes a Criticality classification section
+  per ADR 0014: new processing methods are MEDIUM, new child
+  handlers are HIGH.
+- **`examples/hip_lab_demo/` walkthrough** — proof-of-concept
+  against a synthetic 16-subject (8M / 8F) intermittent isometric task
+  to volitional failure. Sized to mimic the active research thread
+  of Senefeld + Hunter (*J Physiol* 2024, sex differences in human
+  performance). Three scripted wow moments demonstrate (1) cohort
+  comparison at Tier 1 with no streams in LLM context, (2) vault
+  cross-session memory surfacing a prior subject-keyed moment alongside
+  fresh data, (3) audit-log export as IRB continuing-review evidence.
+- **4-backstop release pass** (ADR 0010 / 0011) — red-team-reviewer,
+  reproducibility-provenance-auditor, phi-irb-risk-reviewer,
+  researcher-utility-reviewer; vault-smoke-validator on the demo
+  seed-moment vault.
+- **Framework startup fix + new serve-subprocess smoke test** —
+  Demo-before-commit (Protocol 5) caught a TypeError in
+  `framework/router.py:983` that all automated gates missed:
+  `Server.run(read, write)` was missing the third
+  `initialization_options` argument required by mcp 1.27.0. Fix is
+  one line (`server.create_initialization_options()`). New
+  `tests/test_serve_startup_smoke.py` runs `biosensor-mcp serve` as
+  a subprocess with closed stdin and asserts no traceback — closes
+  the gate-evasion class for upstream-mcp-SDK signature drift. The
+  CLI `--help` smoke test does not exercise stdio_server, so this
+  bug shipped past every specialist's PASS verdict and only
+  surfaced when a real MCP client tried to connect. 577/577 tests
+  pass (was 576).
 
 ## Shipped in v6.4.1 (2026-04-30)
 
@@ -464,6 +527,44 @@ README, every quickstart, every notebook reference) exceeds the
 present UX gain — the disambiguation note in `--help` is doing the
 heavy lifting fine for now. Re-evaluate when external doc
 references stabilise or when a third wizard joins the lineup.
+
+## Pre-existing csv_dir HIGH-region coverage debt (v6.5.1)
+
+The v6.5.0 release pass identified 34 lines of pre-existing HIGH-region
+test debt in [`csv_dir/child.py`](src/biosensor_mcp/children/csv_dir/child.py)
+across init, config-load, consent-property, and pre-v6.5 handler error
+paths (lines 105, 137, 140-142, 151, 154, 164-165, 167, 198, 209, 228,
+428, 464, 492, 501, 519-520, 542, 558-559, 583, 615, 640, 644-645, 659).
+Not a regression per [ADR 0014](docs/adr/0014-coverage-criticality-invariant.md)
+— these were uncovered before v6.5.0 — but visible to the
+[`coverage-criticality-mapper`](.claude/agents/coverage-criticality-mapper.md)
+agent on every diff and on the radar as deferred work. Closing them is
+mechanical: regression tests for the OSError, config-malformed, and
+handler-error branches in the pre-v6.5 surface. Ships as v6.5.1 patch
+with no public API change. ~few hours of work.
+
+## PHI sidecar-schema validator (v6.6)
+
+[ADR 0015](docs/adr/0015-tier-1-cohort-surface-and-metadata-sidecar.md)
+documents that the `metadata.json` sidecar sits *out-of-band* of the
+[ADR 0003](docs/adr/0003-phi-scrubber-seam.md) PHI-scrubber seam — the
+sidecar is read by the cohort handler and used for grouping but its
+contents never enter a tool result, so `PHIScrubber.scrub()` does not
+see it. A deployer can therefore pack HIPAA Safe Harbor §164.514(b)(2)
+identifiers (full DOB, full ZIP at 5-digit precision, MRN, full name,
+etc.) into the sidecar and the framework will not police it. The
+v6.5.0 remediation was documentation-only — caveats in the demo README
+and ADR 0015 § sidecar mechanism — and the structural gap remains as
+a documented known limitation analogous to
+[ADR 0013](docs/adr/0013-cache-only-purge-on-consent-revocation.md)'s
+single-account-per-domain caveat. The v6.6 fix is a code-level
+validator: a `csv_dir.metadata_schema` config knob declaring
+allowed / denied field names, enforced at child init, fail-closed
+(the framework refuses to start with a sidecar that contains a
+denied-name field). Pattern matches ADR 0003's seam shape —
+institutional configuration, not a built-in policy. ~1–2 days work
+plus a new ADR codifying the fail-closed contract. Ships as v6.6
+minor scope.
 
 ---
 

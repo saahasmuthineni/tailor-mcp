@@ -26,10 +26,56 @@ separate one-function module.
 import logging
 import sqlite3
 import threading
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import date, datetime, timezone
+from decimal import Decimal
+from pathlib import Path, PurePath
 
 # ── JSON backend (orjson with stdlib fallback) ──
+#
+# Wire-coercion contract (enforced by tests/test_serve_mcp_protocol.py):
+#
+#   datetime / date          → ISO-8601 string
+#   pathlib.PurePath family  → str(path)
+#   decimal.Decimal          → float (lossy on >double precision; the
+#                              alternative is str-encoding which surprises
+#                              every JSON consumer). Children that need
+#                              exact decimals must convert explicitly.
+#   set / frozenset          → sorted list (deterministic for replay)
+#   bytes / bytearray        → utf-8 decoded str (replace on bad bytes)
+#
+# Anything not in the above list raises TypeError at serialize time. The
+# old behaviour (``default=str``) silently coerced *everything* via
+# ``repr()``, which let ``datetime.datetime(2026, 4, 30, ...)``-shaped
+# Python repr strings reach the wire payload — surfaced by the v6.5.0
+# mcp-protocol-auditor pass as a ship-blocker (H3). Strict typed
+# coercion turns silent corruption into a loud audit-row ERROR that
+# downstream consumers can detect.
+
+
+def _wire_default(obj):
+    """JSON ``default`` hook — typed coercion, never ``repr()``."""
+    if isinstance(obj, datetime):
+        # Naive datetimes are stamped UTC at the boundary so downstream
+        # consumers don't have to guess the zone.
+        if obj.tzinfo is None:
+            obj = obj.replace(tzinfo=timezone.utc)
+        return obj.isoformat()
+    if isinstance(obj, date):
+        return obj.isoformat()
+    if isinstance(obj, PurePath):
+        return str(obj)
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, (set, frozenset)):
+        return sorted(obj, key=lambda x: (str(type(x).__name__), str(x)))
+    if isinstance(obj, (bytes, bytearray)):
+        return bytes(obj).decode("utf-8", errors="replace")
+    raise TypeError(
+        f"Object of type {type(obj).__name__} is not JSON-serializable; "
+        f"add an explicit coercion in framework/audit.py:_wire_default "
+        f"or convert at the child boundary before returning the result."
+    )
+
 
 try:
     import orjson as _orjson
@@ -41,7 +87,9 @@ try:
     _ORJSON_OPT = _orjson.OPT_NON_STR_KEYS
 
     def _dumps(obj, **kw) -> str:
-        return _orjson.dumps(obj, default=str, option=_ORJSON_OPT).decode()
+        return _orjson.dumps(
+            obj, default=_wire_default, option=_ORJSON_OPT,
+        ).decode()
 
     def _loads(s):
         return _orjson.loads(s)
@@ -51,7 +99,7 @@ except ImportError:
     import json as _json
 
     def _dumps(obj, **kw) -> str:
-        return _json.dumps(obj, default=str)
+        return _json.dumps(obj, default=_wire_default)
 
     def _loads(s):
         return _json.loads(s)

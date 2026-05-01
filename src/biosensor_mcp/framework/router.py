@@ -244,9 +244,14 @@ class RouterMCP:
                     "required": [],
                 }
                 for pname, pinfo in tool_def.params.items():
+                    # Defensive get on `description` so a future ToolDefinition
+                    # that ships a param without a description does NOT take
+                    # down the whole `tools/list` response with a KeyError.
+                    # The MCP SDK tolerates an empty-string description; a
+                    # silent param is a worse failure than an unhelpful one.
                     schema["properties"][pname] = {
                         "type": pinfo["type"],
-                        "description": pinfo["description"],
+                        "description": pinfo.get("description", ""),
                     }
                     if pinfo.get("required"):
                         schema["required"].append(pname)
@@ -531,11 +536,33 @@ class RouterMCP:
             )
 
             # ── Post-execute hooks (e.g. VaultWriter) ──
+            #
+            # Hook failures cannot abort the tool call — the result is
+            # already computed and audited — but they MUST surface to
+            # the analyst. Pre-v6.5.0 the framework swallowed hook
+            # failures into a stderr ``log.warning`` only, which is
+            # invisible inside Claude Desktop (stderr is not surfaced
+            # to the transcript). The mcp-protocol-auditor v6.5.0
+            # release pass flagged this as M1: vault-write failures
+            # during the demo were silently lost.
+            #
+            # Fix: failures are appended to ``_meta.hook_warnings`` so
+            # they ride out in the same wire payload that carries the
+            # result. The audit log keeps the full context (domain +
+            # tool + exception class).
+            hook_warnings: list[dict] = []
             for hook in self._post_execute_hooks:
                 try:
                     hook(domain, tool_name, result)
                 except Exception as _hook_exc:
-                    log.warning(f"Post-execute hook failed silently: {_hook_exc}")
+                    log.warning(f"Post-execute hook failed: {_hook_exc}")
+                    hook_warnings.append({
+                        "hook": getattr(
+                            hook, "__class__", type(hook),
+                        ).__name__,
+                        "error_type": type(_hook_exc).__name__,
+                        "error": str(_hook_exc),
+                    })
 
             # Attach metadata to response, including provenance stamps so
             # a downstream analyst can trace any result back to the exact
@@ -553,6 +580,11 @@ class RouterMCP:
                 }
                 if self._phi_scrubber.scrubber_warning is not None:
                     result["_meta"]["scrubber_warning"] = self._phi_scrubber.scrubber_warning
+                if hook_warnings:
+                    # Surfaced into the wire so a vault-write failure
+                    # during a Claude Desktop demo is visible in the
+                    # transcript, not just the stderr log file.
+                    result["_meta"]["hook_warnings"] = hook_warnings
 
             return [TextContent(type="text", text=_dumps(result))]
 
@@ -980,7 +1012,11 @@ class RouterMCP:
 
         async def main():
             async with stdio_server() as (read_stream, write_stream):
-                await server.run(read_stream, write_stream)
+                await server.run(
+                    read_stream,
+                    write_stream,
+                    server.create_initialization_options(),
+                )
 
         try:
             asyncio.run(main())

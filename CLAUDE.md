@@ -1,5 +1,71 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.5.0 (2026-04-30)** — Tier-1 cohort surface release. Adds two
+> Tier-1 tools to the CSV directory child — `csv_cohort_summary`
+> (cross-file aggregation by metadata-sidecar group) and
+> `csv_force_decline` (per-file fatigue diagnostic) — closing the
+> structural gap proposal-mode auditor flagged on v6.5 pre-build:
+> per-file `csv_summary_report` cannot satisfy cohort questions
+> without either fabricating numbers or escalating to Tier 2,
+> contradicting the *"no streams enter LLM context"* claim Tier 1 is
+> meant to demonstrate. New
+> [ADR 0015](docs/adr/0015-tier-1-cohort-surface-and-metadata-sidecar.md)
+> codifies the cohort surface and the metadata-sidecar pattern (group
+> identity travels via `<csv_dir>/metadata.json`, schema
+> `{filename: {field: value}}` — matches REDCap / DataCite /
+> Frictionless packaging conventions; ADR cites 0001 / 0002 / 0008 /
+> 0009 / 0014). The `COHORT_METRICS` vocabulary covers `mean`,
+> `max` (alias `peak`), `min`, `std`, `first`, `last`, `duration_s`,
+> `time_to_50pct_drop_s` — non-parametric threshold-crossing fatigue
+> diagnostic; explicit curve-fitting (exponential τ, polynomial)
+> deferred behind a superseding ADR per ADR 0015 § Alternatives.
+> Pure-function processing per ADR 0008 unchanged: `aggregate_metric`
+> reduces one file to a scalar, `cohort_stats` reduces a cohort to
+> summary stats, both `@staticmethod` with no PRNG and no clock
+> reads. Handler-level fail-closed: missing sidecar → explicit
+> error; malformed → typed error; per-file metadata gaps surface as
+> `missing_metadata` / `missing_group_field` keys on the result so
+> the LLM can flag silent under-counts. `MAX_COHORT_FILES` cap (64)
+> matches ADR 0009's pilot-study scale. 46 new regression tests
+> (28 pure-function + 18 handler/branch — including the three
+> sidecar fail-closed paths the proposal-mode audit named, the
+> MAX_COHORT_FILES cap, the unknown-metric defensive double-check,
+> and the `_extract_timestamps` no-timestamp-col / parse-failure
+> branches that closed the v6.5.0 coverage-criticality regression
+> on `csv_dir/child.py` HIGH-region paths). New
+> `examples/hip_lab_demo/` walkthrough is
+> the proof-of-concept: 16 synthetic subjects (8M/8F) on an
+> intermittent isometric task to volitional failure, sized to mimic
+> the active research thread of Hunter & Senefeld (*J Physiol* 2024,
+> 602.17, 4129-4156, "Sex differences in human performance").
+> Walkthrough lampshades
+> data-shape concessions openly (1 Hz EMG envelope is
+> post-rectification — real surface EMG is 1–2 kHz raw; "real
+> version would ingest from the rectification/envelope stage").
+> Demo runs via `BIOSENSOR_CONFIG_DIR=examples/hip_lab_demo/beta
+> biosensor-mcp serve` — isolated from the operator's
+> `~/.biosensor-mcp/user_config.json`, no pilot-wizard clobber risk.
+> Public API additions only — no breaking changes; SemVer minor
+> bump. CSV directory child surface widens from 5 to 7 tools. Total
+> framework tool surface 25 (vault) + 12 (running) + 7 (csv_dir) +
+> 3 (template) = 47 (was 45). 4-backstop release pass per
+> ADR 0010 / 0011 (red-team-reviewer,
+> reproducibility-provenance-auditor, phi-irb-risk-reviewer,
+> researcher-utility-reviewer); vault-smoke-validator on the demo
+> seed-moment vault. Demo-before-commit gate per Protocol 5 caught a
+> real ship-blocker no specialist gate did: `framework/router.py:983`
+> was calling `Server.run(read, write)` against the mcp 1.27.0 SDK
+> whose signature now requires a third `initialization_options`
+> argument. The TypeError surfaced only when a real MCP client tried
+> to connect — every automated gate (pytest, ruff, security probe,
+> CLI `--help` smoke) was green because none of them actually start
+> the stdio server. Fix: pass `server.create_initialization_options()`
+> as the third arg. New `tests/test_serve_startup_smoke.py` regression-
+> tests this by spawning `biosensor-mcp serve` as a subprocess with
+> `stdin=DEVNULL` and asserting no Python traceback in stderr; closes
+> the gate-evasion class for upstream-mcp-SDK signature drift. Total
+> regression tests on this release: 47 (46 cohort + 1 serve smoke).
+>
 > **v6.4.1 (2026-04-30)** — coverage-hardening release closing four
 > CRITICAL untested regions identified by the v6.3.0 hygiene pass and
 > the v6.4.0 release-time backstops. Adds 16 new regression tests:
@@ -269,6 +335,7 @@ Manager mode is the default working style on this repo. The general conventions 
 | [`coverage-criticality-mapper`](.claude/agents/coverage-criticality-mapper.md) | Classifies uncovered code by criticality (CRITICAL / HIGH / MEDIUM / LOW) anchored on ADR-cited regions; flags newly-uncovered CRITICAL/HIGH lines as `COVERAGE REGRESSION` regardless of overall percentage | After every `ci-gate-runner` PASS on non-trivial work; spawnable from `red-team-reviewer` when its dissent target is a CI PASS |
 | [`reproducibility-provenance-auditor`](.claude/agents/reproducibility-provenance-auditor.md) | Audits a diff against the reproducibility/provenance invariants codified in ADRs 0001 / 0002 / 0008 / 0003 — no PRNG in processing, audit-log completeness, `_meta` stamping, `subject_id` propagation. Per-file HOLDS / BROKEN / NEEDS REVIEW with file:line + ADR citations | After any non-trivial diff that touches `framework/` or `children/*/processing.py`. Closes the ADR 0008 "enforced by review at PR time" gap |
 | [`phi-irb-risk-reviewer`](.claude/agents/phi-irb-risk-reviewer.md) | Hostile-IRB-committee lens on code changes — six threat-model lenses (HIPAA Safe Harbor, consent scope, audit-log completeness, ADR 0003 scrubber asymmetry, ADR 0009 subject_id integrity, retention). Returns NO RISK / WATCH / VIOLATION with IRB / HIPAA / ADR citations | After any change touching `framework/security.py`, `framework/audit.py`, `framework/router.py`, `framework/vault/`, or any child's `execute()` path; before any release involving consent or data flow |
+| [`mcp-protocol-auditor`](.claude/agents/mcp-protocol-auditor.md) | End-to-end subprocess MCP-protocol audit — drives `python -m biosensor_mcp serve` as a real subprocess speaking JSON-RPC over stdio, asserts wire-level correctness on `initialize` / `tools/list` / `tools/call` / consent gate / cost gate / error envelopes / `_dumps` serialization seam. Catches the gate-evasion class no other specialist owns: upstream-mcp-SDK signature drift, missing schema keys, silent type coercion, markdown round-trip lossiness, post-execute hook silent failures | After any change touching `framework/router.py`, `framework/audit.py`, `framework/security.py`, `framework/vault/{layer,writer}.py`, or any child's `execute()` path; mandatory before every release. Promoted v6.5.0 after 5 protocol-adapter ship-blocker bugs surfaced in 90 minutes that 8 existing gates missed |
 
 The agents are checked into the repo so the team is reproducible across machines. Per `.gitignore`: `.claude/*` ignores per-machine settings; `!.claude/agents/` re-includes the roster. New specialists land via [ADR 0011 — promotion-policy](docs/adr/0011-promotion-policy.md): structural argument + severity + per-agent maintenance estimate, with frequency-based 3+-uses as the fallback signal in the absence of a structural argument. The deferred roster (parked candidates with named promotion triggers) lives in [docs/design/operating-model.md § Deferred roster](docs/design/operating-model.md).
 
@@ -505,7 +572,7 @@ Most analytical questions are answerable at Tier 1 with zero raw biometric data 
 | `strava_downsampled_streams` | 2 | HR, pace, GPS at 5–30s intervals |
 | `strava_full_streams` | 3 | Per-second data with precision reduction |
 
-## CSV Directory Child — 5 Tools
+## CSV Directory Child — 7 Tools
 
 Opt-in via `csv_dir` key in `user_config.json`. Wraps a local directory of per-subject CSV files — no OAuth, no vendor API. The "ingest a directory" pattern complementing the running child's "wrap an API" pattern.
 
@@ -514,8 +581,12 @@ Opt-in via `csv_dir` key in `user_config.json`. Wraps a local directory of per-s
 | `csv_list_files` | 1 | List CSV files with size and column names |
 | `csv_file_detail` | 1 | Single-file metadata + per-column stats |
 | `csv_summary_report` | 1 | Per-column summaries, time range, completeness |
+| `csv_cohort_summary` | 1 | Cross-file aggregation by metadata-sidecar group (n / mean / std / min / max per group). Requires `metadata.json` sidecar — see ADR 0015. |
+| `csv_force_decline` | 1 | Per-file fatigue diagnostic — peak, decline %, decline rate, time-to-50%-drop. Generic over force / EMG envelope / power. |
 | `csv_downsampled` | 2 | Decimated rows at every Nth interval |
 | `csv_raw_stream` | 3 | Full per-row data with precision reduction |
+
+Optional sidecar for cohort grouping: `<csv_dir.path>/metadata.json` with schema `{"<filename>": {"<field>": <value>, ...}}`. Required by `csv_cohort_summary`; ignored by every other tool. Schema matches REDCap / DataCite / Frictionless Data conventions. See [ADR 0015](docs/adr/0015-tier-1-cohort-surface-and-metadata-sidecar.md).
 
 ## Running and Testing
 
@@ -562,6 +633,8 @@ to the full record.
 - **[ADR 0007 — Rendering-layers policy](docs/adr/0007-rendering-layers-policy.md).** Source-of-truth markdown is plain and AI-readable; plugin-enhanced views (Dataview, Templater) are additive. Any framework-emitted note that uses plugin syntax must ship a snapshot fallback so the same content renders for any reader. The dashboards refresh tool is the reference implementation.
 - **[ADR 0008 — Analytical processing is deterministic by construction](docs/adr/0008-deterministic-by-construction-processing.md).** Every method on `RunningProcessing`, `CSVProcessing`, and `TemplateProcessing` is a `@staticmethod` pure function with no PRNG and no clock reads. The invariant is enforced by review at PR time. The same Tier-1 call with the same inputs returns the same numbers across machines — the ROADMAP "Deterministic mode" item is therefore partially resolved; what remains is a small router-level audited flag paired with content-hashed provenance.
 - **[ADR 0009 — Vault subject-keying](docs/adr/0009-vault-subject-keying.md).** Themes carry an optional, set-once `subject_id` in frontmatter — promotion (None → P004) is allowed, reassignment (P003 → P007) is a hard error. Evidence blocks and moments stamp the subject of their writing call. List/search queries filter rows match-or-NULL when `subject_id` is provided so cross-subject themes and v6.1-era legacy notes stay visible. Resolves the design question ADR 0002 deliberately deferred.
+- **[ADR 0015 — Tier-1 cohort surface + metadata sidecar](docs/adr/0015-tier-1-cohort-surface-and-metadata-sidecar.md).** Two new Tier-1 tools on the CSV directory child — `csv_cohort_summary` (cross-file aggregation by metadata-sidecar group) and `csv_force_decline` (per-file fatigue diagnostic). Group identity travels via `<csv_dir>/metadata.json` (schema `{filename: {field: value}}`, REDCap-shaped), required only by `csv_cohort_summary`. Closes the structural gap where the *"no streams enter LLM context"* claim could not hold for cohort questions: the per-file `csv_summary_report` could not satisfy *"compare X between groups A and B"* without either fabricating numbers or escalating to Tier 2. Pure-function processing per ADR 0008 unchanged.
+- **[ADR 0016 — MCP-protocol auditor: wire-level correctness is a seam, not a hope](docs/adr/0016-mcp-protocol-auditor.md).** Promotes `mcp-protocol-auditor` as a permanent specialist after the v6.5.0 demo-before-commit gate surfaced 5 ship-blocker bugs in 90 minutes that 8 existing gates missed. The framework's MCP-protocol-adapter surface (the JSON-RPC adapter between internal abstractions and the wire format the `mcp` SDK serializes) was structurally untested — no agent in the prior roster drove the framework as a real subprocess speaking JSON-RPC over stdio. The new specialist closes that gap; its first run was the audit that justified its creation (recursive use). Cites ADRs 0001 / 0008 / 0010 / 0011 / 0014.
 
 ### Implementation notes
 

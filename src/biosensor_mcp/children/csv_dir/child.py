@@ -43,7 +43,7 @@ from ...framework.interfaces import (
     ToolDefinition,
     ValidationSchema,
 )
-from .processing import CSVProcessing
+from .processing import COHORT_METRICS, CSVProcessing
 
 log = logging.getLogger("biosensor-mcp.csv_dir")
 
@@ -58,18 +58,31 @@ FILE_ID_PATTERN = r"^[A-Za-z0-9_\-\.]{1,255}$"
 # Files larger than this return an error suggesting csv_downsampled.
 MAX_CSV_BYTES = 100 * 1024 * 1024  # 100 MB
 
+# Upper bound on number of CSVs csv_cohort_summary will scan in a single
+# call. Keeps the Tier-1 cost predictable and bounded; a directory with
+# more than this many files yields a clear error rather than silently
+# scanning a few hundred files. Tuned for typical pilot-study scale (the
+# project's stated audience: 5–20 participants, see ADR 0009).
+MAX_COHORT_FILES = 64
+
+# Sidecar metadata filename. Optional; csv_cohort_summary requires it
+# (see ADR 0015). Schema: ``{"<csv_filename>": {"<field>": <value>, ...}}``.
+METADATA_FILENAME = "metadata.json"
+
 
 class CSVDirectoryChild(ChildMCP):
     """
-    Generic CSV directory child — five tools across all three tiers.
+    Generic CSV directory child — seven tools across all three tiers.
 
-    | Tool                     | Tier | Purpose                           |
-    |--------------------------|------|-----------------------------------|
-    | ``csv_list_files``       | 1    | List CSV files with metadata      |
-    | ``csv_file_detail``      | 1    | Single-file stats                 |
-    | ``csv_summary_report``   | 1    | Server-computed report (vaultable)|
-    | ``csv_downsampled``      | 2    | Decimated rows (consent-gated)    |
-    | ``csv_raw_stream``       | 3    | Full rows, reduced (cost-gated)   |
+    | Tool                     | Tier | Purpose                                |
+    |--------------------------|------|----------------------------------------|
+    | ``csv_list_files``       | 1    | List CSV files with metadata           |
+    | ``csv_file_detail``      | 1    | Single-file stats                      |
+    | ``csv_summary_report``   | 1    | Server-computed report (vaultable)     |
+    | ``csv_cohort_summary``   | 1    | Cross-file cohort aggregation by group |
+    | ``csv_force_decline``    | 1    | Per-file fatigue diagnostic            |
+    | ``csv_downsampled``      | 2    | Decimated rows (consent-gated)         |
+    | ``csv_raw_stream``       | 3    | Full rows, reduced (cost-gated)        |
     """
 
     def __init__(self, config_dir: Path, data_dir: Path):
@@ -182,7 +195,16 @@ class CSVDirectoryChild(ChildMCP):
 
     @property
     def vaultable_tools(self) -> list[str]:
-        return ["csv_summary_report"]
+        # No vaultable tools yet — csv_summary_report has no renderer in
+        # VaultWriter._renderers, so registering it as vaultable causes
+        # `VaultWriter: No renderer for tool: csv_summary_report` warnings
+        # on every successful call when vault is enabled. Per the
+        # vaultable-tool ↔ renderer contract enforced in
+        # tests/test_serve_mcp_protocol.py::test_every_vaultable_tool_has_renderer,
+        # adding a tool to this list requires landing a paired renderer
+        # in framework/vault/writer.py first. (Surfaced by mcp-protocol-
+        # auditor on the v6.5.0 release-time pass.)
+        return []
 
     # ══════════════════════════════════════════════════════════
     # CONSENT
@@ -263,6 +285,40 @@ class CSVDirectoryChild(ChildMCP):
                     "subject_id": SUBJECT_ID_PARAM_DOC,
                 },
             ),
+            ToolDefinition(
+                "csv_cohort_summary", 1,
+                "Cross-file cohort aggregation. Groups every CSV in the "
+                "directory by a metadata field declared in metadata.json, "
+                "reduces the named column to a per-file scalar by metric, "
+                "and returns per-group n/mean/std/min/max. Pure server-side "
+                "computation — no rows reach LLM context. Requires "
+                "metadata.json sidecar. ~300 tokens. See ADR 0015.",
+                {
+                    "column": {"type": "string", "description": "Numeric column to aggregate", "required": True},
+                    "group_by": {"type": "string", "description": "Metadata field name (e.g. 'sex', 'group')", "required": True},
+                    "metric": {
+                        "type": "string",
+                        "description": (
+                            "Per-file reduction: "
+                            f"{', '.join(COHORT_METRICS)}. Default: mean."
+                        ),
+                        "required": False,
+                    },
+                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                },
+            ),
+            ToolDefinition(
+                "csv_force_decline", 1,
+                "Per-file fatigue diagnostic: peak, end value, decline %, "
+                "decline rate per minute, and time-to-50%-drop. Generic over "
+                "any monotonically-fatigueing column (force, EMG envelope, "
+                "power). ~250 tokens.",
+                {
+                    "file_id": {"type": "string", "description": "CSV filename", "required": True},
+                    "column": {"type": "string", "description": "Numeric column to analyse", "required": True},
+                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                },
+            ),
             # ── Tier 2: Consent-gated (downsampled) ──
             ToolDefinition(
                 "csv_downsampled", 2,
@@ -316,6 +372,34 @@ class CSVDirectoryChild(ChildMCP):
             "csv_summary_report": {
                 "file_id": ValidationSchema(
                     type=str, required=True, pattern=FILE_ID_PATTERN,
+                ),
+                "subject_id": SUBJECT_ID_SCHEMA,
+            },
+            "csv_cohort_summary": {
+                "column": ValidationSchema(
+                    type=str,
+                    required=True,
+                    allowed_values=self._column_names,
+                ),
+                "group_by": ValidationSchema(
+                    type=str, required=True, pattern=r"^[A-Za-z0-9_\-]{1,64}$",
+                ),
+                "metric": ValidationSchema(
+                    type=str,
+                    required=False,
+                    allowed_values=list(COHORT_METRICS),
+                    default="mean",
+                ),
+                "subject_id": SUBJECT_ID_SCHEMA,
+            },
+            "csv_force_decline": {
+                "file_id": ValidationSchema(
+                    type=str, required=True, pattern=FILE_ID_PATTERN,
+                ),
+                "column": ValidationSchema(
+                    type=str,
+                    required=True,
+                    allowed_values=self._column_names,
                 ),
                 "subject_id": SUBJECT_ID_SCHEMA,
             },
@@ -407,6 +491,8 @@ class CSVDirectoryChild(ChildMCP):
             "csv_list_files": self._handle_list_files,
             "csv_file_detail": self._handle_file_detail,
             "csv_summary_report": self._handle_summary_report,
+            "csv_cohort_summary": self._handle_cohort_summary,
+            "csv_force_decline": self._handle_force_decline,
             "csv_downsampled": self._handle_downsampled,
             "csv_raw_stream": self._handle_raw_stream,
         }
@@ -615,6 +701,187 @@ class CSVDirectoryChild(ChildMCP):
                 }
 
         return result
+
+    def _load_metadata_sidecar(self) -> tuple[dict[str, dict] | None, str | None]:
+        """Read the optional ``metadata.json`` sidecar.
+
+        Returns ``(metadata_dict, error_message)``. The metadata dict
+        maps ``filename → {field: value, ...}``. ``error_message`` is
+        non-None only when the sidecar exists but is malformed; missing
+        is not an error (the caller decides whether the absence is
+        fatal — csv_cohort_summary requires it, others ignore it).
+        """
+        sidecar = self._csv_path / METADATA_FILENAME
+        if not sidecar.is_file():
+            return None, None
+        try:
+            data = json.loads(sidecar.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            return None, f"could not read {METADATA_FILENAME}: {exc}"
+        if not isinstance(data, dict):
+            return None, (
+                f"{METADATA_FILENAME} must be a JSON object mapping "
+                f"filename to metadata fields"
+            )
+        # Light validation: every value must itself be a dict so the
+        # group_by lookup is well-typed.
+        for fname, meta in data.items():
+            if not isinstance(meta, dict):
+                return None, (
+                    f"{METADATA_FILENAME}: entry for {fname!r} must be "
+                    f"a JSON object of fields"
+                )
+        return data, None
+
+    async def _handle_cohort_summary(self, params: dict) -> dict:
+        """Cross-file cohort aggregation.
+
+        Per ADR 0015: scans every CSV in ``csv_dir.path`` (up to
+        ``MAX_COHORT_FILES``), reduces the named column to a per-file
+        scalar by metric, groups by the metadata field, returns
+        per-group statistics. Pure server-side computation — no rows
+        cross into LLM context.
+        """
+        if not self._csv_path.is_dir():
+            return {"error": f"CSV directory not found: {self._csv_path}"}
+
+        column = params["column"]
+        group_by = params["group_by"]
+        metric = params.get("metric", "mean")
+
+        metadata, meta_err = self._load_metadata_sidecar()
+        if meta_err:
+            return {"error": meta_err}
+        if not metadata:
+            return {
+                "error": (
+                    f"csv_cohort_summary requires {METADATA_FILENAME} in "
+                    f"{self._csv_path} (see ADR 0015 for schema)"
+                ),
+            }
+
+        csvs = sorted(self._csv_path.glob("*.csv"))
+        if len(csvs) > MAX_COHORT_FILES:
+            return {
+                "error": (
+                    f"too many files ({len(csvs)}); cohort summary is "
+                    f"capped at {MAX_COHORT_FILES} files"
+                ),
+            }
+
+        # Bucket per-file scalars by group label.
+        by_group: dict[str, list[float | None]] = {}
+        subjects_by_group: dict[str, list[str]] = {}
+        missing_metadata: list[str] = []
+        missing_group_field: list[str] = []
+        load_errors: list[dict] = []
+
+        for f in csvs:
+            file_meta = metadata.get(f.name)
+            if file_meta is None:
+                missing_metadata.append(f.name)
+                continue
+            group = file_meta.get(group_by)
+            if group is None:
+                missing_group_field.append(f.name)
+                continue
+            group = str(group)
+
+            try:
+                headers, rows = self._read_csv(f, max_bytes=MAX_CSV_BYTES)
+            except OSError as exc:
+                load_errors.append({"filename": f.name, "error": str(exc)})
+                continue
+
+            if column not in headers:
+                load_errors.append({
+                    "filename": f.name,
+                    "error": f"column {column!r} not found",
+                })
+                continue
+
+            values = self._numeric_values(rows, column)
+            timestamps = self._extract_timestamps(rows, headers)
+
+            try:
+                scalar = self._processing.aggregate_metric(
+                    values, timestamps, metric,
+                )
+            except ValueError as exc:
+                # Unknown metric — surface once and stop iterating;
+                # ParamValidator should catch this earlier but we
+                # double-check here for safety.
+                return {"error": str(exc)}
+
+            by_group.setdefault(group, []).append(scalar)
+            subjects_by_group.setdefault(group, []).append(f.name)
+
+        groups: dict[str, dict] = {}
+        for group_label, per_file in sorted(by_group.items()):
+            stats = self._processing.cohort_stats(per_file)
+            stats["subjects"] = subjects_by_group[group_label]
+            groups[group_label] = stats
+
+        result: dict = {
+            "column": column,
+            "metric": metric,
+            "group_by": group_by,
+            "subject_count": sum(len(s) for s in subjects_by_group.values()),
+            "groups": groups,
+        }
+        if missing_metadata:
+            result["missing_metadata"] = missing_metadata
+        if missing_group_field:
+            result["missing_group_field"] = missing_group_field
+        if load_errors:
+            result["load_errors"] = load_errors
+        return result
+
+    async def _handle_force_decline(self, params: dict) -> dict:
+        """Per-file fatigue diagnostic.
+
+        Per ADR 0015: peak, end, decline %, decline rate per minute,
+        time-to-50%-drop. Pure server-side computation; no rows leave.
+        """
+        filepath = self._resolve_file(params["file_id"])
+        if not filepath:
+            return {"error": f"File not found: {params['file_id']}"}
+
+        column = params["column"]
+
+        try:
+            headers, rows = self._read_csv(filepath, max_bytes=MAX_CSV_BYTES)
+        except OSError as exc:
+            return {"error": str(exc)}
+
+        if column not in headers:
+            return {"error": f"column {column!r} not found in {filepath.name}"}
+
+        values = self._numeric_values(rows, column)
+        timestamps = self._extract_timestamps(rows, headers)
+        summary = self._processing.force_decline_summary(values, timestamps)
+        summary["filename"] = filepath.name
+        summary["column"] = column
+        return summary
+
+    def _extract_timestamps(self, rows: list[dict], headers: list[str]):
+        """Best-effort timestamp column extraction; returns None if no
+        usable timestamp column or if any row fails to parse."""
+        ts_col = (
+            self._timestamp_column
+            or self._processing.detect_timestamp_column(headers)
+        )
+        if not ts_col:
+            return None
+        parsed = []
+        for r in rows:
+            t = self._processing.parse_timestamp(
+                (r.get(ts_col) or ""), self._timestamp_format,
+            )
+            if t is None:
+                return None
+            parsed.append(t)
+        return parsed
 
     # ── Tier 2 handler (consent-gated) ──
 

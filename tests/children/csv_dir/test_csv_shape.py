@@ -89,6 +89,15 @@ def csv_child() -> CSVDirectoryChild:
         (csv_dir / "fixture_a.csv").write_text(FIXTURE_CSV_A, encoding="utf-8")
         (csv_dir / "fixture_b.csv").write_text(FIXTURE_CSV_B, encoding="utf-8")
 
+        # Write metadata sidecar (ADR 0015) so csv_cohort_summary works.
+        (csv_dir / "metadata.json").write_text(
+            json.dumps({
+                "fixture_a.csv": {"sex": "F", "group": "control"},
+                "fixture_b.csv": {"sex": "M", "group": "test"},
+            }),
+            encoding="utf-8",
+        )
+
         # Write user_config.json with csv_dir section
         user_config = {
             "csv_dir": {
@@ -112,6 +121,10 @@ VALID_PARAMS = {
     "csv_list_files": {"limit": 10},
     "csv_file_detail": {"file_id": "fixture_a.csv"},
     "csv_summary_report": {"file_id": "fixture_a.csv"},
+    "csv_cohort_summary": {
+        "column": "heart_rate", "group_by": "sex", "metric": "mean",
+    },
+    "csv_force_decline": {"file_id": "fixture_a.csv", "column": "heart_rate"},
     "csv_downsampled": {"file_id": "fixture_a.csv", "interval": 2, "columns": ["heart_rate"]},
     "csv_raw_stream": {"file_id": "fixture_a.csv", "columns": ["heart_rate"]},
 }
@@ -138,7 +151,7 @@ class TestRequiredAbstractSurface:
     ):
         defs = csv_child.tool_definitions
         assert isinstance(defs, list)
-        assert len(defs) == 5, "CSV child advertises 3 Tier-1 + 1 Tier-2 + 1 Tier-3"
+        assert len(defs) == 7, "CSV child advertises 5 Tier-1 + 1 Tier-2 + 1 Tier-3"
         for tool_def in defs:
             assert isinstance(tool_def, ToolDefinition)
             assert tool_def.tier in (1, 2, 3)
@@ -237,6 +250,8 @@ class TestRouterCanRegister:
                     "csv_list_files",
                     "csv_file_detail",
                     "csv_summary_report",
+                    "csv_cohort_summary",
+                    "csv_force_decline",
                     "csv_downsampled",
                     "csv_raw_stream",
                 ):
@@ -459,6 +474,470 @@ class TestMalformedCsvHandling:
 # ═══════════════════════════════════════════════════════════════
 # AUTO-DETECTION
 # ═══════════════════════════════════════════════════════════════
+
+
+class TestCohortSummaryHandler:
+    """csv_cohort_summary handler — metadata sidecar contract (ADR 0015)."""
+
+    def test_returns_per_group_stats_with_metadata(
+        self, csv_child: CSVDirectoryChild,
+    ):
+        result = asyncio.run(csv_child.execute(
+            "csv_cohort_summary",
+            {"column": "heart_rate", "group_by": "sex", "metric": "mean"},
+        ))
+        assert isinstance(result, dict)
+        assert "error" not in result
+        assert result["column"] == "heart_rate"
+        assert result["metric"] == "mean"
+        assert result["group_by"] == "sex"
+        assert result["subject_count"] == 2
+        assert set(result["groups"].keys()) == {"M", "F"}
+        for _group_label, stats in result["groups"].items():
+            assert "n" in stats
+            assert "mean" in stats
+            assert "subjects" in stats
+            assert isinstance(stats["subjects"], list)
+
+    def test_missing_metadata_sidecar_returns_error(self):
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_dir = root / "config"
+            data_dir = root / "data"
+            csv_dir = root / "csv_files"
+            config_dir.mkdir()
+            data_dir.mkdir()
+            csv_dir.mkdir()
+            (csv_dir / "a.csv").write_text(FIXTURE_CSV_A, encoding="utf-8")
+            (config_dir / "user_config.json").write_text(json.dumps({
+                "csv_dir": {
+                    "path": str(csv_dir),
+                    "value_columns": {"heart_rate": "Heart rate (bpm)"},
+                },
+            }), encoding="utf-8")
+            child = CSVDirectoryChild(config_dir, data_dir)
+            result = asyncio.run(child.execute(
+                "csv_cohort_summary",
+                {"column": "heart_rate", "group_by": "sex"},
+            ))
+            assert "error" in result
+            assert "metadata.json" in result["error"]
+
+    def test_malformed_metadata_returns_error(self):
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_dir = root / "config"
+            data_dir = root / "data"
+            csv_dir = root / "csv_files"
+            config_dir.mkdir()
+            data_dir.mkdir()
+            csv_dir.mkdir()
+            (csv_dir / "a.csv").write_text(FIXTURE_CSV_A, encoding="utf-8")
+            (csv_dir / "metadata.json").write_text(
+                "[1, 2, 3]", encoding="utf-8",  # JSON array, not object
+            )
+            (config_dir / "user_config.json").write_text(json.dumps({
+                "csv_dir": {
+                    "path": str(csv_dir),
+                    "value_columns": {"heart_rate": "Heart rate (bpm)"},
+                },
+            }), encoding="utf-8")
+            child = CSVDirectoryChild(config_dir, data_dir)
+            result = asyncio.run(child.execute(
+                "csv_cohort_summary",
+                {"column": "heart_rate", "group_by": "sex"},
+            ))
+            assert "error" in result
+            assert "object" in result["error"].lower()
+
+    def test_files_missing_metadata_are_listed(self):
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_dir = root / "config"
+            data_dir = root / "data"
+            csv_dir = root / "csv_files"
+            config_dir.mkdir()
+            data_dir.mkdir()
+            csv_dir.mkdir()
+            (csv_dir / "a.csv").write_text(FIXTURE_CSV_A, encoding="utf-8")
+            (csv_dir / "b.csv").write_text(FIXTURE_CSV_A, encoding="utf-8")
+            # Only a.csv has metadata; b.csv should surface as missing.
+            (csv_dir / "metadata.json").write_text(
+                json.dumps({"a.csv": {"sex": "F"}}),
+                encoding="utf-8",
+            )
+            (config_dir / "user_config.json").write_text(json.dumps({
+                "csv_dir": {
+                    "path": str(csv_dir),
+                    "value_columns": {"heart_rate": "Heart rate (bpm)"},
+                },
+            }), encoding="utf-8")
+            child = CSVDirectoryChild(config_dir, data_dir)
+            result = asyncio.run(child.execute(
+                "csv_cohort_summary",
+                {"column": "heart_rate", "group_by": "sex"},
+            ))
+            assert "error" not in result
+            assert result["missing_metadata"] == ["b.csv"]
+
+
+class TestForceDeclineHandler:
+    """csv_force_decline handler — per-file fatigue diagnostic (ADR 0015)."""
+
+    def test_returns_decline_summary(self, csv_child: CSVDirectoryChild):
+        result = asyncio.run(csv_child.execute(
+            "csv_force_decline",
+            {"file_id": "fixture_a.csv", "column": "heart_rate"},
+        ))
+        assert isinstance(result, dict)
+        assert "error" not in result
+        assert result["filename"] == "fixture_a.csv"
+        assert result["column"] == "heart_rate"
+        assert "peak" in result
+        assert "decline_pct_total" in result
+
+    def test_missing_file_returns_error(self, csv_child: CSVDirectoryChild):
+        result = asyncio.run(csv_child.execute(
+            "csv_force_decline",
+            {"file_id": "does-not-exist.csv", "column": "heart_rate"},
+        ))
+        assert "error" in result
+
+    def test_unknown_column_returns_error(self, csv_child: CSVDirectoryChild):
+        result = asyncio.run(csv_child.execute(
+            "csv_force_decline",
+            {"file_id": "fixture_a.csv", "column": "no_such_column"},
+        ))
+        # The validator filters allowed_values; the handler is the
+        # second guard. Either layer surfaces an error dict.
+        assert "error" in result
+
+    def test_oversize_csv_surfaces_oserror(
+        self, monkeypatch, csv_child: CSVDirectoryChild,
+    ):
+        """force_decline OSError-on-read branch (child.py:845-846).
+
+        Lower MAX_CSV_BYTES below the fixture file size; the size guard
+        in _read_csv raises OSError, which the handler must catch and
+        return as an error dict (not propagate)."""
+        from biosensor_mcp.children.csv_dir import child as child_mod
+
+        monkeypatch.setattr(child_mod, "MAX_CSV_BYTES", 10)  # tiny
+        result = asyncio.run(csv_child.execute(
+            "csv_force_decline",
+            {"file_id": "fixture_a.csv", "column": "heart_rate"},
+        ))
+        assert "error" in result
+        assert "too large" in result["error"].lower()
+
+
+class TestCohortSummaryFailureBranches:
+    """csv_cohort_summary fail-closed branches (ADR 0015 § Criticality
+    classification — HIGH region per ADR 0014).
+
+    These tests cover the newly-uncovered HIGH lines flagged by
+    coverage-criticality-mapper on the v6.5.0 build:
+    `_load_metadata_sidecar` JSONDecodeError + malformed-entry, the
+    "csv dir not found" guard, MAX_COHORT_FILES cap, missing-group-field
+    surface path, per-file load_errors path, and the unknown-metric
+    defensive double-check."""
+
+    def _make_child(
+        self,
+        tmpdir: Path,
+        *,
+        metadata: object = None,
+        metadata_raw: str | None = None,
+        extra_csvs: int = 0,
+        omit_metadata: bool = False,
+    ) -> CSVDirectoryChild:
+        config_dir = tmpdir / "config"
+        data_dir = tmpdir / "data"
+        csv_dir = tmpdir / "csv_files"
+        config_dir.mkdir()
+        data_dir.mkdir()
+        csv_dir.mkdir()
+
+        (csv_dir / "a.csv").write_text(FIXTURE_CSV_A, encoding="utf-8")
+        (csv_dir / "b.csv").write_text(FIXTURE_CSV_A, encoding="utf-8")
+        for i in range(extra_csvs):
+            (csv_dir / f"extra_{i:03d}.csv").write_text(
+                FIXTURE_CSV_A, encoding="utf-8",
+            )
+
+        if not omit_metadata:
+            if metadata_raw is not None:
+                (csv_dir / "metadata.json").write_text(
+                    metadata_raw, encoding="utf-8",
+                )
+            elif metadata is not None:
+                (csv_dir / "metadata.json").write_text(
+                    json.dumps(metadata), encoding="utf-8",
+                )
+
+        (config_dir / "user_config.json").write_text(json.dumps({
+            "csv_dir": {
+                "path": str(csv_dir),
+                "value_columns": {"heart_rate": "Heart rate (bpm)"},
+            },
+        }), encoding="utf-8")
+        return CSVDirectoryChild(config_dir, data_dir)
+
+    def test_unparseable_sidecar_returns_error(self):
+        """`_load_metadata_sidecar` JSONDecodeError catch (child.py:710-711)."""
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(
+                Path(tmp), metadata_raw="this is not json {{{",
+            )
+            result = asyncio.run(child.execute(
+                "csv_cohort_summary",
+                {"column": "heart_rate", "group_by": "sex"},
+            ))
+            assert "error" in result
+            assert "could not read metadata.json" in result["error"]
+
+    def test_sidecar_entry_not_dict_returns_error(self):
+        """`_load_metadata_sidecar` malformed-entry branch (child.py:720-724)."""
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(
+                Path(tmp),
+                metadata={"a.csv": 42, "b.csv": {"sex": "M"}},
+            )
+            result = asyncio.run(child.execute(
+                "csv_cohort_summary",
+                {"column": "heart_rate", "group_by": "sex"},
+            ))
+            assert "error" in result
+            assert "must be a JSON object of fields" in result["error"]
+
+    def test_csv_dir_missing_after_init_returns_error(self, monkeypatch):
+        """`_handle_cohort_summary` csv-dir-not-found guard (child.py:736-737).
+
+        Models the case where the configured directory was removed
+        between init and execute — child.py logs a warning at init but
+        does not raise; tool calls are expected to surface the error."""
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(
+                Path(tmp), metadata={"a.csv": {"sex": "F"}, "b.csv": {"sex": "M"}},
+            )
+            # Point the child at a nonexistent directory after init.
+            child._csv_path = Path(tmp) / "nonexistent_dir"
+            result = asyncio.run(child.execute(
+                "csv_cohort_summary",
+                {"column": "heart_rate", "group_by": "sex"},
+            ))
+            assert "error" in result
+            assert "CSV directory not found" in result["error"]
+
+    def test_too_many_files_returns_cap_error(self, monkeypatch):
+        """`_handle_cohort_summary` MAX_COHORT_FILES cap (child.py:754-761).
+
+        Lower the cap to 3, write 5 CSVs — handler returns explicit
+        "too many files" error rather than scanning silently."""
+        from biosensor_mcp.children.csv_dir import child as child_mod
+
+        with TemporaryDirectory() as tmp:
+            metadata = {"a.csv": {"sex": "F"}, "b.csv": {"sex": "M"}}
+            for i in range(5):
+                metadata[f"extra_{i:03d}.csv"] = {"sex": "F"}
+            child = self._make_child(
+                Path(tmp), metadata=metadata, extra_csvs=5,
+            )
+            monkeypatch.setattr(child_mod, "MAX_COHORT_FILES", 3)
+            result = asyncio.run(child.execute(
+                "csv_cohort_summary",
+                {"column": "heart_rate", "group_by": "sex"},
+            ))
+            assert "error" in result
+            assert "too many files" in result["error"]
+
+    def test_files_missing_group_field_are_listed(self):
+        """`_handle_cohort_summary` missing_group_field path (child.py:776-778).
+
+        File has metadata but lacks the requested group_by field —
+        surfaces as `missing_group_field`, not `missing_metadata`."""
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(
+                Path(tmp),
+                metadata={
+                    "a.csv": {"sex": "F", "age": 24},
+                    "b.csv": {"age": 27},  # has metadata but no `sex`
+                },
+            )
+            result = asyncio.run(child.execute(
+                "csv_cohort_summary",
+                {"column": "heart_rate", "group_by": "sex"},
+            ))
+            assert "error" not in result
+            assert result["missing_group_field"] == ["b.csv"]
+            assert "missing_metadata" not in result  # b.csv has metadata, just not the field
+
+    def test_oversize_csv_surfaces_load_error(self, monkeypatch):
+        """`_handle_cohort_summary` per-file load_errors path (child.py:783-785).
+
+        A CSV that fails to load (size guard raises OSError) is captured
+        in `load_errors` and the cohort proceeds with the others."""
+        from biosensor_mcp.children.csv_dir import child as child_mod
+
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(
+                Path(tmp),
+                metadata={
+                    "a.csv": {"sex": "F"},
+                    "b.csv": {"sex": "M"},
+                },
+            )
+            monkeypatch.setattr(child_mod, "MAX_CSV_BYTES", 10)
+            result = asyncio.run(child.execute(
+                "csv_cohort_summary",
+                {"column": "heart_rate", "group_by": "sex"},
+            ))
+            assert "error" not in result
+            assert "load_errors" in result
+            error_files = {e["filename"] for e in result["load_errors"]}
+            assert error_files == {"a.csv", "b.csv"}
+
+    def test_column_missing_in_file_surfaces_load_error(self):
+        """`_handle_cohort_summary` column-not-found branch (child.py:787-792)."""
+        with TemporaryDirectory() as tmp:
+            csv_dir = Path(tmp) / "csv_files"
+            config_dir = Path(tmp) / "config"
+            data_dir = Path(tmp) / "data"
+            csv_dir.mkdir()
+            config_dir.mkdir()
+            data_dir.mkdir()
+
+            # a.csv has heart_rate; b.csv only has glucose.
+            (csv_dir / "a.csv").write_text(FIXTURE_CSV_A, encoding="utf-8")
+            (csv_dir / "b.csv").write_text(
+                "timestamp,glucose\n2026-01-01T10:00:00Z,95\n",
+                encoding="utf-8",
+            )
+            (csv_dir / "metadata.json").write_text(json.dumps({
+                "a.csv": {"sex": "F"},
+                "b.csv": {"sex": "M"},
+            }), encoding="utf-8")
+
+            (config_dir / "user_config.json").write_text(json.dumps({
+                "csv_dir": {
+                    "path": str(csv_dir),
+                    "value_columns": {
+                        "heart_rate": "Heart rate (bpm)",
+                        "glucose": "Blood glucose (mg/dL)",
+                    },
+                },
+            }), encoding="utf-8")
+            child = CSVDirectoryChild(config_dir, data_dir)
+
+            result = asyncio.run(child.execute(
+                "csv_cohort_summary",
+                {"column": "heart_rate", "group_by": "sex"},
+            ))
+            assert "error" not in result
+            assert "load_errors" in result
+            assert result["load_errors"][0]["filename"] == "b.csv"
+            assert "heart_rate" in result["load_errors"][0]["error"]
+
+    def test_unknown_metric_defensive_check_returns_error(self):
+        """`_handle_cohort_summary` unknown-metric defensive double-check
+        (child.py:801-805).
+
+        ParamValidator should reject unknown metrics, but execute() is
+        called directly here, bypassing the router. The handler's defensive
+        ValueError catch must surface a clean error dict rather than
+        propagate the exception."""
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(
+                Path(tmp),
+                metadata={"a.csv": {"sex": "F"}, "b.csv": {"sex": "M"}},
+            )
+            result = asyncio.run(child.execute(
+                "csv_cohort_summary",
+                {
+                    "column": "heart_rate",
+                    "group_by": "sex",
+                    "metric": "frobnicate",
+                },
+            ))
+            assert "error" in result
+            assert "Unknown metric" in result["error"]
+
+
+class TestExtractTimestamps:
+    """`_extract_timestamps` early-return paths (child.py:865-866, 872-873).
+
+    Newly-added helper; coverage-criticality-mapper flagged the
+    no-timestamp-column and parse-failure branches as uncovered."""
+
+    def test_no_timestamp_column_returns_none(self):
+        """No configured timestamp_column AND no header matches the
+        detector — the helper returns None (child.py:865-866)."""
+        with TemporaryDirectory() as tmp:
+            csv_dir = Path(tmp) / "csv_files"
+            config_dir = Path(tmp) / "config"
+            data_dir = Path(tmp) / "data"
+            csv_dir.mkdir()
+            config_dir.mkdir()
+            data_dir.mkdir()
+
+            (csv_dir / "a.csv").write_text(
+                "id,heart_rate,glucose\n1,72,95\n2,74,96\n",
+                encoding="utf-8",
+            )
+            (config_dir / "user_config.json").write_text(json.dumps({
+                "csv_dir": {
+                    "path": str(csv_dir),
+                    "value_columns": {
+                        "heart_rate": "Heart rate (bpm)",
+                        "glucose": "Blood glucose (mg/dL)",
+                    },
+                },
+            }), encoding="utf-8")
+            child = CSVDirectoryChild(config_dir, data_dir)
+
+            result = asyncio.run(child.execute(
+                "csv_force_decline",
+                {"file_id": "a.csv", "column": "heart_rate"},
+            ))
+            assert "error" not in result
+            # Without timestamps the temporal fields are absent.
+            assert "decline_rate_per_min" not in result
+            assert "time_to_50pct_drop_s" not in result
+
+    def test_unparseable_timestamps_returns_none(self):
+        """Configured timestamp column exists but rows have garbage
+        — parse_timestamp returns None on first row, helper short-
+        circuits to None (child.py:872-873)."""
+        with TemporaryDirectory() as tmp:
+            csv_dir = Path(tmp) / "csv_files"
+            config_dir = Path(tmp) / "config"
+            data_dir = Path(tmp) / "data"
+            csv_dir.mkdir()
+            config_dir.mkdir()
+            data_dir.mkdir()
+
+            (csv_dir / "a.csv").write_text(
+                "timestamp,heart_rate\n"
+                "not-a-date,72\n"
+                "also-not-a-date,74\n",
+                encoding="utf-8",
+            )
+            (config_dir / "user_config.json").write_text(json.dumps({
+                "csv_dir": {
+                    "path": str(csv_dir),
+                    "timestamp_column": "timestamp",
+                    "value_columns": {"heart_rate": "Heart rate (bpm)"},
+                },
+            }), encoding="utf-8")
+            child = CSVDirectoryChild(config_dir, data_dir)
+
+            result = asyncio.run(child.execute(
+                "csv_force_decline",
+                {"file_id": "a.csv", "column": "heart_rate"},
+            ))
+            assert "error" not in result
+            # Unparseable timestamps → no temporal fields.
+            assert "decline_rate_per_min" not in result
 
 
 class TestAutoDetection:

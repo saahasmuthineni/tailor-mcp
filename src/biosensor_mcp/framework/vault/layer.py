@@ -408,15 +408,31 @@ class VaultLayer:
                 "vault_list_moments", 1,
                 "List aha-moment notes (compact rows). ~300 tokens for 20 moments.",
                 {
-                    "date_from": {"type": "string", "required": False},
-                    "date_to": {"type": "string", "required": False},
+                    "date_from": {
+                        "type": "string",
+                        "description": "Filter to moments dated on or after this YYYY-MM-DD.",
+                        "required": False,
+                    },
+                    "date_to": {
+                        "type": "string",
+                        "description": "Filter to moments dated on or before this YYYY-MM-DD.",
+                        "required": False,
+                    },
                     "theme": {
                         "type": "string",
                         "description": "Only moments linked to this theme slug",
                         "required": False,
                     },
-                    "tag": {"type": "string", "required": False},
-                    "limit": {"type": "integer", "required": False},
+                    "tag": {
+                        "type": "string",
+                        "description": "Filter to moments carrying this tag in frontmatter.",
+                        "required": False,
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum results to return (default 20).",
+                        "required": False,
+                    },
                 },
             ),
             ToolDefinition(
@@ -445,7 +461,11 @@ class VaultLayer:
                         "description": "Theme slugs the moment supports or contradicts",
                         "required": False,
                     },
-                    "tags": {"type": "array", "required": False},
+                    "tags": {
+                        "type": "array",
+                        "description": "Frontmatter tags for the moment (strings).",
+                        "required": False,
+                    },
                     "date": {
                         "type": "string",
                         "description": "YYYY-MM-DD (defaults to today)",

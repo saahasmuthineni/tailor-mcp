@@ -1,0 +1,114 @@
+{
+  "S001.csv": {
+    "age": 28,
+    "max_force_baseline_N": 282.4,
+    "sex": "F",
+    "subject_id": "S001",
+    "training_h_per_wk": 5.0
+  },
+  "S002.csv": {
+    "age": 30,
+    "max_force_baseline_N": 519.6,
+    "sex": "M",
+    "subject_id": "S002",
+    "training_h_per_wk": 5.8
+  },
+  "S003.csv": {
+    "age": 28,
+    "max_force_baseline_N": 274.7,
+    "sex": "F",
+    "subject_id": "S003",
+    "training_h_per_wk": 5.0
+  },
+  "S004.csv": {
+    "age": 23,
+    "max_force_baseline_N": 293.7,
+    "sex": "F",
+    "subject_id": "S004",
+    "training_h_per_wk": 4.8
+  },
+  "S005.csv": {
+    "age": 29,
+    "max_force_baseline_N": 475.4,
+    "sex": "M",
+    "subject_id": "S005",
+    "training_h_per_wk": 5.3
+  },
+  "S006.csv": {
+    "age": 29,
+    "max_force_baseline_N": 312.1,
+    "sex": "F",
+    "subject_id": "S006",
+    "training_h_per_wk": 3.5
+  },
+  "S007.csv": {
+    "age": 32,
+    "max_force_baseline_N": 438.3,
+    "sex": "M",
+    "subject_id": "S007",
+    "training_h_per_wk": 6.7
+  },
+  "S008.csv": {
+    "age": 23,
+    "max_force_baseline_N": 284.3,
+    "sex": "F",
+    "subject_id": "S008",
+    "training_h_per_wk": 4.5
+  },
+  "S009.csv": {
+    "age": 35,
+    "max_force_baseline_N": 496.8,
+    "sex": "M",
+    "subject_id": "S009",
+    "training_h_per_wk": 5.1
+  },
+  "S010.csv": {
+    "age": 25,
+    "max_force_baseline_N": 269.1,
+    "sex": "F",
+    "subject_id": "S010",
+    "training_h_per_wk": 4.1
+  },
+  "S011.csv": {
+    "age": 24,
+    "max_force_baseline_N": 264.0,
+    "sex": "F",
+    "subject_id": "S011",
+    "training_h_per_wk": 5.0
+  },
+  "S012.csv": {
+    "age": 24,
+    "max_force_baseline_N": 424.4,
+    "sex": "M",
+    "subject_id": "S012",
+    "training_h_per_wk": 3.8
+  },
+  "S013.csv": {
+    "age": 27,
+    "max_force_baseline_N": 449.2,
+    "sex": "M",
+    "subject_id": "S013",
+    "training_h_per_wk": 4.8
+  },
+  "S014.csv": {
+    "age": 31,
+    "max_force_baseline_N": 289.2,
+    "sex": "F",
+    "subject_id": "S014",
+    "training_h_per_wk": 5.3
+  },
+  "S015.csv": {
+    "age": 27,
+    "max_force_baseline_N": 462.1,
+    "sex": "M",
+    "subject_id": "S015",
+    "training_h_per_wk": 7.8
+  },
+  "S016.csv": {
+    "age": 32,
+    "max_force_baseline_N": 452.8,
+    "sex": "M",
+    "subject_id": "S016",
+    "training_h_per_wk": 5.7
+  }
+}

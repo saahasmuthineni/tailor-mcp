@@ -20,7 +20,7 @@ one- or two-sentence pitch plus context; no implementation details.
 | [CLI UX: rename `setup` → `setup-strava`](#cli-ux-rename-setup--setup-strava) | XS | Low | Disambiguating the two wizards |
 | [Pre-existing csv_dir HIGH-region coverage debt (v6.5.1)](#pre-existing-csv_dir-high-region-coverage-debt-v651) | XS | Low | Cleaner ADR-0014 baseline |
 | ~~[Local-LLM guardian](#local-llm-guardian)~~ *(shipped in v6.6 — see [ADR 0022](docs/adr/0022-local-llm-guardian.md))* | — | — | — |
-| [PHI sidecar-schema validator (v6.6)](#phi-sidecar-schema-validator-v66) | S | High | Stronger IRB-cleared posture for csv_dir |
+| [PHI sidecar-schema validator (deferred)](#phi-sidecar-schema-validator-deferred) | S | High | Stronger IRB-cleared posture for csv_dir |
 
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
@@ -578,7 +578,7 @@ mechanical: regression tests for the OSError, config-malformed, and
 handler-error branches in the pre-v6.5 surface. Ships as v6.5.1 patch
 with no public API change. ~few hours of work.
 
-## PHI sidecar-schema validator (v6.6)
+## PHI sidecar-schema validator (deferred)
 
 [ADR 0015](docs/adr/0015-tier-1-cohort-surface-and-metadata-sidecar.md)
 documents that the `metadata.json` sidecar sits *out-of-band* of the

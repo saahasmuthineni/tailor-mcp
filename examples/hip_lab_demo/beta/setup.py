@@ -146,18 +146,50 @@ def _write_seed_moment() -> None:
     print(f"  wrote vault/{SEED_MOMENT_PATH.relative_to(VAULT_DIR)}")
 
 
+def _index_vault() -> None:
+    """Populate vault.db from the on-disk vault.
+
+    The seed moment is written directly to the filesystem (rather than
+    through VaultWriter, which would index-as-it-writes), so the SQLite
+    index would otherwise stay empty until a user invoked vault_rescan
+    inside the running server. Calling rescan_vault here closes that
+    gap so the demo's Wow 2 prompt finds the seed on first run.
+    """
+    from biosensor_mcp.framework.vault.rescan import rescan_vault
+    from biosensor_mcp.framework.vault.storage import VaultStorage
+
+    data_dir = HERE / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    storage = VaultStorage(data_dir / "vault.db")
+    try:
+        counts = rescan_vault(VAULT_DIR, storage)
+        added = counts.get("added", 0)
+        modified = counts.get("modified", 0)
+        skipped = counts.get("skipped", 0)
+        deleted = counts.get("deleted", 0)
+        print(
+            f"  indexed vault.db: {added} added, {modified} modified, "
+            f"{skipped} skipped, {deleted} deleted"
+        )
+    finally:
+        storage.close()
+
+
 def main() -> None:
     print(f"Setting up HIP Lab demo (variant beta) at {HERE}")
     print()
-    print("(1/3) ensure synthetic CSVs + metadata.json exist")
+    print("(1/4) ensure synthetic CSVs + metadata.json exist")
     CSV_DIR.mkdir(parents=True, exist_ok=True)
     _ensure_csvs()
     print()
-    print("(2/3) write user_config.json")
+    print("(2/4) write user_config.json")
     _write_user_config()
     print()
-    print("(3/3) seed the demo vault")
+    print("(3/4) seed the demo vault")
     _write_seed_moment()
+    print()
+    print("(4/4) index vault.db so the seed moment is searchable")
+    _index_vault()
     print()
     print("Done. Next:")
     print()

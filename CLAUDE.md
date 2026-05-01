@@ -491,7 +491,7 @@ src/biosensor_mcp/
       strava_api.py        # OAuth + rate-limited Strava API client
     csv_dir/               # Generic CSV directory child
       __init__.py          # Exports CSVDirectoryChild, CSVProcessing
-      child.py             # CSVDirectoryChild(ChildMCP) — 5 tools, 3 tiers
+      child.py             # CSVDirectoryChild(ChildMCP) — 7 tools, 3 tiers
       processing.py        # CSVProcessing — stateless analytics
     template/              # Runnable starting-point child (copy + rename)
       __init__.py          # Rename checklist for new children
@@ -541,7 +541,7 @@ tests/                     # Mirrors src/ layout
 | 5 | `PHIScrubber` | Institutional PHI-stripping seam; no-op default, subclass-per-child when a real policy exists |
 | 6 | `AuditLog` + `TokenLedger` | Every call logged to SQLite with optional `subject_id` scoping; cumulative session spend |
 
-Every successful result also carries a `_meta` block stamped with `package_version`, `tool_name`, and a UTC `called_at` timestamp — minimum-viable provenance for results that may end up in a paper.
+Every successful result also carries a `_meta` block stamped with `package_version`, `tool_name`, UTC `called_at`, `domain`, `tier`, `scrubber_id`, and per-call + session token counts — plus `scrubber_warning` whenever the no-op default scrubber is active and `hook_warnings` when a post-execute hook raised. Minimum-viable provenance for results that may end up in a paper.
 
 ## Three-Tier Access Model
 

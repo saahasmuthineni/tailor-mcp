@@ -27,9 +27,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/saahasmuthineni/biosensor-to-llm-middleware"
-Repository = "https://github.com/saahasmuthineni/biosensor-to-llm-middleware"
-Issues = "https://github.com/saahasmuthineni/biosensor-to-llm-middleware/issues"
+Homepage = "https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector"
+Repository = "https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector"
+Issues = "https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector/issues"
 
 [project.optional-dependencies]
 dev = [

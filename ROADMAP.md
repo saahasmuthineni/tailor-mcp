@@ -413,7 +413,8 @@ group that doesn't want to start from scratch:
 - ~~**Generic CSV directory child**~~ **Shipped** — see
   `src/biosensor_mcp/children/csv_dir/`. Given a directory of
   per-subject CSVs with a declared timestamp column and value schema,
-  exposes 5 tiered analytical tools. Opt-in via `csv_dir` key in
+  exposes 7 tiered analytical tools (v6.5.0 added `csv_cohort_summary` +
+  `csv_force_decline` per ADR 0015). Opt-in via `csv_dir` key in
   `user_config.json`.
 - **EDF file child** — direct ingestion of European Data Format
   recordings common in sleep and EEG research.

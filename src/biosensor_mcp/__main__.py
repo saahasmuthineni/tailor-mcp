@@ -111,9 +111,14 @@ def cmd_serve():
         import logging as _log_mod
         _vlog = _log_mod.getLogger("biosensor-mcp")
 
-        # Detect common cloud-sync providers by path components
+        # Detect common cloud-sync providers by path components.
+        # "mobile documents" + "clouddocs" cover macOS iCloud canonical
+        # paths (~/Library/Mobile Documents/com~apple~CloudDocs/ and
+        # iCloud~* app containers) which do not contain the literal
+        # substring "icloud". Kept in sync with pilot._CLOUD_MARKERS.
         _CLOUD_MARKERS = (
-            "onedrive", "icloud", "dropbox", "google drive", "googledrive",
+            "onedrive", "icloud", "mobile documents", "clouddocs",
+            "dropbox", "google drive", "googledrive",
             "box sync", "boxsync", "nextcloud", "mega",
         )
         _vault_str = str(_vault_path).lower().replace("\\", "/")

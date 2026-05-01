@@ -55,6 +55,22 @@ quietly escalate from summary to full stream without the router
 presenting the decision, writing the row, and requiring explicit
 reply.
 
+A framework-tier component, the *local-LLM guardian* (per [ADR
+0022](../adr/0022-local-llm-guardian.md)), can be opted in to
+strengthen the privacy posture further. With the guardian
+configured, the framework's claim shifts from *no biometric streams
+enter the LLM context at Tier 1* to *no biometric streams leave the
+analyst's machine, ever, at any tier — including to hosted LLMs*.
+The guardian is a small LLM running on the analyst's own machine
+that composes structured responses over already-computed processing
+output; cited numerical claims come from `processing.py` (deterministic,
+reproducible) and the LLM contributes only a non-citable narrative
+explicitly labelled as such in `_meta`. The guardian defaults to a
+no-op `NullBackend`, so existing deployments are behaviourally
+unchanged until an operator opts in via `user_config.json`. See
+[`docs/guides/local-llm-guardian.md`](../guides/local-llm-guardian.md)
+for the operator-facing setup path.
+
 ## The audit log as IRB and reproducibility evidence
 
 Every tool call — successful, blocked, failed — is persisted to a

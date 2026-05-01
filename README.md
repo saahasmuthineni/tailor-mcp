@@ -58,11 +58,12 @@ extensible research infrastructure.
 
 | Capability | What it does |
 |---|---|
-| **Local-first router** | Runs next to the data. Only what the active tier permits crosses the boundary — Tier 1 ships server-computed summaries; Tiers 2 and 3 release stream data behind the analyst-side consent gate. |
+| **Local-first router** | Runs next to the data. Only what the active tier permits crosses the boundary — Tier 1 ships server-computed summaries; Tiers 2 and 3 release stream data behind the analyst-side consent gate. With the optional [local-LLM guardian](docs/guides/local-llm-guardian.md) opted in (per [ADR 0022](docs/adr/0022-local-llm-guardian.md)), biometric streams stay on the analyst's machine at every tier — including from the hosted LLM. |
 | **Tiered access** | Every tool declares an access tier: 1 returns computed summaries, 2 returns downsampled views behind an analyst-side consent gate, 3 returns raw streams behind that gate plus cost approval. Data minimization, implemented. |
 | **PHI-scrubber seam** | A documented institutional override point. **Default is a no-op** — institutions subclass to wire their IRB-approved policy. The default surfaces a `scrubber_warning` field in every successful `_meta` block so a misconfigured deployment is visible inside the LLM transcript. See [ADR 0003](docs/adr/0003-phi-scrubber-seam.md). |
 | **Durable audit log** | Every call lands in SQLite: timestamp, tool, tier, parameters, outcome, latency, `scrubber_id`, optional `subject_id`. Attachable to a protocol amendment or replication package. |
 | **Provenance stamps** | Every result carries a `_meta` block — package version, tool name, UTC timestamp — so any output in a paper is traceable to the code that produced it. |
+| **Local-LLM guardian** *(opt-in)* | A framework-tier component that runs an LLM on the analyst's machine to compose structured natural-language responses over deterministic processing output. Cited numerical claims come from `processing.py` and stay deterministic; LLM-generated narrative is explicitly labelled non-citable in `_meta`. Four tiers (Scout/Sentinel/Guardian/Titan) span 4 GB laptops to 32 GB workstations. See [ADR 0022](docs/adr/0022-local-llm-guardian.md) and the [setup guide](docs/guides/local-llm-guardian.md). |
 | **Obsidian-backed vault** | Cross-session analytical memory: themes (persistent research questions), moments (observations), evidence logs. Markdown is the source of truth; SQLite makes it queryable. |
 | **Extensible child pattern** | Each data source is a ChildMCP. New children inherit the full governance pipeline by implementing a small interface. |
 

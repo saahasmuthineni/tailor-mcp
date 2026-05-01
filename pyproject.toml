@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "biosensor-mcp"
-version = "6.5.0"
+version = "6.6.0"
 description = "MCP middleware framework for piping high-frequency biosensor data into LLM context windows — server-side analytics, consent gates, cost gates, audit log"
 readme = "README.md"
 requires-python = ">=3.10"

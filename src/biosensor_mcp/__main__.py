@@ -168,6 +168,47 @@ def cmd_serve():
             },
         ))
 
+    # Local-LLM guardian (per ADR 0022). Always registered; defaults to
+    # NullBackend so existing deployments are behaviourally unchanged
+    # until the operator opts in via user_config.json.
+    #
+    # Opt-in shape:
+    #     {
+    #       "local_llm": {
+    #         "backend":  "ollama",
+    #         "tier":     "guardian",
+    #         "model":    "llama3.1:8b",
+    #         "endpoint": "http://localhost:11434",
+    #         "timeout_s": 60
+    #       }
+    #     }
+    from biosensor_mcp.framework.local_llm import (
+        LocalLLMLayer,
+        NullBackend,
+        OllamaBackend,
+    )
+
+    local_llm_cfg = _ucfg.get("local_llm", {}) or {}
+    local_llm_backend = NullBackend()
+    backend_name = str(local_llm_cfg.get("backend", "null")).lower()
+    if backend_name == "ollama":
+        try:
+            local_llm_backend = OllamaBackend(
+                tier=local_llm_cfg.get("tier", "guardian"),
+                model=local_llm_cfg.get("model"),
+                endpoint=local_llm_cfg.get(
+                    "endpoint", "http://localhost:11434",
+                ),
+                timeout_s=float(local_llm_cfg.get("timeout_s", 60.0)),
+            )
+        except Exception as exc:
+            log.warning(
+                f"Local-LLM Ollama backend init failed: {exc}; "
+                f"falling back to NullBackend. Edit user_config.json "
+                f"local_llm block to fix."
+            )
+    router.register_local_llm_layer(LocalLLMLayer(backend=local_llm_backend))
+
     # Future children (CGM, sleep, ECG, EDF, FHIR) would register here
     # following the same opt-in pattern as csv_dir above.
 

@@ -19,10 +19,44 @@ one- or two-sentence pitch plus context; no implementation details.
 | [LLM-client evaluation harness](#evaluation-harness-for-llm-client-behavior) | M | Medium | Making the governance claim measurable |
 | [CLI UX: rename `setup` → `setup-strava`](#cli-ux-rename-setup--setup-strava) | XS | Low | Disambiguating the two wizards |
 | [Pre-existing csv_dir HIGH-region coverage debt (v6.5.1)](#pre-existing-csv_dir-high-region-coverage-debt-v651) | XS | Low | Cleaner ADR-0014 baseline |
-| [PHI sidecar-schema validator (v6.6)](#phi-sidecar-schema-validator-v66) | S | High | Stronger IRB-cleared posture for csv_dir |
+| ~~[Local-LLM guardian](#local-llm-guardian)~~ *(shipped in v6.6 — see [ADR 0022](docs/adr/0022-local-llm-guardian.md))* | — | — | — |
+| [PHI sidecar-schema validator (deferred)](#phi-sidecar-schema-validator-deferred) | S | High | Stronger IRB-cleared posture for csv_dir |
 
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
+
+## Shipped in v6.6.0 (2026-05-01)
+
+Local-LLM guardian release. SemVer minor bump — public API additions
+only, no breaking changes.
+
+- Added `framework/local_llm/` — a new framework-tier component (parallel
+  to `framework/vault/`) providing an `ask_local_oracle` tool that enables
+  a local LLM to compose structured natural-language responses over
+  deterministic processing output. Numbers from `processing.py`; prose from
+  the local LLM; `OracleResponse` schema enforces the separation.
+- `LocalLLMBackend` ABC with `NullBackend` (no-op default; existing
+  deployments behaviorally unchanged) and `OllamaBackend` (Ollama on
+  `localhost:11434`, JSON-mode HTTP). Opt-in via `local_llm` block in
+  `user_config.json`.
+- Four named tiers: Scout (`llama3.2:1b`) / Sentinel (`phi3.5:3.8b`) /
+  Guardian (`llama3.1:8b`) / Titan (`qwen2.5:14b`). Cited numerical claims
+  identical across tiers; only the prose model differs.
+- Six new `oracle_*` columns on `audit_log` for IRB-grade provenance
+  (model, tier, backend, backend_latency_ms, oracle_latency_ms, claim_count).
+- `router.register_local_llm_layer()` hook; layer bypasses consent/cost/
+  circuit-breaker/PHI-scrub gates (same pattern as `VaultLayer`).
+- [ADR 0022](docs/adr/0022-local-llm-guardian.md) (Proposed); ADR 0008
+  amended to extend permit-list to name new backend files.
+- Operator guide: `docs/guides/local-llm-guardian.md`.
+- Total tool surface: 48 (was 47).
+- 37 new regression tests; full suite 632/632.
+
+Deferred (ADR 0022 § "Out of scope"): verifier behavior on hosted-LLM
+responses, sanitizer/proxy mode, conductor-mode toggle, citation-grounding
+enforcement, migration of remaining 45 tools to oracle mediation, IRB
+prompt-injection threat-model update, performance characterization,
+pilot-wizard tier-detection, real Ollama end-to-end smoke.
 
 ## Shipped in v6.5.0 (2026-04-30)
 
@@ -544,7 +578,7 @@ mechanical: regression tests for the OSError, config-malformed, and
 handler-error branches in the pre-v6.5 surface. Ships as v6.5.1 patch
 with no public API change. ~few hours of work.
 
-## PHI sidecar-schema validator (v6.6)
+## PHI sidecar-schema validator (deferred)
 
 [ADR 0015](docs/adr/0015-tier-1-cohort-surface-and-metadata-sidecar.md)
 documents that the `metadata.json` sidecar sits *out-of-band* of the

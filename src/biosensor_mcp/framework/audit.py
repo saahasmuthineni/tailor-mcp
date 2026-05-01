@@ -163,6 +163,40 @@ class AuditLog:
             # scrubber identity in the property since v5; the audit row
             # never carried it until now.
             self._conn.execute("ALTER TABLE audit_log ADD COLUMN scrubber_id TEXT")
+        # ADR 0022 commits to a new audit-log row category for oracle
+        # calls capturing model_id, model_version_hash, latency,
+        # confidence, oracle-tier-codename, and prompt_hash. Adding the
+        # columns here closes the ADR-vs-code drift the
+        # researcher-utility-reviewer surfaced before commit. Each
+        # column is NULL for non-oracle dispatch paths.
+        if "oracle_model_id" not in cols:
+            self._conn.execute(
+                "ALTER TABLE audit_log ADD COLUMN oracle_model_id TEXT"
+            )
+        if "oracle_model_version_hash" not in cols:
+            self._conn.execute(
+                "ALTER TABLE audit_log ADD COLUMN oracle_model_version_hash TEXT"
+            )
+        if "oracle_tier" not in cols:
+            self._conn.execute(
+                "ALTER TABLE audit_log ADD COLUMN oracle_tier TEXT"
+            )
+        if "oracle_confidence" not in cols:
+            self._conn.execute(
+                "ALTER TABLE audit_log ADD COLUMN oracle_confidence REAL"
+            )
+        if "oracle_prompt_hash" not in cols:
+            self._conn.execute(
+                "ALTER TABLE audit_log ADD COLUMN oracle_prompt_hash TEXT"
+            )
+        if "oracle_latency_ms" not in cols:
+            # ADR 0022 commits to oracle latency as a queryable audit
+            # column distinct from the router's `duration_ms`: this one
+            # is the backend's compose() wall-clock alone (HTTP +
+            # on-device inference), not the router pipeline's total.
+            self._conn.execute(
+                "ALTER TABLE audit_log ADD COLUMN oracle_latency_ms INTEGER"
+            )
         self._conn.commit()
 
     @property
@@ -189,7 +223,13 @@ class AuditLog:
                token_estimate: int, outcome: str, duration_ms: int,
                *, error: str | None = None,
                subject_id: str | None = None,
-               scrubber_id: str | None = None):
+               scrubber_id: str | None = None,
+               oracle_model_id: str | None = None,
+               oracle_model_version_hash: str | None = None,
+               oracle_tier: str | None = None,
+               oracle_confidence: float | None = None,
+               oracle_prompt_hash: str | None = None,
+               oracle_latency_ms: int | None = None):
         params_json = _dumps(params)
         if isinstance(params_json, bytes):
             params_repr = params_json.decode("utf-8", errors="replace")
@@ -203,11 +243,15 @@ class AuditLog:
         self._conn.execute(
             "INSERT INTO audit_log"
             " (timestamp, domain, tool_name, tier, params, token_estimate,"
-            "  outcome, duration_ms, error, subject_id, scrubber_id)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            "  outcome, duration_ms, error, subject_id, scrubber_id,"
+            "  oracle_model_id, oracle_model_version_hash, oracle_tier,"
+            "  oracle_confidence, oracle_prompt_hash, oracle_latency_ms)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (datetime.now(timezone.utc).isoformat(), domain, tool_name, tier,
              params_repr, token_estimate, outcome, duration_ms, error,
-             subject_id, scrubber_id),
+             subject_id, scrubber_id,
+             oracle_model_id, oracle_model_version_hash, oracle_tier,
+             oracle_confidence, oracle_prompt_hash, oracle_latency_ms),
         )
         self._conn.commit()
         log.info(
@@ -215,4 +259,5 @@ class AuditLog:
             f"| tokens~{token_estimate} | {outcome} | {duration_ms}ms"
             + (f" | subject={subject_id}" if subject_id else "")
             + (f" | scrubber={scrubber_id}" if scrubber_id else "")
+            + (f" | oracle_model={oracle_model_id}" if oracle_model_id else "")
         )

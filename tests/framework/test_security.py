@@ -112,6 +112,20 @@ class TestParamValidator:
         ok, err, _ = ParamValidator.validate(schema, {"limit": 200})
         assert ok is False
 
+    def test_int_coercion_typeerror_returns_explicit_failure(self):
+        # framework/security.py:65-69 — the int-coercion except branch.
+        # Coverage-criticality-mapper flagged this CRITICAL because a
+        # non-castable value silently slipping past the validator would
+        # reach child.execute() unchecked.
+        schema = {"limit": ValidationSchema(type=int, min=1, max=100)}
+        ok, err, _ = ParamValidator.validate(schema, {"limit": "not-a-number"})
+        assert ok is False
+        assert "must be an integer" in err
+        # Also: a list (TypeError on int(value)) takes the same branch.
+        ok2, err2, _ = ParamValidator.validate(schema, {"limit": [1, 2]})
+        assert ok2 is False
+        assert "must be an integer" in err2
+
     def test_string_pattern(self):
         schema = {"date": ValidationSchema(type=str, pattern=r"^\d{4}-\d{2}-\d{2}$")}
         ok1, _, _ = ParamValidator.validate(schema, {"date": "2026-01-15"})
@@ -171,6 +185,52 @@ class TestPHIScrubber:
         )
         assert "participant_name" not in scrubbed
         assert scrubbed["value"] == 42
+
+    def test_noop_warning_emitted_at_most_once_per_process(self, caplog):
+        """
+        ADR 0003 says the no-op default must surface "loudly" — but a
+        researcher running tests or a long session shouldn't get that
+        warning printed once per construction. ``_noop_warning_emitted``
+        is class-level for exactly this reason. Until this test landed
+        the contract was undefended: any refactor moving the flag to
+        instance-level would silently regress.
+        """
+        # The warning may already have fired in earlier tests — what
+        # matters is that further constructions do not re-emit it.
+        PHIScrubber._noop_warning_emitted = False  # reset class flag
+        caplog.clear()
+        with caplog.at_level("WARNING", logger="biosensor-mcp"):
+            PHIScrubber()
+            PHIScrubber()
+            PHIScrubber()
+        noop_warnings = [
+            r for r in caplog.records
+            if "PHIScrubber default is a no-op" in r.getMessage()
+        ]
+        assert len(noop_warnings) == 1, (
+            f"expected exactly one no-op warning across 3 constructions; "
+            f"got {len(noop_warnings)}"
+        )
+
+    def test_subclass_construction_does_not_emit_noop_warning(self, caplog):
+        """
+        Only the base PHIScrubber emits the no-op warning; a subclass
+        (which presumably has a real policy) must not trip it.
+        """
+        class RealScrubber(PHIScrubber):
+            def scrub(self, result: dict) -> dict:
+                return result
+
+        PHIScrubber._noop_warning_emitted = False
+        caplog.clear()
+        with caplog.at_level("WARNING", logger="biosensor-mcp"):
+            RealScrubber()
+            RealScrubber()
+        noop_warnings = [
+            r for r in caplog.records
+            if "PHIScrubber default is a no-op" in r.getMessage()
+        ]
+        assert noop_warnings == []
 
     def test_scrubber_id_distinguishes_noop_from_subclass(self):
         """

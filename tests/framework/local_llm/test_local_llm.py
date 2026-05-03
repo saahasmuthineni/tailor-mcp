@@ -1171,3 +1171,366 @@ class TestRouterDispatchSubstrateCount:
                 audit.close()
         finally:
             router._audit.close()
+
+
+class TestRouterDispatchGapReasoningCounts:
+    """Audit-log oracle_next_best_calls_count and
+    oracle_unresolved_intent_count columns per ADR 0023 PR2.
+
+    Mirrors TestRouterDispatchSubstrateCount above — the same audit-
+    completeness invariant ADR 0023 § "Audit-log column" justified
+    for substrate applies to gap-reasoning by symmetry: an IRB
+    reviewer should be able to query "how much did the local LLM
+    suggest and ask?" from audit.db without parsing the response
+    payload."""
+
+    def _build_layer_with_canned_response(
+        self, next_best_calls: list[str], unresolved_intent: list[str],
+    ) -> LocalLLMLayer:
+        """A LocalLLMLayer whose backend returns the supplied lists.
+        Bypasses Ollama HTTP entirely — we want to test the dispatch-
+        layer extraction, not the backend."""
+        from biosensor_mcp.framework.local_llm.backends import (
+            LocalLLMBackend,
+        )
+
+        class _CannedBackend(LocalLLMBackend):
+            @property
+            def backend_id(self) -> str: return "canned"
+            @property
+            def tier(self) -> str: return "canned"
+            @property
+            def model_id(self) -> str: return "canned"
+
+            async def compose(self, request):
+                return OracleResponse(
+                    numerical_claims=[], narrative="canned",
+                    ambiguity_axes=[], confidence=0.5,
+                    next_best_calls=list(next_best_calls),
+                    unresolved_intent=list(unresolved_intent),
+                    meta=OracleMeta(
+                        model_id="m", model_version_hash="h",
+                        tier="canned", latency_ms=1, prompt_hash="p",
+                        called_at="2026-05-03T00:00:00Z",
+                        processing_calls=[], backend="canned",
+                    ),
+                )
+
+        return LocalLLMLayer(backend=_CannedBackend())
+
+    def test_success_records_zero_when_lists_empty(self, tmp_path: Path):
+        """NullBackend (or any backend) returning empty lists →
+        audit columns record 0, not NULL. Distinguishes "successfully
+        composed and emitted no gap reasoning" from "pre-execute
+        failure" (where both columns are NULL)."""
+        router = RouterMCP(name="test", data_dir=tmp_path)
+        router.register_local_llm_layer(LocalLLMLayer())  # NullBackend
+        try:
+            asyncio.run(router._dispatch(
+                "ask_local_oracle",
+                {"question": "?", "resolved_context": {}},
+            ))
+            audit = AuditLog(tmp_path / "audit.db")
+            try:
+                cursor = audit._conn.execute(
+                    "SELECT oracle_next_best_calls_count, "
+                    "oracle_unresolved_intent_count FROM audit_log "
+                    "WHERE outcome = 'SUCCESS'"
+                )
+                rows = cursor.fetchall()
+                assert len(rows) == 1
+                assert rows[0] == (0, 0)
+            finally:
+                audit.close()
+        finally:
+            router._audit.close()
+
+    def test_success_records_actual_counts_when_populated(
+        self, tmp_path: Path,
+    ):
+        """Backend returning non-empty lists → audit columns record
+        the actual lengths. Counts are independent (one populated,
+        other empty round-trips correctly)."""
+        layer = self._build_layer_with_canned_response(
+            next_best_calls=["csv_force_decline", "csv_summary_report"],
+            unresolved_intent=[
+                "which group is P003 in?", "stratify by sex?", "n=?",
+            ],
+        )
+        router = RouterMCP(name="test", data_dir=tmp_path)
+        router.register_local_llm_layer(layer)
+        try:
+            asyncio.run(router._dispatch(
+                "ask_local_oracle",
+                {"question": "?", "resolved_context": {}},
+            ))
+            audit = AuditLog(tmp_path / "audit.db")
+            try:
+                cursor = audit._conn.execute(
+                    "SELECT oracle_next_best_calls_count, "
+                    "oracle_unresolved_intent_count FROM audit_log "
+                    "WHERE outcome = 'SUCCESS'"
+                )
+                rows = cursor.fetchall()
+                assert len(rows) == 1
+                assert rows[0] == (2, 3)
+            finally:
+                audit.close()
+        finally:
+            router._audit.close()
+
+    def test_param_invalid_leaves_both_counts_null(self, tmp_path: Path):
+        """Pre-execute failure (PARAM_INVALID) records NULL for both
+        new columns — the response never existed to extract counts
+        from. Same invariant as oracle_substrate_count's NULL-on-
+        failure shape."""
+        router = RouterMCP(name="test", data_dir=tmp_path)
+        router.register_local_llm_layer(LocalLLMLayer())
+        try:
+            asyncio.run(router._dispatch(
+                "ask_local_oracle",
+                {"resolved_context": {}},  # missing 'question'
+            ))
+            audit = AuditLog(tmp_path / "audit.db")
+            try:
+                cursor = audit._conn.execute(
+                    "SELECT oracle_next_best_calls_count, "
+                    "oracle_unresolved_intent_count FROM audit_log "
+                    "WHERE outcome = 'PARAM_INVALID'"
+                )
+                rows = cursor.fetchall()
+                assert len(rows) == 1
+                assert rows[0] == (None, None)
+            finally:
+                audit.close()
+        finally:
+            router._audit.close()
+
+
+# ─── ADR 0023 PR2 — LLM-driven gap-reasoning contract ──────────────
+
+
+class TestCooperationLoopContract:
+    """OracleResponse-level contract for next_best_calls and
+    unresolved_intent — the LLM-generated gap-reasoning fields per
+    ADR 0023 PR2. Wire-shape stability: empty lists by default, always
+    emitted (even when empty), defensive list-coercion downstream of
+    backends."""
+
+    def _meta(self) -> OracleMeta:
+        return OracleMeta(
+            model_id="m", model_version_hash="h", tier="guardian",
+            latency_ms=1, prompt_hash="p",
+            called_at="2026-05-03T00:00:00Z",
+            processing_calls=[], backend="x",
+        )
+
+    def test_defaults_are_empty_lists(self):
+        """A response constructed without naming the new fields gets
+        empty lists — the wire contract holds for any caller that
+        existed before PR2."""
+        resp = OracleResponse(
+            numerical_claims=[], narrative="", ambiguity_axes=[],
+            confidence=0.0, meta=self._meta(),
+        )
+        assert resp.next_best_calls == []
+        assert resp.unresolved_intent == []
+
+    def test_to_dict_always_emits_both_fields(self):
+        """Even when empty, both fields appear in the wire payload —
+        so hosted Claude can rely on `response.next_best_calls`
+        existing without a defensive get(). Mirrors related_substrate
+        from PR1."""
+        resp = OracleResponse(
+            numerical_claims=[], narrative="", ambiguity_axes=[],
+            confidence=0.0, meta=self._meta(),
+        )
+        d = resp.to_dict()
+        assert "next_best_calls" in d
+        assert "unresolved_intent" in d
+        assert d["next_best_calls"] == []
+        assert d["unresolved_intent"] == []
+
+    def test_to_dict_round_trips_populated_lists(self):
+        resp = OracleResponse(
+            numerical_claims=[], narrative="", ambiguity_axes=[],
+            confidence=0.0, meta=self._meta(),
+            next_best_calls=["csv_force_decline"],
+            unresolved_intent=["which subjects belong to group A?"],
+        )
+        d = resp.to_dict()
+        assert d["next_best_calls"] == ["csv_force_decline"]
+        assert d["unresolved_intent"] == [
+            "which subjects belong to group A?",
+        ]
+
+    def test_dataclass_default_factory_is_independent_per_instance(self):
+        """Regression guard for the classic mutable-default trap:
+        two instances must not share the same default list. If a
+        future refactor swapped field(default_factory=list) for `=[]`,
+        this test would catch the silent bug where mutating one
+        response's list mutates another's."""
+        a = OracleResponse(
+            numerical_claims=[], narrative="", ambiguity_axes=[],
+            confidence=0.0, meta=self._meta(),
+        )
+        b = OracleResponse(
+            numerical_claims=[], narrative="", ambiguity_axes=[],
+            confidence=0.0, meta=self._meta(),
+        )
+        a.next_best_calls.append("csv_force_decline")
+        a.unresolved_intent.append("clarify cohort")
+        assert b.next_best_calls == []
+        assert b.unresolved_intent == []
+
+
+class TestOllamaBackendCooperationLoop:
+    """OllamaBackend behaviour for the new gap-reasoning fields. Uses
+    mocked HTTP throughout so tests don't require a running Ollama."""
+
+    def test_prompt_includes_both_new_fields_and_split_rule(self):
+        """The prompt schema must teach the model to emit both fields,
+        and the prompt body must teach the load-bearing split:
+        fetch-this-data vs ask-the-analyst. Without the split, the
+        model conflates the two and the cooperation loop degrades to
+        a single-list ambiguity_axes."""
+        backend = OllamaBackend(tier="scout")
+        request = OracleRequest(question="?", resolved_context={})
+        prompt = backend._build_prompt(request)
+        assert "next_best_calls" in prompt
+        assert "unresolved_intent" in prompt
+        # Split rule — exact wording is not load-bearing, but the two
+        # role labels must both appear so a model reading the prompt
+        # can distinguish them.
+        assert "fetch" in prompt.lower()
+        assert "analyst" in prompt.lower()
+
+    def test_compose_parses_both_fields(self):
+        """Happy path: well-formed JSON with both lists populated
+        round-trips through the parser into the OracleResponse."""
+        backend = OllamaBackend(tier="scout")
+        request = OracleRequest(question="?", resolved_context={})
+        llm_resp = json.dumps({
+            "narrative": "n",
+            "ambiguity_axes": [],
+            "confidence": 0.5,
+            "next_best_calls": ["csv_force_decline", "csv_summary_report"],
+            "unresolved_intent": ["which group is P003 in?"],
+        })
+        with patch.object(backend, "_call_ollama", return_value=llm_resp):
+            response = asyncio.run(backend.compose(request))
+        assert response.next_best_calls == [
+            "csv_force_decline", "csv_summary_report",
+        ]
+        assert response.unresolved_intent == ["which group is P003 in?"]
+
+    def test_compose_defensive_coercion_when_not_lists(self):
+        """LLM emits a string instead of a list (a common JSON-mode
+        failure shape) — parser falls back to []. Mirrors the
+        ambiguity_axes coercion at ollama.py:174-175 — without this
+        the wire payload would carry a malformed type."""
+        backend = OllamaBackend(tier="scout")
+        request = OracleRequest(question="?", resolved_context={})
+        llm_resp = json.dumps({
+            "narrative": "n",
+            "ambiguity_axes": [],
+            "confidence": 0.5,
+            "next_best_calls": "csv_force_decline",       # string, not list
+            "unresolved_intent": {"q": "who is P003?"},   # dict, not list
+        })
+        with patch.object(backend, "_call_ollama", return_value=llm_resp):
+            response = asyncio.run(backend.compose(request))
+        assert response.next_best_calls == []
+        assert response.unresolved_intent == []
+
+    def test_compose_coerces_non_string_entries_to_str(self):
+        """LLM emits valid lists with non-string entries (numbers,
+        booleans, dicts) — each entry is str()'d so the wire shape
+        list[str] holds. Mirrors the [str(x) for x in ambiguity]
+        coercion."""
+        backend = OllamaBackend(tier="scout")
+        request = OracleRequest(question="?", resolved_context={})
+        llm_resp = json.dumps({
+            "narrative": "n",
+            "ambiguity_axes": [],
+            "confidence": 0.5,
+            "next_best_calls": [42, True, {"tool": "csv_force_decline"}],
+            "unresolved_intent": [None, 1.5],
+        })
+        with patch.object(backend, "_call_ollama", return_value=llm_resp):
+            response = asyncio.run(backend.compose(request))
+        assert all(isinstance(x, str) for x in response.next_best_calls)
+        assert all(isinstance(x, str) for x in response.unresolved_intent)
+        assert "42" in response.next_best_calls
+        assert "True" in response.next_best_calls
+
+    def test_compose_missing_fields_default_to_empty(self):
+        """LLM emits valid JSON with no next_best_calls or
+        unresolved_intent keys — parser defaults both to []. Models
+        that don't follow the schema strictly should not crash the
+        layer."""
+        backend = OllamaBackend(tier="scout")
+        request = OracleRequest(question="?", resolved_context={})
+        llm_resp = json.dumps({
+            "narrative": "n",
+            "ambiguity_axes": [],
+            "confidence": 0.5,
+            # both new fields absent
+        })
+        with patch.object(backend, "_call_ollama", return_value=llm_resp):
+            response = asyncio.run(backend.compose(request))
+        assert response.next_best_calls == []
+        assert response.unresolved_intent == []
+
+    def test_fallback_response_emits_empty_gap_reasoning(self):
+        """When Ollama is unavailable the fallback path has no LLM in
+        the loop — both gap-reasoning fields must be empty. Emitting
+        anything else here would be a fabrication: the fallback is
+        the structural signal that no LLM ran."""
+        backend = OllamaBackend(tier="scout")
+        ctx = {"csv_force_decline": {"peak": 100.0}}
+        request = OracleRequest(question="?", resolved_context=ctx)
+        # Both calls fail (non-JSON twice → fallback)
+        with patch.object(backend, "_call_ollama", return_value="not json"):
+            response = asyncio.run(backend.compose(request))
+        assert response.meta.backend == "ollama-fallback"
+        assert response.next_best_calls == []
+        assert response.unresolved_intent == []
+
+
+class TestNullBackendCooperationLoop:
+    """NullBackend — no LLM in the loop, so gap-reasoning fields stay
+    empty. Documents the parallel with PR1's substrate scan: the
+    deterministic vault scan happens at the layer (NullBackend
+    inherits substrate vision), but gap-reasoning is LLM-only and
+    NullBackend correctly emits []."""
+
+    def test_null_backend_emits_empty_gap_reasoning(self):
+        backend = NullBackend()
+        request = OracleRequest(question="?", resolved_context={})
+        response = asyncio.run(backend.compose(request))
+        assert response.next_best_calls == []
+        assert response.unresolved_intent == []
+
+
+class TestAskLocalOracleToolDescription:
+    """The tool description on ask_local_oracle teaches hosted Claude
+    the cooperation-loop pattern. PR2 expanded it; this test pins the
+    contract so a future drift removes the loop teaching only when
+    the ADR is amended."""
+
+    def test_description_mentions_all_three_cooperation_fields(self):
+        layer = LocalLLMLayer()
+        defs = layer.tool_definitions
+        assert len(defs) == 1
+        desc = defs[0].description
+        # All three cooperation-loop fields surfaced in the tool
+        # description so hosted Claude can reason about each.
+        assert "related_substrate" in desc
+        assert "next_best_calls" in desc
+        assert "unresolved_intent" in desc
+        # The split rule: fetch-this-data vs ask-the-analyst.
+        assert "analyst" in desc.lower()
+        # The iteration framing — without this, hosted Claude reads
+        # the response as a one-shot terminal answer.
+        assert "iterate" in desc.lower() or "re-invoke" in desc.lower()

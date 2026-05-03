@@ -87,11 +87,37 @@ Three benefits, in order of weight:
    - Path B (more conservative): subclass `PHIScrubber` to drop
      `related_substrate` entries whose `subject_id` is NULL.
 
-   The `oracle_substrate_count` audit-log column ([ADR 0023](../adr/0023-local-llm-cooperation-loop.md))
-   records how many vault items were surfaced per oracle call, and
-   `_meta.substrate_scan_warning` (when present) records swallowed
-   VaultStorage exceptions so a reviewer can distinguish "scanned
-   cleanly, found nothing" from "scan crashed silently."
+   **Important precision — gap-reasoning egress**
+   ([ADR 0023](../adr/0023-local-llm-cooperation-loop.md) PR2) — PR2
+   added two more LLM-generated fields to `OracleResponse` that also
+   bypass the PHI-scrubber seam: `next_best_calls` (framework tool
+   names the local LLM thinks would raise oracle confidence — bounded
+   vocabulary of ~45 framework tool names; low PHI risk in practice
+   because the prompt schema is pinned to tool-name shape) and
+   `unresolved_intent` (questions the local LLM thinks the analyst
+   should answer — **unbounded LLM-generated free text**, structurally
+   the same PHI-egress shape as `narrative`). The framing-claim
+   covering streams holds; the `unresolved_intent` field can plausibly
+   echo subject IDs, dates, or analyst-supplied identifiers as part of
+   the question text the local LLM emits (e.g. "did P003's lab visit
+   on 2026-04-12 involve insulin?" — a Safe Harbor §164.514(b)(2)
+   date-of-service emission the scrubber never sees). Two
+   recommendations: (a) treat `unresolved_intent` content as
+   institutionally-equivalent to `narrative` for review purposes;
+   (b) deployments needing a stricter posture should subclass
+   `PHIScrubber` to apply the institution's policy to *both*
+   `narrative` and `unresolved_intent` on the local-LLM dispatch path
+   (Path B from "automatic cross-subject substrate" above).
+
+   The `oracle_substrate_count`, `oracle_next_best_calls_count`, and
+   `oracle_unresolved_intent_count` audit-log columns
+   ([ADR 0023](../adr/0023-local-llm-cooperation-loop.md))
+   record per oracle call how many vault items were surfaced, how
+   many tool suggestions the local LLM emitted, and how many
+   analyst-questions it proposed. `_meta.substrate_scan_warning`
+   (when present) records swallowed VaultStorage exceptions so a
+   reviewer can distinguish "scanned cleanly, found nothing" from
+   "scan crashed silently."
 
 2. **Reduced token spend on the hosted LLM.** Routine analytical
    questions get composed locally; only the structured response (with

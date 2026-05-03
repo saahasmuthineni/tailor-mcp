@@ -1201,3 +1201,279 @@ def test_tools_list_ask_local_oracle_description_contains_related_substrate() ->
             f"not merged into tool_definitions or not reaching the wire. "
             f"Actual description: {desc[:300]!r}"
         )
+
+
+# ──────────────────────────────────────────────────────────────────
+# ADR 0023 PR2 — next_best_calls + unresolved_intent wire surfaces
+# G1–G4, added this audit run (v6.7.x)
+# ──────────────────────────────────────────────────────────────────
+
+def test_tools_list_description_mentions_all_three_cooperation_fields() -> None:
+    """G1: tools/list description for ask_local_oracle mentions all three
+    cooperation-loop fields over the wire.
+
+    S5 only checked 'related_substrate' (ADR 0023 PR1). PR2 adds
+    next_best_calls and unresolved_intent to the tool description.
+    This test pins the full cooperation-loop teaching in the description
+    flowing over the wire so a future description rollback is caught
+    end-to-end, not just at the Python unit-test level.
+
+    The gate-evasion class: unit tests on LocalLLMLayer.tool_definitions
+    pass against the in-process description string; this test drives the
+    subprocess so a stale compiled .pyc or an import error in layer.py
+    would also surface here.
+    """
+    with spawn_server() as (client, _paths):
+        client.initialize()
+        list_resp = client.list_tools()
+        assert "error" not in list_resp, (
+            f"tools/list returned a JSON-RPC error — longer description "
+            f"may have triggered a schema validation failure: {list_resp}"
+        )
+
+        tools = list_resp["result"]["tools"]
+        oracle = next(
+            (t for t in tools if t["name"] == "ask_local_oracle"), None
+        )
+        assert oracle is not None, "ask_local_oracle missing from tools/list"
+
+        # No JSON-RPC error in the envelope means the longer description
+        # did not break the mcp SDK's own schema validation.
+        assert "error" not in list_resp, (
+            "tools/list returned error after PR2 description update"
+        )
+
+        desc = oracle.get("description", "")
+        # All three cooperation-loop field names must appear in the
+        # description that flows over the wire.
+        for field_name in ("related_substrate", "next_best_calls", "unresolved_intent"):
+            assert field_name in desc, (
+                f"tools/list description for ask_local_oracle is missing "
+                f"'{field_name}' — PR2 description update not reaching the "
+                f"wire. Actual description (first 400 chars): {desc[:400]!r}"
+            )
+
+        # The split rule must also reach the wire so hosted Claude learns
+        # the distinction between fetching data and asking the analyst.
+        # "iterate" or "re-invoke" teaches the cooperation loop pattern.
+        assert (
+            "iterate" in desc.lower() or "re-invoke" in desc.lower()
+        ), (
+            "tools/list description for ask_local_oracle is missing the "
+            "iteration framing ('iterate' or 're-invoke') — hosted Claude "
+            f"will read the response as a one-shot terminal answer. "
+            f"Description: {desc[:400]!r}"
+        )
+
+
+def test_ask_local_oracle_response_has_gap_reasoning_fields_at_top_level() -> None:
+    """G2: tools/call ask_local_oracle (NullBackend) response contains
+    next_best_calls and unresolved_intent as top-level keys in the
+    parsed payload.
+
+    The gate-evasion class: OracleResponse.to_dict() emits both fields,
+    but a router serialization bug or a merger of oracle._meta into the
+    outer _meta block could bury them at a non-top-level path. This test
+    pins the top-level position end-to-end through the subprocess.
+
+    With NullBackend both fields default to [] — the test asserts
+    presence and correct type, not content.
+    """
+    with spawn_server() as (client, _paths):
+        client.initialize()
+
+        resp = client.call_tool("ask_local_oracle", {
+            "question": "PR2 gap-reasoning field presence test",
+            "resolved_context": {
+                "csv_force_decline": {
+                    "peak": 120.0,
+                    "decline_pct_total": 15.0,
+                    "n_samples": 5,
+                },
+            },
+            "subject_id": "P003",
+        })
+
+        assert "error" not in resp, f"tools/call returned error: {resp}"
+        text = extract_text_result(resp)
+        assert_no_repr_artifacts(text)
+
+        body = json.loads(text)
+
+        # next_best_calls — top-level, list type
+        assert "next_best_calls" in body, (
+            "next_best_calls is missing from the top-level tools/call "
+            "response. Expected OracleResponse.to_dict() to include it "
+            "at root level. Top-level keys: "
+            f"{sorted(body.keys())}"
+        )
+        nbc = body["next_best_calls"]
+        assert isinstance(nbc, list), (
+            f"next_best_calls must be a list on the wire; "
+            f"got {type(nbc).__name__}: {nbc!r}"
+        )
+
+        # unresolved_intent — top-level, list type
+        assert "unresolved_intent" in body, (
+            "unresolved_intent is missing from the top-level tools/call "
+            "response. Expected OracleResponse.to_dict() to include it "
+            "at root level. Top-level keys: "
+            f"{sorted(body.keys())}"
+        )
+        ui = body["unresolved_intent"]
+        assert isinstance(ui, list), (
+            f"unresolved_intent must be a list on the wire; "
+            f"got {type(ui).__name__}: {ui!r}"
+        )
+
+        # NullBackend emits empty lists — confirm the empty-list contract
+        # is stable (populated values come only from a real LLM backend).
+        assert nbc == [], (
+            f"NullBackend must emit next_best_calls=[] (no LLM in loop); "
+            f"got: {nbc!r}"
+        )
+        assert ui == [], (
+            f"NullBackend must emit unresolved_intent=[] (no LLM in loop); "
+            f"got: {ui!r}"
+        )
+
+        # The fields must NOT appear nested inside _meta.
+        meta = body.get("_meta", {})
+        assert "next_best_calls" not in meta, (
+            "next_best_calls was buried inside _meta instead of at top level"
+        )
+        assert "unresolved_intent" not in meta, (
+            "unresolved_intent was buried inside _meta instead of at top level"
+        )
+
+
+def test_gap_reasoning_fields_wire_serialization_no_repr() -> None:
+    """G3: _dumps serialization of next_best_calls and unresolved_intent
+    produces clean JSON — no Python repr() artifacts, no silent
+    default=str coercion of list types into strings.
+
+    The gate-evasion class: list[str] is natively serializable by both
+    orjson and stdlib json, BUT a stale default=str coercion in _dumps
+    would turn a list into its repr "['csv_force_decline']" rather than
+    a JSON array. This test exercises the full round-trip including
+    a non-empty list to distinguish "empty list serializes fine" from
+    "list with content serializes fine".
+
+    NullBackend always returns []. We call to_dict() directly to inject
+    non-empty lists and then _dumps them, mirroring exactly what the
+    router's dispatch path does when an OllamaBackend returns results.
+    """
+    from biosensor_mcp.framework.audit import _dumps
+    from biosensor_mcp.framework.local_llm.oracle import (
+        OracleMeta,
+        OracleResponse,
+    )
+
+    meta = OracleMeta(
+        model_id="llama3.1:8b",
+        model_version_hash="abc12345",
+        tier="guardian",
+        latency_ms=423,
+        prompt_hash="f1e2d3c4",
+        called_at="2026-05-03T12:00:00+00:00",
+        processing_calls=["csv_force_decline"],
+        backend="ollama",
+    )
+    resp = OracleResponse(
+        numerical_claims=[],
+        narrative="P003 showed a 15% decline.",
+        ambiguity_axes=["Which muscle group is primary?"],
+        confidence=0.72,
+        next_best_calls=["csv_cohort_summary", "csv_force_decline"],
+        unresolved_intent=["Which group does P003 belong to?"],
+        meta=meta,
+    )
+
+    d = resp.to_dict()
+    # Serialize via the same path the router uses.
+    encoded = _dumps(d)
+
+    # No Python repr artifacts anywhere.
+    assert_no_repr_artifacts(encoded)
+
+    # The two new list fields must appear as JSON arrays, not stringified
+    # Python reprs. The smoking-gun signature of the bug would be the
+    # literal string "['csv_cohort_summary'" appearing in the wire payload.
+    assert "['csv_cohort_summary'" not in encoded, (
+        "next_best_calls was serialized as a Python repr string instead "
+        "of a JSON array — this is a default=str coercion bug. "
+        f"Wire payload excerpt: {encoded[:400]}"
+    )
+    assert "['Which group" not in encoded, (
+        "unresolved_intent was serialized as a Python repr string instead "
+        "of a JSON array — this is a default=str coercion bug. "
+        f"Wire payload excerpt: {encoded[:400]}"
+    )
+
+    # Full round-trip: parse back and verify structural integrity.
+    decoded = json.loads(encoded)
+    assert decoded["next_best_calls"] == [
+        "csv_cohort_summary", "csv_force_decline",
+    ], (
+        f"next_best_calls round-trip failed: {decoded['next_best_calls']!r}"
+    )
+    assert decoded["unresolved_intent"] == [
+        "Which group does P003 belong to?",
+    ], (
+        f"unresolved_intent round-trip failed: {decoded['unresolved_intent']!r}"
+    )
+    # Verify the values are genuine JSON arrays in the raw encoded string.
+    assert '"next_best_calls": ["csv_cohort_summary"' in encoded or \
+           '"next_best_calls":["csv_cohort_summary"' in encoded, (
+        "next_best_calls not serialized as a JSON array in raw wire bytes. "
+        f"Wire payload: {encoded[:400]}"
+    )
+
+
+def test_tools_list_no_json_rpc_error_after_description_expansion() -> None:
+    """G4: tools/list returns no JSON-RPC error after the PR2 description
+    expansion and parses without error.
+
+    The gate-evasion class: the mcp SDK validates tool inputSchema and
+    description length at registration time in some versions. A description
+    that exceeds an undocumented length limit, or a malformed description
+    string (e.g. unmatched quotes, control characters), could produce a
+    JSON-RPC error envelope in the tools/list response without crashing
+    the server. This test pins the clean-parse invariant for the full
+    longer description added in PR2.
+
+    Specifically checks:
+    - No "error" key at the JSON-RPC envelope level.
+    - tools/list result decodes as valid JSON.
+    - ask_local_oracle appears in the tool list (not silently dropped on
+      registration error).
+    - The raw tools/list payload contains no Python repr artifacts
+      (guards against the description field itself being repr()'d into
+      the schema emission path).
+    """
+    with spawn_server() as (client, _paths):
+        client.initialize()
+        list_resp = client.list_tools()
+
+        # JSON-RPC envelope must not carry an error.
+        assert "error" not in list_resp, (
+            f"tools/list returned a JSON-RPC error after PR2 description "
+            f"expansion. This may mean the mcp SDK rejected the longer "
+            f"description at registration time. Error: {list_resp.get('error')}"
+        )
+        assert "result" in list_resp, (
+            f"tools/list response has no 'result' key: {list_resp}"
+        )
+
+        # Raw payload must contain no Python repr artifacts.
+        raw = json.dumps(list_resp)
+        assert_no_repr_artifacts(raw)
+
+        # ask_local_oracle must still be in the list (not silently dropped).
+        tools = list_resp["result"]["tools"]
+        names = [t["name"] for t in tools]
+        assert "ask_local_oracle" in names, (
+            f"ask_local_oracle missing from tools/list after PR2 description "
+            f"expansion — it may have been silently dropped on registration. "
+            f"Tool count: {len(tools)}"
+        )

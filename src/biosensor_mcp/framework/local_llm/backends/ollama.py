@@ -110,13 +110,26 @@ class OllamaBackend(LocalLLMBackend):
             "NOT invent numbers — every number you mention must come from "
             "resolved_context. Refuse raw-data display requests by "
             "suggesting a summary alternative.\n\n"
+            "If resolved_context is missing data the question requires, "
+            "name the gap. The split is load-bearing: name a framework "
+            "tool the caller can run to fetch missing data in "
+            "next_best_calls; name a question the caller should put to "
+            "the analyst in unresolved_intent. Do not duplicate items "
+            "across the two lists. Either list may be empty when no "
+            "gap exists.\n\n"
             "Respond with ONLY a JSON object matching this schema:\n"
             "{\n"
             '  "narrative": "<one paragraph, plain English, citing only '
             'numbers in resolved_context>",\n'
             '  "ambiguity_axes": ["<research-question disambiguation, or '
             "empty list>\"],\n"
-            '  "confidence": <float 0.0-1.0>\n'
+            '  "confidence": <float 0.0-1.0>,\n'
+            '  "next_best_calls": ["<framework tool name to fetch '
+            'missing data, e.g. csv_force_decline; empty list if no '
+            'data gap>"],\n'
+            '  "unresolved_intent": ["<question to put to the analyst '
+            'before the oracle can compose confidently; empty list if '
+            'no analyst-judgment gap>"]\n'
             "}\n\n"
             f"Question: {request.question}\n\n"
             f"resolved_context:\n{ctx_json}\n"
@@ -179,11 +192,26 @@ class OllamaBackend(LocalLLMBackend):
             confidence = 0.5
         confidence = max(0.0, min(1.0, confidence))
 
+        # ADR 0023 PR2 — defensive list-coercion mirrors the
+        # ambiguity_axes pattern above. A non-list emission from the
+        # backend (e.g. the model returns a string by mistake) yields
+        # an empty list; non-string entries inside a valid list are
+        # coerced via str() so the wire contract holds even when the
+        # LLM hallucinates the shape.
+        next_calls = parsed.get("next_best_calls", [])
+        if not isinstance(next_calls, list):
+            next_calls = []
+        unresolved = parsed.get("unresolved_intent", [])
+        if not isinstance(unresolved, list):
+            unresolved = []
+
         return OracleResponse(
             numerical_claims=claims,
             narrative=narrative,
             ambiguity_axes=[str(x) for x in ambiguity],
             confidence=confidence,
+            next_best_calls=[str(x) for x in next_calls],
+            unresolved_intent=[str(x) for x in unresolved],
             meta=OracleMeta(
                 model_id=self._model,
                 # Hash of the model NAME, not weights. Two different
@@ -215,6 +243,10 @@ class OllamaBackend(LocalLLMBackend):
     ) -> OracleResponse:
         latency_ms = int((time.time() - start) * 1000)
         claims = _flatten_claims(request.resolved_context)
+        # ADR 0023 PR2 — gap-reasoning fields are LLM-generated, so the
+        # fallback path emits empty lists. The fallback is the structural
+        # signal that no LLM was in the loop; emitting fabricated next-
+        # call suggestions here would defeat that signal.
         return OracleResponse(
             numerical_claims=claims,
             narrative=(
@@ -223,6 +255,8 @@ class OllamaBackend(LocalLLMBackend):
             ),
             ambiguity_axes=[],
             confidence=0.0,
+            next_best_calls=[],
+            unresolved_intent=[],
             meta=OracleMeta(
                 model_id=self._model,
                 model_version_hash="unavailable",

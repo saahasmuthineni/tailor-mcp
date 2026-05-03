@@ -540,3 +540,450 @@ class TestRouterDispatch:
                 audit.close()
         finally:
             router._audit.close()
+
+
+# ─── ADR 0023 — substrate-vision asymmetry ─────────────────────────
+
+
+class _StubVaultStorage:
+    """Minimal VaultStorage stand-in used by the substrate-scan tests.
+
+    Implements only the two methods :class:`LocalLLMLayer` calls
+    (``list_themes`` / ``list_notes``); ignores filter args except
+    ``subject_id``, which it threads through so tests can assert it
+    was passed.
+    """
+
+    def __init__(
+        self,
+        themes: dict[str | None, list[dict]] | None = None,
+        notes: dict[str, dict[str | None, list[dict]]] | None = None,
+        raise_on_call: Exception | None = None,
+    ):
+        self._themes = themes or {}
+        self._notes = notes or {}
+        self._raise = raise_on_call
+        self.calls: list[tuple] = []
+
+    def list_themes(self, subject_id=None, limit=50, **kw):
+        self.calls.append(("list_themes", subject_id, limit))
+        if self._raise is not None:
+            raise self._raise
+        return list(self._themes.get(subject_id, []))[:limit]
+
+    def list_notes(self, note_type=None, subject_id=None, limit=50, **kw):
+        self.calls.append(("list_notes", note_type, subject_id, limit))
+        if self._raise is not None:
+            raise self._raise
+        return list(
+            self._notes.get(note_type, {}).get(subject_id, [])
+        )[:limit]
+
+
+class TestRelatedSubstrateContract:
+    """OracleResponse.related_substrate per ADR 0023."""
+
+    def _build_response(self, related=None) -> OracleResponse:
+        meta = OracleMeta(
+            model_id="m", model_version_hash="v", tier="null",
+            latency_ms=1, prompt_hash="p", called_at="2026-05-03T00:00:00Z",
+            backend="null",
+        )
+        kwargs = dict(
+            numerical_claims=[],
+            narrative="",
+            ambiguity_axes=[],
+            confidence=0.0,
+            meta=meta,
+        )
+        if related is not None:
+            kwargs["related_substrate"] = related
+        return OracleResponse(**kwargs)
+
+    def test_default_is_empty_list(self):
+        """Default constructor leaves related_substrate empty so legacy
+        callers and tests are unaffected."""
+        resp = self._build_response()
+        assert resp.related_substrate == []
+        assert resp.to_dict()["related_substrate"] == []
+
+    def test_to_dict_top_level_not_under_meta(self):
+        """ADR 0023 § Decision: related_substrate is a top-level
+        response field; it is not provenance and does not nest into
+        _meta."""
+        resp = self._build_response(related=[{"kind": "theme", "slug": "x"}])
+        d = resp.to_dict()
+        assert d["related_substrate"] == [{"kind": "theme", "slug": "x"}]
+        assert "related_substrate" not in d["_meta"]
+
+
+class TestLocalLLMLayerSubstrateScan:
+    """LocalLLMLayer._scan_related_substrate — ADR 0023 PR1."""
+
+    def _layer_with(self, storage):
+        return LocalLLMLayer(vault_storage=storage)
+
+    def test_no_vault_returns_empty(self):
+        """vault_storage=None → defensive empty; no exception, no log
+        spam in production."""
+        layer = LocalLLMLayer()  # default vault_storage=None
+        result = asyncio.run(layer.execute(
+            "ask_local_oracle",
+            {
+                "question": "?",
+                "resolved_context": {"csv_force_decline": {"peak": 1.0}},
+                "subject_id": "P003",
+            },
+        ))
+        assert result["related_substrate"] == []
+
+    def test_finds_themes_for_explicit_subject_id(self):
+        """request.subject_id triggers a list_themes(subject_id=...) query
+        and populates related_substrate."""
+        storage = _StubVaultStorage(themes={
+            "P003": [{
+                "slug": "force-fatigue-mechanism",
+                "status": "open",
+                "last_updated": "2026-04-30T10:00:00Z",
+                "subject_id": "P003",
+            }],
+        })
+        layer = self._layer_with(storage)
+        result = asyncio.run(layer.execute(
+            "ask_local_oracle",
+            {
+                "question": "?",
+                "resolved_context": {},
+                "subject_id": "P003",
+            },
+        ))
+        slugs = [e["slug"] for e in result["related_substrate"]]
+        assert "force-fatigue-mechanism" in slugs
+        # Verify the layer asked storage with subject_id (ADR 0009
+        # IS-NULL-or-match filter semantics inherited from VaultStorage)
+        assert ("list_themes", "P003", 10) in storage.calls
+
+    def test_walks_per_subject_resolved_context(self):
+        """Per-subject resolved_context shape (cohort summary):
+        {processing_call: {subject_id: {metric: value}}} — scan walks
+        each subject key."""
+        storage = _StubVaultStorage(themes={
+            "P003": [{
+                "slug": "p003-theme",
+                "status": "open",
+                "last_updated": "2026-04-30T10:00:00Z",
+                "subject_id": "P003",
+            }],
+            "P004": [{
+                "slug": "p004-theme",
+                "status": "open",
+                "last_updated": "2026-04-29T10:00:00Z",
+                "subject_id": "P004",
+            }],
+        })
+        layer = self._layer_with(storage)
+        result = asyncio.run(layer.execute(
+            "ask_local_oracle",
+            {
+                "question": "?",
+                "resolved_context": {
+                    "csv_cohort_summary": {
+                        "P003": {"decline_pct": 12.5},
+                        "P004": {"decline_pct": 8.0},
+                    },
+                },
+            },
+        ))
+        slugs = {e["slug"] for e in result["related_substrate"]}
+        assert slugs == {"p003-theme", "p004-theme"}
+
+    def test_caps_total_entries(self):
+        """Substrate cap protects the tool description's token budget
+        regardless of vault size — 100 themes returned by storage
+        produce at most _SUBSTRATE_CAP entries on the wire."""
+        many = [
+            {
+                "slug": f"theme-{i:03d}",
+                "status": "open",
+                "last_updated": f"2026-04-{(i % 28) + 1:02d}T10:00:00Z",
+                "subject_id": "P003",
+            }
+            for i in range(100)
+        ]
+        storage = _StubVaultStorage(themes={"P003": many})
+        layer = self._layer_with(storage)
+        result = asyncio.run(layer.execute(
+            "ask_local_oracle",
+            {
+                "question": "?",
+                "resolved_context": {},
+                "subject_id": "P003",
+            },
+        ))
+        assert (
+            len(result["related_substrate"]) <= LocalLLMLayer._SUBSTRATE_CAP
+        )
+
+    def test_swallows_storage_exception(self):
+        """A vault-scan failure must never break the oracle call. The
+        narrative + numerical_claims continue to surface; substrate
+        is empty and the warning is logged."""
+        storage = _StubVaultStorage(raise_on_call=RuntimeError("db locked"))
+        layer = self._layer_with(storage)
+        result = asyncio.run(layer.execute(
+            "ask_local_oracle",
+            {
+                "question": "?",
+                "resolved_context": {"csv_force_decline": {"peak": 1.0}},
+                "subject_id": "P003",
+            },
+        ))
+        assert result["related_substrate"] == []
+        # Numerical claim still surfaces — the rest of the response is
+        # unaffected by the substrate-scan failure.
+        metrics = {c["metric"] for c in result["numerical_claims"]}
+        assert "peak" in metrics
+
+    def test_no_subjects_in_scope_returns_empty(self):
+        """When neither request.subject_id nor any per-subject key in
+        resolved_context is present, the scan returns [] — substrate
+        scan is purpose-built to find content about subjects of the
+        question, not arbitrary recent vault content."""
+        storage = _StubVaultStorage(themes={
+            None: [{
+                "slug": "cross-subject-theme",
+                "status": "open",
+                "last_updated": "2026-04-30T10:00:00Z",
+                "subject_id": None,
+            }],
+        })
+        layer = self._layer_with(storage)
+        result = asyncio.run(layer.execute(
+            "ask_local_oracle",
+            {
+                "question": "?",
+                "resolved_context": {"csv_force_decline": {"peak": 1.0}},
+            },
+        ))
+        assert result["related_substrate"] == []
+        # Storage was NOT called — early return on empty subject list.
+        assert storage.calls == []
+
+    def test_collects_moments_and_failure_modes(self):
+        """Substrate scan surfaces moment + failure_mode notes alongside
+        themes — these are analyst-authored interpretation, the
+        load-bearing content for grounding LLM composition."""
+        storage = _StubVaultStorage(notes={
+            "moment": {
+                "P003": [{
+                    "filename": "2026-04-30-p003-aha.md",
+                    "frontmatter": {"title": "P003 plateau", "status": None},
+                    "written_at": "2026-04-30T10:00:00Z",
+                    "subject_id": "P003",
+                }],
+            },
+            "failure_mode": {
+                "P003": [{
+                    "filename": "fm-electrode-drift.md",
+                    "frontmatter": {
+                        "title": "Electrode drift past minute 8",
+                        "status": "active",
+                    },
+                    "written_at": "2026-04-29T10:00:00Z",
+                    "subject_id": "P003",
+                }],
+            },
+        })
+        layer = self._layer_with(storage)
+        result = asyncio.run(layer.execute(
+            "ask_local_oracle",
+            {
+                "question": "?",
+                "resolved_context": {},
+                "subject_id": "P003",
+            },
+        ))
+        kinds = {e["kind"] for e in result["related_substrate"]}
+        assert kinds == {"moment", "failure_mode"}
+        # Filename .md extension stripped to canonical slug shape
+        slugs = {e["slug"] for e in result["related_substrate"]}
+        assert "2026-04-30-p003-aha" in slugs
+        assert "fm-electrode-drift" in slugs
+
+    def test_sort_order_last_updated_desc(self):
+        """Substrate is sorted by last_updated descending. This is a
+        load-bearing contract claim from ADR 0023 — when the vault
+        has more than _SUBSTRATE_CAP candidates, it determines which
+        entries survive the cap. A future "improvement" sorting by
+        status or alphabetically would silently break the recency
+        bias the cap depends on."""
+        storage = _StubVaultStorage(themes={
+            "P003": [
+                {
+                    "slug": "oldest",
+                    "status": "open",
+                    "last_updated": "2026-01-01T00:00:00Z",
+                    "subject_id": "P003",
+                },
+                {
+                    "slug": "newest",
+                    "status": "open",
+                    "last_updated": "2026-04-30T00:00:00Z",
+                    "subject_id": "P003",
+                },
+                {
+                    "slug": "middle",
+                    "status": "open",
+                    "last_updated": "2026-03-15T00:00:00Z",
+                    "subject_id": "P003",
+                },
+            ],
+        })
+        layer = self._layer_with(storage)
+        result = asyncio.run(layer.execute(
+            "ask_local_oracle",
+            {
+                "question": "?",
+                "resolved_context": {},
+                "subject_id": "P003",
+            },
+        ))
+        slugs = [e["slug"] for e in result["related_substrate"]]
+        assert slugs == ["newest", "middle", "oldest"]
+
+    def test_dedupe_across_subjects(self):
+        """If two subjects share a cross-subject theme (subject_id IS
+        NULL — ADR 0009 IS-NULL-or-match), it appears once, not
+        twice. The per-subject queries each return it; the layer
+        dedupes by slug."""
+        cross = {
+            "slug": "cross-subject-hypothesis",
+            "status": "open",
+            "last_updated": "2026-04-30T10:00:00Z",
+            "subject_id": None,
+        }
+        storage = _StubVaultStorage(themes={"P003": [cross], "P004": [cross]})
+        layer = self._layer_with(storage)
+        result = asyncio.run(layer.execute(
+            "ask_local_oracle",
+            {
+                "question": "?",
+                "resolved_context": {
+                    "csv_cohort_summary": {
+                        "P003": {"x": 1.0},
+                        "P004": {"x": 2.0},
+                    },
+                },
+            },
+        ))
+        slugs = [e["slug"] for e in result["related_substrate"]]
+        assert slugs.count("cross-subject-hypothesis") == 1
+
+
+class TestRouterDispatchSubstrateCount:
+    """Audit-log oracle_substrate_count column per ADR 0023."""
+
+    def test_success_records_substrate_count_zero_with_no_vault(
+        self, tmp_path: Path,
+    ):
+        """No vault wiring → substrate scan returns []; audit column
+        records 0, not NULL. Distinguishes "successfully scanned and
+        found nothing" from "pre-execute failure" (where the column
+        is NULL)."""
+        router = RouterMCP(name="test", data_dir=tmp_path)
+        router.register_local_llm_layer(LocalLLMLayer())
+        try:
+            asyncio.run(router._dispatch(
+                "ask_local_oracle",
+                {
+                    "question": "?",
+                    "resolved_context": {"csv_force_decline": {"peak": 1.0}},
+                    "subject_id": "P003",
+                },
+            ))
+            audit = AuditLog(tmp_path / "audit.db")
+            try:
+                cursor = audit._conn.execute(
+                    "SELECT oracle_substrate_count FROM audit_log "
+                    "WHERE outcome = 'SUCCESS'"
+                )
+                rows = cursor.fetchall()
+                assert len(rows) == 1
+                assert rows[0][0] == 0
+            finally:
+                audit.close()
+        finally:
+            router._audit.close()
+
+    def test_success_records_substrate_count_when_vault_wired(
+        self, tmp_path: Path,
+    ):
+        """Layer with a wired vault_storage that returns substrate →
+        audit column records the actual count."""
+        storage = _StubVaultStorage(themes={
+            "P003": [
+                {
+                    "slug": "t1", "status": "open",
+                    "last_updated": "2026-04-30T10:00:00Z",
+                    "subject_id": "P003",
+                },
+                {
+                    "slug": "t2", "status": "open",
+                    "last_updated": "2026-04-29T10:00:00Z",
+                    "subject_id": "P003",
+                },
+            ],
+        })
+        router = RouterMCP(name="test", data_dir=tmp_path)
+        router.register_local_llm_layer(
+            LocalLLMLayer(vault_storage=storage)
+        )
+        try:
+            asyncio.run(router._dispatch(
+                "ask_local_oracle",
+                {
+                    "question": "?",
+                    "resolved_context": {},
+                    "subject_id": "P003",
+                },
+            ))
+            audit = AuditLog(tmp_path / "audit.db")
+            try:
+                cursor = audit._conn.execute(
+                    "SELECT oracle_substrate_count FROM audit_log "
+                    "WHERE outcome = 'SUCCESS'"
+                )
+                rows = cursor.fetchall()
+                assert len(rows) == 1
+                assert rows[0][0] == 2
+            finally:
+                audit.close()
+        finally:
+            router._audit.close()
+
+    def test_param_invalid_leaves_substrate_count_null(
+        self, tmp_path: Path,
+    ):
+        """Pre-execute failure (PARAM_INVALID) records NULL for
+        oracle_substrate_count — there was no response to read a
+        substrate list from."""
+        router = RouterMCP(name="test", data_dir=tmp_path)
+        router.register_local_llm_layer(LocalLLMLayer())
+        try:
+            asyncio.run(router._dispatch(
+                "ask_local_oracle",
+                {"resolved_context": {}},  # missing 'question'
+            ))
+            audit = AuditLog(tmp_path / "audit.db")
+            try:
+                cursor = audit._conn.execute(
+                    "SELECT oracle_substrate_count FROM audit_log "
+                    "WHERE outcome = 'PARAM_INVALID'"
+                )
+                rows = cursor.fetchall()
+                assert len(rows) == 1
+                assert rows[0][0] is None
+            finally:
+                audit.close()
+        finally:
+            router._audit.close()

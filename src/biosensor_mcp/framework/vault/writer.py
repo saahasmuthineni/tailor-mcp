@@ -108,6 +108,16 @@ class VaultWriter:
             "vault_snapshot": lambda r: render_snapshot_note(r),
         }
 
+    @property
+    def storage(self) -> VaultStorage:
+        """The vault's SQLite index.
+
+        Exposed for framework-tier components that need read access
+        to the index without going through the writer's hook interface
+        (per ADR 0023 — LocalLLMLayer's substrate scan).
+        """
+        return self._storage
+
     # ── Hook interface ──
 
     def __call__(self, domain: str, tool_name: str, result: dict) -> None:

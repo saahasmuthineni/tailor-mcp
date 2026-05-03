@@ -123,6 +123,10 @@ class OracleResponse:
     ambiguity_axes: list[str]
     confidence: float
     meta: OracleMeta
+    # ADR 0023 — populated by LocalLLMLayer (not the backend) after
+    # backend.compose() returns. Deterministic vault scan; default
+    # empty so existing callers and backends are unaffected.
+    related_substrate: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -130,6 +134,7 @@ class OracleResponse:
             "narrative": self.narrative,
             "ambiguity_axes": self.ambiguity_axes,
             "confidence": round(self.confidence, 3),
+            "related_substrate": self.related_substrate,
             "_meta": self.meta.to_dict(),
         }
 

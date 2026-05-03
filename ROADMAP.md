@@ -25,6 +25,10 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.7.0 (2026-05-03)
+
+- Local-LLM cooperation-loop pattern, PR1 (substrate-vision asymmetry made executable). [ADR 0023](docs/adr/0023-local-llm-cooperation-loop.md). New `OracleResponse.related_substrate` field; new `audit_log.oracle_substrate_count` column; new public `VaultWriter.storage` property; `(kind, slug)` substrate dedup; `substrate_scan_warning` parallel to `scrubber_warning` for swallowed VaultStorage exceptions; `_collect_subjects` scalar-filtered to mirror `_flatten_claims`. 26 new regression tests; 657/657 pass. 7-agent release pass clean. Operator guide gains substrate-metadata-egress + Path-A-vs-B warnings.
+
 ## Shipped in v6.6.0 (2026-05-01)
 
 Local-LLM guardian release. SemVer minor bump — public API additions

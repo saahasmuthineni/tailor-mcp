@@ -167,18 +167,27 @@ Two consequences a deployment should weigh:
    `PHIScrubber` to drop NULL-keyed entries on the local-LLM
    dispatch path. Documented in the operator guide.
 
-### Audit-log column
+### Audit-log columns
 
-A new `oracle_substrate_count INTEGER` column lands on `audit_log`,
-matching the migration shape ADR 0022 already uses for the
-`oracle_latency_ms` column at
+Three new `INTEGER` columns land on `audit_log`, matching the
+migration shape ADR 0022 already uses for the `oracle_latency_ms`
+column at
 [`framework/audit.py:192-198`](../../src/biosensor_mcp/framework/audit.py).
-The column records, per oracle call, how many vault items were
-surfaced into the hosted-LLM-bound payload. Without this column, the
-audit log cannot answer *how much vault content did this oracle call
-expose to the hosted LLM?* — an IRB-grade provenance question the new
-flow makes load-bearing. The column extends the audit-log backbone
-[ADR 0001](0001-audit-log-as-backbone.md) on the same row category
+PR1 lands `oracle_substrate_count`; PR2 lands
+`oracle_next_best_calls_count` and `oracle_unresolved_intent_count`.
+Each column records, per oracle call, the count of items surfaced
+into the hosted-LLM-bound payload — vault metadata, framework-tool
+suggestions, and analyst-questions respectively. Without these
+columns, the audit log cannot answer *how much vault content did
+this oracle call expose to the hosted LLM, how many tool suggestions
+did the local LLM emit, and how many analyst-questions did it
+propose?* — IRB-grade provenance questions the new flow makes
+load-bearing. The substrate-count argument is the load-bearing one:
+the gap-reasoning counts apply the same audit-completeness invariant
+by symmetry. The chat transcript is not the source of truth per
+[ADR 0001](0001-audit-log-as-backbone.md); a reviewer should be able
+to read counts from `audit.db` without parsing the response payload.
+The columns extend the audit-log backbone on the same row category
 ADR 0022 introduced; no new row shape.
 
 ### Landing shape
@@ -198,8 +207,11 @@ This ADR governs two PRs, each independently revertible.
   defensive list-coercion matching the `ambiguity_axes` parser
   pattern at
   [`framework/local_llm/backends/ollama.py:173-185`](../../src/biosensor_mcp/framework/local_llm/backends/ollama.py).
-  Verifiable only in judgment terms — does the prompt produce useful
-  suggestions? — which is why it lands separately from PR1.
+  Adds the `oracle_next_best_calls_count` and
+  `oracle_unresolved_intent_count` audit columns by symmetry with
+  PR1's `oracle_substrate_count`. Verifiable only in judgment
+  terms — does the prompt produce useful suggestions? — which is
+  why it lands separately from PR1.
 
 PR1 is mechanical and stands on its own merit. PR2 is
 prompt-engineering-effectiveness-dependent and lands when prompt
@@ -244,13 +256,18 @@ would entangle a clean revert path with an experiment.
 
 **Negative.**
 
-- The `ask_local_oracle` tool description grows from approximately
-  1,500 to 2,500 tokens to teach hosted Claude to act on the new
-  fields. Without acting on them, the fields are inert noise on the
-  wire. Whether hosted Claude actually iterates on `next_best_calls`
-  and `unresolved_intent` is a prompt-engineering question this ADR
-  does not answer; the contract is in place but its effectiveness is
-  unmeasured until real sessions land.
+- The `ask_local_oracle` tool description grows to teach hosted
+  Claude to act on the new fields. Measured at PR2 land time the
+  description is approximately 290 tokens (up from ~190 pre-PR2);
+  the original ADR estimate of "1,500 to 2,500 tokens" was
+  overstated. The size is well within the SDK envelope and the
+  prompt-budget cost on `tools/list` is minor. Without hosted Claude
+  acting on the fields, however, they are still inert noise on the
+  wire — the smaller-than-feared description does not change the
+  load-bearing question. Whether hosted Claude actually iterates on
+  `next_best_calls` and `unresolved_intent` is a prompt-engineering
+  question this ADR does not answer; the contract is in place but
+  its effectiveness is unmeasured until real sessions land.
 - The substrate scan adds latency to every oracle call. Mitigated by
   the cached SQLite index and the 20-entry cap, but the cost is
   non-zero and grows with vault size. A pathological vault (10,000+
@@ -283,10 +300,27 @@ would entangle a clean revert path with an experiment.
   substrate scan reads `subject_id` from frontmatter via
   `VaultStorage` and applies the IS-NULL-or-match filter; it does
   not write to the vault and cannot reassign a theme's subject.
-- ADR 0012's vault-PHI-scrubber-bypass invariant is unchanged. The
-  substrate scan returns metadata, not raw biometric streams; the
-  invariant ADR 0012 names (vault inputs are not raw streams) covers
-  this flow without amendment.
+- ADR 0012's vault-PHI-scrubber-bypass invariant is unchanged
+  **for PR1's substrate metadata**. The substrate scan returns
+  bounded metadata (slug, title, status, subject_id, timestamps),
+  not raw biometric streams; the invariant ADR 0012 names (vault
+  inputs are not raw streams) covers this flow without amendment.
+  **PR2's gap-reasoning fields** (`next_best_calls`,
+  `unresolved_intent`) are LLM-generated free text, *not* vault
+  metadata, and are therefore not covered by the ADR 0012 bypass
+  argument. They inherit the local-LLM-tier scrubber-skip decision
+  ADR 0022 made for `narrative` (the local-LLM-layer dispatch path
+  intentionally skips the PHI-scrubber seam because numerical
+  claims came through processing.py's scrubber on their original
+  Tier-1 calls; only LLM-generated free text crosses without
+  scrubbing). PR2 widens the surface area of that existing
+  asymmetry from one free-text field to three; the institutional
+  policy on free-text emissions is the same in shape but has more
+  surface to cover. The operator guide at
+  [`docs/guides/local-llm-guardian.md`](../guides/local-llm-guardian.md)
+  § "Important precision — gap-reasoning egress" names the new
+  surface explicitly so a deployment's reviewer reads what crosses
+  the wire without reading source.
 - ADR 0011's promotion policy frames how new specialists land; this
   ADR is a contract extension, not a new specialist, and lands via
   the structural-argument path the project has used since v6.3.0

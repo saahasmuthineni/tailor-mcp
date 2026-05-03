@@ -95,15 +95,23 @@ class LocalLLMLayer:
                 "question requires; the local LLM only composes a "
                 "structured response over the resolved data. Numerical "
                 "claims in the response are citable; narrative is "
-                "explicitly labeled non-citable in _meta. Best paired "
-                "with prior csv_cohort_summary / csv_force_decline calls "
-                "— pass their results as resolved_context. The response "
-                "also returns related_substrate: vault notes (themes, "
-                "moments, failure-modes) the local layer found relevant "
-                "to the subject(s) in scope — incorporate them, or call "
-                "vault_read_note for full bodies. ~1500–3000 tokens "
-                "depending on substrate count and title length (capped "
-                "at 20 entries).",
+                "non-citable (labeled in _meta). Best paired with prior "
+                "csv_cohort_summary / csv_force_decline calls — pass "
+                "their results as resolved_context. The response is "
+                "structured for multi-pass cooperation; three fields "
+                "name what to do next: related_substrate (vault notes — "
+                "themes, moments, failure-modes — about the subject(s); "
+                "read with vault_read_note if relevant), next_best_calls "
+                "(framework tool names to fetch missing data; call the "
+                "named tool then re-invoke this with the new result "
+                "added to resolved_context), and unresolved_intent "
+                "(questions to put to the analyst before composing "
+                "confidently — surface to the analyst, do not answer "
+                "yourself). Empty lists mean no gap of that kind. "
+                "Iterate until both reasoning lists are empty or "
+                "confidence is sufficient. ~2000–4000 tokens depending "
+                "on substrate count (capped at 20) and gap-reasoning "
+                "verbosity.",
                 {
                     "question": {
                         "type": "string",

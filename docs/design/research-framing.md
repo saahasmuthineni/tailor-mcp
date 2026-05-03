@@ -241,6 +241,27 @@ reversal condition named in ADR 0013) but does not pre-empt that
 decision: the cache-only-vs-full-erasure call is a study-specific
 IRB question, not a framework-level default.
 
+A third retention category, codified by [ADR 0023](../adr/0023-local-llm-cooperation-loop.md),
+sits alongside cached biometric data (purged on revocation) and
+analyst-authored vault notes (preserved as work product):
+**oracle audit-log rows**. Every successful `ask_local_oracle`
+call writes an audit row carrying the response's prompt hash,
+substrate count, and (per PR2) counts of LLM-emitted gap
+reasoning (`oracle_next_best_calls_count`,
+`oracle_unresolved_intent_count`). The response payload itself —
+including the LLM's `narrative`, `unresolved_intent` analyst-
+questions, and `next_best_calls` tool suggestions — lives in the
+hosted-LLM chat transcript, not the audit row; the audit row is
+the authoritative ledger of *that* the call happened and *what*
+it emitted by count. Audit-log rows are append-only by ADR 0001
+design; they survive consent revocation in the same posture
+analyst-authored notes do (work product), not in the posture
+biometric cache does (purged). Studies whose IRB language
+requires audit erasure on withdrawal — distinct from cache
+erasure — would need a fourth disposition for oracle audit rows;
+the framework does not provide one today and does not pre-empt
+the decision.
+
 ## Other framings explicitly out of scope today
 
 Two larger framings remain open and will be addressed in a later

@@ -109,13 +109,31 @@ class OracleResponse:
     Structured response from the local LLM.
 
     Architecture:
-        ``numerical_claims`` — deterministic, citable. From processing.py.
-        ``narrative``        — LLM-generated, non-citable. Labeled in _meta.
-        ``ambiguity_axes``   — research-question disambiguation hints.
-        ``confidence``       — 0.0..1.0; below ~0.4 → escalate.
-        ``meta``             — provenance.
+        ``numerical_claims``    — deterministic, citable. From processing.py.
+        ``narrative``           — LLM-generated, non-citable. Labeled in _meta.
+        ``ambiguity_axes``      — research-question disambiguation hints.
+        ``confidence``          — 0.0..1.0; below ~0.4 → escalate.
+        ``meta``                — provenance.
+        ``related_substrate``   — deterministic vault scan (ADR 0023 PR1).
+                                  Themes / moments / failure-modes the
+                                  layer found about the subject(s) in
+                                  scope. Empty when no vault is wired.
+        ``next_best_calls``     — LLM-generated (ADR 0023 PR2). Framework
+                                  tool names hosted Claude can call to
+                                  raise oracle confidence. Empty for
+                                  NullBackend; empty when no gap exists.
+        ``unresolved_intent``   — LLM-generated (ADR 0023 PR2). Questions
+                                  hosted Claude should put to the analyst
+                                  before composing confidently. The split
+                                  from next_best_calls is load-bearing.
+        ``substrate_scan_warning`` — set only when the vault scan caught
+                                  an exception; surfaces the failure
+                                  reason on the wire so an IRB reviewer
+                                  can distinguish "scanned cleanly,
+                                  found nothing" from "scan crashed."
 
-    See ADR 0022 § "The structured OracleResponse contract".
+    See ADR 0022 § "The structured OracleResponse contract" and
+    ADR 0023 for the cooperation-loop fields.
     """
 
     numerical_claims: list[NumericalClaim]
@@ -127,6 +145,17 @@ class OracleResponse:
     # backend.compose() returns. Deterministic vault scan; default
     # empty so existing callers and backends are unaffected.
     related_substrate: list[dict] = field(default_factory=list)
+    # ADR 0023 PR2 — LLM-generated gap reasoning. The local LLM names
+    # framework tool calls hosted Claude can make to raise oracle
+    # confidence on the current question (next_best_calls) and
+    # questions hosted Claude should put to the analyst before the
+    # oracle can compose confidently (unresolved_intent). The split
+    # is the load-bearing distinction: fetch-this-data belongs in
+    # next_best_calls, ask-the-analyst belongs in unresolved_intent.
+    # NullBackend leaves both empty (no LLM in the loop). Defaults
+    # to [] so the wire contract stays stable across backends.
+    next_best_calls: list[str] = field(default_factory=list)
+    unresolved_intent: list[str] = field(default_factory=list)
     # Surfaces a swallowed VaultStorage exception into the wire payload
     # so an IRB reviewer or analyst can distinguish "scan ran cleanly
     # and found nothing" (count=0, warning=None) from "scan crashed
@@ -143,6 +172,8 @@ class OracleResponse:
             "ambiguity_axes": self.ambiguity_axes,
             "confidence": round(self.confidence, 3),
             "related_substrate": self.related_substrate,
+            "next_best_calls": self.next_best_calls,
+            "unresolved_intent": self.unresolved_intent,
             "_meta": self.meta.to_dict(),
         }
         if self.substrate_scan_warning is not None:

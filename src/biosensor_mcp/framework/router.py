@@ -873,6 +873,30 @@ class RouterMCP:
                 len(substrate_raw) if isinstance(substrate_raw, list) else 0
             )
 
+            # ADR 0023 PR2 — gap-reasoning counts. Same dispatch-layer
+            # extraction shape as oracle_substrate_count above so
+            # audit.db answers "how many tool suggestions and analyst-
+            # questions did the local LLM emit on this call?" without
+            # parsing the response payload. The count is the audit-
+            # completeness invariant; the content lives in the
+            # response payload.
+            next_best_raw = (
+                result.get("next_best_calls")
+                if isinstance(result, dict)
+                else None
+            )
+            oracle_next_best_calls_count = (
+                len(next_best_raw) if isinstance(next_best_raw, list) else 0
+            )
+            unresolved_raw = (
+                result.get("unresolved_intent")
+                if isinstance(result, dict)
+                else None
+            )
+            oracle_unresolved_intent_count = (
+                len(unresolved_raw) if isinstance(unresolved_raw, list) else 0
+            )
+
             self._ledger.add("local_llm", tool_name, tokens)
             self._audit.record(
                 "local_llm", tool_name, tier, cleaned, tokens, "SUCCESS",
@@ -888,6 +912,8 @@ class RouterMCP:
                 oracle_prompt_hash=oracle_meta_for_audit.get("prompt_hash"),
                 oracle_latency_ms=oracle_latency_ms,
                 oracle_substrate_count=oracle_substrate_count,
+                oracle_next_best_calls_count=oracle_next_best_calls_count,
+                oracle_unresolved_intent_count=oracle_unresolved_intent_count,
             )
 
             if isinstance(result, dict):

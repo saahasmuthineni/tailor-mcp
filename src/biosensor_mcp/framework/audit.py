@@ -206,6 +206,29 @@ class AuditLog:
             self._conn.execute(
                 "ALTER TABLE audit_log ADD COLUMN oracle_substrate_count INTEGER"
             )
+        if "oracle_next_best_calls_count" not in cols:
+            # ADR 0023 PR2 — gap-reasoning auditable per call. Counts
+            # the framework-tool suggestions the local LLM emitted
+            # into the hosted-LLM-bound payload via next_best_calls.
+            # Mirrors oracle_substrate_count by symmetry: an IRB
+            # reviewer reconstructing what the hosted LLM saw on an
+            # oracle call should be able to query "how many tool
+            # suggestions and how many analyst-questions did the
+            # local LLM emit?" from audit.db without parsing the
+            # response payload. NULL on non-oracle paths and on
+            # oracle pre-execute failures.
+            self._conn.execute(
+                "ALTER TABLE audit_log ADD COLUMN "
+                "oracle_next_best_calls_count INTEGER"
+            )
+        if "oracle_unresolved_intent_count" not in cols:
+            # ADR 0023 PR2 — see oracle_next_best_calls_count above;
+            # the analyst-question half of the same audit-completeness
+            # contract.
+            self._conn.execute(
+                "ALTER TABLE audit_log ADD COLUMN "
+                "oracle_unresolved_intent_count INTEGER"
+            )
         self._conn.commit()
 
     @property
@@ -239,7 +262,9 @@ class AuditLog:
                oracle_confidence: float | None = None,
                oracle_prompt_hash: str | None = None,
                oracle_latency_ms: int | None = None,
-               oracle_substrate_count: int | None = None):
+               oracle_substrate_count: int | None = None,
+               oracle_next_best_calls_count: int | None = None,
+               oracle_unresolved_intent_count: int | None = None):
         params_json = _dumps(params)
         if isinstance(params_json, bytes):
             params_repr = params_json.decode("utf-8", errors="replace")
@@ -256,14 +281,16 @@ class AuditLog:
             "  outcome, duration_ms, error, subject_id, scrubber_id,"
             "  oracle_model_id, oracle_model_version_hash, oracle_tier,"
             "  oracle_confidence, oracle_prompt_hash, oracle_latency_ms,"
-            "  oracle_substrate_count)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "  oracle_substrate_count, oracle_next_best_calls_count,"
+            "  oracle_unresolved_intent_count)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (datetime.now(timezone.utc).isoformat(), domain, tool_name, tier,
              params_repr, token_estimate, outcome, duration_ms, error,
              subject_id, scrubber_id,
              oracle_model_id, oracle_model_version_hash, oracle_tier,
              oracle_confidence, oracle_prompt_hash, oracle_latency_ms,
-             oracle_substrate_count),
+             oracle_substrate_count, oracle_next_best_calls_count,
+             oracle_unresolved_intent_count),
         )
         self._conn.commit()
         log.info(

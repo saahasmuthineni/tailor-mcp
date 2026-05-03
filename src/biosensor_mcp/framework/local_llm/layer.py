@@ -278,11 +278,27 @@ class LocalLLMLayer:
     def _collect_subjects(request: OracleRequest) -> list[str]:
         """Collect subject ids from the request.
 
-        Matches the heuristic ``_flatten_claims`` uses: any inner
-        dict in ``resolved_context[processing_call]`` is treated as
-        a per-subject grouping where the key is the subject id. The
-        explicit ``request.subject_id`` is added first (preserves
-        order).
+        Matches the heuristic ``_flatten_claims`` uses (per
+        red-team-reviewer's adversarial pairing on ADR 0023 PR1
+        release pass): any inner dict in
+        ``resolved_context[processing_call]`` is treated as a
+        per-subject grouping where the key is the subject id, BUT
+        only if that inner dict has at least one scalar value
+        (``int`` or ``float``, excluding ``bool``). This mirrors
+        ``_flatten_claims``'s implicit filter at
+        ``framework/local_llm/backends/null.py:108-115`` — the
+        existing claim-flattener emits no claim for a key whose
+        inner values are all non-scalar, so the substrate scan
+        likewise should not treat such a key as a subject. Without
+        this filter, a tool returning
+        ``{call: {"_meta": {...}, "columns": {...}, "P003": {...}}}``
+        would surface ``_meta`` and ``columns`` as bogus subjects,
+        inflating storage queries and the IS-NULL-or-match cross-
+        subject substrate fan-out.
+
+        The explicit ``request.subject_id`` is added first
+        (preserves order) and is exempt from the scalar filter —
+        it is the caller's explicit declaration of subject scope.
         """
         subjects: list[str] = []
         seen: set[str] = set()
@@ -293,9 +309,22 @@ class LocalLLMLayer:
             if not isinstance(result, dict):
                 continue
             for key, value in result.items():
-                if isinstance(value, dict):
-                    key_str = str(key)
-                    if key_str not in seen:
-                        subjects.append(key_str)
-                        seen.add(key_str)
+                if not isinstance(value, dict):
+                    continue
+                # Mirror _flatten_claims: only treat as per-subject
+                # grouping when the inner dict has at least one
+                # numeric scalar (the implicit filter that prevents
+                # _meta-shaped sibling keys from being misclassified
+                # as subjects).
+                has_scalar = any(
+                    isinstance(sub_val, (int, float))
+                    and not isinstance(sub_val, bool)
+                    for sub_val in value.values()
+                )
+                if not has_scalar:
+                    continue
+                key_str = str(key)
+                if key_str not in seen:
+                    subjects.append(key_str)
+                    seen.add(key_str)
         return subjects

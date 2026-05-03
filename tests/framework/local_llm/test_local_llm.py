@@ -823,6 +823,65 @@ class TestLocalLLMLayerSubstrateScan:
         slugs = [e["slug"] for e in result["related_substrate"]]
         assert slugs == ["x"]
 
+    def test_collect_subjects_skips_meta_shaped_sibling_keys(self):
+        """red-team-reviewer OBJECTION on PR1 release pass: a tool
+        returning `{call: {"_meta": {...}, "columns": {...},
+        "P003": {...}}}` would (without the inner-scalar filter)
+        yield `subjects=['_meta','columns','P003']` from
+        _collect_subjects but only `P003` from _flatten_claims. The
+        upstream auditor's CLEAN verdict was issued on a false
+        equivalence between the two heuristics. After the fix, only
+        keys whose inner dict has at least one numeric scalar
+        survive — matching _flatten_claims's implicit filter at
+        backends/null.py:108-115.
+        """
+        storage = _StubVaultStorage(themes={
+            "P003": [{
+                "slug": "p003-theme",
+                "status": "open",
+                "last_updated": "2026-04-30T10:00:00Z",
+                "subject_id": "P003",
+            }],
+            # Bogus storage rows for the misclassified keys; if the
+            # fix breaks, these will surface in related_substrate.
+            "_meta": [{
+                "slug": "would-not-exist",
+                "status": "open",
+                "last_updated": "2026-04-30T10:00:00Z",
+                "subject_id": "_meta",
+            }],
+            "columns": [{
+                "slug": "also-not-real",
+                "status": "open",
+                "last_updated": "2026-04-30T10:00:00Z",
+                "subject_id": "columns",
+            }],
+        })
+        layer = self._layer_with(storage)
+        result = asyncio.run(layer.execute(
+            "ask_local_oracle",
+            {
+                "question": "?",
+                "resolved_context": {
+                    "future_tool_with_meta": {
+                        "_meta": {"version": "1.0", "schema": "v2"},
+                        "columns": {"hr": "bpm", "ts": "iso"},
+                        "P003": {"decline_pct": 12.5, "peak": 100.0},
+                    },
+                },
+            },
+        ))
+        slugs = {e["slug"] for e in result["related_substrate"]}
+        # Only P003 was a legitimate subject; the _meta/columns
+        # sibling keys were correctly filtered by the inner-scalar
+        # check before the storage query was even issued.
+        assert slugs == {"p003-theme"}
+        # Storage was NOT asked about the bogus subjects
+        called_subjects = {
+            args[1] for args in storage.calls if args[0] == "list_themes"
+        }
+        assert called_subjects == {"P003"}
+
     def test_cross_kind_slug_collision_both_surface(self):
         """coverage gate (line 233) + correctness edge case
         (coverage-criticality-mapper BORDER NOTE): a theme and a

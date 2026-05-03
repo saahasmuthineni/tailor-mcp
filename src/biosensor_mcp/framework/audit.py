@@ -197,6 +197,15 @@ class AuditLog:
             self._conn.execute(
                 "ALTER TABLE audit_log ADD COLUMN oracle_latency_ms INTEGER"
             )
+        if "oracle_substrate_count" not in cols:
+            # ADR 0023 — substrate-vision asymmetry codified by feature.
+            # Records, per oracle call, how many vault items were
+            # surfaced into the hosted-LLM-bound payload via
+            # related_substrate. NULL on non-oracle paths and on
+            # oracle pre-execute failures.
+            self._conn.execute(
+                "ALTER TABLE audit_log ADD COLUMN oracle_substrate_count INTEGER"
+            )
         self._conn.commit()
 
     @property
@@ -229,7 +238,8 @@ class AuditLog:
                oracle_tier: str | None = None,
                oracle_confidence: float | None = None,
                oracle_prompt_hash: str | None = None,
-               oracle_latency_ms: int | None = None):
+               oracle_latency_ms: int | None = None,
+               oracle_substrate_count: int | None = None):
         params_json = _dumps(params)
         if isinstance(params_json, bytes):
             params_repr = params_json.decode("utf-8", errors="replace")
@@ -245,13 +255,15 @@ class AuditLog:
             " (timestamp, domain, tool_name, tier, params, token_estimate,"
             "  outcome, duration_ms, error, subject_id, scrubber_id,"
             "  oracle_model_id, oracle_model_version_hash, oracle_tier,"
-            "  oracle_confidence, oracle_prompt_hash, oracle_latency_ms)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "  oracle_confidence, oracle_prompt_hash, oracle_latency_ms,"
+            "  oracle_substrate_count)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (datetime.now(timezone.utc).isoformat(), domain, tool_name, tier,
              params_repr, token_estimate, outcome, duration_ms, error,
              subject_id, scrubber_id,
              oracle_model_id, oracle_model_version_hash, oracle_tier,
-             oracle_confidence, oracle_prompt_hash, oracle_latency_ms),
+             oracle_confidence, oracle_prompt_hash, oracle_latency_ms,
+             oracle_substrate_count),
         )
         self._conn.commit()
         log.info(

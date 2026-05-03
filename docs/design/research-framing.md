@@ -71,6 +71,19 @@ unchanged until an operator opts in via `user_config.json`. See
 [`docs/guides/local-llm-guardian.md`](../guides/local-llm-guardian.md)
 for the operator-facing setup path.
 
+The guardian also extends a *cooperation loop* between the local
+layer and the hosted LLM (per [ADR 0023](../adr/0023-local-llm-cooperation-loop.md)).
+The local layer has structurally-unique read access to the vault —
+themes, moments, and failure-modes the analyst captured in past
+sessions; the hosted LLM does not have this access by construction.
+Every successful `ask_local_oracle` call now surfaces vault metadata
+for the subject(s) in scope back into the response — slug, title,
+kind, status, last-updated timestamp, capped at 20 entries —
+realising the substrate-vision asymmetry in code. The audit-log
+column `oracle_substrate_count` records how much vault content was
+exposed per call, for IRB-grade provenance. Substrate is metadata
+only; raw biometric streams remain bound to the analyst's machine.
+
 ## The audit log as IRB and reproducibility evidence
 
 Every tool call — successful, blocked, failed — is persisted to a

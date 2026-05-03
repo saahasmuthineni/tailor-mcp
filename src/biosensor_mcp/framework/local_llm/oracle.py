@@ -123,15 +123,31 @@ class OracleResponse:
     ambiguity_axes: list[str]
     confidence: float
     meta: OracleMeta
+    # ADR 0023 — populated by LocalLLMLayer (not the backend) after
+    # backend.compose() returns. Deterministic vault scan; default
+    # empty so existing callers and backends are unaffected.
+    related_substrate: list[dict] = field(default_factory=list)
+    # Surfaces a swallowed VaultStorage exception into the wire payload
+    # so an IRB reviewer or analyst can distinguish "scan ran cleanly
+    # and found nothing" (count=0, warning=None) from "scan crashed
+    # silently" (count=0, warning=<reason>). Parallels the
+    # scrubber_warning seam ADR 0003 / v6.3.1 introduced for the
+    # PHI-scrubber default. Stays None on the happy path; only set
+    # when the substrate scan caught an exception.
+    substrate_scan_warning: str | None = None
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "numerical_claims": [c.to_dict() for c in self.numerical_claims],
             "narrative": self.narrative,
             "ambiguity_axes": self.ambiguity_axes,
             "confidence": round(self.confidence, 3),
+            "related_substrate": self.related_substrate,
             "_meta": self.meta.to_dict(),
         }
+        if self.substrate_scan_warning is not None:
+            d["substrate_scan_warning"] = self.substrate_scan_warning
+        return d
 
 
 # Tier codenames (per ADR 0022).

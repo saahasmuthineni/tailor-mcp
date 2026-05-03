@@ -860,6 +860,19 @@ class RouterMCP:
             except (TypeError, ValueError):
                 oracle_latency_ms = None
 
+            # ADR 0023 — substrate count is recorded at the dispatch
+            # layer (not by the layer.execute() return) so audit.db
+            # answers "how much vault content did this oracle call
+            # surface to the hosted LLM?" without parsing the response.
+            substrate_raw = (
+                result.get("related_substrate")
+                if isinstance(result, dict)
+                else None
+            )
+            oracle_substrate_count = (
+                len(substrate_raw) if isinstance(substrate_raw, list) else 0
+            )
+
             self._ledger.add("local_llm", tool_name, tokens)
             self._audit.record(
                 "local_llm", tool_name, tier, cleaned, tokens, "SUCCESS",
@@ -874,6 +887,7 @@ class RouterMCP:
                 oracle_confidence=oracle_confidence,
                 oracle_prompt_hash=oracle_meta_for_audit.get("prompt_hash"),
                 oracle_latency_ms=oracle_latency_ms,
+                oracle_substrate_count=oracle_substrate_count,
             )
 
             if isinstance(result, dict):

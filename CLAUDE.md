@@ -1,5 +1,66 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.7.0 (2026-05-03)** — Local-LLM cooperation-loop release.
+> Adds the deterministic substrate-vision feature (PR1 of [ADR 0023](docs/adr/0023-local-llm-cooperation-loop.md))
+> on top of the v6.6.0 local-LLM guardian. Every successful
+> `ask_local_oracle` call now surfaces a `related_substrate: list[dict]`
+> field — themes / moments / failure-modes the analyst captured for
+> the subject(s) in scope, automatically pulled from the vault.
+> Hosted Claude no longer has to remember which slugs to grep; the
+> local layer's structurally-unique vault read access is realised
+> in code, not just in the ADR. The substrate-vision asymmetry
+> argument (the local layer can read the vault deterministically;
+> hosted Claude structurally cannot) is now load-bearing in running
+> code rather than only in prose. New audit-log column
+> `oracle_substrate_count` records how many vault items were
+> surfaced per oracle call — IRB-grade provenance for the new flow.
+> New `OracleResponse.substrate_scan_warning` field surfaces
+> swallowed VaultStorage exceptions on the wire (parallels ADR 0003
+> `scrubber_warning` seam — closes the stderr-only-warning gap that
+> would otherwise be eaten by Claude Desktop). Architectural
+> placement: substrate scan lives in `LocalLLMLayer.execute()` after
+> `backend.compose()` returns, *not* in any backend; `NullBackend`
+> inherits substrate vision for free. New public `VaultWriter.storage`
+> property exposes the SQLite index for framework-tier read consumers
+> without breaking the writer's hook interface. ADR 0009
+> IS-NULL-or-match filter inherited via `VaultStorage.list_themes` /
+> `list_notes` — cross-subject themes and v6.1-legacy notes remain
+> visible to the substrate scan. ADR 0012 vault-PHI-bypass inherited
+> — substrate entries are metadata only (kind, slug, title,
+> subject_id, status, last_updated), no raw biometric streams.
+> Substrate cap of 20 entries; sorted last_updated descending; dedup
+> key is `(kind, slug)` so a theme and a moment sharing a slug both
+> surface (they are distinct artifacts in different vault namespaces).
+> `_collect_subjects` mirrors `_flatten_claims`'s scalar filter to
+> avoid surfacing `_meta`-shaped sibling keys as bogus subjects (red-
+> team-reviewer adversarial pairing on the release pass caught the
+> false equivalence). 26 new regression tests (13 substrate-scan
+> contract / behaviour tests, 5 mcp-protocol-auditor subprocess wire
+> tests, 4 substrate_scan_warning + dedup contract tests, 4 audit-
+> column / coverage-edge tests). 657/657 tests pass.
+> 7-agent release pass per [ADR 0010](docs/adr/0010-adversarial-pairing.md) /
+> [ADR 0011](docs/adr/0011-promotion-policy.md): ci-gate-runner
+> SHIPPABLE; mcp-protocol-auditor PROTOCOL OK (added 5 subprocess
+> regression tests during the audit); reproducibility-provenance-
+> auditor CLEAN; researcher-utility-reviewer ALIGNED;
+> phi-irb-risk-reviewer WATCH (3 findings — substrate_scan_warning
+> for swallowed exceptions, operator-guide PHI warning for slug/title
+> egress, Path A vs Path B documented for IS-NULL cross-subject
+> surfacing); coverage-criticality-mapper REVIEW (2 newly-uncovered
+> HIGH lines + cross-kind slug-collision correctness edge); red-team-
+> reviewer OBJECTION on `_collect_subjects` heuristic mismatch with
+> `_flatten_claims`. All substantive findings addressed in code; all
+> deferred findings closed in `docs/guides/local-llm-guardian.md`,
+> `docs/adr/0023-local-llm-cooperation-loop.md` (new IRB-relevant
+> surface section), and `docs/design/research-framing.md` (substrate-
+> vision paragraph added so the framing doc does not drift on next
+> release). Public API additions only — no breaking changes; SemVer
+> minor bump. PR2 of ADR 0023 (LLM-driven gap reasoning —
+> `next_best_calls` + `unresolved_intent` via prompt extension on
+> `OllamaBackend`) lands separately under the same ADR 0023 contract.
+> Total framework tool surface unchanged at 48 (no new tools; the
+> existing `ask_local_oracle` gains response fields).
+>
 > **v6.6.0 (2026-05-01)** — Local-LLM guardian release. Adds
 > `framework/local_llm/` — a new framework-tier component (parallel to
 > `framework/vault/`) that enables an LLM running on the analyst's machine

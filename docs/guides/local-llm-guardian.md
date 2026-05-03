@@ -51,6 +51,48 @@ Three benefits, in order of weight:
    identifier-refusal instructions or wait for the prompt-injection
    ADR named in [ADR 0022 § "Explicitly out of scope"](../adr/0022-local-llm-guardian.md).
 
+   **Important precision — substrate metadata egress** ([ADR 0023](../adr/0023-local-llm-cooperation-loop.md))
+   — every successful `ask_local_oracle` call surfaces vault metadata
+   into the hosted-LLM-bound payload via `related_substrate`. The
+   fields are deliberately metadata-only: `kind` (`theme` / `moment` /
+   `failure_mode`), `slug` (note filename without `.md`), `title`
+   (frontmatter title for moments and failure-modes), `subject_id`,
+   `status`, and `last_updated`. *No note bodies, no biometric
+   streams.* But: **slug and title strings are analyst-authored**.
+   If a deployment's analyst names a theme `john-smith-glucose-spike`
+   or sets `title: "P004 - Jane Doe MRN 12345"`, that string crosses
+   to the hosted LLM verbatim — vault content bypasses the scrubber
+   by [ADR 0012](../adr/0012-vault-phi-scrubber-bypass.md). Two
+   recommendations: (a) instruct analysts that vault slugs and titles
+   should not contain HIPAA Safe Harbor identifiers; (b) for
+   institutional deployments where (a) cannot be guaranteed, subclass
+   `PHIScrubber` and wire it into the local-LLM dispatch path.
+
+   **Important precision — automatic cross-subject substrate**
+   ([ADR 0009](../adr/0009-vault-subject-keying.md) IS-NULL-or-match
+   semantics inherited by [ADR 0023](../adr/0023-local-llm-cooperation-loop.md))
+   — when an oracle call is scoped to subject P003, the substrate
+   scan also surfaces cross-subject themes (`subject_id IS NULL` —
+   themes that span the cohort). A theme titled `comparing-p004-and-p007-recovery`
+   would surface on a P003-scoped oracle call, with the title string
+   crossing to the hosted LLM. ADR 0009 documented this for
+   `vault_search_notes` where the analyst chose to query; PR1 makes
+   the same surfacing automatic per oracle call. This is structurally
+   permitted by ADR 0012 but is a **deployment-shape choice** that
+   institutions running this framework against IRB-governed cohorts
+   should make explicit:
+   - Path A (default — strict-data, opt-in local-LLM): cross-subject
+     substrate is permissible because vault content is analyst
+     interpretation, not raw participant data.
+   - Path B (more conservative): subclass `PHIScrubber` to drop
+     `related_substrate` entries whose `subject_id` is NULL.
+
+   The `oracle_substrate_count` audit-log column ([ADR 0023](../adr/0023-local-llm-cooperation-loop.md))
+   records how many vault items were surfaced per oracle call, and
+   `_meta.substrate_scan_warning` (when present) records swallowed
+   VaultStorage exceptions so a reviewer can distinguish "scanned
+   cleanly, found nothing" from "scan crashed silently."
+
 2. **Reduced token spend on the hosted LLM.** Routine analytical
    questions get composed locally; only the structured response (with
    already-cited numbers) traverses the wire to the hosted LLM. The

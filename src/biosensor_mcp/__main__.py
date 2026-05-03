@@ -107,6 +107,11 @@ def cmd_serve():
         csv_child = CSVDirectoryChild(config_dir=CONFIG_DIR, data_dir=DATA_DIR)
         router.register_child(csv_child)
 
+    # Predeclared so the local-LLM registration block below can read
+    # vault_writer.storage without a NameError on no-vault deployments
+    # (per ADR 0023 — substrate scan reads vault_storage; None means
+    # "no vault wired, scan returns empty defensively").
+    vault_writer = None
     if _vault_path:
         import logging as _log_mod
         _vlog = _log_mod.getLogger("biosensor-mcp")
@@ -207,7 +212,17 @@ def cmd_serve():
                 f"falling back to NullBackend. Edit user_config.json "
                 f"local_llm block to fix."
             )
-    router.register_local_llm_layer(LocalLLMLayer(backend=local_llm_backend))
+    # ADR 0023 — wire vault_storage so the substrate scan can find
+    # themes / moments / failure-modes for subjects in scope. None on
+    # no-vault deployments; LocalLLMLayer._scan_related_substrate is
+    # defensive against that case (returns []).
+    _local_llm_vault_storage = (
+        vault_writer.storage if vault_writer is not None else None
+    )
+    router.register_local_llm_layer(LocalLLMLayer(
+        backend=local_llm_backend,
+        vault_storage=_local_llm_vault_storage,
+    ))
 
     # Future children (CGM, sleep, ECG, EDF, FHIR) would register here
     # following the same opt-in pattern as csv_dir above.

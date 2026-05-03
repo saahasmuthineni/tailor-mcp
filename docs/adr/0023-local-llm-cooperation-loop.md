@@ -129,6 +129,44 @@ entries are metadata fields — slug, title, status, subject_id,
 timestamps — not raw biosensor stream content. The ADR 0012 invariant
 holds.
 
+### IRB-relevant surface — what crosses the wire
+
+To make the IRB reviewer's mental model unambiguous: **PR1 surfaces
+analyst-authored vault metadata, not just counts.** Specifically, on
+every successful `ask_local_oracle` call scoped to a subject, the
+hosted LLM receives, per matched substrate entry:
+
+- `kind` (enumerated: `theme` / `moment` / `failure_mode`).
+- `slug` — the note's filename (without `.md`), analyst-authored.
+- `title` — frontmatter title for moments and failure-modes; `None`
+  for themes (themes carry no separate title field).
+- `subject_id` — may be `NULL` for cross-subject themes per
+  [ADR 0009](0009-vault-subject-keying.md) IS-NULL-or-match.
+- `status` — frontmatter status for failure-modes; `None` for
+  moments.
+- `last_updated` — wall-clock revision timestamp from the SQLite
+  index.
+
+The `oracle_substrate_count` audit-log column records the *count* per
+call so the audit answers "how much was surfaced." The *content* of
+substrate entries (titles, slugs) is in the response payload and the
+hosted-LLM transcript; an IRB reviewer reconstructing what the
+hosted LLM saw reads the response payload, not the count alone.
+
+Two consequences a deployment should weigh:
+
+1. **Slug and title strings are analyst-authored** and bypass the
+   PHI-scrubber seam by [ADR 0012](0012-vault-phi-scrubber-bypass.md).
+   Institutional policy on vault naming becomes load-bearing — the
+   operator guide ([`docs/guides/local-llm-guardian.md`](../guides/local-llm-guardian.md)
+   § "Important precision — substrate metadata egress") names this.
+2. **The IS-NULL-or-match filter inherited from ADR 0009** surfaces
+   cross-subject themes automatically per oracle call (where prior
+   to PR1 the analyst chose per query via `vault_search_notes`).
+   Path A (default) leaves this on; Path B subclasses
+   `PHIScrubber` to drop NULL-keyed entries on the local-LLM
+   dispatch path. Documented in the operator guide.
+
 ### Audit-log column
 
 A new `oracle_substrate_count INTEGER` column lands on `audit_log`,

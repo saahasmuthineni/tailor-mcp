@@ -160,7 +160,9 @@ class LocalLLMLayer:
         # NullBackend inherits substrate vision for free; the
         # deterministic SQLite query stays out of the LLM-composition
         # boundary so ADR 0008's determinism contract holds.
-        response.related_substrate = self._scan_related_substrate(request)
+        entries, warning = self._scan_related_substrate(request)
+        response.related_substrate = entries
+        response.substrate_scan_warning = warning
         return response.to_dict()
 
     # ── Substrate scan (ADR 0023) ──
@@ -171,10 +173,19 @@ class LocalLLMLayer:
     # that budget regardless of vault size.
     _SUBSTRATE_CAP = 20
 
-    def _scan_related_substrate(self, request: OracleRequest) -> list[dict]:
+    def _scan_related_substrate(
+        self, request: OracleRequest,
+    ) -> tuple[list[dict], str | None]:
         """Deterministic vault scan for substrate referencing the
-        subject(s) in scope. Returns up to :data:`_SUBSTRATE_CAP`
-        entries, sorted by ``last_updated`` descending.
+        subject(s) in scope. Returns ``(entries, warning)`` where
+        ``entries`` is up to :data:`_SUBSTRATE_CAP` entries sorted
+        by ``last_updated`` descending, and ``warning`` is ``None``
+        on the happy path or a short failure-reason string when a
+        VaultStorage exception was swallowed (per ADR 0023's WATCH
+        finding from `phi-irb-risk-reviewer` — distinguishes
+        "scanned cleanly, found nothing" from "scan crashed
+        silently"; parallels the ADR 0003 ``scrubber_warning`` seam
+        v6.3.1 introduced for the PHI-scrubber default).
 
         Surfaces themes (one query per subject) and notes of kind
         ``moment`` / ``failure_mode`` — the analyst-authored content
@@ -186,31 +197,37 @@ class LocalLLMLayer:
         per-subject keys in ``resolved_context`` (the
         ``{processing_call: {subject_id: {metric: value}}}`` shape
         ``_flatten_claims`` already detects). When no subjects are
-        in scope, the scan returns ``[]`` — the substrate scan is
-        purpose-built to find content *about the subject(s) of the
-        question*, not arbitrary recent vault content.
+        in scope, the scan returns ``([], None)`` — the substrate
+        scan is purpose-built to find content *about the subject(s)
+        of the question*, not arbitrary recent vault content.
+
+        Dedup key is ``(kind, slug)`` so a theme and a moment that
+        happen to share a slug both surface — they are distinct
+        artifacts living in different vault namespaces.
 
         Defensive contract: any exception from VaultStorage is
-        swallowed and logged as a warning; the response never breaks
-        because of a vault-scan failure. The caller's existing
-        narrative + numerical_claims are preserved unchanged.
+        swallowed; the response never breaks because of a vault-scan
+        failure. The caller's existing narrative + numerical_claims
+        are preserved unchanged. The reason is surfaced via
+        ``warning`` so a reviewer reading the wire payload can see
+        that the scan crashed.
         """
         if self._vault_storage is None:
-            return []
+            return [], None
         try:
             subject_ids = self._collect_subjects(request)
             if not subject_ids:
-                return []
+                return [], None
             entries: list[dict] = []
-            seen_slugs: set[str] = set()
+            seen: set[tuple[str, str]] = set()
             for sid in subject_ids:
                 for theme in self._vault_storage.list_themes(
                     subject_id=sid, limit=10,
                 ):
                     slug = theme.get("slug")
-                    if not slug or slug in seen_slugs:
+                    if not slug or ("theme", slug) in seen:
                         continue
-                    seen_slugs.add(slug)
+                    seen.add(("theme", slug))
                     entries.append({
                         "kind": "theme",
                         "slug": slug,
@@ -229,9 +246,9 @@ class LocalLLMLayer:
                             if filename.endswith(".md")
                             else filename
                         )
-                        if not slug or slug in seen_slugs:
+                        if not slug or (note_kind, slug) in seen:
                             continue
-                        seen_slugs.add(slug)
+                        seen.add((note_kind, slug))
                         fm = note.get("frontmatter") or {}
                         title = (
                             fm.get("title") if isinstance(fm, dict) else None
@@ -251,10 +268,11 @@ class LocalLLMLayer:
                 key=lambda e: e.get("last_updated") or "",
                 reverse=True,
             )
-            return entries[: self._SUBSTRATE_CAP]
+            return entries[: self._SUBSTRATE_CAP], None
         except Exception as exc:
-            log.warning(f"LocalLLMLayer substrate scan failed: {exc}")
-            return []
+            warning = f"substrate scan failed: {exc}"
+            log.warning(f"LocalLLMLayer {warning}")
+            return [], warning
 
     @staticmethod
     def _collect_subjects(request: OracleRequest) -> list[str]:

@@ -616,6 +616,26 @@ class TestRelatedSubstrateContract:
         assert d["related_substrate"] == [{"kind": "theme", "slug": "x"}]
         assert "related_substrate" not in d["_meta"]
 
+    def test_substrate_scan_warning_default_absent(self):
+        """Happy path: warning is None and not surfaced on the wire.
+        Avoids noise on every successful oracle call."""
+        resp = self._build_response()
+        assert resp.substrate_scan_warning is None
+        assert "substrate_scan_warning" not in resp.to_dict()
+
+    def test_substrate_scan_warning_surfaces_when_set(self):
+        """When a VaultStorage exception is swallowed by the layer's
+        defensive scan, the reason surfaces at the response top
+        level so a reviewer reading the wire payload can distinguish
+        clean-empty from crash-empty (parallels ADR 0003
+        scrubber_warning seam)."""
+        resp = self._build_response()
+        resp.substrate_scan_warning = "substrate scan failed: db locked"
+        d = resp.to_dict()
+        assert d["substrate_scan_warning"].startswith("substrate scan failed")
+        # Top-level — not nested under _meta
+        assert "substrate_scan_warning" not in d["_meta"]
+
 
 class TestLocalLLMLayerSubstrateScan:
     """LocalLLMLayer._scan_related_substrate — ADR 0023 PR1."""
@@ -727,7 +747,11 @@ class TestLocalLLMLayerSubstrateScan:
     def test_swallows_storage_exception(self):
         """A vault-scan failure must never break the oracle call. The
         narrative + numerical_claims continue to surface; substrate
-        is empty and the warning is logged."""
+        is empty and the failure reason surfaces in
+        ``substrate_scan_warning`` so a reviewer reading the wire
+        payload can distinguish clean-empty from crash-empty
+        (closes phi-irb-risk-reviewer Lens 3 + mcp-protocol-auditor
+        BORDER NOTE; parallels ADR 0003 scrubber_warning seam)."""
         storage = _StubVaultStorage(raise_on_call=RuntimeError("db locked"))
         layer = self._layer_with(storage)
         result = asyncio.run(layer.execute(
@@ -739,10 +763,111 @@ class TestLocalLLMLayerSubstrateScan:
             },
         ))
         assert result["related_substrate"] == []
+        assert "substrate_scan_warning" in result
+        assert "db locked" in result["substrate_scan_warning"]
         # Numerical claim still surfaces — the rest of the response is
         # unaffected by the substrate-scan failure.
         metrics = {c["metric"] for c in result["numerical_claims"]}
         assert "peak" in metrics
+
+    def test_happy_path_omits_substrate_scan_warning(self):
+        """No warning on a clean scan — the field is only emitted on
+        the wire when something actually went wrong."""
+        storage = _StubVaultStorage(themes={
+            "P003": [{
+                "slug": "x",
+                "status": "open",
+                "last_updated": "2026-04-30T10:00:00Z",
+                "subject_id": "P003",
+            }],
+        })
+        layer = self._layer_with(storage)
+        result = asyncio.run(layer.execute(
+            "ask_local_oracle",
+            {
+                "question": "?",
+                "resolved_context": {},
+                "subject_id": "P003",
+            },
+        ))
+        assert "substrate_scan_warning" not in result
+
+    def test_non_dict_resolved_context_value_skipped(self):
+        """coverage gate (line 276): a non-dict result in
+        resolved_context is skipped by _collect_subjects rather than
+        raising. The substrate scan still runs against
+        request.subject_id; the malformed entry just contributes no
+        per-subject keys."""
+        storage = _StubVaultStorage(themes={
+            "P003": [{
+                "slug": "x",
+                "status": "open",
+                "last_updated": "2026-04-30T10:00:00Z",
+                "subject_id": "P003",
+            }],
+        })
+        layer = self._layer_with(storage)
+        result = asyncio.run(layer.execute(
+            "ask_local_oracle",
+            {
+                "question": "?",
+                "resolved_context": {
+                    "csv_summary_report": "string-not-a-dict",
+                    "csv_force_decline": {"peak": 1.0},
+                },
+                "subject_id": "P003",
+            },
+        ))
+        # Did not raise; substrate scan still ran on the explicit
+        # subject_id; the malformed entry was tolerated.
+        slugs = [e["slug"] for e in result["related_substrate"]]
+        assert slugs == ["x"]
+
+    def test_cross_kind_slug_collision_both_surface(self):
+        """coverage gate (line 233) + correctness edge case
+        (coverage-criticality-mapper BORDER NOTE): a theme and a
+        moment that happen to share a slug both surface — they are
+        distinct artifacts in different vault namespaces. The dedup
+        key is (kind, slug), not slug alone, so cross-kind
+        collisions don't silently drop content."""
+        shared = "force-decline-mechanism"
+        storage = _StubVaultStorage(
+            themes={
+                "P003": [{
+                    "slug": shared,
+                    "status": "open",
+                    "last_updated": "2026-04-30T10:00:00Z",
+                    "subject_id": "P003",
+                }],
+            },
+            notes={
+                "moment": {
+                    "P003": [{
+                        "filename": f"{shared}.md",
+                        "frontmatter": {"title": "Same name, different kind"},
+                        "written_at": "2026-04-29T10:00:00Z",
+                        "subject_id": "P003",
+                    }],
+                },
+            },
+        )
+        layer = self._layer_with(storage)
+        result = asyncio.run(layer.execute(
+            "ask_local_oracle",
+            {
+                "question": "?",
+                "resolved_context": {},
+                "subject_id": "P003",
+            },
+        ))
+        # Both surface — the (kind, slug) dedup key keeps them
+        # distinct. A bug that reverted to slug-only dedup would
+        # drop the moment.
+        kinds = sorted(e["kind"] for e in result["related_substrate"])
+        assert kinds == ["moment", "theme"]
+        # And both reference the same slug name
+        slugs = {e["slug"] for e in result["related_substrate"]}
+        assert slugs == {shared}
 
     def test_no_subjects_in_scope_returns_empty(self):
         """When neither request.subject_id nor any per-subject key in

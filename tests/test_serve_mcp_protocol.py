@@ -906,3 +906,298 @@ def test_existing_tools_unaffected_by_local_llm_layer() -> None:
         assert b3.get("gate") == "consent_required", (
             f"Consent gate should still fire on csv_downsampled: {b3}"
         )
+
+
+# ──────────────────────────────────────────────────────────────────
+# ADR 0023 — related_substrate + oracle_substrate_count surfaces
+# S1–S4, added this audit run (v6.6.x)
+# ──────────────────────────────────────────────────────────────────
+
+def test_ask_local_oracle_related_substrate_top_level_field() -> None:
+    """S1: tools/call ask_local_oracle response has related_substrate at
+    top level (NOT nested under _meta).
+
+    ADR 0023 adds OracleResponse.related_substrate; LocalLLMLayer
+    populates it after backend.compose() returns. The gate-evasion
+    class this test catches: the field is present in OracleResponse.to_dict()
+    but a router serialization bug buries it somewhere else in the envelope.
+
+    With NullBackend and no vault storage wired (seed_full_config seeds a
+    vault_path but does NOT create vault notes), _scan_related_substrate
+    returns [] (no subject themes). The test asserts:
+    - related_substrate is present as a top-level key in the parsed body
+    - its value is a list (may be empty)
+    - if non-empty, each entry has kind/slug keys with no repr artifacts
+    - No repr artifacts in the raw wire payload
+    """
+    with spawn_server() as (client, _paths):
+        client.initialize()
+
+        resp = client.call_tool("ask_local_oracle", {
+            "question": "substrate field present test",
+            "resolved_context": {
+                "csv_force_decline": {"peak": 100.0, "decline_pct_total": 5.0},
+            },
+            "subject_id": "P001",
+        })
+
+        assert "error" not in resp, f"tools/call error: {resp}"
+        text = extract_text_result(resp)
+        assert_no_repr_artifacts(text)
+
+        body = json.loads(text)
+        assert "related_substrate" in body, (
+            "related_substrate is missing from top-level tools/call response. "
+            "Expected OracleResponse.to_dict() to include it at root level. "
+            f"Top-level keys: {sorted(body.keys())}"
+        )
+        substrate = body["related_substrate"]
+        assert isinstance(substrate, list), (
+            f"related_substrate must be a list; got {type(substrate).__name__}: {substrate!r}"
+        )
+        # Validate entry shape when non-empty (no repr, has kind+slug)
+        for entry in substrate:
+            assert isinstance(entry, dict), (
+                f"related_substrate entry must be dict; got {type(entry).__name__}: {entry!r}"
+            )
+            assert "kind" in entry, f"substrate entry missing 'kind': {entry}"
+            assert "slug" in entry, f"substrate entry missing 'slug': {entry}"
+            # No Python repr artifacts in any entry field value
+            for v in entry.values():
+                if isinstance(v, str):
+                    assert_no_repr_artifacts(v)
+
+
+def test_ask_local_oracle_related_substrate_no_repr_artifacts() -> None:
+    """S2: Wire serialization of related_substrate entries is clean JSON.
+
+    Substrate entries carry {kind, slug, title, subject_id, status,
+    last_updated} — all str or None. The _dumps seam must not coerce
+    None values into 'None' strings via default=str, and must not
+    produce Python repr on any field.
+
+    With NullBackend this exercises the to_dict() → _dumps → JSON-RPC
+    round-trip for the related_substrate list, even when it is empty.
+    A non-empty list would require vault notes; the test exercises the
+    wire serialization path regardless of vault state.
+    """
+    with spawn_server() as (client, _paths):
+        client.initialize()
+
+        resp = client.call_tool("ask_local_oracle", {
+            "question": "serialization stress: substrate with nested dicts",
+            "resolved_context": {
+                "csv_cohort_summary": {
+                    "groups": {
+                        "F": {"mean": 76.0, "n": 5},
+                        "M": {"mean": 86.0, "n": 5},
+                    }
+                }
+            },
+        })
+
+        text = extract_text_result(resp)
+        # Full raw payload must not have any Python repr
+        assert_no_repr_artifacts(text)
+
+        body = json.loads(text)
+        substrate = body.get("related_substrate", [])
+        assert isinstance(substrate, list)
+
+        # Verify None fields serialized as JSON null (not "None" string).
+        # The _dumps contract for None → JSON null (not the string "None")
+        # cannot be tested purely from the parsed dict (None and null both
+        # decode to None). Check the raw bytes for the "None" string in
+        # positions that carry substrate field values.
+        # NullBackend with no vault → substrate is []; no None fields.
+        # If substrate is non-empty from vault: assert no "\"None\"" literals.
+        for entry in substrate:
+            for key, val in entry.items():
+                if val is None:
+                    # The raw wire should have null at this position, not "None"
+                    # We can't pinpoint the exact byte offset, but the repr
+                    # artifact check (assert_no_repr_artifacts on full text)
+                    # already catches the default=str path.
+                    pass
+                elif isinstance(val, str):
+                    assert val != "None", (
+                        f"substrate entry[{key!r}] = 'None' (string) — "
+                        "this is a default=str coercion bug: None was "
+                        f"converted to the string 'None' instead of JSON null. Entry: {entry}"
+                    )
+
+
+def test_oracle_substrate_count_audit_column_present_and_correct() -> None:
+    """S3: audit.db gains oracle_substrate_count column after ADR 0023
+    migration; value is 0 for NullBackend (no vault notes seeded).
+
+    Also verifies migration idempotency: a second AuditLog on the same
+    db must not raise on the ALTER TABLE oracle_substrate_count step.
+
+    Covers gate-evasion class 4 from the audit brief:
+    'if a deployment had a v6.6.0 audit.db with the prior 6 oracle
+    columns, does the v6.6.x ALTER TABLE add oracle_substrate_count
+    cleanly without breaking on existing rows?'
+    """
+    import os
+    import sqlite3
+    import subprocess
+    from pathlib import Path
+    from tempfile import TemporaryDirectory
+
+    from tests._mcp_client import MCPClient, seed_full_config
+
+    with TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+        paths = seed_full_config(Path(tmp))
+        env = {
+            **os.environ,
+            "BIOSENSOR_CONFIG_DIR": str(paths["config_dir"]),
+            "BIOSENSOR_DATA_DIR": str(paths["data_dir"]),
+        }
+
+        proc = subprocess.Popen(
+            [sys.executable, "-m", "biosensor_mcp", "serve"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+        client = MCPClient(proc)
+        try:
+            client.initialize()
+            client.call_tool("ask_local_oracle", {
+                "question": "substrate count audit test",
+                "resolved_context": {"csv_force_decline": {"peak": 60.0}},
+                "subject_id": "P_sc_test",
+            })
+            import time
+            time.sleep(0.5)
+        finally:
+            try:
+                proc.stdin.close()
+            except OSError:
+                pass
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+
+        audit_db = paths["data_dir"] / "audit.db"
+        assert audit_db.exists(), f"audit.db not found at {audit_db}"
+
+        with sqlite3.connect(str(audit_db)) as conn:
+            all_cols = [
+                row[1]
+                for row in conn.execute("PRAGMA table_info(audit_log)").fetchall()
+            ]
+            assert "oracle_substrate_count" in all_cols, (
+                f"oracle_substrate_count column missing from audit_log schema. "
+                f"Columns present: {[c for c in all_cols if 'oracle' in c]}"
+            )
+
+            row = conn.execute(
+                "SELECT oracle_substrate_count FROM audit_log "
+                "WHERE tool_name = 'ask_local_oracle' AND outcome = 'SUCCESS'"
+            ).fetchone()
+            assert row is not None, "No SUCCESS oracle row in audit_log"
+            count_val = row[0]
+            # NullBackend with no vault notes seeded → substrate scan
+            # returns [] → oracle_substrate_count == 0
+            assert count_val == 0, (
+                f"Expected oracle_substrate_count=0 for NullBackend with "
+                f"no vault notes; got {count_val!r}"
+            )
+
+        # Idempotency: second AuditLog init on same file must not crash
+        from biosensor_mcp.framework.audit import AuditLog
+        audit2 = AuditLog(audit_db)
+        try:
+            cols2 = {
+                row[1]
+                for row in audit2._conn.execute(
+                    "PRAGMA table_info(audit_log)"
+                ).fetchall()
+            }
+            assert "oracle_substrate_count" in cols2, (
+                "oracle_substrate_count missing after idempotent AuditLog re-init"
+            )
+        finally:
+            audit2.close()
+
+
+def test_vault_writer_storage_property_accessible() -> None:
+    """S4: VaultWriter.storage property is accessible without error
+    (ADR 0023 adds it; this is a new public API surface).
+
+    The gate-evasion class: if storage is a @property that returns
+    a thread-local object, accessing it from a test thread (simulating
+    the router's async dispatch path) must not raise AttributeError or
+    expose a closed connection.
+
+    This test does NOT use a subprocess; it wires VaultWriter directly
+    to verify the property contract at the Python level.
+    """
+    from pathlib import Path
+    from tempfile import TemporaryDirectory
+
+    from biosensor_mcp.framework.vault.writer import VaultWriter
+
+    with TemporaryDirectory() as tmp:
+        vault_path = Path(tmp) / "vault"
+        data_dir = Path(tmp) / "data"
+        vault_path.mkdir()
+        data_dir.mkdir()
+
+        writer = VaultWriter(
+            vault_path=vault_path,
+            data_dir=data_dir,
+            vaultable_tools=set(),
+        )
+        try:
+            storage = writer.storage
+            assert storage is not None, (
+                "VaultWriter.storage returned None — "
+                "LocalLLMLayer._vault_storage will silently skip substrate scan"
+            )
+            # Must be the VaultStorage type (import by name to avoid circular)
+            assert hasattr(storage, "list_themes"), (
+                f"VaultWriter.storage does not have list_themes; "
+                f"got type {type(storage).__name__}. "
+                "LocalLLMLayer._scan_related_substrate calls list_themes."
+            )
+            assert hasattr(storage, "list_notes"), (
+                f"VaultWriter.storage does not have list_notes; "
+                f"got type {type(storage).__name__}. "
+                "LocalLLMLayer._scan_related_substrate calls list_notes."
+            )
+        finally:
+            writer.close()
+
+
+def test_tools_list_ask_local_oracle_description_contains_related_substrate() -> None:
+    """S5: Schema drift check — tools/list description for ask_local_oracle
+    mentions 'related_substrate' (the ADR 0023 addition).
+
+    The gate-evasion class: the tool description was updated in
+    LocalLLMLayer.tool_definitions but the wire-level tools/list endpoint
+    could still serve a stale cached version. This test drives the live
+    subprocess and asserts the description flowing over the wire contains
+    the new field name so schema drift is caught end-to-end.
+    """
+    with spawn_server() as (client, _paths):
+        client.initialize()
+        list_resp = client.list_tools()
+        tools = list_resp["result"]["tools"]
+        oracle = next(
+            (t for t in tools if t["name"] == "ask_local_oracle"), None
+        )
+        assert oracle is not None, "ask_local_oracle missing from tools/list"
+
+        desc = oracle.get("description", "")
+        assert "related_substrate" in desc, (
+            "tools/list description for ask_local_oracle does not mention "
+            "'related_substrate' — ADR 0023 description update was either "
+            f"not merged into tool_definitions or not reaching the wire. "
+            f"Actual description: {desc[:300]!r}"
+        )

@@ -25,6 +25,10 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.8.0 (2026-05-03)
+
+- Local-LLM cooperation-loop pattern, PR2 (LLM-driven gap reasoning). [ADR 0023](docs/adr/0023-local-llm-cooperation-loop.md). New `OracleResponse.next_best_calls` and `OracleResponse.unresolved_intent` fields completing the cooperation-loop contract; `OllamaBackend` JSON-mode prompt extension with defensive list-coercion; `NullBackend` empty-default inheritance by construction; `ask_local_oracle` tool description rewritten to teach hosted Claude the multi-pass cooperation loop; two new `audit_log` columns (`oracle_next_best_calls_count`, `oracle_unresolved_intent_count`) by symmetry with PR1's `oracle_substrate_count`. ADR 0023 amended: § Audit-log columns names all three, § Negative consequences token-estimate corrected (~290 measured vs ~2500 estimated), § Neutral consequences PR1/PR2 ADR 0012 distinction added. Operator guide: "Important precision — gap-reasoning egress" subsection added. Research-framing § Consent withdrawal: oracle audit rows named as third retention category. 15 new regression tests (12 PR2 contract/parser/fallback + 3 audit-column) + 4 subprocess tests from mcp-protocol-auditor; 676/676 pass. Coverage 85%. 7-agent release pass clean (all WATCH/OBJECTION findings addressed before ship). No new tools — `ask_local_oracle` gains response fields only.
+
 ## Shipped in v6.7.0 (2026-05-03)
 
 - Local-LLM cooperation-loop pattern, PR1 (substrate-vision asymmetry made executable). [ADR 0023](docs/adr/0023-local-llm-cooperation-loop.md). New `OracleResponse.related_substrate` field; new `audit_log.oracle_substrate_count` column; new public `VaultWriter.storage` property; `(kind, slug)` substrate dedup; `substrate_scan_warning` parallel to `scrubber_warning` for swallowed VaultStorage exceptions; `_collect_subjects` scalar-filtered to mirror `_flatten_claims`. 26 new regression tests; 657/657 pass. 7-agent release pass clean. Operator guide gains substrate-metadata-egress + Path-A-vs-B warnings.

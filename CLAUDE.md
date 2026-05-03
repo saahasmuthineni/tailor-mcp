@@ -1,5 +1,58 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.8.0 (2026-05-03)** — Local-LLM cooperation-loop PR2: LLM-driven
+> gap reasoning. Lands the second of two PRs governed by
+> [ADR 0023](docs/adr/0023-local-llm-cooperation-loop.md), completing
+> the cooperation-loop contract on top of v6.7.0's deterministic
+> substrate scan. `OracleResponse` gains two LLM-generated fields:
+> `next_best_calls: list[str]` (framework tool names the local LLM
+> thinks would raise oracle confidence — bounded vocabulary) and
+> `unresolved_intent: list[str]` (questions the local LLM thinks the
+> analyst should answer — unbounded LLM-generated free text). The
+> split is the load-bearing distinction: fetch-this-data belongs in
+> `next_best_calls`; ask-the-analyst belongs in `unresolved_intent`.
+> Hosted Claude reads which list a suggestion lives on and routes
+> accordingly. Both default to `[]`; `NullBackend` inherits the empty
+> contract by construction; `OllamaBackend` populates them via
+> JSON-mode prompt extension with defensive list-coercion mirroring
+> the existing `ambiguity_axes` pattern. Fallback path emits `[]` for
+> both — the fallback is the structural signal that no LLM ran. The
+> `ask_local_oracle` tool description is rewritten to teach hosted
+> Claude the multi-pass cooperation loop (all three new fields:
+> `related_substrate`, `next_best_calls`, `unresolved_intent`). Two
+> new `audit_log` columns: `oracle_next_best_calls_count INTEGER` and
+> `oracle_unresolved_intent_count INTEGER` — by symmetry with PR1's
+> `oracle_substrate_count`. An IRB reviewer reconstructing what the
+> hosted LLM saw on an oracle call queries counts from `audit.db`
+> without parsing the response payload (ADR 0001). Both columns are
+> NULL on pre-execute failures, 0 on successful empty emissions, and
+> the actual length on populated emissions. 7-agent release pass per
+> ADR 0010 / ADR 0011: ci-gate-runner SHIPPABLE; mcp-protocol-auditor
+> PROTOCOL OK (added 4 subprocess regression tests during the audit);
+> reproducibility-provenance-auditor CLEAN (4 invariants HOLD with one
+> BORDER on docstring drift, fixed); researcher-utility-reviewer RESHAPE
+> (IRB persona — closed by audit-column addition + operator-guide
+> subsection); coverage-criticality-mapper REVIEW (zero newly-uncovered
+> HIGH lines; all PR2 defensive-coercion branches covered);
+> phi-irb-risk-reviewer WATCH (4 findings — all addressed in code +
+> docs before ship: audit columns per Lens 3, operator-guide gap-
+> reasoning egress subsection per Lens 1, ADR 0023 § Neutral
+> consequences amended to distinguish PR1 metadata from PR2 LLM-text
+> under ADR 0012 per Lens 4, research-framing.md § Consent withdrawal
+> paragraph naming oracle audit rows as third retention category per
+> Lens 6); red-team-reviewer OBJECTION (medium) on missing audit
+> columns — confirmed phi-irb Lens 3, same fix closed both. ADR 0023
+> amendments: § Audit-log columns (all three named); § Negative
+> consequences token-estimate corrected; § Neutral consequences
+> PR1 vs PR2 ADR 0012 distinction; § Landing shape PR2 entry. 15 new
+> regression tests (12 PR2 contract/parser/fallback + 3 audit-column)
+> plus 4 subprocess regression tests added by mcp-protocol-auditor
+> during the release pass — 676/676 tests pass. Coverage 85%. Public
+> API additions only — no breaking changes; SemVer minor bump. Total
+> framework tool surface unchanged at 48. No router/security/child/CLI
+> architecture changes beyond the two new audit columns and the
+> `ask_local_oracle` tool-description rewrite.
+>
 > **v6.7.0 (2026-05-03)** — Local-LLM cooperation-loop release.
 > Adds the deterministic substrate-vision feature (PR1 of [ADR 0023](docs/adr/0023-local-llm-cooperation-loop.md))
 > on top of the v6.6.0 local-LLM guardian. Every successful

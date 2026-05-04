@@ -1,5 +1,30 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.8.1 (2026-05-03)** — C3 peak-tie systematic bias fix on CSV
+> cohort tools. `time_to_50pct_drop_s` and `peak_index` in
+> `CSVProcessing` now reference the LAST sample at peak value rather
+> than the FIRST, via a new `_last_peak_index` module-level helper
+> applied at both call sites (`aggregate_metric` for
+> `time_to_50pct_drop_s` and `force_decline_summary` for
+> `peak_index`). The original `values.index(peak)` returned the first
+> occurrence, which systematically inflated decline-start estimates on
+> real isometric force traces with ramp → plateau → decline shape —
+> participants with longer plateau holds received larger positive bias,
+> creating a between-groups confound in exactly the data shapes the
+> cohort tools are designed to compare. Demo β data (per-second
+> random-walk floats) has no peak ties and is numerically unchanged;
+> the fix matters the moment any real isometric force trace loads.
+> Three new regression tests: `test_time_to_50pct_drop_with_peak_plateau_uses_last_peak_index`
+> (cohort path), `test_peak_plateau_indexes_to_last_peak_sample`
+> (per-file path), and `test_peak_plateau_unique_peak_unaffected`
+> (regression-guard for the unique-peak case). 676 → 679 tests;
+> 85% coverage maintained; `processing.py` now at 99% coverage.
+> Gates: pytest 679/679, ruff clean, security probe 76/76, CLI smoke
+> PASS. No ADR — bug fix, not a decision (adr-weigher
+> REJECT-NOT-ADR-WORTHY). No router/security/child/vault/CLI
+> architecture changes beyond the two corrected call sites in
+> `csv_dir/processing.py`. Public API unchanged; patch bump.
+>
 > **v6.8.0 (2026-05-03)** — Local-LLM cooperation-loop PR2: LLM-driven
 > gap reasoning. Lands the second of two PRs governed by
 > [ADR 0023](docs/adr/0023-local-llm-cooperation-loop.md), completing

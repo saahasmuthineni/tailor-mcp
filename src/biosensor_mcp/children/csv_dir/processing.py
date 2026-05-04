@@ -28,6 +28,20 @@ COHORT_METRICS = (
 )
 
 
+def _last_peak_index(values: list[float], peak: float) -> int:
+    # Decline timing references the LAST sample at peak — not the first.
+    # Real isometric force traces have ramp → plateau → decline; using
+    # values.index(peak) starts the timer at the start of the plateau,
+    # systematically inflating time_to_50pct_drop_s by the plateau
+    # duration. The bias is non-uniform across subjects (stronger
+    # participants hold longer plateaus), creating a comparison-of-groups
+    # confound. See debugging-discovery-2026-05-01 § 1.
+    for i in range(len(values) - 1, -1, -1):
+        if values[i] == peak:
+            return i
+    raise ValueError("peak not found in values")  # pragma: no cover
+
+
 class CSVProcessing:
     """Pure-function analytics for tabular CSV data."""
 
@@ -97,7 +111,7 @@ class CSVProcessing:
             peak = max(values)
             if peak <= 0:
                 return None
-            peak_idx = values.index(peak)
+            peak_idx = _last_peak_index(values, peak)
             threshold = peak * 0.5
             for i in range(peak_idx + 1, len(values)):
                 if values[i] <= threshold:
@@ -153,11 +167,17 @@ class CSVProcessing:
         returns ``peak_time_s``, ``duration_s``, ``decline_rate_per_min``,
         and ``time_to_50pct_drop_s`` (``None`` if the column never drops
         below 50% of peak).
+
+        ``peak_index`` is the LAST index at which the peak value occurs
+        (end of the peak plateau), so that ``time_to_50pct_drop_s`` and
+        ``decline_rate_per_min`` measure the decline from when fatigue
+        actually started — not from when the subject first hit peak.
+        See ``_last_peak_index`` for the bias this corrects.
         """
         if not values:
             return {"error": "no values"}
         peak = max(values)
-        peak_idx = values.index(peak)
+        peak_idx = _last_peak_index(values, peak)
         end = values[-1]
         decline_pct = (
             round((peak - end) / peak * 100, 2) if peak > 0 else 0.0

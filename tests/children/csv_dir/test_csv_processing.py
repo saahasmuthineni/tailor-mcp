@@ -255,6 +255,20 @@ class TestAggregateMetric:
             [100.0, 50.0, 10.0], ts, "time_to_50pct_drop_s",
         ) is None
 
+    def test_time_to_50pct_drop_with_peak_plateau_uses_last_peak_index(self):
+        # Real isometric force traces have ramp → plateau → decline.
+        # Plateau lasts 4 samples (i=2..5) at peak 100; decline starts
+        # at i=6, crosses 50 at i=8. Timer must measure from the LAST
+        # plateau index (i=5, t=25s), not the first (i=2, t=10s).
+        ts = [datetime(2026, 1, 1, 10, 0, i * 5) for i in range(10)]
+        values = [60.0, 80.0, 100.0, 100.0, 100.0, 100.0, 90.0, 70.0, 40.0, 30.0]
+        result = CSVProcessing.aggregate_metric(
+            values, ts, "time_to_50pct_drop_s",
+        )
+        # i=5 → t=25s; i=8 → t=40s; delta = 15s. The buggy
+        # values.index(peak) version returned 30s (i=2 → i=8).
+        assert result == 15.0
+
     def test_cohort_metrics_constant_is_complete(self):
         # All declared metrics must be implemented; this is a contract
         # test against the COHORT_METRICS public symbol.
@@ -376,3 +390,29 @@ class TestForceDeclineSummary:
         assert "decline_rate_per_min" not in result
         # Non-temporal fields still computed.
         assert result["peak"] == 100.0
+
+    def test_peak_plateau_indexes_to_last_peak_sample(self):
+        # Plateau of 4 samples at peak; decline starts at i=6.
+        # peak_index must reference the LAST plateau sample so that
+        # decline timing measures from when fatigue actually started,
+        # not from when the subject first hit peak.
+        ts = [datetime(2026, 1, 1, 10, 0, i * 5) for i in range(10)]
+        values = [60.0, 80.0, 100.0, 100.0, 100.0, 100.0, 90.0, 70.0, 40.0, 30.0]
+        result = CSVProcessing.force_decline_summary(values, ts)
+        assert result["peak"] == 100.0
+        assert result["peak_index"] == 5
+        # peak_time = i=5 → t=25s; first sample <= 50 = i=8 → t=40s.
+        assert result["peak_time_s"] == 25.0
+        assert result["time_to_50pct_drop_s"] == 15.0
+        # decline_rate from peak (100) to end (30) over (45-25)=20s = 1/3 min.
+        assert result["decline_rate_per_min"] == round(70 / (20 / 60), 3)
+
+    def test_peak_plateau_unique_peak_unaffected(self):
+        # Single-occurrence peak: behaviour identical to pre-fix.
+        # Regression guard so the _last_peak_index helper does not shift
+        # peak_index for the existing unique-peak data shape.
+        ts = [datetime(2026, 1, 1, 10, 0, i * 10) for i in range(5)]
+        values = [60.0, 80.0, 100.0, 70.0, 40.0]
+        result = CSVProcessing.force_decline_summary(values, ts)
+        assert result["peak_index"] == 2
+        assert result["peak_time_s"] == 20.0

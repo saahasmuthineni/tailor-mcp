@@ -1,0 +1,114 @@
+{
+  "S001_force.csv": {
+    "subject_id": "S001",
+    "sex": "F",
+    "group": "control",
+    "trial_protocol": "30pct_MVC_sustained_60s_with_4probes",
+    "baseline_mvc_N": 192.9
+  },
+  "S002_force.csv": {
+    "subject_id": "S002",
+    "sex": "M",
+    "group": "control",
+    "trial_protocol": "30pct_MVC_sustained_60s_with_4probes",
+    "baseline_mvc_N": 284.5
+  },
+  "S003_force.csv": {
+    "subject_id": "S003",
+    "sex": "F",
+    "group": "control",
+    "trial_protocol": "30pct_MVC_sustained_60s_with_4probes",
+    "baseline_mvc_N": 205.4
+  },
+  "S004_force.csv": {
+    "subject_id": "S004",
+    "sex": "F",
+    "group": "control",
+    "trial_protocol": "30pct_MVC_sustained_60s_with_4probes",
+    "baseline_mvc_N": 238.1
+  },
+  "S005_force.csv": {
+    "subject_id": "S005",
+    "sex": "M",
+    "group": "control",
+    "trial_protocol": "30pct_MVC_sustained_60s_with_4probes",
+    "baseline_mvc_N": 293.6
+  },
+  "S006_force.csv": {
+    "subject_id": "S006",
+    "sex": "F",
+    "group": "control",
+    "trial_protocol": "30pct_MVC_sustained_60s_with_4probes",
+    "baseline_mvc_N": 226.8
+  },
+  "S007_force.csv": {
+    "subject_id": "S007",
+    "sex": "M",
+    "group": "control",
+    "trial_protocol": "30pct_MVC_sustained_60s_with_4probes",
+    "baseline_mvc_N": 285.3
+  },
+  "S008_force.csv": {
+    "subject_id": "S008",
+    "sex": "F",
+    "group": "control",
+    "trial_protocol": "30pct_MVC_sustained_60s_with_4probes",
+    "baseline_mvc_N": 216.4
+  },
+  "S009_force.csv": {
+    "subject_id": "S009",
+    "sex": "M",
+    "group": "intervention",
+    "trial_protocol": "30pct_MVC_sustained_60s_with_4probes",
+    "baseline_mvc_N": 293.4
+  },
+  "S010_force.csv": {
+    "subject_id": "S010",
+    "sex": "F",
+    "group": "intervention",
+    "trial_protocol": "30pct_MVC_sustained_60s_with_4probes",
+    "baseline_mvc_N": 184.8
+  },
+  "S011_force.csv": {
+    "subject_id": "S011",
+    "sex": "M",
+    "group": "intervention",
+    "trial_protocol": "30pct_MVC_sustained_60s_with_4probes",
+    "baseline_mvc_N": 308.3
+  },
+  "S012_force.csv": {
+    "subject_id": "S012",
+    "sex": "M",
+    "group": "intervention",
+    "trial_protocol": "30pct_MVC_sustained_60s_with_4probes",
+    "baseline_mvc_N": 327.4
+  },
+  "S013_force.csv": {
+    "subject_id": "S013",
+    "sex": "F",
+    "group": "intervention",
+    "trial_protocol": "30pct_MVC_sustained_60s_with_4probes",
+    "baseline_mvc_N": 228.1
+  },
+  "S014_force.csv": {
+    "subject_id": "S014",
+    "sex": "M",
+    "group": "intervention",
+    "trial_protocol": "30pct_MVC_sustained_60s_with_4probes",
+    "baseline_mvc_N": 328.6
+  },
+  "S015_force.csv": {
+    "subject_id": "S015",
+    "sex": "F",
+    "group": "intervention",
+    "trial_protocol": "30pct_MVC_sustained_60s_with_4probes",
+    "baseline_mvc_N": 193.3
+  },
+  "S016_force.csv": {
+    "subject_id": "S016",
+    "sex": "M",
+    "group": "intervention",
+    "trial_protocol": "30pct_MVC_sustained_60s_with_4probes",
+    "baseline_mvc_N": 266.6
+  }
+}

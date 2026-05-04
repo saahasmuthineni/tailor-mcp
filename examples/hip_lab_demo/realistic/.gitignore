@@ -1,0 +1,11 @@
+# user_config.json contains absolute paths resolved at setup-time —
+# machine-specific, do not commit. Re-create with `python setup.py`.
+user_config.json
+
+# Runtime SQLite (audit, vault index, child caches) — created when
+# `biosensor-mcp serve` starts against this config dir.
+data/
+
+# Obsidian metadata, if the operator opens the demo vault in
+# Obsidian Desktop.
+vault/.obsidian/

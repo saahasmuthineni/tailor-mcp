@@ -107,6 +107,23 @@ def cmd_serve():
         csv_child = CSVDirectoryChild(config_dir=CONFIG_DIR, data_dir=DATA_DIR)
         router.register_child(csv_child)
 
+    # force_csv child (opt-in — requires force_csv block in user_config.json).
+    # Off-blueprint Senefeld-meeting detour scaffolding; mirrors csv_dir
+    # opt-in shape so unconfigured deployments are behaviourally unchanged.
+    force_child = None
+    if _ucfg.get("force_csv"):
+        from biosensor_mcp.children.force_csv import ForceCsvChild
+        force_child = ForceCsvChild(config_dir=CONFIG_DIR, data_dir=DATA_DIR)
+        router.register_child(force_child)
+
+    # emg_csv child (opt-in — requires emg_csv block in user_config.json).
+    # Sibling to force_csv; same off-blueprint posture.
+    emg_child = None
+    if _ucfg.get("emg_csv"):
+        from biosensor_mcp.children.emg_csv import EmgCsvChild
+        emg_child = EmgCsvChild(config_dir=CONFIG_DIR, data_dir=DATA_DIR)
+        router.register_child(emg_child)
+
     # Predeclared so the local-LLM registration block below can read
     # vault_writer.storage without a NameError on no-vault deployments
     # (per ADR 0023 — substrate scan reads vault_storage; None means
@@ -147,6 +164,10 @@ def cmd_serve():
         _registered = [running]
         if csv_child is not None:
             _registered.append(csv_child)
+        if force_child is not None:
+            _registered.append(force_child)
+        if emg_child is not None:
+            _registered.append(emg_child)
         for _child in _registered:
             vaultable.update(getattr(_child, "vaultable_tools", []))
         # max_hr from user config (same source RunningChild reads from).

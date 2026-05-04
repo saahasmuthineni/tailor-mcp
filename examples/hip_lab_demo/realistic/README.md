@@ -1,0 +1,343 @@
+# HIP Lab demo — *realistic* variant (multimodal)
+
+> **Off-blueprint Senefeld-meeting detour.**  Built for a live
+> walkthrough at the next HIP Lab meeting if Dr. Senefeld
+> expresses interest.  See project memory
+> `project_off_blueprint_detour_2026_05_04`.
+
+This variant ships **paired multimodal fixture data** to demonstrate
+the framework's existing cross-child composition seam — one node
+per data source (`force_csv`, `emg_csv`, future `mrs_*`), all keyed
+on shared `subject_id` per ADR 0009, all logged to one `audit.db`
+per ADR 0001.  The demo argument: *each modality is its own
+ChildMCP; framework infrastructure already composes them.*
+
+---
+
+## TL;DR
+
+```bash
+# One command sets up everything
+python examples/hip_lab_demo/realistic/setup.py
+
+# Start the server pointed at the demo config
+BIOSENSOR_CONFIG_DIR=examples/hip_lab_demo/realistic biosensor-mcp serve
+```
+
+That's it for setup.  Then walk Senefeld through the
+[**Walkthrough script**](#walkthrough-script-meeting-time-510-min)
+below.
+
+---
+
+## Pre-meeting setup (do BEFORE the meeting — 5 min)
+
+Run this once on the laptop you'll demo from.  Idempotent, safe to
+re-run.
+
+### 1. Generate the fixture + write user_config + seed the vault
+
+```bash
+python examples/hip_lab_demo/realistic/setup.py
+```
+
+Output should end with `Done. Next: BIOSENSOR_CONFIG_DIR=… biosensor-mcp serve`.
+
+What this does, step by step:
+
+- `(1/4)` Regenerates 16 subjects × 3 modalities (force, EMG, MRS
+  stub) under `force/`, `emg/`, `mrs/`.  Seeded
+  `random.Random(20260504)` per ADR 0008 — deterministic across
+  re-runs.
+- `(2/4)` Writes `user_config.json` with absolute paths to this
+  directory's force/, emg/, vault/.  This is what the framework
+  reads at server startup.
+- `(3/4)` Lays down a pre-existing vault moment dated 2026-04-20
+  ("two weeks earlier") at
+  `vault/moments/2026-04-20-s004-emg-force-decoupling-suspected.md`
+  — this is the cross-session-memory wow moment.
+- `(4/4)` Indexes the vault into `data/vault.db` so `vault_search_notes`
+  finds it on first call.
+
+### 2. Wire up Claude Desktop
+
+Open Claude Desktop's config file:
+
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+Add this entry under `mcpServers` (replace `<absolute-path-to-repo>`):
+
+```json
+{
+  "mcpServers": {
+    "biosensor-mcp-hip-lab-demo": {
+      "command": "python",
+      "args": ["-m", "biosensor_mcp", "serve"],
+      "env": {
+        "BIOSENSOR_CONFIG_DIR": "<absolute-path-to-repo>/examples/hip_lab_demo/realistic",
+        "BIOSENSOR_DATA_DIR":   "<absolute-path-to-repo>/examples/hip_lab_demo/realistic/data"
+      }
+    }
+  }
+}
+```
+
+The `BIOSENSOR_CONFIG_DIR` env var isolates the demo from the
+operator's real `~/.biosensor-mcp/user_config.json` — no clobber.
+
+Restart Claude Desktop after editing the config.
+
+### 3. Verify it loaded
+
+In a fresh Claude Desktop chat, type:
+
+> *"List the available biosensor MCP tools."*
+
+You should see ~55 tools across `force_csv`, `emg_csv`, `vault_*`,
+`strava_*` (Strava is the worked-example child; it loads but its
+tools error without OAuth — ignore for this demo), and
+`ask_local_oracle`.
+
+If the count is missing one of `force_csv` / `emg_csv`, check the
+`user_config.json` has both blocks (`force_csv` and `emg_csv`).
+
+---
+
+## Walkthrough script (meeting time — 5–10 min)
+
+Read these prompts to Senefeld out loud or paste them into
+Claude Desktop.  Each step has a "what to point out" line —
+that's what makes the demo land.
+
+### Step 1 — Set the frame (30 s)
+
+> "This is a synthetic-data demo so I can show the *framework*
+> without using any real participant data.  Sixteen subjects on
+> a hybrid isometric protocol — 30% MVC sustained for 60 seconds
+> with brief MVC probes every 15 seconds.  The shape is informed
+> by the Hunter and Senefeld 2024 *J Physiol* sex-differences
+> paper.  Three streams per subject — force, EMG envelope, and
+> a 31P-MRS PCr/Pi stub.  All three streams keyed on shared
+> subject_id."
+
+**What to point out:** the multimodal storyline matches what HIP
+Lab is actually building toward (custom MR-conditional dynamometer
++ EMG + 31P-MRS).
+
+### Step 2 — Show the cohort sex difference (1 min)
+
+Paste to Claude Desktop:
+
+> *"Summarize peak isometric force across the cohort, grouped by
+> sex.  Use the force_cohort_summary tool with metric=max."*
+
+Expected response (Claude calls `force_cohort_summary` with
+`group_field=sex, value_column=force_N, metric=max`):
+
+> "Cohort summary by sex:
+> - F (n=8): mean peak ≈ 200 N, range ≈ 180–240 N
+> - M (n=8): mean peak ≈ 276 N, range ≈ 260–360 N"
+
+**What to point out:** *"This call reduced 96,000 force samples
+to two summary rows.  None of the raw samples ever entered the
+LLM context — the framework's Tier 1 ran the reduction
+server-side, then handed Claude the eight numbers it needed.
+Same call against real data; same numbers."*
+
+### Step 3 — Show the per-subject force summary for S004 (1 min)
+
+> *"Run force_summary on S004's trial."*
+
+Expected response:
+
+> "S004 force_summary:
+> - peak: 229.3 N
+> - mvc_window_mean_250ms: 226.0 N (Sánchez-2015 250 ms window)
+> - sample_rate_hz: 100.0
+> - duration_s: 60.0"
+
+**What to point out:** *"The Sánchez-2015 MVC window definition is
+publication-aligned — mean over a 250 ms window centered on the
+peak, not the instantaneous peak.  That's the definition Wang and
+Senefeld 2026 use in the dyno-validation work.  Window math runs
+server-side; the framework hands the LLM one number."*
+
+### Step 4 — Show the EMG envelope summary for S004 (1 min)
+
+> *"Now run emg_envelope_summary on S004's EMG trial."*
+
+Expected response:
+
+> "S004 emg_envelope_summary:
+> - peak_envelope_window_mean: 238 µV
+> - end_window_mean: 97 µV
+> - **fatigue_index_pct: 59.4 %**
+> - rms: 107 µV
+> - integrated_emg: 6097 µV·s
+> - sample_rate_hz: 100.0
+> - duration_s: 60.0"
+
+**What to point out:** *"S004's EMG amplitude collapses 59 percent
+from peak window to end window.  That's a much steeper amplitude
+decline than typical for a sustained 30%-MVC protocol.  Hold this
+number — we're about to find out it isn't new."*
+
+### Step 5 — The cross-session-memory wow moment (1.5 min)
+
+> *"Search the vault for any prior notes about subject S004."*
+
+Expected response (Claude calls `vault_search_notes` with
+`query=S004` or `subject_id=S004`):
+
+> "I found one moment dated 2026-04-20 titled *S004 — atypical
+> EMG/force decoupling under fatigue*.  The note flags that S004's
+> EMG envelope ran ~145% of the female-cohort baseline while her
+> force production was ordinary, suggesting central-drive
+> compensation — possibly recent overreaching or unrecovered
+> neural fatigue.  The note recommends capturing training-load
+> self-report and re-running on a different day."
+
+**What to point out (this is the headline moment):** *"Two weeks
+ago, the analyst noticed this same pattern in S004 and wrote it
+down as a vault moment.  When I asked about S004's EMG just now,
+the framework surfaced that prior note alongside the fresh data.
+The audit log records that this happened — both the
+emg_envelope_summary call and the vault_search_notes call landed
+in the same audit.db with the same subject_id column.  An IRB
+reviewer two months from now can reconstruct exactly what I
+asked, what numbers I got, and what prior context the LLM
+surfaced."*
+
+### Step 6 — Show the audit log (30 s)
+
+If Senefeld is interested in the IRB story, run:
+
+> *"How many calls have been logged to the audit log this session,
+> and what subject_ids have been queried?"*
+
+Claude can answer from its session memory or via a status-style
+inspection.  Or open the audit DB directly:
+
+```bash
+sqlite3 examples/hip_lab_demo/realistic/data/audit.db \
+  "SELECT tool_name, subject_id, called_at FROM audit_log ORDER BY id DESC LIMIT 10;"
+```
+
+**What to point out:** *"Every tool call lands here — timestamp,
+domain, tool, tier, parameters, token estimate, outcome, latency,
+optional subject_id.  Durable evidence for IRB reviewers, for
+co-authors re-running the analysis, for participants asking what
+their data was used for."*
+
+### Step 7 — Close (30 s)
+
+> *"That's the demo.  The framework is local-first, the streams
+> never leave the analyst's machine for Tier 1 calls, the audit
+> log is the IRB-grade backbone, and the vault is the
+> longitudinal memory layer.  Multimodal composition isn't a new
+> feature — it's the existing infrastructure working when each
+> data source is its own ChildMCP keyed on shared subject_id."*
+
+---
+
+## The three wow moments (memorize these)
+
+1. **Cohort summary reduces 96,000 raw samples to 2 numbers
+   server-side**, no biometric data enters the LLM context.
+2. **Cross-session memory** — a vault note from "two weeks
+   earlier" surfaces alongside fresh data on the same subject,
+   keyed on `subject_id`.
+3. **The audit log records every call** — tool, parameters,
+   subject, outcome — IRB-grade reconstruction.
+
+---
+
+## Fallback if something fails live
+
+| What breaks | What to do |
+|---|---|
+| Claude Desktop doesn't see the tools | Restart Claude Desktop.  Verify the snippet has correct absolute paths.  Run `biosensor-mcp status` in a terminal to check config dir is found. |
+| `force_csv` returns "directory not found" | Re-run `python examples/hip_lab_demo/realistic/setup.py` — re-writes user_config.json with current absolute paths. |
+| Vault search returns nothing | The vault.db wasn't indexed — re-run setup.py step (4/4) by re-running the whole script.  The seed moment file is at `vault/moments/2026-04-20-s004-emg-force-decoupling-suspected.md` if you want to confirm it exists. |
+| `force_summary.decline_pct` returns null | Known limitation — see [Known limitations](#known-limitations) below.  Use `peak` and `mvc_window_mean_250ms` instead.  Don't acknowledge this gap unless Senefeld asks. |
+| You can't remember what to say | Read the **Walkthrough script** above straight off the page — every step has a "what to point out" line. |
+
+---
+
+## What's here
+
+```
+realistic/
+  generate.py             Seeded synthetic generator (random.Random(20260504))
+  setup.py                One-shot scaffolder (this file's TL;DR command)
+  README.md               This file
+  user_config.json        Written by setup.py (gitignored — has absolute paths)
+  force/                  Load-cell force traces, 100 Hz × 60 s
+    metadata.json         ADR 0015 sidecar (subject_id, sex, group, baseline_mvc_N)
+    S001_force.csv … S016_force.csv
+  emg/                    Surface-EMG envelope, 100 Hz × 60 s
+    metadata.json         ADR 0015 sidecar (subject_id, sex, group, envelope_baseline_uV)
+    S001_emg.csv … S016_emg.csv
+  mrs/                    31P-MRS PCr/Pi stub, 0.05 Hz × 60 s
+    metadata.json         ADR 0015 sidecar (subject_id, sex, group, modality)
+    S001_mrs.csv … S016_mrs.csv
+  vault/                  Pre-seeded analytical vault
+    moments/2026-04-20-s004-emg-force-decoupling-suspected.md
+  data/                   Server runtime data (vault.db, audit.db) — gitignored
+```
+
+**Total committed:** 48 CSVs + 3 sidecars + 1 seed moment ≈ 3 MB.
+
+## Subject composition
+
+- 16 subjects, 8 F / 8 M intermixed by ID
+- 8 control, 8 intervention (orthogonal to sex so cohort
+  comparisons can intersect group × sex)
+- Female cohort: lower MVC (180–240 N), shallower decline rate
+- Male cohort: higher MVC (260–360 N), steeper decline
+- Group overlap is intentional so cohort comparisons read as
+  real data, not stat-shopped fixtures
+- **Subject S004** has a deliberate EMG/force decoupling — her EMG
+  envelope runs ~45 % above the female-cohort baseline while her
+  force trace tracks normally.  This is the headline wow moment.
+
+## Reproducibility
+
+Every CSV in this directory regenerates from `generate.py` —
+`random.Random(20260504)` is the seed, re-running overwrites all
+48 files deterministically.  Per ADR 0008 the seeded-PRNG-off-the-
+analytical-path exception applies via the
+`examples/**/generate.py` glob.
+
+## Status
+
+- `force_csv` and `emg_csv` children: **registered in `__main__.py`
+  conditionally** — load when their respective blocks are present
+  in `user_config.json`.  The off-blueprint posture has shifted
+  from "unregistered until meeting outcome known" to "registered
+  conditionally so the demo works at the meeting; full integration
+  into the delivery blueprint happens after the meeting outcome
+  is known."
+- `mrs_*` child: **not built** — MRS files ship as storyline
+  scaffolding only.
+
+## Known limitations
+
+- **`force_summary.decline_pct` and `time_to_50pct_drop_s` return
+  `None` on this fixture** because the `csv_dir`-inherited
+  `force_decline_summary` helper is designed for monotone-decline
+  shapes (matching the β variant) and the realistic fixture's
+  hybrid sustained+probes shape interrupts monotone decline.  The
+  values that DO work end-to-end on this fixture: `peak`,
+  `mvc_window_mean_250ms` (Sánchez 250 ms window),
+  `force_cohort_summary`, and on the EMG side every field of
+  `emg_envelope_summary` including `fatigue_index_pct`.  A hybrid-
+  protocol-aware decline helper is a defensible follow-on.
+- **The MRS files have no reading child** — a future `mrs_csv`
+  child would consume them.  They ship to demonstrate the
+  storyline.
+- **Sex-difference cohort means are not statistically powered** —
+  n=8 per arm with intentional within-group overlap.  Synthesis
+  is for demo-storytelling fidelity, not publication-grade
+  inference.

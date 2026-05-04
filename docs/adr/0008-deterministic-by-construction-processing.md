@@ -28,11 +28,15 @@ analytical layer has no PRNG on its hot path. Every method on
 and `TemplateProcessing` ([`children/template/processing.py`](../../src/biosensor_mcp/children/template/processing.py))
 is a `@staticmethod` pure function over its arguments. None of them
 import `random`, `numpy`, `secrets`, or any time-dependent function.
-The only PRNG in the entire package is `_RNG = random.Random(42)` at
-[`demo/sample_data.py:21`](../../src/biosensor_mcp/demo/sample_data.py),
-which is already seeded, sits off the analytical dispatch path, and
-is excluded from coverage in `pyproject.toml` alongside the rest of
-`demo/*`.
+The PRNGs that exist in the repository are all seeded, sit off the
+analytical dispatch path, and are not loaded by `biosensor-mcp serve`:
+`_RNG = random.Random(42)` at
+[`demo/sample_data.py:21`](../../src/biosensor_mcp/demo/sample_data.py)
+(installed in the wheel but excluded from coverage alongside the rest
+of `demo/*`), and the synthetic-fixture generators under
+`examples/**/generate.py` (not installed in the wheel at all;
+reachable only by a developer running them manually to regenerate
+demo CSVs).
 
 In other words: the prerequisite for deterministic-mode (PRNG-free,
 stateless, pure-functional processing) shipped silently. What
@@ -79,11 +83,29 @@ Concretely:
   (`called_at`, `latency_ms`); they were named here when
   [ADR 0022](0022-local-llm-guardian.md) shipped, per its
   reproducibility-provenance-auditor pass at PR time.
-- The single permitted exception is `demo/sample_data.py`, which
-  uses `random.Random(42)` to synthesize reproducible fixture data.
-  It is seeded, off the dispatch path, and excluded from coverage.
-  This file is named explicitly so a future contributor does not
-  try to "fix" it by removing the seed.
+- Permitted exceptions:
+  - `src/biosensor_mcp/demo/sample_data.py`, which uses
+    `random.Random(42)` to synthesize the reproducible fixture
+    streams the `biosensor-mcp demo` command runs against. Seeded,
+    off the dispatch path, excluded from coverage.
+  - `examples/**/generate.py`, the synthetic-fixture generators that
+    produce per-subject CSVs for the demo walkthroughs. Each must
+    use a seeded PRNG (`random.Random(<integer-literal-seed>)`) so
+    the fixtures are reproducible from the file's source; the seed
+    is part of the contract. Not installed in the wheel, never
+    loaded by `biosensor-mcp serve`, reachable only by a developer
+    running them manually. Currently:
+    [`examples/multi_subject_pilot/generate.py`](../../examples/multi_subject_pilot/generate.py)
+    (v6.2.0+, `random.Random(42)`) and
+    [`examples/hip_lab_demo/beta/generate.py`](../../examples/hip_lab_demo/beta/generate.py)
+    (v6.5.0+, `random.Random(20260418)`).
+
+  These files are named explicitly so a future contributor does not
+  try to "fix" them by removing the seed. Future demo-fixture
+  generators may land under `examples/**/generate.py` without
+  further ADR amendment provided they meet the seeded-PRNG and
+  off-dispatch-path conditions; the rule is the glob, the explicit
+  list above is the current census.
 - A future PR that introduces a PRNG, a clock read, or hidden
   module state into a `*Processing` class is a breaking change to
   this invariant and is rejected on principle, not on per-PR
@@ -141,9 +163,10 @@ provenance-hashing item.
 
 **Neutral.**
 
-- The `demo/sample_data.py` PRNG is part of the contract, not an
-  oversight. Removing or re-seeding it would break demo
-  reproducibility. Future contributors should leave it alone.
+- The PRNGs in `src/biosensor_mcp/demo/sample_data.py` and under
+  `examples/**/generate.py` are part of the contract, not
+  oversights. Removing or re-seeding any of them would break demo
+  reproducibility. Future contributors should leave them alone.
 - The invariant says nothing about determinism *across* Python
   minor versions or stdlib changes. Reproducibility is bounded by
   the runtime declared in the `_meta` block — not promised against

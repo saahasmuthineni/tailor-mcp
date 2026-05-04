@@ -1,0 +1,98 @@
+{
+  "S001_mrs.csv": {
+    "subject_id": "S001",
+    "sex": "F",
+    "group": "control",
+    "modality": "31P_MRS_stub"
+  },
+  "S002_mrs.csv": {
+    "subject_id": "S002",
+    "sex": "M",
+    "group": "control",
+    "modality": "31P_MRS_stub"
+  },
+  "S003_mrs.csv": {
+    "subject_id": "S003",
+    "sex": "F",
+    "group": "control",
+    "modality": "31P_MRS_stub"
+  },
+  "S004_mrs.csv": {
+    "subject_id": "S004",
+    "sex": "F",
+    "group": "control",
+    "modality": "31P_MRS_stub"
+  },
+  "S005_mrs.csv": {
+    "subject_id": "S005",
+    "sex": "M",
+    "group": "control",
+    "modality": "31P_MRS_stub"
+  },
+  "S006_mrs.csv": {
+    "subject_id": "S006",
+    "sex": "F",
+    "group": "control",
+    "modality": "31P_MRS_stub"
+  },
+  "S007_mrs.csv": {
+    "subject_id": "S007",
+    "sex": "M",
+    "group": "control",
+    "modality": "31P_MRS_stub"
+  },
+  "S008_mrs.csv": {
+    "subject_id": "S008",
+    "sex": "F",
+    "group": "control",
+    "modality": "31P_MRS_stub"
+  },
+  "S009_mrs.csv": {
+    "subject_id": "S009",
+    "sex": "M",
+    "group": "intervention",
+    "modality": "31P_MRS_stub"
+  },
+  "S010_mrs.csv": {
+    "subject_id": "S010",
+    "sex": "F",
+    "group": "intervention",
+    "modality": "31P_MRS_stub"
+  },
+  "S011_mrs.csv": {
+    "subject_id": "S011",
+    "sex": "M",
+    "group": "intervention",
+    "modality": "31P_MRS_stub"
+  },
+  "S012_mrs.csv": {
+    "subject_id": "S012",
+    "sex": "M",
+    "group": "intervention",
+    "modality": "31P_MRS_stub"
+  },
+  "S013_mrs.csv": {
+    "subject_id": "S013",
+    "sex": "F",
+    "group": "intervention",
+    "modality": "31P_MRS_stub"
+  },
+  "S014_mrs.csv": {
+    "subject_id": "S014",
+    "sex": "M",
+    "group": "intervention",
+    "modality": "31P_MRS_stub"
+  },
+  "S015_mrs.csv": {
+    "subject_id": "S015",
+    "sex": "F",
+    "group": "intervention",
+    "modality": "31P_MRS_stub"
+  },
+  "S016_mrs.csv": {
+    "subject_id": "S016",
+    "sex": "M",
+    "group": "intervention",
+    "modality": "31P_MRS_stub"
+  }
+}

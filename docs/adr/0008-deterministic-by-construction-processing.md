@@ -96,9 +96,11 @@ Concretely:
     loaded by `biosensor-mcp serve`, reachable only by a developer
     running them manually. Currently:
     [`examples/multi_subject_pilot/generate.py`](../../examples/multi_subject_pilot/generate.py)
-    (v6.2.0+, `random.Random(42)`) and
+    (v6.2.0+, `random.Random(42)`),
     [`examples/hip_lab_demo/beta/generate.py`](../../examples/hip_lab_demo/beta/generate.py)
-    (v6.5.0+, `random.Random(20260418)`).
+    (v6.5.0+, `random.Random(20260418)`), and
+    [`examples/hip_lab_demo/realistic/generate.py`](../../examples/hip_lab_demo/realistic/generate.py)
+    (off-blueprint Senefeld-meeting detour 2026-05-04, `random.Random(20260504)`).
 
   These files are named explicitly so a future contributor does not
   try to "fix" them by removing the seed. Future demo-fixture

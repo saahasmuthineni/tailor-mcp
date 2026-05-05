@@ -25,12 +25,14 @@ sustained, decline rate sits in the female-cohort middle band, the
 MVC probes step down at expected fatigue rates. Nothing notable on
 the force side alone.
 
-What stands out is the EMG envelope: it runs visibly above the
-female-cohort baseline even in the early seconds of the contraction,
-well before fatigue should drive central-drive compensation. By the
-back half of her trial the envelope is sitting at roughly 145 % of
-the cohort norm while her force production is on track for an
-ordinary failure profile.
+What stands out is the EMG envelope amplitude. S004's peak envelope
+window sits around 240 µV — well above the rest of the female
+cohort, whose peak envelopes group in the 150–205 µV range.
+Notably the *shape* of her fatigue isn't unusual — peak-to-end
+fatigue index lands in the cohort-typical 58–60 % band, same as
+most other subjects.  The unusual signal is the absolute amplitude,
+not the decline rate; her force production tracks an ordinary
+failure profile through all of it.
 
 This is the EMG/force decoupling pattern Hunter & Senefeld 2024
 flagged in the *J Physiol* review — high motor-unit recruitment
@@ -41,7 +43,7 @@ upper-extremity issue, or a neural-fatigue substrate that hasn't
 recovered from a prior session.
 
 Worth flagging in her next session: ask about training load over
-the past 7 days, watch whether the EMG/force ratio normalises on a
+the past 7 days, watch whether the EMG amplitude normalises on a
 fresh testing day. If it persists, this might be a single-subject
 finding worth a closer look — the sex-differences fatigue
 literature has hints in this direction but the published evidence
@@ -51,7 +53,7 @@ on individual-level decoupling is thin.
 
 - Capture S004's training-load self-report at next session.
 - Re-run the same protocol on a different day; compare EMG envelope
-  trajectory.
+  amplitude trajectory.
 - If the pattern repeats, this becomes a candidate for a single-
   subject case study or a methods note on EMG/force-ratio
   reliability under fatigue.

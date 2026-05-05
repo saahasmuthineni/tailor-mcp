@@ -1,0 +1,331 @@
+"""
+Tests for the ``biosensor-mcp tour`` subcommand.
+
+Per ADR 0024 the tour scaffolds a live-audience walkthrough from
+bundled fixtures. The load-bearing claims this suite enforces:
+
+- Bundled fixtures actually ship in the package (sanity check on
+  ``pyproject.toml`` package-data globs — without these, the wheel
+  is empty of fixtures and ``tour`` errors at scaffold time).
+- The scaffolder writes a ``user_config.json`` whose absolute paths
+  resolve to the target dir (force_csv / emg_csv child registration
+  depends on this exact shape).
+- The vault index contains the S004 seed moment after scaffold (the
+  cross-session-memory wow moment depends on it).
+- Re-running is idempotent (recipients re-run after Claude Desktop
+  drift; this must not fail).
+- The Claude Desktop entry bakes ``BIOSENSOR_CONFIG_DIR`` and
+  ``BIOSENSOR_DATA_DIR`` into the ``env`` block — this closes
+  audit blocker #1 from the ADR 0024 pre-implementation pass
+  (recipients never type an env var by hand).
+- Pre-existing sibling MCP servers in Claude Desktop's config
+  survive the merge (deep-merge invariant inherited from
+  ``pilot.py``'s v6.2.1 hardening).
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from biosensor_mcp.tour import (
+    DEFAULT_VARIANT,
+    VARIANTS,
+    _resolve_target,
+    main,
+)
+
+# ──────────────────────────────────────────────────────────────────────
+# Sanity: bundled fixtures actually ship.
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestBundledFixtures:
+    """If these fail, ``pyproject.toml`` package-data globs are wrong."""
+
+    def test_force_csvs_present(self):
+        from importlib.resources import files
+        pkg = files("biosensor_mcp._fixtures").joinpath(
+            "hip_lab_demo_realistic", "force",
+        )
+        names = sorted(c.name for c in pkg.iterdir() if c.name.endswith(".csv"))
+        assert len(names) == 16
+        assert "S001_force.csv" in names
+        assert "S004_force.csv" in names
+        assert "S016_force.csv" in names
+
+    def test_emg_csvs_present(self):
+        from importlib.resources import files
+        pkg = files("biosensor_mcp._fixtures").joinpath(
+            "hip_lab_demo_realistic", "emg",
+        )
+        names = sorted(c.name for c in pkg.iterdir() if c.name.endswith(".csv"))
+        assert len(names) == 16
+
+    def test_mrs_csvs_present(self):
+        from importlib.resources import files
+        pkg = files("biosensor_mcp._fixtures").joinpath(
+            "hip_lab_demo_realistic", "mrs",
+        )
+        names = sorted(c.name for c in pkg.iterdir() if c.name.endswith(".csv"))
+        assert len(names) == 16
+
+    def test_metadata_json_sidecars_present(self):
+        from importlib.resources import files
+        for sub in ("force", "emg", "mrs"):
+            pkg = files("biosensor_mcp._fixtures").joinpath(
+                "hip_lab_demo_realistic", sub,
+            )
+            mj = pkg.joinpath("metadata.json")
+            assert mj.is_file(), f"metadata.json missing in {sub}/"
+
+    def test_seed_vault_moment_present(self):
+        from importlib.resources import files
+        moment = files("biosensor_mcp._fixtures").joinpath(
+            "hip_lab_demo_realistic", "vault", "moments",
+            "2026-04-20-s004-emg-force-decoupling-suspected.md",
+        )
+        assert moment.is_file()
+
+
+# ──────────────────────────────────────────────────────────────────────
+# End-to-end scaffold into a temp dir.
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestScaffold:
+
+    def test_scaffold_populates_all_subdirs(self, tmp_path: Path):
+        target = tmp_path / "tour"
+        rc = main([
+            "--variant=hip-lab",
+            "--no-claude-desktop",
+            "--target", str(target),
+        ])
+        assert rc == 0
+        # Force / EMG / MRS CSVs landed.
+        assert (target / "force" / "S001_force.csv").is_file()
+        assert (target / "force" / "S016_force.csv").is_file()
+        assert (target / "emg" / "S001_emg.csv").is_file()
+        assert (target / "mrs" / "S001_mrs.csv").is_file()
+        # Sidecars landed.
+        assert (target / "force" / "metadata.json").is_file()
+        assert (target / "emg" / "metadata.json").is_file()
+        assert (target / "mrs" / "metadata.json").is_file()
+        # Seed moment landed.
+        assert (
+            target / "vault" / "moments"
+            / "2026-04-20-s004-emg-force-decoupling-suspected.md"
+        ).is_file()
+        # Configuration + index landed.
+        assert (target / "user_config.json").is_file()
+        assert (target / "data" / "vault.db").is_file()
+
+    def test_user_config_has_absolute_paths_pointing_at_target(
+        self, tmp_path: Path,
+    ):
+        target = tmp_path / "tour"
+        main([
+            "--variant=hip-lab", "--no-claude-desktop",
+            "--target", str(target),
+        ])
+        # _resolve_target canonicalises via expanduser+resolve, so the
+        # written paths reflect the canonicalised form (matters on macOS
+        # where /var/folders symlinks to /private/var/folders).
+        resolved = target.expanduser().resolve()
+        cfg = json.loads(
+            (resolved / "user_config.json").read_text(encoding="utf-8")
+        )
+        # Force_csv / emg_csv child registration depends on this exact shape.
+        assert cfg["force_csv"]["path"] == str(resolved / "force")
+        assert cfg["force_csv"]["timestamp_column"] == "t_s"
+        assert cfg["force_csv"]["sample_rate_hz"] == 100.0
+        assert cfg["force_csv"]["value_columns"] == {"force": "force_N"}
+        assert cfg["emg_csv"]["path"] == str(resolved / "emg")
+        assert cfg["emg_csv"]["value_columns"] == {"envelope": "envelope_uV"}
+        assert cfg["vault_path"] == str(resolved / "vault")
+
+    def test_vault_index_has_seed_moment(self, tmp_path: Path):
+        target = tmp_path / "tour"
+        main([
+            "--variant=hip-lab", "--no-claude-desktop",
+            "--target", str(target),
+        ])
+        from biosensor_mcp.framework.vault.storage import VaultStorage
+        storage = VaultStorage(target / "data" / "vault.db")
+        try:
+            notes = storage.list_notes(subject_id="S004")
+            s004_moments = [
+                n for n in notes
+                if "s004" in (n.get("filename") or "").lower()
+                and n.get("note_type") == "moment"
+            ]
+            assert len(s004_moments) >= 1
+        finally:
+            storage.close()
+
+    def test_idempotent_rerun(self, tmp_path: Path):
+        target = tmp_path / "tour"
+        rc1 = main([
+            "--variant=hip-lab", "--no-claude-desktop",
+            "--target", str(target),
+        ])
+        assert rc1 == 0
+        rc2 = main([
+            "--variant=hip-lab", "--no-claude-desktop",
+            "--target", str(target),
+        ])
+        # Second run "refreshes" the existing tour — no error, no clobber.
+        assert rc2 == 0
+        assert (target / "user_config.json").is_file()
+
+    def test_non_empty_non_tour_target_errors_without_force(
+        self, tmp_path: Path, capsys,
+    ):
+        """Scaffolder refuses to clobber a directory that wasn't a prior
+        tour scaffold (no user_config.json present)."""
+        target = tmp_path / "tour"
+        target.mkdir()
+        (target / "stranger_file.txt").write_text(
+            "don't clobber me", encoding="utf-8",
+        )
+        rc = main([
+            "--variant=hip-lab", "--no-claude-desktop",
+            "--target", str(target),
+        ])
+        assert rc != 0
+        # Stranger file untouched.
+        assert (target / "stranger_file.txt").read_text(
+            encoding="utf-8",
+        ) == "don't clobber me"
+
+    def test_force_overrides_non_tour_target_guard(self, tmp_path: Path):
+        target = tmp_path / "tour"
+        target.mkdir()
+        (target / "stranger_file.txt").write_text("clobber me", encoding="utf-8")
+        rc = main([
+            "--variant=hip-lab", "--no-claude-desktop", "--force",
+            "--target", str(target),
+        ])
+        assert rc == 0
+        # Tour fixtures scaffolded successfully past the guard.
+        assert (target / "force" / "S001_force.csv").is_file()
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Claude Desktop registration — auditor blocker #1 fix is load-bearing.
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestClaudeDesktopRegistration:
+
+    def test_writes_entry_with_baked_env_vars(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    ):
+        """The Claude Desktop entry must carry BIOSENSOR_CONFIG_DIR and
+        BIOSENSOR_DATA_DIR in the env block — this is the entire reason
+        the recipient never types an env var by hand. If this regresses,
+        ``biosensor-mcp serve`` reads the operator's real config (or
+        none) instead of the demo, and the recipient sees no tools."""
+        fake_config = tmp_path / "claude_desktop_config.json"
+        monkeypatch.setattr(
+            "biosensor_mcp.tour._claude_desktop_config_path",
+            lambda: fake_config,
+        )
+        target = tmp_path / "tour"
+        rc = main(["--variant=hip-lab", "--target", str(target)])
+        assert rc == 0
+        assert fake_config.exists()
+        cfg = json.loads(fake_config.read_text(encoding="utf-8"))
+        entry = cfg["mcpServers"]["biosensor-tour-hip-lab"]
+        resolved = target.expanduser().resolve()
+        assert entry["env"]["BIOSENSOR_CONFIG_DIR"] == str(resolved)
+        assert entry["env"]["BIOSENSOR_DATA_DIR"] == str(resolved / "data")
+        assert entry["args"] == ["-m", "biosensor_mcp", "serve"]
+
+    def test_preserves_sibling_mcp_servers_on_merge(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    ):
+        """Inherited from pilot.py's v6.2.1 deep-merge — sibling servers
+        in the recipient's pre-existing config must survive."""
+        fake_config = tmp_path / "claude_desktop_config.json"
+        fake_config.write_text(json.dumps({
+            "mcpServers": {
+                "some-other-server": {"command": "foo", "args": []},
+            },
+        }), encoding="utf-8")
+        monkeypatch.setattr(
+            "biosensor_mcp.tour._claude_desktop_config_path",
+            lambda: fake_config,
+        )
+        target = tmp_path / "tour"
+        main(["--variant=hip-lab", "--target", str(target)])
+        cfg = json.loads(fake_config.read_text(encoding="utf-8"))
+        assert "some-other-server" in cfg["mcpServers"]
+        assert "biosensor-tour-hip-lab" in cfg["mcpServers"]
+
+    def test_no_claude_desktop_flag_skips_write(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    ):
+        fake_config = tmp_path / "claude_desktop_config.json"
+        monkeypatch.setattr(
+            "biosensor_mcp.tour._claude_desktop_config_path",
+            lambda: fake_config,
+        )
+        target = tmp_path / "tour"
+        main([
+            "--variant=hip-lab", "--no-claude-desktop",
+            "--target", str(target),
+        ])
+        assert not fake_config.exists()
+
+    def test_linux_no_op_when_config_path_is_none(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    ):
+        """On Linux ``_claude_desktop_config_path`` returns None — the
+        scaffolder must complete cleanly without raising."""
+        monkeypatch.setattr(
+            "biosensor_mcp.tour._claude_desktop_config_path",
+            lambda: None,
+        )
+        target = tmp_path / "tour"
+        rc = main(["--variant=hip-lab", "--target", str(target)])
+        assert rc == 0
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Variant table + target resolution.
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestVariantTable:
+
+    def test_default_variant_in_variants(self):
+        assert DEFAULT_VARIANT in VARIANTS
+
+    def test_default_variant_is_hip_lab(self):
+        # Named explicitly so a future variant addition that accidentally
+        # changes the default is caught here.
+        assert DEFAULT_VARIANT == "hip-lab"
+
+    def test_resolve_target_default_lives_under_biosensor_demos(self):
+        path = _resolve_target("hip-lab", None)
+        assert path.name == "hip-lab"
+        assert path.parent.name == "demos"
+        assert ".biosensor-mcp" in str(path)
+
+    def test_resolve_target_honors_override(self, tmp_path: Path):
+        path = _resolve_target("hip-lab", str(tmp_path / "custom"))
+        assert path.resolve() == (tmp_path / "custom").resolve()
+
+    def test_write_user_config_rejects_unknown_variant(self, tmp_path: Path):
+        """Defensive raise on `_write_user_config` — guards future
+        variants added to ``_VARIANT_FIXTURES`` that forget to wire a
+        ``user_config`` builder branch. The argparse layer keeps real
+        users from triggering this (``choices=VARIANTS``); the guard
+        catches programmatic callers."""
+        from biosensor_mcp.tour import _write_user_config
+        with pytest.raises(ValueError, match="unknown variant"):
+            _write_user_config("nonexistent-variant", tmp_path)

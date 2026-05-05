@@ -1,5 +1,48 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.9.0 (2026-05-04)** — Wheel-distributed `tour` subcommand + bundled
+> HIP Lab realistic fixtures per [ADR 0024](docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md).
+> New `biosensor-mcp tour` CLI subcommand at `src/biosensor_mcp/tour.py`
+> scaffolds the HIP Lab realistic demo from bundled wheel fixtures into
+> `~/.biosensor-mcp/demos/hip-lab/`, copies bundled fixtures via
+> `importlib.resources`, writes `user_config.json` with absolute paths,
+> indexes the seed vault moment, and writes (or merges with) the
+> recipient's Claude Desktop config — recipient never types an env var.
+> Flags: `--variant`, `--target`, `--no-claude-desktop`, `--force`.
+> Inherits `pilot.py`'s v6.2.1 atomic-write + BOM round-trip +
+> deep-merge hardenings explicitly. Bundled fixtures: the HIP Lab
+> realistic demo's 48 CSVs + 3 `metadata.json` sidecars + 1 seed vault
+> moment migrate from `examples/hip_lab_demo/realistic/` to
+> `src/biosensor_mcp/_fixtures/hip_lab_demo_realistic/`; `pyproject.toml`
+> package-data globs extend to `_fixtures/**/*.csv`,
+> `_fixtures/**/*.json`, `_fixtures/**/*.md`. Distribution model:
+> pre-built wheel via Drive/email; no PyPI publish; repo stays private.
+> ADR 0024 codifies the synthetic-by-construction precondition —
+> bundling under this pattern is permitted only for bytes that are
+> synthetic by construction; real or de-identified-real cohort data
+> require a superseding ADR. Wheel-size budget 10 MB; actual 1.26 MB.
+> `examples/hip_lab_demo/realistic/setup.py` preserved as a thin shim
+> delegating to `tour_main()`; `rehearse.py` rewritten to scaffold a
+> fresh tour into a temp dir and run end-to-end checks against the
+> recipient code path. `README.md`, `CUE_CARD.md`, `WINDOWS_QUICKSTART.md`
+> updated; WINDOWS_QUICKSTART becomes a fully wheel-driven recipient guide.
+> Deferred: legacy `demo` → `verify` rename (ROADMAP — `demo` is operator
+> self-verification, `tour` is audience walkthrough; verb mismatch corrected
+> next pass). 7-agent release pass: ci-gate-runner SHIPPABLE (818/818
+> pytest, ruff clean, 76/76 probe, CLI smoke PASS); mcp-protocol-auditor
+> PROTOCOL OK (wire surface 49 tools; 3 new subprocess regression tests);
+> reproducibility-provenance-auditor CLEAN (all 4 invariants HOLD);
+> researcher-utility-reviewer ALIGNED (PI + IRB = LOAD-BEARING medium;
+> analyst = NEUTRAL); phi-irb-risk-reviewer WATCH → CLOSED (ADR 0024
+> § "Synthetic-by-construction precondition" added before ship);
+> coverage-criticality-mapper REVIEW not REGRESSION (one uncovered HIGH
+> line closed, one tracked for next hygiene pass); red-team-reviewer NO
+> OBJECTION FOUND. 23 new tests (20 in `test_tour_subcommand.py` + 3
+> subprocess in `test_serve_mcp_protocol.py`). Total tool surface: 49
+> (tour subcommand is absent from `tools/list` — CLI only, not MCP).
+> No router/security/child/vault-layer/audit architecture changes.
+> Public API additions only — no breaking changes; SemVer minor bump.
+>
 > **v6.8.1 (2026-05-03)** — C3 peak-tie systematic bias fix on CSV
 > cohort tools. `time_to_50pct_drop_s` and `peak_index` in
 > `CSVProcessing` now reference the LAST sample at peak value rather

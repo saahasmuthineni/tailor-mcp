@@ -12,58 +12,53 @@ on shared `subject_id` per ADR 0009, all logged to one `audit.db`
 per ADR 0001.  The demo argument: *each modality is its own
 ChildMCP; framework infrastructure already composes them.*
 
+As of v6.9.0 (per [ADR 0024](../../../docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md))
+the demo's fixtures live in the package's bundled-fixtures tree
+(`src/biosensor_mcp/_fixtures/hip_lab_demo_realistic/`) and ship
+inside the wheel.  A non-technical recipient (PI, family member,
+collaborator at another institution) can run the entire walkthrough
+from a pre-built wheel sent via Drive or email — no GitHub access,
+no source clone, no env-var-by-hand.  See
+[WINDOWS_QUICKSTART.md](WINDOWS_QUICKSTART.md) for that path.
+
 ---
 
-## TL;DR
+## TL;DR (in-repo developer)
 
 ```bash
-# One command sets up everything
-python examples/hip_lab_demo/realistic/setup.py
-
-# Non-interactive end-to-end check (no Claude in the loop)
+# Non-interactive end-to-end check (no Claude in the loop).
+# Scaffolds a fresh tour into a temp dir and asserts the bridge
+# numbers; cleans up on exit.
 python examples/hip_lab_demo/realistic/rehearse.py
 
-# Start the server pointed at the demo config
-BIOSENSOR_CONFIG_DIR=examples/hip_lab_demo/realistic biosensor-mcp serve
+# Live demo path: scaffold + register with Claude Desktop in one shot.
+biosensor-mcp tour
 ```
 
-That's it for setup.  Then walk Senefeld through the
+Then walk Senefeld through the
 [**Walkthrough script**](#walkthrough-script-meeting-time-510-min)
 below — or for live use, print [`CUE_CARD.md`](CUE_CARD.md), which
 collapses the walkthrough to one page.
+
+To regenerate the bundled fixtures after a `generate.py` change:
+
+```bash
+python examples/hip_lab_demo/realistic/generate.py
+```
+
+`generate.py` writes directly into the package's
+`_fixtures/hip_lab_demo_realistic/` tree, so the next
+`biosensor-mcp tour` (or `pip install`-built wheel) picks up the
+regenerated fixtures with no further plumbing.
 
 ---
 
 ## Pre-meeting setup (do BEFORE the meeting — 5 min)
 
-Run this once on the laptop you'll demo from.  Idempotent, safe to
+Run this once on the laptop you'll demo from. Idempotent, safe to
 re-run.
 
-### 1. Generate the fixture + write user_config + seed the vault
-
-```bash
-python examples/hip_lab_demo/realistic/setup.py
-```
-
-Output should end with `Done. Next: BIOSENSOR_CONFIG_DIR=… biosensor-mcp serve`.
-
-What this does, step by step:
-
-- `(1/4)` Regenerates 16 subjects × 3 modalities (force, EMG, MRS
-  stub) under `force/`, `emg/`, `mrs/`.  Seeded
-  `random.Random(20260504)` per ADR 0008 — deterministic across
-  re-runs.
-- `(2/4)` Writes `user_config.json` with absolute paths to this
-  directory's force/, emg/, vault/.  This is what the framework
-  reads at server startup.
-- `(3/4)` Lays down a pre-existing vault moment dated 2026-04-20
-  ("two weeks earlier") at
-  `vault/moments/2026-04-20-s004-emg-force-decoupling-suspected.md`
-  — this is the cross-session-memory wow moment.
-- `(4/4)` Indexes the vault into `data/vault.db` so `vault_search_notes`
-  finds it on first call.
-
-### 2. Rehearse end-to-end (no Claude in the loop)
+### 1. Rehearse end-to-end (no Claude in the loop)
 
 ```bash
 python examples/hip_lab_demo/realistic/rehearse.py
@@ -71,58 +66,55 @@ python examples/hip_lab_demo/realistic/rehearse.py
 
 Calls each tool the walkthrough exercises and prints PASS / FAIL
 per assertion — most importantly the *bridge number* (S004's
-`peak_envelope_window_mean` for S004 should land around 238 µV to
-match the prior vault note's "around 240 µV").  Exit code 0 = demo
-is rehearsal-
-ready; non-zero = at least one number drifted from `CUE_CARD.md`'s
-expected ranges, identifying the failure before the meeting rather
-than during.
+`peak_envelope_window_mean` should land around 238 µV to match the
+prior vault note's "around 240 µV").  Exit code 0 = demo is
+rehearsal-ready; non-zero = at least one number drifted from
+[`CUE_CARD.md`](CUE_CARD.md)'s expected ranges, identifying the
+failure before the meeting rather than during.
 
-Run this every time `generate.py`, `setup.py`, or the seed moment
-is changed.
+Rehearse scaffolds its own temp tour and tears it down on exit, so
+your `~/.biosensor-mcp/` directory stays untouched. Re-run any time
+`generate.py`, the seed moment, or the tour module changes.
 
-### 3. Wire up Claude Desktop
+### 2. Scaffold the live tour and register with Claude Desktop
 
-Open Claude Desktop's config file:
-
-- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-
-Add this entry under `mcpServers` (replace `<absolute-path-to-repo>`):
-
-```json
-{
-  "mcpServers": {
-    "biosensor-mcp-hip-lab-demo": {
-      "command": "python",
-      "args": ["-m", "biosensor_mcp", "serve"],
-      "env": {
-        "BIOSENSOR_CONFIG_DIR": "<absolute-path-to-repo>/examples/hip_lab_demo/realistic",
-        "BIOSENSOR_DATA_DIR":   "<absolute-path-to-repo>/examples/hip_lab_demo/realistic/data"
-      }
-    }
-  }
-}
+```bash
+biosensor-mcp tour
 ```
 
-The `BIOSENSOR_CONFIG_DIR` env var isolates the demo from the
-operator's real `~/.biosensor-mcp/user_config.json` — no clobber.
+This one command:
 
-Restart Claude Desktop after editing the config.
+- Copies bundled fixtures into `~/.biosensor-mcp/demos/hip-lab/`
+- Writes `user_config.json` with absolute paths
+- Indexes the seed vault moment into `data/vault.db`
+- **Writes a Claude Desktop entry that bakes
+  `BIOSENSOR_CONFIG_DIR` and `BIOSENSOR_DATA_DIR` into the
+  `env` block** — the recipient never types an env var by hand
 
-### 4. Verify it loaded in Claude Desktop
+Output ends with a "Tour scaffolded successfully" banner naming
+the target dir, the Claude Desktop config path, and the entry
+name (`biosensor-tour-hip-lab`).
+
+Pass `--force` to refresh after a regen of the bundled fixtures.
+Pass `--no-claude-desktop` for headless / CI use.
+
+### 3. Restart Claude Desktop
+
+Fully quit (system-tray → Quit on Windows; ⌘Q on macOS), then
+re-open. The new MCP server appears under the entry name above.
+
+### 4. Verify it loaded
 
 In a fresh Claude Desktop chat, type:
 
 > *"List the available biosensor MCP tools."*
 
 You should see ~55 tools across `force_csv`, `emg_csv`, `vault_*`,
-`strava_*` (Strava is the worked-example child; it loads but its
-tools error without OAuth — ignore for this demo), and
-`ask_local_oracle`.
+`strava_*` (Strava is the worked-example child; loads but errors
+without OAuth — ignore for this demo), and `ask_local_oracle`.
 
-If the count is missing one of `force_csv` / `emg_csv`, check the
-`user_config.json` has both blocks (`force_csv` and `emg_csv`).
+If `force_csv` or `emg_csv` is missing, run `biosensor-mcp tour
+--force` to rewrite the user_config and restart Claude Desktop.
 
 ---
 
@@ -251,7 +243,7 @@ Claude can answer from its session memory or via a status-style
 inspection.  Or open the audit DB directly:
 
 ```bash
-sqlite3 examples/hip_lab_demo/realistic/data/audit.db \
+sqlite3 ~/.biosensor-mcp/demos/hip-lab/data/audit.db \
   "SELECT tool_name, subject_id, called_at FROM audit_log ORDER BY id DESC LIMIT 10;"
 ```
 
@@ -288,9 +280,9 @@ their data was used for."*
 
 | What breaks | What to do |
 |---|---|
-| Claude Desktop doesn't see the tools | Restart Claude Desktop.  Verify the snippet has correct absolute paths.  Run `biosensor-mcp status` in a terminal to check config dir is found. |
-| `force_csv` returns "directory not found" | Re-run `python examples/hip_lab_demo/realistic/setup.py` — re-writes user_config.json with current absolute paths. |
-| Vault search returns nothing | The vault.db wasn't indexed — re-run setup.py step (4/4) by re-running the whole script.  The seed moment file is at `vault/moments/2026-04-20-s004-emg-force-decoupling-suspected.md` if you want to confirm it exists. |
+| Claude Desktop doesn't see the tools | Restart Claude Desktop fully (system-tray Quit, then re-open). If still missing, run `biosensor-mcp tour --force` and restart again. |
+| `force_csv` returns "directory not found" | Re-run `biosensor-mcp tour --force` — re-writes user_config.json with current absolute paths. |
+| Vault search returns nothing | The vault.db wasn't indexed — `biosensor-mcp tour --force` re-runs the indexing step. The seed moment file lives at `~/.biosensor-mcp/demos/hip-lab/vault/moments/2026-04-20-s004-emg-force-decoupling-suspected.md` if you want to confirm it exists. |
 | `force_summary.decline_pct` returns null | Known limitation — use `peak` and `mvc_window_mean_250ms` instead.  Don't acknowledge this gap proactively; if Senefeld asks, see [Pre-armed answers](#pre-armed-answers-if-senefeld-asks) below. |
 | You can't remember what to say | Read the **Walkthrough script** above straight off the page — every step has a "what to point out" line. |
 
@@ -361,7 +353,8 @@ Claude can be terse, skip a tool call, hallucinate a number, or
 reach for the wrong tool.  None of those are framework defects —
 they're prompt-cadence issues.  Each row below is a prompt you can
 paste verbatim to recover, no improvisation needed.  These also
-appear (one-line summaries) in `CUE_CARD.md` for live use.
+appear (one-line summaries) in [`CUE_CARD.md`](CUE_CARD.md) for
+live use.
 
 ### Symptom: Claude answered without calling a tool
 
@@ -420,22 +413,29 @@ literal string, so this breaks the wow moment.
 ### Symptom: Vault search returns nothing
 
 This is an operator action, not a Claude prompt — `vault.db`
-wasn't indexed when `setup.py` ran.  Exit the chat, re-run
-`python setup.py` (the (4/4) step indexes the vault), restart the
-demo from step 1.
+wasn't indexed when the tour scaffolded.  Exit the chat, run
+`biosensor-mcp tour --force`, restart the demo from step 1.
 
 ---
 
 ## What's here
 
 ```
-realistic/
+examples/hip_lab_demo/realistic/        # Dev-side scaffolding
   generate.py             Seeded synthetic generator (random.Random(20260504))
-  setup.py                One-shot scaffolder (this file's TL;DR command)
-  rehearse.py             Non-interactive end-to-end check (run before the meeting)
-  README.md               This file (full walkthrough + pre-armed answers + Claude weather)
+                          — writes into the package's bundled-fixtures
+                          tree (see below), not into this directory
+  rehearse.py             Non-interactive end-to-end check; scaffolds a
+                          fresh tour into a temp dir and asserts bridge
+                          numbers
+  README.md               This file
   CUE_CARD.md             One-page printable cue card for live use
-  user_config.json        Written by setup.py (gitignored — has absolute paths)
+  WINDOWS_QUICKSTART.md   Standalone Windows quickstart for non-technical
+                          recipients (mom, Senefeld) — wheel-install path
+
+src/biosensor_mcp/_fixtures/hip_lab_demo_realistic/   # Bundled fixtures
+                                                       # (ship in the wheel
+                                                       # per ADR 0024)
   force/                  Load-cell force traces, 100 Hz × 60 s
     metadata.json         ADR 0015 sidecar (subject_id, sex, group, baseline_mvc_N)
     S001_force.csv … S016_force.csv
@@ -445,12 +445,11 @@ realistic/
   mrs/                    31P-MRS PCr/Pi stub, 0.05 Hz × 60 s
     metadata.json         ADR 0015 sidecar (subject_id, sex, group, modality)
     S001_mrs.csv … S016_mrs.csv
-  vault/                  Pre-seeded analytical vault
-    moments/2026-04-20-s004-emg-force-decoupling-suspected.md
-  data/                   Server runtime data (vault.db, audit.db) — gitignored
+  vault/moments/          Pre-seeded analytical vault
+    2026-04-20-s004-emg-force-decoupling-suspected.md
 ```
 
-**Total committed:** 48 CSVs + 3 sidecars + 1 seed moment ≈ 3 MB.
+**Total bundled in wheel:** 48 CSVs + 3 sidecars + 1 seed moment ≈ 3 MB.
 
 ## Subject composition
 
@@ -467,11 +466,13 @@ realistic/
 
 ## Reproducibility
 
-Every CSV in this directory regenerates from `generate.py` —
-`random.Random(20260504)` is the seed, re-running overwrites all
-48 files deterministically.  Per ADR 0008 the seeded-PRNG-off-the-
-analytical-path exception applies via the
-`examples/**/generate.py` glob.
+Every CSV under `_fixtures/hip_lab_demo_realistic/` regenerates
+deterministically from `generate.py` — `random.Random(20260504)`
+is the seed; re-running overwrites all 48 files in place.  Per
+ADR 0008 the seeded-PRNG-off-the-analytical-path exception applies
+via the `examples/**/generate.py` glob — generators stay out of
+the wheel; only their generated artifacts ship (codified in
+[ADR 0024](../../../docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md)).
 
 ## Status
 

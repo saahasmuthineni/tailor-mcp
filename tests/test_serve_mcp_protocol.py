@@ -1477,3 +1477,95 @@ def test_tools_list_no_json_rpc_error_after_description_expansion() -> None:
             f"expansion — it may have been silently dropped on registration. "
             f"Tool count: {len(tools)}"
         )
+
+
+# ──────────────────────────────────────────────────────────────────
+# v6.9.0 regression tests — tour subcommand isolation
+# ──────────────────────────────────────────────────────────────────
+
+
+def test_v690_tour_subcommand_not_exposed_as_mcp_tool() -> None:
+    """V690-T1: the new ``biosensor-mcp tour`` CLI subcommand must not
+    appear as an MCP tool in tools/list.
+
+    Adjacent risk: the v6.9.0 dispatch-table addition in ``__main__.py``
+    (``"tour": cmd_tour``) could in theory leak into the router's tool
+    registry if ``cmd_tour`` were called at import time or if the
+    dispatch table were iterated by a tool-registration path.
+
+    This test drives tools/list end-to-end and asserts no ``tour``-named
+    or ``cmd_tour``-named entry is present. It is the subprocess-level
+    regression for the startup-isolation invariant.
+    """
+    with spawn_server() as (client, _paths):
+        client.initialize()
+        resp = client.list_tools()
+        assert "error" not in resp, f"tools/list error: {resp}"
+        names = {t["name"] for t in resp["result"]["tools"]}
+        assert "tour" not in names, (
+            "tour appeared as an MCP tool — cmd_tour dispatch leaked into "
+            "the router's tool registry."
+        )
+        assert "cmd_tour" not in names, (
+            "cmd_tour appeared as an MCP tool — dispatch table iterated "
+            "by tool-registration path."
+        )
+        # No repr artifacts from the new dispatch entry.
+        assert_no_repr_artifacts(json.dumps(resp))
+
+
+def test_v690_tool_count_unchanged_at_49() -> None:
+    """V690-T2: tools/list count is 49 with full config loaded (unchanged
+    from v6.8.x — tour adds no new MCP tools).
+
+    Expected composition (full config: running + csv_dir + vault + local_llm):
+      25 vault + 12 running + 7 csv_dir + 1 ask_local_oracle
+      + 4 auto-generated consent tools (approve/revoke × running/csv_dir)
+      = 49
+
+    If this count changes, it means a tool was added or removed without
+    a corresponding CLAUDE.md tool-surface update. The template child is
+    not registered in the test config (opt-in requires explicit config key),
+    so its 3 tools are excluded from the wire count.
+    """
+    with spawn_server() as (client, _paths):
+        client.initialize()
+        resp = client.list_tools()
+        assert "error" not in resp, f"tools/list error: {resp}"
+        tools = resp["result"]["tools"]
+        n = len(tools)
+        assert n == 49, (
+            f"tools/list count changed: expected 49, got {n}. "
+            f"If a new tool was added, update CLAUDE.md tool-surface table "
+            f"and change this assertion to the new expected count. "
+            f"Current tools: {sorted(t['name'] for t in tools)}"
+        )
+
+
+def test_v690_serve_startup_meta_version_stamp() -> None:
+    """V690-T3: a Tier-1 tool call returns _meta.package_version == '6.9.0'.
+
+    This is the end-to-end version-stamp regression: the version in
+    ``__init__.py`` must propagate through the router's _meta block to
+    the wire payload. A mismatch here means the installed package and
+    the running code are out of sync.
+    """
+    from biosensor_mcp import __version__
+
+    with spawn_server() as (client, _paths):
+        client.initialize()
+        resp = client.call_tool("csv_list_files", {})
+        assert "error" not in resp
+        text = extract_text_result(resp)
+        assert_no_repr_artifacts(text)
+        body = json.loads(text)
+        assert "_meta" in body
+        meta = body["_meta"]
+        assert meta["package_version"] == __version__, (
+            f"_meta.package_version {meta['package_version']!r} != "
+            f"__version__ {__version__!r} — version bump not wired through."
+        )
+        assert meta["package_version"] == "6.9.0", (
+            f"Expected 6.9.0, got {meta['package_version']!r}. "
+            f"If this is intentional, update the assertion."
+        )

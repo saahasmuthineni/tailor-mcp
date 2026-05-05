@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "biosensor-mcp"
-version = "6.8.1"
+version = "6.9.0"
 description = "MCP middleware framework for piping high-frequency biosensor data into LLM context windows — server-side analytics, consent gates, cost gates, audit log"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -48,7 +48,18 @@ biosensor-mcp = "biosensor_mcp.__main__:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-biosensor_mcp = ["py.typed", "_fixtures/**/*.csv"]
+# CSV fixtures: multi_subject_pilot smoke fixtures + hip_lab_demo_realistic
+#   tour fixtures (per ADR 0024 — generated artifacts ship; the
+#   examples/**/generate.py generators do not).
+# JSON fixtures: ADR 0015 metadata.json sidecars on each modality dir.
+# MD fixtures: pre-seeded vault moments (e.g. the 2026-04-20 S004
+#   cross-session-memory seed for the HIP-Lab tour wow moment).
+biosensor_mcp = [
+    "py.typed",
+    "_fixtures/**/*.csv",
+    "_fixtures/**/*.json",
+    "_fixtures/**/*.md",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

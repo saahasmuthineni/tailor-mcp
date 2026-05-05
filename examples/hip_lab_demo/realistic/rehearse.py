@@ -1,35 +1,38 @@
 """
-rehearse.py — non-interactive end-to-end check of the HIP Lab demo
+rehearse.py — non-interactive end-to-end check of the HIP Lab tour
 realistic walkthrough.
 
-Calls each tool the demo's 7-step walkthrough exercises, prints the
-key numbers, and checks them against the expected ranges from
-CUE_CARD.md.  Designed to run BEFORE the meeting, on the demo
-laptop, with no Claude in the loop:
+Scaffolds a fresh tour into a temp directory, calls each tool the
+walkthrough exercises, asserts the bridge numbers and the
+cross-session-memory invariant, and exits 0 on green. No state
+lands outside the temp dir — the dev's ~/.biosensor-mcp/ is
+untouched.
 
+Usage:
     python examples/hip_lab_demo/realistic/rehearse.py
 
-Exit code 0 = every check green, demo is rehearsal-ready.  Non-zero
-= at least one check failed; the failure mode is identified before
-the meeting, not during.
-
-Per-child execute() bypasses the router (no consent/cost/audit), so
-this rehearsal exercises the analytical correctness of each tool —
-the same numbers Claude will see when it calls the same tools at
-meeting time.  Audit-log behaviour (step 6 of the walkthrough) is
-verified in the live demo, not here.
+Exit code 0 = every check green, the tour is rehearsal-ready.
+Non-zero = at least one check failed; the failure mode is named
+on the FAIL line(s) above the summary.
 
 The bridge between step 4 (fresh emg_envelope_summary on S004) and
 step 5 (vault search surfacing the prior 2026-04-20 moment) is on
-PEAK AMPLITUDE (~238 µV vs the seed moment's "around 240 µV"),
-NOT on fatigue_index_pct.  The 2026-05-04 sanity check found that
-S004's fatigue_index_pct sits at the cohort median — a fatigue
-physiologist would catch any "this is unusually steep" framing.
-The fixture's deliberate signal is amplitude elevation; the bridge
-must point at it.  Step 4b enforces the cohort-relativity claim
-(S004 strictly above all other female peaks, ratio >= 1.20 vs the
-other-female mean) so that future drift in generate.py can't
-silently flatten the demo's wow.
+PEAK AMPLITUDE (~238 µV vs the seed moment's "around 240 µV"), NOT
+on fatigue_index_pct. The 2026-05-04 sanity check found that S004's
+fatigue_index_pct sits at the cohort median — a fatigue physiologist
+would catch any "this is unusually steep" framing. The fixture's
+deliberate signal is amplitude elevation; the bridge must point at
+it. Step 4b enforces the cohort-relativity claim (S004 strictly
+above all other female peaks, ratio >= 1.20 vs the other-female
+mean) so future drift in generate.py can't silently flatten the
+demo's wow.
+
+Per ADR 0024 the tour fixtures live in the bundled package tree
+(``src/biosensor_mcp/_fixtures/hip_lab_demo_realistic/``); this
+script scaffolds them into a temp dir via ``biosensor_mcp.tour``
+the same way mom or Senefeld would in a real install. That makes
+the rehearsal exercise the *recipient* code path, not a
+back-channel.
 """
 
 from __future__ import annotations
@@ -37,20 +40,18 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+import tempfile
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 # Reconfigure stdout/stderr to UTF-8 so the rehearsal output renders
 # the same on cp1252 Windows terminals (the default demo-laptop
-# situation) as it does on macOS/Linux.  Without this, em-dashes and
+# situation) as it does on macOS/Linux. Without this, em-dashes and
 # inequality glyphs can either crash the encoder or render as `?`.
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-
-HERE = Path(__file__).parent.resolve()
-DATA_DIR = HERE / "data"
-CONFIG_DIR = HERE  # user_config.json lives next to this file
 
 
 def _check(
@@ -72,33 +73,28 @@ def _section(title: str) -> None:
     print(f"[{title}]")
 
 
-async def main() -> int:
-    if not (HERE / "user_config.json").exists():
-        print("user_config.json missing — run `python setup.py` first.")
-        return 2
+async def _run_checks(target: Path) -> int:
+    # Match what the live tour does — set env vars so the children's
+    # config.py reads from the temp scaffold rather than the dev's
+    # real ~/.biosensor-mcp/.
+    os.environ["BIOSENSOR_CONFIG_DIR"] = str(target)
+    os.environ["BIOSENSOR_DATA_DIR"] = str(target / "data")
 
-    # Match what the live demo does: BIOSENSOR_CONFIG_DIR isolates
-    # the demo from the operator's real config.
-    os.environ["BIOSENSOR_CONFIG_DIR"] = str(CONFIG_DIR)
-    os.environ["BIOSENSOR_DATA_DIR"] = str(DATA_DIR)
-
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-
-    # Late imports so a missing user_config.json fails fast above
-    # rather than as an obscure import-time error.
+    # Late imports so the tour scaffold (which set up user_config.json)
+    # runs before child config-load.
     from biosensor_mcp.children.emg_csv import EmgCsvChild
     from biosensor_mcp.children.force_csv import ForceCsvChild
     from biosensor_mcp.framework.vault.storage import VaultStorage
 
-    force = ForceCsvChild(CONFIG_DIR, DATA_DIR)
-    emg = EmgCsvChild(CONFIG_DIR, DATA_DIR)
+    force = ForceCsvChild(target, target / "data")
+    emg = EmgCsvChild(target, target / "data")
 
     results: list[bool] = []
 
+    print()
     print("=" * 64)
-    print(" HIP Lab demo — REHEARSAL (realistic variant)")
-    print(f" Config dir: {CONFIG_DIR}")
-    print(f" Data dir:   {DATA_DIR}")
+    print(" HIP Lab tour — REHEARSAL (variant=hip-lab)")
+    print(f" Target dir: {target}")
     print("=" * 64)
 
     # --Step 2 — cohort sex difference ────────────────────────────
@@ -181,13 +177,11 @@ async def main() -> int:
             "220-260 uV (bridges to seed-moment 'around 240 uV')",
         ))
 
-    # Cohort-relativity check: S004's peak must be meaningfully
-    # above the rest of the female cohort.  This catches future
-    # drift in generate.py that might flatten S004's deliberately-
-    # engineered amplitude elevation — without this check, the
-    # demo's wow could silently devolve into "S004 peak == cohort
-    # median" again, which is the failure mode the 2026-05-04
-    # sanity check caught.
+    # Cohort-relativity check: S004's peak must be meaningfully above
+    # the rest of the female cohort. This catches future drift in
+    # generate.py that might flatten S004's deliberately-engineered
+    # amplitude elevation — without this check, the demo's wow could
+    # silently devolve into "S004 peak == cohort median" again.
     _section("Step 4b — female cohort relativity (S004 vs other 7 F subjects)")
     female_ids = ["S001", "S003", "S004", "S006", "S008", "S010", "S013", "S015"]
     other_female_peaks: list[float] = []
@@ -230,7 +224,7 @@ async def main() -> int:
 
     # --Step 5 — vault search surfaces seed moment ────────────────
     _section("Step 5 — vault list_notes subject_id=S004")
-    storage = VaultStorage(DATA_DIR / "vault.db")
+    storage = VaultStorage(target / "data" / "vault.db")
     try:
         notes = storage.list_notes(subject_id="S004")
         s004_moments = [
@@ -246,14 +240,8 @@ async def main() -> int:
             ">= 1 moment file with 'S004' in filename",
         ))
 
-        # Verify the on-disk seed moment file contains the bridge
-        # phrasing.  Bridge is on PEAK AMPLITUDE (~240 uV), not
-        # fatigue index — the 2026-05-04 sanity check showed
-        # fatigue_index_pct is cohort-typical, so claiming it as the
-        # wow signal would be physiologically false.  See
-        # docstring of this script.
         seed_path = (
-            HERE / "vault" / "moments"
+            target / "vault" / "moments"
             / "2026-04-20-s004-emg-force-decoupling-suspected.md"
         )
         if seed_path.exists():
@@ -284,18 +272,6 @@ async def main() -> int:
     finally:
         storage.close()
 
-    # --Step 6 — audit log structural check ───────────────────────
-    _section("Step 6 — audit.db structural check")
-    audit_db = DATA_DIR / "audit.db"
-    print(
-        f"         audit.db {'exists' if audit_db.exists() else 'will be created on first router call'}: "
-        f"{audit_db}"
-    )
-    print(
-        "         (rehearse.py calls children directly, bypassing the router — "
-        "actual audit rows will land during the live walkthrough.)"
-    )
-
     # --Cleanup ───────────────────────────────────────────────────
     force.close()
     emg.close()
@@ -306,7 +282,7 @@ async def main() -> int:
     n_pass = sum(results)
     n_total = len(results)
     if n_pass == n_total:
-        print(f" REHEARSAL: ALL {n_total} CHECKS PASSED — demo is rehearsal-ready.")
+        print(f" REHEARSAL: ALL {n_total} CHECKS PASSED — tour is rehearsal-ready.")
         print(" Open a fresh Claude Desktop chat and walk CUE_CARD.md.")
         return 0
     else:
@@ -314,8 +290,27 @@ async def main() -> int:
             f" REHEARSAL: {n_pass}/{n_total} checks passed — "
             f"{n_total - n_pass} FAIL line(s) above."
         )
-        print(" Fix before the meeting.  See README → Fallback table.")
+        print(" Fix before the meeting. See README -> Fallback table.")
         return 1
+
+
+async def main() -> int:
+    with tempfile.TemporaryDirectory(prefix="biosensor_tour_rehearse_") as tmp:
+        target = Path(tmp) / "hip-lab"
+
+        # Scaffold a fresh tour into the temp dir. --no-claude-desktop
+        # so the dev's Claude Desktop config stays untouched.
+        from biosensor_mcp.tour import main as tour_main
+        rc = tour_main([
+            "--variant=hip-lab",
+            "--no-claude-desktop",
+            "--target", str(target),
+        ])
+        if rc != 0:
+            print(f"tour scaffold failed (rc={rc})")
+            return rc
+
+        return await _run_checks(target)
 
 
 if __name__ == "__main__":

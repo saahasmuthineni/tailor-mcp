@@ -63,9 +63,17 @@ from pathlib import Path
 _RNG = random.Random(20260504)
 
 HERE = Path(__file__).parent
-FORCE_DIR = HERE / "force"
-EMG_DIR = HERE / "emg"
-MRS_DIR = HERE / "mrs"
+# Generated fixtures live in the package's bundled-fixtures tree so they
+# ship inside the wheel. Per ADR 0024 the generator stays out of the
+# wheel (examples/**/generate.py); only the generated CSVs + sidecars
+# vendor in. Re-running this script overwrites the bundled tree.
+PACKAGE_FIXTURES = (
+    HERE.parents[2]
+    / "src" / "biosensor_mcp" / "_fixtures" / "hip_lab_demo_realistic"
+)
+FORCE_DIR = PACKAGE_FIXTURES / "force"
+EMG_DIR = PACKAGE_FIXTURES / "emg"
+MRS_DIR = PACKAGE_FIXTURES / "mrs"
 
 # ─── Protocol parameters ───────────────────────────────────────────
 SAMPLE_RATE_HZ = 100.0           # force + EMG rate
@@ -320,10 +328,14 @@ def main():
     (MRS_DIR / "metadata.json").write_text(
         json.dumps(mrs_metadata, indent=2), encoding="utf-8",
     )
-    print(f"\nWrote 16 subjects x 3 modalities to {HERE}/")
-    print(f"  force/  -> {FORCE_DIR}")
-    print(f"  emg/    -> {EMG_DIR}")
-    print(f"  mrs/    -> {MRS_DIR}")
+    print("\nWrote 16 subjects x 3 modalities into the bundled-fixtures tree")
+    print(f"  package fixtures: {PACKAGE_FIXTURES}")
+    print(f"    force/  -> {FORCE_DIR}")
+    print(f"    emg/    -> {EMG_DIR}")
+    print(f"    mrs/    -> {MRS_DIR}")
+    print()
+    print("Re-running 'biosensor-mcp tour' (or rehearse.py) will pick up")
+    print("the regenerated fixtures from this location.")
 
 
 if __name__ == "__main__":

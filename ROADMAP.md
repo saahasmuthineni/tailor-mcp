@@ -18,12 +18,22 @@ one- or two-sentence pitch plus context; no implementation details.
 | ~~[Worked-example notebook](#worked-example-notebook-against-a-published-analytical-question)~~ *(shipped — [docs/guides/worked-example.ipynb](docs/guides/worked-example.ipynb))* | — | — | — |
 | [LLM-client evaluation harness](#evaluation-harness-for-llm-client-behavior) | M | Medium | Making the governance claim measurable |
 | [CLI UX: rename `setup` → `setup-strava`](#cli-ux-rename-setup--setup-strava) | XS | Low | Disambiguating the two wizards |
+| [CLI UX: rename legacy `demo` → `verify`](#cli-ux-rename-legacy-demo--verify) | XS | Low | Naming the operator-self-verification path correctly alongside `tour` |
 | [Pre-existing csv_dir HIGH-region coverage debt (v6.5.1)](#pre-existing-csv_dir-high-region-coverage-debt-v651) | XS | Low | Cleaner ADR-0014 baseline |
 | ~~[Local-LLM guardian](#local-llm-guardian)~~ *(shipped in v6.6 — see [ADR 0022](docs/adr/0022-local-llm-guardian.md))* | — | — | — |
 | [PHI sidecar-schema validator (deferred)](#phi-sidecar-schema-validator-deferred) | S | High | Stronger IRB-cleared posture for csv_dir |
 
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
+
+## Shipped in v6.9.0 (2026-05-04)
+
+- Wheel-distributed `biosensor-mcp tour` CLI subcommand ([ADR 0024](docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md)). Scaffolds the HIP Lab realistic demo from bundled wheel fixtures into `~/.biosensor-mcp/demos/hip-lab/`; copies 48 CSVs + 3 metadata sidecars + 1 seed vault moment via `importlib.resources`; writes `user_config.json` with absolute paths; merges Claude Desktop config — recipient never types an env var. Flags: `--variant`, `--target`, `--no-claude-desktop`, `--force`. Inherits `pilot.py`'s atomic-write + BOM round-trip + deep-merge hardenings.
+- HIP Lab realistic fixtures bundled into the wheel. Migrated from `examples/hip_lab_demo/realistic/` to `src/biosensor_mcp/_fixtures/hip_lab_demo_realistic/`; `pyproject.toml` package-data globs extended. Distribution: pre-built wheel via Drive/email; no PyPI publish; wheel size 1.26 MB (budget 10 MB).
+- ADR 0024 codifies synthetic-by-construction precondition — bundling permitted only for bytes that are synthetic by construction; real or de-identified cohort data require a superseding ADR.
+- `examples/hip_lab_demo/realistic/setup.py` preserved as thin shim delegating to `tour_main()`; `rehearse.py` rewritten to rehearse the recipient code path against a temp dir; `WINDOWS_QUICKSTART.md` becomes a fully wheel-driven recipient guide.
+- Deferred (named in ROADMAP): legacy `biosensor-mcp demo` → `verify` rename; PyPI publish path when recipient set crosses ~10.
+- 23 new tests (20 `test_tour_subcommand.py` + 3 subprocess `test_serve_mcp_protocol.py`); 818/818 passed. 7-agent release pass clean.
 
 ## Shipped in v6.8.1 (2026-05-03)
 
@@ -574,6 +584,27 @@ README, every quickstart, every notebook reference) exceeds the
 present UX gain — the disambiguation note in `--help` is doing the
 heavy lifting fine for now. Re-evaluate when external doc
 references stabilise or when a third wizard joins the lineup.
+
+## CLI UX: rename legacy `demo` → `verify`
+
+`biosensor-mcp demo` today runs `run_demo` from
+[`src/biosensor_mcp/demo/runner.py`](src/biosensor_mcp/demo/runner.py)
+against the bundled synthetic running-data sample — it prints
+analytics output to the terminal and is structurally an
+*operator self-verification path* ("does my install work?"), not a
+live-audience walkthrough. v6.9.0 added
+[`biosensor-mcp tour`](docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md)
+as the live-audience walkthrough surface. The legacy `demo` should
+rename to `verify` (or `selftest`) so the verb names what it
+actually does and `tour` vs `demo` doesn't read as redundant or
+swappable. Deferred from v6.9.0 because the doc-churn cost (every
+README, CLAUDE.md banner cross-reference, the `coverage.run.omit`
+glob in `pyproject.toml`, possible external docs) exceeds the
+present UX gain — the live-audience surface is already correctly
+named on the `tour` side, and the ADR 0024 cite path makes the
+distinction clear to anyone reading the codebase. Re-evaluate when
+external doc references stabilise or when a third operator-side
+verification utility ships.
 
 ## Pre-existing csv_dir HIGH-region coverage debt (v6.5.1)
 

@@ -63,7 +63,7 @@ If Claude's behaviour drifts, say or paste one of these.  None require admitting
 | Claude hallucinated a number | *"What's the exact number the tool returned?  Read it directly from the tool output."* |
 | Claude reached for `csv_cohort_summary` instead of `force_cohort_summary` | *"Use force_cohort_summary — force_csv is the dedicated child for force data."* |
 | Claude listed S004 as "subject 4" or stripped the prefix | *"The subject_id is the literal string S004 — please use it verbatim in the subject_id parameter."* |
-| Vault search returns nothing | *(operator action — exit chat)* Re-run `python setup.py`; vault.db wasn't indexed. |
+| Vault search returns nothing | *(operator action — exit chat)* Re-run `biosensor-mcp tour --force`; vault.db wasn't indexed. |
 
 ---
 

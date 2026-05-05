@@ -4,9 +4,10 @@ CLI for Biosensor MCP.
 Usage:
     biosensor-mcp serve      # Start MCP server (Claude Desktop calls this)
     biosensor-mcp pilot      # Configure CSV-based multi-subject pilot (start here for the v6.2 use case)
+    biosensor-mcp tour       # Scaffold a live-audience walkthrough (HIP Lab realistic demo by default)
     biosensor-mcp setup      # Run Strava OAuth setup wizard
     biosensor-mcp status     # Diagnostic check
-    biosensor-mcp demo       # Run analytics on synthetic data (no Strava needed)
+    biosensor-mcp demo       # Run analytics on synthetic data (operator self-verification)
     biosensor-mcp uninstall  # Clean removal
 """
 
@@ -265,6 +266,16 @@ def cmd_pilot():
     sys.exit(pilot_main())
 
 
+def cmd_tour():
+    """Scaffold a live-audience walkthrough from bundled fixtures.
+
+    Companion to ``cmd_demo``: ``demo`` is operator self-verification;
+    ``tour`` is the live-audience demo path. See ADR 0024.
+    """
+    from biosensor_mcp.tour import main as tour_main
+    sys.exit(tour_main())
+
+
 def cmd_status():
     """Check configuration and connectivity."""
     print("Biosensor MCP — Status Check")
@@ -443,6 +454,7 @@ def main():
     commands = {
         "serve": cmd_serve,
         "pilot": cmd_pilot,
+        "tour": cmd_tour,
         "setup": cmd_setup,
         "status": cmd_status,
         "demo": cmd_demo,

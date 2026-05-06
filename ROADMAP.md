@@ -26,6 +26,13 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.9.1 (2026-05-06)
+
+- Fixed cohort-handler logical→physical column-alias resolution in `force_csv` and `emg_csv` children. `_handle_cohort_summary` now maps `value_columns` logical alias names to physical CSV header names before metric dispatch, closing the v6.9.0 first-prompt-failure footgun (16 silent `column not found` load_errors when Claude guessed the logical name from operator prose).
+- Registered the 16 bundled 31P-MRS CSVs in the `tour` scaffolding output. The files were bundled in the wheel but `user_config.json` had no `csv_dir` block for `mrs/`; they were unreachable via any tool until this fix.
+- 6 new regression tests: `TestCohortSummaryAliasResolution` (2 tests) in `force_csv` and `emg_csv` shape suites; updated user_config-shape assertion in `test_tour_subcommand.py`.
+- `CUE_CARD.md` sharpened: Variant-C recovery steps clarified; Variant-B rows added for `force_cohort_summary` / `emg_cohort_summary` tools.
+
 ## Shipped in v6.9.0 (2026-05-04)
 
 - Wheel-distributed `biosensor-mcp tour` CLI subcommand ([ADR 0024](docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md)). Scaffolds the HIP Lab realistic demo from bundled wheel fixtures into `~/.biosensor-mcp/demos/hip-lab/`; copies 48 CSVs + 3 metadata sidecars + 1 seed vault moment via `importlib.resources`; writes `user_config.json` with absolute paths; merges Claude Desktop config — recipient never types an env var. Flags: `--variant`, `--target`, `--no-claude-desktop`, `--force`. Inherits `pilot.py`'s atomic-write + BOM round-trip + deep-merge hardenings.

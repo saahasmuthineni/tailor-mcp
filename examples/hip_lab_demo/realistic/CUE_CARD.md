@@ -66,6 +66,7 @@ If Claude's behaviour drifts, say or paste one of these.  None require admitting
 | Same on `emg_cohort_summary` | *"Use `value_column='envelope_uV'` (literal CSV header), not `'envelope'`. Or call `emg_list_files` first."* |
 | Claude listed S004 as "subject 4" or stripped the prefix | *"The subject_id is the literal string S004 — please use it verbatim in the subject_id parameter."* |
 | Vault search returns nothing | *(operator action — exit chat)* Re-run `biosensor-mcp tour --force`; vault.db wasn't indexed. |
+| Tool list shows only `ask_local_oracle` + `strava_list_runs` (no force_*, emg_*, vault_*) | *(v6.9.x recipient footgun — fixed structurally in v6.10.2)* The recipient landed at a bare `biosensor-mcp serve` without scaffolding. Ask Claude to *"call biosensor_setup_help"* — it returns terminal-step instructions. Or skip the chat and run `biosensor-mcp tour` from a terminal, then quit-and-reopen Claude Desktop. |
 
 ---
 

@@ -59,6 +59,11 @@ biosensor_mcp = [
     "_fixtures/**/*.csv",
     "_fixtures/**/*.json",
     "_fixtures/**/*.md",
+    # Top-level recipient docs shipped at the root of the package so an
+    # external Claude session inspecting the wheel zip listing can
+    # discover `biosensor-mcp tour` without parsing source code (closes
+    # the v6.10.2 web-Claude-mediated-debugging discoverability gap).
+    "*.md",
 ]
 
 [tool.pytest.ini_options]

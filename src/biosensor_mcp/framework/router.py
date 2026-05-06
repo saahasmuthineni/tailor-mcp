@@ -101,6 +101,11 @@ class RouterMCP:
         # _framework_layer_owner dict disambiguates vault vs local_llm so
         # _dispatch can route to the right stripped-down pipeline.
         self._local_llm_layer = None
+        # Setup-help layer (framework-level recipient diagnostic; not a
+        # ChildMCP). Registered conditionally by __main__.cmd_serve when
+        # no demo scaffold is present in user_config.json. Same
+        # (None, tool_def) sentinel + _framework_layer_owner pattern.
+        self._setup_help_layer = None
         self._framework_layer_owner: dict[str, str] = {}
 
         # Middleware stack
@@ -233,6 +238,49 @@ class RouterMCP:
             f"with {len(local_llm_layer.tool_definitions)} tools"
         )
 
+    def register_setup_help_layer(self, setup_help_layer) -> None:
+        """
+        Register the framework-level setup-help layer (recipient diagnostic).
+
+        Tools use the same ``(None, tool_def)`` sentinel as vault and
+        local_llm; ``_framework_layer_owner["biosensor_setup_help"]`` is
+        set to ``"setup_help"`` so ``_dispatch`` routes to
+        ``_dispatch_setup_help()`` — a stripped-down pipeline (param
+        validation + execute + audit) that skips consent, cost, circuit
+        breaker, PHI scrub, and post-execute hooks.
+
+        Conditionally registered: only when ``__main__.cmd_serve``
+        detects no ``force_csv`` / ``emg_csv`` / ``csv_dir`` /
+        ``vault_path`` blocks in ``user_config.json``. When the demo
+        scaffold IS installed this layer is never constructed, so the
+        tool does not appear on ``tools/list``.
+        """
+        if self._setup_help_layer is not None:
+            raise ValueError("Setup-help layer already registered")
+
+        self._setup_help_layer = setup_help_layer
+        setup_help_layer._router = self
+
+        for tool_def in setup_help_layer.tool_definitions:
+            if tool_def.name in self._tool_map:
+                existing = self._tool_map[tool_def.name][0]
+                if existing is not None:
+                    existing_domain = existing.domain
+                else:
+                    existing_domain = self._framework_layer_owner.get(
+                        tool_def.name, "framework"
+                    )
+                raise ValueError(
+                    f"Tool '{tool_def.name}' already registered by '{existing_domain}'"
+                )
+            self._tool_map[tool_def.name] = (None, tool_def)
+            self._framework_layer_owner[tool_def.name] = "setup_help"
+
+        log.info(
+            f"Registered setup-help layer with "
+            f"{len(setup_help_layer.tool_definitions)} tools"
+        )
+
     @property
     def registered_domains(self) -> list[str]:
         return list(self._children.keys())
@@ -363,6 +411,10 @@ class RouterMCP:
                 )
             if owner == "local_llm":
                 return await self._dispatch_local_llm(
+                    tool_name, tool_def, arguments, start,
+                )
+            if owner == "setup_help":
+                return await self._dispatch_setup_help(
                     tool_name, tool_def, arguments, start,
                 )
             log.error(
@@ -949,6 +1001,95 @@ class RouterMCP:
             )
             log.error(
                 f"Local-LLM tool {tool_name} failed: {e}", exc_info=True,
+            )
+            return [TextContent(type="text", text=_dumps({"error": str(e)}))]
+
+    async def _dispatch_setup_help(
+        self,
+        tool_name: str,
+        tool_def: ToolDefinition,
+        arguments: dict,
+        start: float,
+    ) -> list[TextContent]:
+        """
+        Dispatch a setup-help-layer tool (recipient diagnostic).
+
+        Stripped-down pipeline:
+
+            param validation -> execute -> audit
+
+        Skipped by design:
+            - Circuit breaker (no external API; static instructions)
+            - Consent gate (no biometric data accessed)
+            - Cost gate (constant-size response, ~500 tokens)
+            - PHI-scrubber seam (no biometric or subject data ever
+              touched; bypass invariant + reversal condition codified
+              in ADR 0012 § "Amendment — v6.10.2")
+            - Post-execute hooks (no vaultable artifacts)
+
+        Audit row uses domain="setup_help"; subject_id is always None
+        because the tool is server-state, not per-subject. The standard
+        framework ``_meta`` block is stamped onto the response so
+        provenance (package_version, called_at, scrubber_id) is uniform
+        with every other dispatch path.
+        """
+        tier = tool_def.tier
+
+        # ── Param validation ──
+        schemas = self._setup_help_layer.param_schemas.get(tool_name, {})
+        ok, err, cleaned = self._validator.validate(schemas, arguments)
+        if not ok:
+            self._audit.record(
+                "setup_help", tool_name, tier, arguments, 0,
+                "PARAM_INVALID", 0,
+                error=err, subject_id=None,
+                scrubber_id=self._phi_scrubber.scrubber_id,
+            )
+            return [TextContent(type="text", text=_dumps({"error": err}))]
+
+        # ── Execute ──
+        try:
+            result = await self._setup_help_layer.execute(tool_name, cleaned)
+            tokens = estimate_tokens(result)
+            duration_ms = int((time.time() - start) * 1000)
+
+            self._ledger.add("setup_help", tool_name, tokens)
+            self._audit.record(
+                "setup_help", tool_name, tier, cleaned, tokens,
+                "SUCCESS", duration_ms,
+                subject_id=None,
+                scrubber_id=self._phi_scrubber.scrubber_id,
+            )
+
+            if isinstance(result, dict):
+                outer_meta: dict = {
+                    "tokens_this_call": tokens,
+                    "session_total_tokens": self._ledger.total,
+                    "domain": "setup_help",
+                    "tier": tier,
+                    "package_version": biosensor_mcp.__version__,
+                    "tool_name": tool_name,
+                    "called_at": datetime.now(timezone.utc).isoformat(),
+                    "scrubber_id": self._phi_scrubber.scrubber_id,
+                }
+                if self._phi_scrubber.scrubber_warning is not None:
+                    outer_meta["scrubber_warning"] = (
+                        self._phi_scrubber.scrubber_warning
+                    )
+                result["_meta"] = outer_meta
+
+            return [TextContent(type="text", text=_dumps(result))]
+
+        except Exception as e:
+            duration_ms = int((time.time() - start) * 1000)
+            self._audit.record(
+                "setup_help", tool_name, tier, cleaned, 0,
+                "ERROR", duration_ms,
+                error=str(e), subject_id=None,
+                scrubber_id=self._phi_scrubber.scrubber_id,
+            )
+            log.error(
+                f"Setup-help tool {tool_name} failed: {e}", exc_info=True,
             )
             return [TextContent(type="text", text=_dumps({"error": str(e)}))]
 

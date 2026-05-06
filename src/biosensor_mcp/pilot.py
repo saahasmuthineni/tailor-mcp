@@ -327,7 +327,7 @@ def _prompt_schema_overrides(detected: CSVSchema) -> CSVSchema:
     print(f"  Timestamp format:  {detected.timestamp_format}")
     print("  Value columns:")
     for key, label in detected.value_columns.items():
-        print(f"    {key:20s} ← {label}")
+        print(f"    {key:20s} <- {label}")
     print(f"  Detection confidence: {detected.confidence}")
     if detected.confidence == "low":
         print("  [!] Low-confidence detection. Please review carefully.")

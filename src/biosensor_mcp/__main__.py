@@ -332,10 +332,16 @@ def cmd_status():
     print(f"  Exists: {db_path.exists()}")
     if db_path.exists():
         with sqlite3.connect(str(db_path)) as conn:
-            count = conn.execute("SELECT COUNT(*) FROM activities").fetchone()[0]
-            print(f"  Cached activities: {count}")
-            stream_count = conn.execute("SELECT COUNT(*) FROM streams").fetchone()[0]
-            print(f"  Cached streams: {stream_count}")
+            try:
+                count = conn.execute("SELECT COUNT(*) FROM activities").fetchone()[0]
+                print(f"  Cached activities: {count}")
+                stream_count = conn.execute("SELECT COUNT(*) FROM streams").fetchone()[0]
+                print(f"  Cached streams: {stream_count}")
+            except sqlite3.OperationalError:
+                # A fresh `tour` install creates the data directory but no
+                # Strava-tier tables yet — treat the same as "table not yet
+                # created" rather than aborting status mid-output.
+                print("  Tables not yet created (no Strava sync run)")
 
     # Vault integration
     user_config_2 = CONFIG_DIR / "user_config.json"
@@ -349,7 +355,7 @@ def cmd_status():
             print(f"  Warning: could not parse {user_config_2}: {exc}")
     print("\nVault integration:")
     if vault_path_cfg:
-        print(f"  Enabled: Yes → {vault_path_cfg}")
+        print(f"  Enabled: Yes -> {vault_path_cfg}")
         print(f"  Vault exists: {vault_path_cfg.exists()}")
         vault_db = DATA_DIR / "vault.db"
         if vault_db.exists():
@@ -475,7 +481,29 @@ def cmd_uninstall():
     print("Uninstall complete. Restart Claude Desktop to apply.")
 
 
+def _make_cli_stdout_resilient() -> None:
+    """Stop a stray non-cp1252 character from crashing a recipient demo.
+
+    Windows PowerShell 5 (the parent-recipient default) drives Python with
+    a cp1252 stdout. Any glyph outside cp1252 (arrows, checkmarks, etc.)
+    raises UnicodeEncodeError under the default ``errors='strict'`` handler
+    — observed live during the v6.10.0 max-debug-hunt when ``cmd_status``
+    crashed mid-output on the right-arrow at line 352. We can't enumerate
+    every future glyph; switch the error handler so an unrepresentable
+    character degrades to '?' instead of aborting the command.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(errors="replace")
+        except (OSError, ValueError):
+            pass
+
+
 def main():
+    _make_cli_stdout_resilient()
     commands = {
         "serve": cmd_serve,
         "pilot": cmd_pilot,

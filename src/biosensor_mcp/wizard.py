@@ -73,7 +73,7 @@ def main():
     client_secret = getpass.getpass("  Strava Client Secret (input hidden): ").strip()
 
     if not client_id or not client_secret:
-        print("  ❌ Both Client ID and Client Secret are required.")
+        print("  [X] Both Client ID and Client Secret are required.")
         sys.exit(1)
 
     # Build auth URL
@@ -134,7 +134,7 @@ def main():
     server.server_close()
 
     if not auth_code[0]:
-        print("  ❌ Timed out waiting for authorization.")
+        print("  [X] Timed out waiting for authorization.")
         sys.exit(1)
 
     # Exchange code for tokens
@@ -151,7 +151,7 @@ def main():
     )
 
     if resp.status_code != 200:
-        print(f"  ❌ Token exchange failed: {resp.text}")
+        print(f"  [X] Token exchange failed: {resp.text}")
         sys.exit(1)
 
     token_data = resp.json()
@@ -171,7 +171,7 @@ def main():
     _secure_token_file(TOKEN_FILE)
 
     perm_desc = _describe_permissions(TOKEN_FILE)
-    print(f"\n  ✅ Authenticated as: {tokens['athlete_name']}")
+    print(f"\n  [OK] Authenticated as: {tokens['athlete_name']}")
     print(f"  Tokens saved to: {TOKEN_FILE}")
     print(f"  Permissions: {perm_desc}\n")
 

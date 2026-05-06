@@ -104,6 +104,75 @@ def seed_full_config(root: Path) -> dict[str, Path]:
     }
 
 
+def seed_tour_config(root: Path) -> dict[str, Path]:
+    """
+    Seed a tour-path config under ``root`` using the bundled wheel
+    fixtures (force_csv + emg_csv + csv_dir/MRS + vault).
+
+    This is the config a recipient gets after ``biosensor-mcp tour``.
+    It registers 70 tools total: 9 force_csv + 8 emg_csv + 7 csv_dir
+    + 25 vault + 12 running + 1 ask_local_oracle + 4 consent tools +
+    4 consent-revoke tools. force_csv and emg_csv are the surfaces
+    absent from ``seed_full_config`` -- tests using this fixture cover
+    the tour demo path that ``spawn_server`` does not reach.
+
+    Returns the scaffolded ``target_dir`` and ``data_dir`` paths.
+    The ``BIOSENSOR_CONFIG_DIR`` and ``BIOSENSOR_DATA_DIR`` env vars
+    are both set to the same directory (``target_dir``/``target_dir/data``)
+    matching the shape ``tour._register_with_claude_desktop`` bakes in.
+    """
+    target_dir = root / "tour"
+    from biosensor_mcp.tour import _scaffold_fixtures, _write_user_config
+    _scaffold_fixtures("hip-lab", target_dir)
+    _write_user_config("hip-lab", target_dir)
+    data_dir = target_dir / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return {"target_dir": target_dir, "data_dir": data_dir}
+
+
+@contextlib.contextmanager
+def spawn_tour_server(
+    env_overrides: dict[str, str] | None = None,
+) -> Iterator[tuple[MCPClient, dict[str, Path]]]:
+    """
+    Context manager: temp dirs + tour fixtures + spawned server.
+
+    Mirrors ``spawn_server`` but uses the tour (force_csv + emg_csv +
+    csv_dir/MRS) config instead of the running + csv_dir config.
+    Yields ``(client, paths)`` where ``paths`` contains
+    ``target_dir`` and ``data_dir``.
+    """
+    with TemporaryDirectory() as tmp:
+        paths = seed_tour_config(Path(tmp))
+        env = {
+            **os.environ,
+            "BIOSENSOR_CONFIG_DIR": str(paths["target_dir"]),
+            "BIOSENSOR_DATA_DIR": str(paths["data_dir"]),
+            **(env_overrides or {}),
+        }
+        proc = subprocess.Popen(
+            [sys.executable, "-m", "biosensor_mcp", "serve"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+        client = MCPClient(proc)
+        try:
+            yield client, paths
+        finally:
+            try:
+                if proc.stdin is not None:
+                    proc.stdin.close()
+            except (OSError, BrokenPipeError):
+                pass
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+
+
 # ──────────────────────────────────────────────────────────────────
 # Subprocess driver
 # ──────────────────────────────────────────────────────────────────

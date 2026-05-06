@@ -26,6 +26,13 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.10.1 (2026-05-06)
+
+- Fixed four Windows recipient demo blockers found during direct `biosensor-mcp tour` testing on Windows 11 PowerShell cp1252: Bug 1 (`→` → `->` in `cmd_status`), Bug 2 (OperationalError guard around Strava-tier SELECT on fresh tour install), Bug 3 (`←` → `<-` in `pilot.py`), Bug 5 (unicode glyphs `❌`/`✅` → `[X]`/`[OK]` in `wizard.py`).
+- New private `_make_cli_stdout_resilient()` in `__main__.py`: reconfigures sys.stdout/sys.stderr with `errors='replace'` so future non-cp1252 glyphs degrade to `?` rather than crashing. 3-layer defense: static glyph removal + runtime reconfigure + static guard test suite.
+- +17 regression tests (851 total): 10 in `test_cli_windows_resilience.py` (5 parametrized static-guard, 3 stdout-helper, 2 fresh-tour-install); +8 subprocess tour-path MCP wire tests in `test_serve_mcp_protocol.py` covering previously-untested force_csv + emg_csv wire surface.
+- Bug 4 (`_extract_timestamps` paired-iteration refactor) deferred to v6.11.0: red-team-reviewer HIGH OBJECTION — minimal fix produced 40% systematic error in `time_to_50pct_drop_s` on mixed-defect CSVs via silent index-misalignment. ADR 0010 adversarial pairing demonstrably caught this. No API changes; patch bump.
+
 ## Shipped in v6.10.0 (2026-05-06)
 
 - `cue-card-rehearsal-auditor` specialist promoted per [ADR 0025](docs/adr/0025-cue-card-rehearsal-as-release-gate.md). Read-only agent (opus model, tools: Read/Grep/Glob) audits cue-card prompts against ToolDefinition schemas and emits per-prompt verdicts (PASS / WRONG-TOOL / WRONG-PARAMS / AMBIGUOUS). Closes the structural class of failure responsible for both v6.9.1 and v6.9.2: schemas whose envelope passes structural gates but silently fails when Claude infers parameters from operator prose. Mandatory pre-tag trigger wired into `release-shipper`.

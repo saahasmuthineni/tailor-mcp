@@ -1,5 +1,26 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.10.1 (2026-05-06)** — Windows recipient resilience patch.
+> Hardens four cp1252 / fresh-tour-install blockers caught during direct
+> recipient testing of `biosensor-mcp tour` on Windows 11 PowerShell
+> cp1252: Bug 1 (`→` → `->` in `cmd_status`), Bug 2 (try/except
+> sqlite3.OperationalError around the activities/streams SELECT — fresh
+> tour install has no Strava-tier tables), Bug 3 (`←` → `<-` in
+> `pilot.py`), Bug 5 (`❌`/`✅` → `[X]`/`[OK]` in `wizard.py`). New
+> private helper `_make_cli_stdout_resilient()` in `__main__.py` adds a
+> 3-layer defense (glyph swap + runtime stdout reconfigure + static guard
+> at PR time); +17 regression tests (851 total); +8 subprocess tour-path
+> MCP wire tests covering the previously-untested force_csv + emg_csv
+> round-trip surface. Bug 4 (`_extract_timestamps` silent index-
+> misalignment after red-team-reviewer HIGH OBJECTION) deferred to
+> v6.11.0. ADR 0010 adversarial pairing demonstrably caught what
+> confirmation-shape dispatch would have shipped: F4 silent index-
+> misalignment (HIGH; reverted), wizard.py present-tense glyphs
+> (medium; closed), demo/runner.py guard scope omission (low; closed).
+> No router/security/child/vault/CLI architecture changes. Bug fixes
+> only; no public API changes. Patch bump. Gates: 851/851 pytest, ruff
+> clean, 76/76 probe, CLI smoke PASS.
+>
 > **v6.10.0 (2026-05-06)** — `cue-card-rehearsal-auditor` specialist +
 > ADR 0025 land as a single bundled governance/team-shape release.
 > Codifies the structural class of failure that produced both v6.9.1

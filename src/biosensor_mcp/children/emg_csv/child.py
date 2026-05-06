@@ -669,8 +669,11 @@ class EmgCsvChild(ChildMCP):
 
     @staticmethod
     def _read_headers(filepath: Path) -> list[str]:
+        # ``utf-8-sig`` transparently strips a leading BOM — see
+        # ForceCsvProcessing._read_headers v6.9.2 docstring for the
+        # full rationale (v6.9.0 footgun on Excel-touched CSVs).
         try:
-            with open(filepath, encoding="utf-8", errors="replace", newline="") as f:
+            with open(filepath, encoding="utf-8-sig", errors="replace", newline="") as f:
                 reader = csv.reader(f)
                 return next(reader, [])
         except OSError:
@@ -688,7 +691,7 @@ class EmgCsvChild(ChildMCP):
                 f"{limit_mb:.1f} MB). Use emg_downsampled "
                 f"for large files."
             )
-        with open(filepath, encoding="utf-8", errors="replace", newline="") as f:
+        with open(filepath, encoding="utf-8-sig", errors="replace", newline="") as f:
             raw = f.read()
         if "�" in raw:
             log.warning(
@@ -735,13 +738,15 @@ class EmgCsvChild(ChildMCP):
     def _load_metadata_sidecar(
         self,
     ) -> tuple[dict[str, dict] | None, str | None]:
+        # ``utf-8-sig`` for BOM transparency — see ForceCsvChild's
+        # _load_metadata_sidecar v6.9.2 docstring for full rationale.
         if self._csv_dir is None:
             return None, None
         sidecar = self._csv_dir / METADATA_FILENAME
         if not sidecar.is_file():
             return None, None
         try:
-            data = json.loads(sidecar.read_text(encoding="utf-8"))
+            data = json.loads(sidecar.read_text(encoding="utf-8-sig"))
         except (OSError, json.JSONDecodeError) as exc:
             return None, f"could not read {METADATA_FILENAME}: {exc}"
         if not isinstance(data, dict):

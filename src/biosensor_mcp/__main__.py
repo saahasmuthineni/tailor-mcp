@@ -412,6 +412,35 @@ def cmd_demo():
     run_demo()
 
 
+def _clean_claude_desktop_biosensor_entries(config_path: Path) -> list[str]:
+    """Remove every ``biosensor-*`` entry from a Claude Desktop config.
+
+    Match every key the framework registers:
+      - ``biosensor-mcp``             (pilot wizard / manual install)
+      - ``biosensor-tour-<variant>``  (tour subcommand, ADR 0024)
+
+    Without this prefix match, ``biosensor-mcp uninstall`` left stale
+    ``biosensor-tour-hip-lab`` entries pointing at a removed binary,
+    so Claude Desktop showed a red MCP indicator after a clean
+    uninstall (v6.9.2 bug 1).
+
+    Returns the list of removed keys; empty list when the config does
+    not exist or has no matching entries. Sibling MCP servers are
+    preserved.
+    """
+    if not config_path.exists():
+        return []
+    raw = config_path.read_bytes().lstrip(b"\xef\xbb\xbf").decode("utf-8")
+    config = json.loads(raw)
+    servers = config.get("mcpServers", {})
+    removed = [k for k in list(servers) if k.startswith("biosensor-")]
+    for key in removed:
+        del servers[key]
+    if removed:
+        config_path.write_text(json.dumps(config, indent=2))
+    return removed
+
+
 def cmd_uninstall():
     """Clean removal."""
     print("Biosensor MCP — Uninstall")
@@ -431,16 +460,12 @@ def cmd_uninstall():
     else:
         config_path = Path.home() / ".config" / "Claude" / "claude_desktop_config.json"
 
-    if config_path.exists():
-        try:
-            raw = config_path.read_bytes().lstrip(b"\xef\xbb\xbf").decode("utf-8")
-            config = json.loads(raw)
-            if "biosensor-mcp" in config.get("mcpServers", {}):
-                del config["mcpServers"]["biosensor-mcp"]
-                config_path.write_text(json.dumps(config, indent=2))
-                print("Removed from Claude Desktop config.")
-        except Exception as e:
-            print(f"Warning: Could not update config: {e}")
+    try:
+        removed = _clean_claude_desktop_biosensor_entries(config_path)
+        for key in removed:
+            print(f"Removed '{key}' from Claude Desktop config.")
+    except Exception as e:
+        print(f"Warning: Could not update config: {e}")
 
     import shutil
     if CONFIG_DIR.exists():

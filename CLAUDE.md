@@ -1,5 +1,29 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.10.0 (2026-05-06)** — `cue-card-rehearsal-auditor` specialist +
+> ADR 0025 land as a single bundled governance/team-shape release.
+> Codifies the structural class of failure that produced both v6.9.1
+> and v6.9.2 in the same week: schemas under-specified for
+> prompt-driven parameter inference, invisible to gates that measure
+> structural envelope correctness without inspecting payload semantics.
+> New read-only specialist (`cue-card-rehearsal-auditor`, opus model,
+> tools: Read/Grep/Glob) audits cue-card prompts against candidate
+> ToolDefinition schemas and emits per-prompt verdicts (PASS /
+> WRONG-TOOL / WRONG-PARAMS / AMBIGUOUS). First-run dogfood evidence
+> is in [ADR 0025](docs/adr/0025-cue-card-rehearsal-as-release-gate.md)
+> — REVIEW aggregate verdict with AMBIGUOUS on Step 2 cohort prompt,
+> demonstrating the gate works without reaching past the schema into
+> the v6.9.1 handler resolver. Promotes the cue card from one-off
+> demo aid to load-bearing release artifact (descriptive, not
+> aspirational — the v6.9.1 recovery rows at CUE_CARD.md:55-68
+> already encoded this). Mandatory pre-tag trigger via
+> `release-shipper`. Same governance/team-shape release shape as
+> v6.3.0 (four new specialists that session, one new specialist here);
+> no framework code changes, no router/security/child/vault/CLI
+> architecture changes. ADR 0025 cites ADRs 0008, 0010, 0011, 0014,
+> 0016. Gates: 834/834 pytest, ruff clean, 76/76 probe, CLI smoke
+> PASS. Minor bump.
+>
 > **v6.9.2 (2026-05-06)** — Three v6.9.0 footguns hardened after the
 > 2026-05-05 operator-vault wheel-review moment elevated them from
 > "non-blocking" to load-bearing on the first real recipient debugging
@@ -604,6 +628,7 @@ Manager mode is the default working style on this repo. The general conventions 
 | [`reproducibility-provenance-auditor`](.claude/agents/reproducibility-provenance-auditor.md) | Audits a diff against the reproducibility/provenance invariants codified in ADRs 0001 / 0002 / 0008 / 0003 — no PRNG in processing, audit-log completeness, `_meta` stamping, `subject_id` propagation. Per-file HOLDS / BROKEN / NEEDS REVIEW with file:line + ADR citations | After any non-trivial diff that touches `framework/` or `children/*/processing.py`. Closes the ADR 0008 "enforced by review at PR time" gap |
 | [`phi-irb-risk-reviewer`](.claude/agents/phi-irb-risk-reviewer.md) | Hostile-IRB-committee lens on code changes — six threat-model lenses (HIPAA Safe Harbor, consent scope, audit-log completeness, ADR 0003 scrubber asymmetry, ADR 0009 subject_id integrity, retention). Returns NO RISK / WATCH / VIOLATION with IRB / HIPAA / ADR citations | After any change touching `framework/security.py`, `framework/audit.py`, `framework/router.py`, `framework/vault/`, or any child's `execute()` path; before any release involving consent or data flow |
 | [`mcp-protocol-auditor`](.claude/agents/mcp-protocol-auditor.md) | End-to-end subprocess MCP-protocol audit — drives `python -m biosensor_mcp serve` as a real subprocess speaking JSON-RPC over stdio, asserts wire-level correctness on `initialize` / `tools/list` / `tools/call` / consent gate / cost gate / error envelopes / `_dumps` serialization seam. Catches the gate-evasion class no other specialist owns: upstream-mcp-SDK signature drift, missing schema keys, silent type coercion, markdown round-trip lossiness, post-execute hook silent failures | After any change touching `framework/router.py`, `framework/audit.py`, `framework/security.py`, `framework/vault/{layer,writer}.py`, or any child's `execute()` path; mandatory before every release. Promoted v6.5.0 after 5 protocol-adapter ship-blocker bugs surfaced in 90 minutes that 8 existing gates missed |
+| [`cue-card-rehearsal-auditor`](.claude/agents/cue-card-rehearsal-auditor.md) | Read-only cue-card audit — maps each cue-card prompt against the registered ToolDefinition schemas and emits per-prompt verdicts (PASS / WRONG-TOOL / WRONG-PARAMS / AMBIGUOUS) with file:line citations. Catches the schema-under-specification class of failure: schemas that pass structural gates but silently fail when Claude infers parameters from operator prose | Before every release that ships or revises a cue card (`--cue-card=<path>` arg); whenever `CUE_CARD.md` or any `ToolDefinition` schema changes. Promoted v6.10.0 per [ADR 0025](docs/adr/0025-cue-card-rehearsal-as-release-gate.md) after v6.9.1 + v6.9.2 closed the same structural gap twice in one week |
 | [`adr-weigher`](.claude/agents/adr-weigher.md) | Weighs a candidate ADR concept against five criteria (decision-shaped, reversal-changes-code, WHY-non-obvious, cites-prior-ADRs, severity) and returns `PASS / REJECT-NOT-ADR-WORTHY / DEFER-NEEDS-BOSS-INPUT / INSUFFICIENT-INPUT`. Read-only — produces a verdict, not an ADR | Before `adr-drafter` is invoked during autonomous overnight sessions — gates premature-ADR drift the same way [ADR 0011](docs/adr/0011-promotion-policy.md) gates premature-specialist drift. Per [ADR 0017](docs/adr/0017-adr-weigher-and-autonomous-session-cap.md), the autonomous-session ADR cap is six per session with `adr-weigher` as the binding quality constraint |
 
 The agents are checked into the repo so the team is reproducible across machines. Per `.gitignore`: `.claude/*` ignores per-machine settings; `!.claude/agents/` re-includes the roster. New specialists land via [ADR 0011 — promotion-policy](docs/adr/0011-promotion-policy.md): structural argument + severity + per-agent maintenance estimate, with frequency-based 3+-uses as the fallback signal in the absence of a structural argument. The deferred roster (parked candidates with named promotion triggers) lives in [docs/design/operating-model.md § Deferred roster](docs/design/operating-model.md).

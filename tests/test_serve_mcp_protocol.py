@@ -1543,12 +1543,17 @@ def test_v690_tool_count_unchanged_at_49() -> None:
 
 
 def test_v690_serve_startup_meta_version_stamp() -> None:
-    """V690-T3: a Tier-1 tool call returns _meta.package_version == '6.9.0'.
+    """V690-T3: a Tier-1 tool call returns _meta.package_version matching __version__.
 
     This is the end-to-end version-stamp regression: the version in
     ``__init__.py`` must propagate through the router's _meta block to
     the wire payload. A mismatch here means the installed package and
     the running code are out of sync.
+
+    The assertion compares against ``__version__`` (read at test time)
+    rather than a hardcoded string, so this test does not go stale on
+    every version bump. v6.9.1 found a hardcoded ``"6.9.0"`` literal
+    here that silently broke release-shipper's post-bump merge gate.
     """
     from biosensor_mcp import __version__
 
@@ -1564,8 +1569,4 @@ def test_v690_serve_startup_meta_version_stamp() -> None:
         assert meta["package_version"] == __version__, (
             f"_meta.package_version {meta['package_version']!r} != "
             f"__version__ {__version__!r} — version bump not wired through."
-        )
-        assert meta["package_version"] == "6.9.0", (
-            f"Expected 6.9.0, got {meta['package_version']!r}. "
-            f"If this is intentional, update the assertion."
         )

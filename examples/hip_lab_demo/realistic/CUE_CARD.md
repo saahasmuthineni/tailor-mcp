@@ -61,7 +61,9 @@ If Claude's behaviour drifts, say or paste one of these.  None require admitting
 | Claude answered without calling a tool | *"Please call the MCP tool — I want to see the numbers come from the framework, not from your prior knowledge."* |
 | Claude was terse, didn't connect step 5 back to step 4 | *"Compare the peak_envelope_window_mean you just returned against the prior vault note from 2026-04-20.  Same number?"* |
 | Claude hallucinated a number | *"What's the exact number the tool returned?  Read it directly from the tool output."* |
-| Claude reached for `csv_cohort_summary` instead of `force_cohort_summary` | *"Use force_cohort_summary — force_csv is the dedicated child for force data."* |
+| Claude reached for `csv_cohort_summary` (returns MRS spectra, not force) | *"Wrong child — `csv_cohort_summary` operates on the MRS stream. Re-run with `force_cohort_summary` against the force data."* |
+| `force_cohort_summary` returned 16 `column not found` load_errors | *(v6.9.0 footgun — fixed in v6.9.1; recovery prompt for older builds:)* *"Use `value_column='force_N'` (literal CSV header), not `'force'`. Or call `force_list_files` first to confirm headers."* |
+| Same on `emg_cohort_summary` | *"Use `value_column='envelope_uV'` (literal CSV header), not `'envelope'`. Or call `emg_list_files` first."* |
 | Claude listed S004 as "subject 4" or stripped the prefix | *"The subject_id is the literal string S004 — please use it verbatim in the subject_id parameter."* |
 | Vault search returns nothing | *(operator action — exit chat)* Re-run `biosensor-mcp tour --force`; vault.db wasn't indexed. |
 

@@ -16,11 +16,20 @@ screenshot and send it to me before continuing.
 - An internet connection
 - A free Anthropic account (sign up at <https://claude.ai> if you
   don't have one)
+- **Claude Desktop installed and signed in** — download it from
+  <https://claude.ai/download>. Plan ~5 minutes for this *before*
+  you start the steps below; it's a separate install from Python.
 - The file I sent you ending in `.whl` (probably saved to Downloads)
 - About 10 minutes
 
 You will **not** need: GitHub, a programming background, or any
 participant data. Everything is synthetic and runs on your laptop.
+
+> **One heads-up on Claude free tier.** The demo runs five prompts
+> back-to-back. If you're on the free plan and you've already been
+> chatting with Claude today, you may bump into the daily message
+> cap mid-demo. Best to do this in a fresh sitting and not burn
+> messages on warmup chat first.
 
 ---
 
@@ -119,17 +128,16 @@ output and send it to me before continuing.
 
 ## Step 4 — Restart Claude Desktop and run the demo
 
-If you don't already have Claude Desktop installed:
-
-1. Go to <https://claude.ai/download> and run the Windows installer.
-2. Open Claude Desktop and sign in.
-
-Now restart it so it picks up the new tour entry:
+Restart Claude Desktop so it picks up the new tour entry:
 
 1. Find Claude Desktop's icon in the **system tray** (near the clock,
-   bottom-right).
-2. Right-click the icon → **Quit**. (If you don't see the icon,
-   close all Claude Desktop windows.)
+   bottom-right). It may be hidden under the small up-arrow `^` —
+   click that to expand the tray if you don't see the icon at first.
+2. Right-click the icon → **Quit** — *not* just close the window.
+   Closing the window leaves Claude Desktop running in the background,
+   so reopening it won't pick up the new tour. The right-click → Quit
+   step is the one most likely to trip people up; do this even if it
+   feels redundant.
 3. Re-open Claude Desktop from the Start menu.
 
 In a fresh chat, send these prompts one at a time, waiting for each

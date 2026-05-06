@@ -145,6 +145,15 @@ class TestScaffold:
         assert cfg["force_csv"]["value_columns"] == {"force": "force_N"}
         assert cfg["emg_csv"]["path"] == str(resolved / "emg")
         assert cfg["emg_csv"]["value_columns"] == {"envelope": "envelope_uV"}
+        # MRS spectra registered through generic csv_dir child so the
+        # bundled fixtures are not orphaned (v6.9.1 — "address the
+        # orphans" pass).  csv_dir.value_columns shape is
+        # {actual_header: human_label}, distinct from force_csv /
+        # emg_csv's logical→physical alias map.
+        assert cfg["csv_dir"]["path"] == str(resolved / "mrs")
+        assert cfg["csv_dir"]["timestamp_column"] == "t_s"
+        assert "pcr_relative" in cfg["csv_dir"]["value_columns"]
+        assert "pi_relative" in cfg["csv_dir"]["value_columns"]
         assert cfg["vault_path"] == str(resolved / "vault")
 
     def test_vault_index_has_seed_moment(self, tmp_path: Path):

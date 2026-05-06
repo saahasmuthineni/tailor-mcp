@@ -636,6 +636,121 @@ class TestCohortSummary:
 
 
 # ═══════════════════════════════════════════════════════════════
+# COHORT SUMMARY — logical→physical column alias resolution
+# (regression for v6.9.0 first-prompt failure)
+# ═══════════════════════════════════════════════════════════════
+
+
+def _build_emg_alias_fixture(
+    config_dir: Path, csv_dir: Path, *, header: str, alias_logical: str,
+) -> None:
+    trials = [
+        ("S001_emg.csv", "F", 0.50, 0.30),
+        ("S002_emg.csv", "M", 0.55, 0.32),
+        ("S003_emg.csv", "F", 0.45, 0.28),
+    ]
+    for fname, _sex, peak, decline_to in trials:
+        body = _build_emg_envelope_csv(
+            n_samples=3000, sample_rate_hz=100.0, peak=peak,
+            plateau_until_s=10.0, decline_to=decline_to,
+        ).replace(",envelope\n", f",{header}\n", 1)
+        (csv_dir / fname).write_text(body, encoding="utf-8")
+    (csv_dir / "metadata.json").write_text(
+        json.dumps({fname: {"sex": sex} for fname, sex, _, _ in trials}),
+        encoding="utf-8",
+    )
+    user_config = {
+        "emg_csv": {
+            "path": str(csv_dir),
+            "timestamp_column": "t_s",
+            "sample_rate_hz": 100.0,
+            "value_columns": {alias_logical: header},
+        },
+    }
+    (config_dir / "user_config.json").write_text(
+        json.dumps(user_config), encoding="utf-8",
+    )
+
+
+class TestCohortSummaryAliasResolution:
+    """Sibling regression to ForceCsv's TestCohortSummaryAliasResolution.
+
+    Closes the same defect on EmgCsvChild — the cohort handler must
+    honor ``user_config.emg_csv.value_columns`` so a caller passing
+    the logical name ``envelope`` against a CSV with header
+    ``envelope_uV`` does not get 16 silent ``column not found``
+    load_errors and an empty cohort.
+    """
+
+    def test_logical_alias_resolves_to_physical_header(self, tmp_data_dir):
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_dir = root / "config"
+            csv_dir = root / "emg_files"
+            for d in (config_dir, csv_dir):
+                d.mkdir()
+            _build_emg_alias_fixture(
+                config_dir, csv_dir,
+                header="envelope_uV", alias_logical="envelope",
+            )
+            child = EmgCsvChild(config_dir, tmp_data_dir)
+            try:
+                result = asyncio.run(child.execute(
+                    "emg_cohort_summary",
+                    {
+                        "group_field": "sex",
+                        "value_column": "envelope",
+                        "metric": "max",
+                    },
+                ))
+                assert "error" not in result
+                assert result["subject_count"] == 3
+                assert "F" in result["groups"]
+                assert "M" in result["groups"]
+                assert "load_errors" not in result
+            finally:
+                child.close()
+
+    def test_physical_header_and_logical_alias_produce_same_groups(
+        self, tmp_data_dir,
+    ):
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_dir = root / "config"
+            csv_dir = root / "emg_files"
+            for d in (config_dir, csv_dir):
+                d.mkdir()
+            _build_emg_alias_fixture(
+                config_dir, csv_dir,
+                header="envelope_uV", alias_logical="envelope",
+            )
+            child = EmgCsvChild(config_dir, tmp_data_dir)
+            try:
+                via_logical = asyncio.run(child.execute(
+                    "emg_cohort_summary",
+                    {
+                        "group_field": "sex",
+                        "value_column": "envelope",
+                        "metric": "max",
+                    },
+                ))
+                via_physical = asyncio.run(child.execute(
+                    "emg_cohort_summary",
+                    {
+                        "group_field": "sex",
+                        "value_column": "envelope_uV",
+                        "metric": "max",
+                    },
+                ))
+                assert via_logical["groups"] == via_physical["groups"]
+                assert via_logical["subject_count"] == via_physical[
+                    "subject_count"
+                ]
+            finally:
+                child.close()
+
+
+# ═══════════════════════════════════════════════════════════════
 # COMPARE TRIALS
 # ═══════════════════════════════════════════════════════════════
 

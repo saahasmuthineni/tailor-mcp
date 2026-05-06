@@ -604,6 +604,129 @@ class TestCohortSummary:
 
 
 # ═══════════════════════════════════════════════════════════════
+# COHORT SUMMARY — logical→physical column alias resolution
+# (regression for v6.9.0 first-prompt failure)
+# ═══════════════════════════════════════════════════════════════
+
+
+def _build_alias_fixture(
+    config_dir: Path, csv_dir: Path, *, header: str, alias_logical: str,
+) -> dict:
+    """Build a fixture where the CSV physical header differs from the
+    logical name in ``user_config.value_columns`` — the exact shape of
+    the HIP Lab tour deployment.
+    """
+    trials = [
+        ("S001_trial.csv", "F", 100.0, 60.0),
+        ("S002_trial.csv", "M", 110.0, 65.0),
+        ("S003_trial.csv", "F", 95.0, 55.0),
+    ]
+    for fname, _sex, peak, decline_to in trials:
+        body = _build_force_csv(
+            n_samples=1500, sample_rate_hz=50.0, peak=peak,
+            plateau_until_s=15.0, decline_to=decline_to,
+        ).replace(",force\n", f",{header}\n", 1)
+        (csv_dir / fname).write_text(body, encoding="utf-8")
+    (csv_dir / "metadata.json").write_text(
+        json.dumps({fname: {"sex": sex} for fname, sex, _, _ in trials}),
+        encoding="utf-8",
+    )
+    user_config = {
+        "force_csv": {
+            "path": str(csv_dir),
+            "timestamp_column": "t_s",
+            "sample_rate_hz": 50.0,
+            "value_columns": {alias_logical: header},
+        },
+    }
+    (config_dir / "user_config.json").write_text(
+        json.dumps(user_config), encoding="utf-8",
+    )
+    return user_config
+
+
+class TestCohortSummaryAliasResolution:
+    """Regression: cohort handler must honor the logical→physical
+    column alias map declared in ``user_config.value_columns`` —
+    same contract as ``force_summary`` / ``force_compare_trials``.
+
+    Without this resolver, a recipient running the HIP Lab tour
+    cue-card prompt got 16 silent ``column not found`` load_errors
+    on every file because Claude inferred the logical name
+    ``force`` from the prose while the CSV header was ``force_N``.
+    """
+
+    def test_logical_alias_resolves_to_physical_header(self, tmp_data_dir):
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_dir = root / "config"
+            csv_dir = root / "force_files"
+            for d in (config_dir, csv_dir):
+                d.mkdir()
+            _build_alias_fixture(
+                config_dir, csv_dir,
+                header="force_N", alias_logical="force",
+            )
+            child = ForceCsvChild(config_dir, tmp_data_dir)
+            try:
+                result = asyncio.run(child.execute(
+                    "force_cohort_summary",
+                    {
+                        "group_field": "sex",
+                        "value_column": "force",
+                        "metric": "max",
+                    },
+                ))
+                assert "error" not in result
+                assert result["subject_count"] == 3
+                assert "F" in result["groups"]
+                assert "M" in result["groups"]
+                assert "load_errors" not in result
+            finally:
+                child.close()
+
+    def test_physical_header_and_logical_alias_produce_same_groups(
+        self, tmp_data_dir,
+    ):
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_dir = root / "config"
+            csv_dir = root / "force_files"
+            for d in (config_dir, csv_dir):
+                d.mkdir()
+            _build_alias_fixture(
+                config_dir, csv_dir,
+                header="force_N", alias_logical="force",
+            )
+            child = ForceCsvChild(config_dir, tmp_data_dir)
+            try:
+                via_logical = asyncio.run(child.execute(
+                    "force_cohort_summary",
+                    {
+                        "group_field": "sex",
+                        "value_column": "force",
+                        "metric": "max",
+                    },
+                ))
+                via_physical = asyncio.run(child.execute(
+                    "force_cohort_summary",
+                    {
+                        "group_field": "sex",
+                        "value_column": "force_N",
+                        "metric": "max",
+                    },
+                ))
+                # Both must produce the same group statistics.
+                # _meta differs (different called_at, token totals).
+                assert via_logical["groups"] == via_physical["groups"]
+                assert via_logical["subject_count"] == via_physical[
+                    "subject_count"
+                ]
+            finally:
+                child.close()
+
+
+# ═══════════════════════════════════════════════════════════════
 # COMPARE TRIALS (side-by-side)
 # ═══════════════════════════════════════════════════════════════
 

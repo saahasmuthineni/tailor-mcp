@@ -1,5 +1,23 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.9.1 (2026-05-06)** — Cohort-handler logical→physical column-alias
+> resolution on `force_csv` + `emg_csv`; MRS spectra `csv_dir` block
+> added to tour scaffolding. Closes the v6.9.0 first-prompt-failure
+> footgun where `force_cohort_summary` / `emg_cohort_summary` returned
+> 16 silent `column not found` load_errors when Claude guessed the
+> logical name from operator prose (physical CSV header vs
+> `value_columns` alias mismatch in `_handle_cohort_summary`). The 16
+> 31P-MRS CSVs bundled in the wheel were unreachable after tour
+> scaffolding because no `csv_dir` block was written for `mrs/` in
+> `user_config.json`; now registered. 6 new regression tests: 2 in
+> `TestCohortSummaryAliasResolution` on `force_csv`, 2 sibling tests on
+> `emg_csv`, 1 updated user_config-shape assertion in
+> `test_tour_subcommand.py`; `CUE_CARD.md` sharpened (Variant-C
+> recovery + Variant-B force/emg rows). 822/822 pytest, ruff clean,
+> 76/76 probe, CLI smoke PASS. No router/security/child-gate/vault/ADR
+> architecture changes — two handler call-sites + one tour config block.
+> No breaking changes; patch bump.
+>
 > **v6.9.0 (2026-05-04)** — Wheel-distributed `tour` subcommand + bundled
 > HIP Lab realistic fixtures per [ADR 0024](docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md).
 > New `biosensor-mcp tour` CLI subcommand at `src/biosensor_mcp/tour.py`

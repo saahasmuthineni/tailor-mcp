@@ -1,8 +1,8 @@
-# ADR 0012: Vault dispatch bypasses the PHI-scrubber seam — invariants and reversal conditions
+# ADR 0012: Framework-tier dispatch bypasses the PHI-scrubber seam — invariants and reversal conditions
 
-- **Status:** Accepted
-- **Date:** 2026-04-30
-- **Related:** [ADR 0003 (PHI-scrubber seam)](0003-phi-scrubber-seam.md), [ADR 0007 (Rendering-layers policy)](0007-rendering-layers-policy.md), [ADR 0009 (Vault subject-keying)](0009-vault-subject-keying.md), [CLAUDE.md § Architecture](../../CLAUDE.md#architecture)
+- **Status:** Accepted (originally vault-only; extended in v6.10.2 to cover local_llm + setup_help)
+- **Date:** 2026-04-30 (original); 2026-05-06 (v6.10.2 amendment extending to LocalLLMLayer + SetupHelpLayer)
+- **Related:** [ADR 0003 (PHI-scrubber seam)](0003-phi-scrubber-seam.md), [ADR 0007 (Rendering-layers policy)](0007-rendering-layers-policy.md), [ADR 0009 (Vault subject-keying)](0009-vault-subject-keying.md), [ADR 0022 (Local-LLM guardian)](0022-local-llm-guardian.md), [CLAUDE.md § Architecture](../../CLAUDE.md#architecture)
 
 ## Context
 
@@ -194,3 +194,85 @@ naming it now is what allows a future PR to be reviewed against the
 constraint, rather than against a memory of what someone meant in
 ADR 0003. Deferral would re-create the original governance gap on
 a different timeline.
+
+## Amendment — v6.10.2 (2026-05-06): extension to LocalLLMLayer and SetupHelpLayer
+
+The v6.10.2 release added a third framework-tier dispatch path
+(`_dispatch_setup_help`) that also skips the PHI-scrubber. The
+v6.10.2 phi-irb-risk-reviewer pass surfaced a Lens 4 finding: ADR 0012
+named only the vault case, but at the time of the v6.10.2 audit
+two additional framework-tier paths bypassed the scrubber —
+`_dispatch_local_llm` (added v6.6.0 per ADR 0022) and the new
+`_dispatch_setup_help`. The asymmetry is now a *pattern*, not a
+one-off, and the ADR 0012 reversal-condition discipline must extend
+to it.
+
+The vault-specific invariant in the original Decision section above
+is preserved. Two additional invariants — one per new layer —
+ground the bypass on those paths under the same shape:
+
+- **LocalLLMLayer invariant.** The local-LLM layer never writes raw
+  biosensor stream content into its `OracleResponse`. Numerical
+  claims surfaced in the response are flattened from
+  `resolved_context` — a dict whose values came from biosensor-tier
+  Tier-1 tool calls that **already** passed through the scrubber on
+  their way out of the originating child. Narrative prose is
+  LLM-generated and explicitly labelled non-citable in `_meta.oracle`;
+  it is the operator's responsibility to configure a backend whose
+  prompt template instructs the model not to invent identifiers.
+  ADR 0022 § "Hallucination-prevention invariant" formalises the
+  numerical-claims-must-trace-to-resolved_context property; this ADR
+  amendment grounds the scrubber bypass on the same invariant.
+- **SetupHelpLayer invariant.** The setup-help layer accepts no
+  parameters (the param schema is empty by construction, enforced at
+  [`framework/setup_help/__init__.py`](../../src/biosensor_mcp/framework/setup_help/__init__.py))
+  and returns only static recipient instructions plus server-state
+  diagnostics. No biosensor stream content ever enters or exits the
+  layer. Filesystem paths surfaced in the diagnostic block are
+  home-redacted via `_redact_home` so the recipient's OS username
+  does not egress to the LLM client (closes the v6.10.2 phi-irb
+  Lens 1 finding under HIPAA Safe Harbor §164.514(b)(2)(i)(R)).
+
+**Why each bypass is correct under its invariant.** Same shape as the
+vault case: the scrubber is a content-shape concern designed for raw
+biosensor streams. The local-LLM layer's outputs are
+already-scrubbed numerical claims plus non-citable narrative; the
+setup-help layer's outputs are constants and server-state. Running
+the scrubber on either would be a no-op under the default scrubber
+or actively wrong under an institutional subclass that rewrites
+field names.
+
+**Audit visibility is preserved on all three paths.** Every audit
+row from `_dispatch_vault`, `_dispatch_local_llm`, and
+`_dispatch_setup_help` records `scrubber_id`, parallel to the
+biosensor-child path. The audit log carries a uniform
+PHI-configuration-attestation column regardless of whether the
+scrubber actually ran on the result. A reviewer reconstructing a
+deployment's PHI posture reads one column on every row.
+
+**Reversal conditions for the two new paths.**
+
+- *LocalLLMLayer reversal.* If a future backend or layer modification
+  surfaces raw biosensor stream content in the response (for example,
+  by attaching the originating Tier-2/Tier-3 stream payload as
+  evidence in `resolved_context` and echoing it verbatim into
+  `narrative`), the invariant breaks and ADR 0012 must be revisited
+  before the change ships. Concrete shape that would trigger
+  reversal: a `resolved_context` entry whose value is a Tier-3 stream
+  dict from `strava_full_streams` or `csv_raw_stream` written into
+  the response without going through the originating child's
+  scrubber.
+- *SetupHelpLayer reversal.* If the diagnostic block ever surfaces
+  the contents (rather than mere existence / sizes / paths) of any
+  user-config file, vault note, or audit row, the invariant breaks.
+  The current implementation surfaces only existence flags, paths
+  (home-redacted), and env-var references; expanding the diagnostic
+  to echo a user_config.json body verbatim, for example, would route
+  participant-adjacent content through a layer with no scrubber.
+
+The discipline is: a fourth framework-tier layer added in a future
+release that bypasses the scrubber must amend this ADR with its own
+invariant + reversal-condition section, in the same shape as the
+v6.6.0 / v6.10.2 amendments. The asymmetry must remain visible at
+the dispatch site (each `_dispatch_<layer>` docstring names the
+bypass as a "skipped by design" item) and grounded here.

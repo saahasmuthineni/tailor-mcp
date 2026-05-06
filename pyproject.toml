@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "biosensor-mcp"
-version = "6.10.1"
+version = "6.10.2"
 description = "MCP middleware framework for piping high-frequency biosensor data into LLM context windows — server-side analytics, consent gates, cost gates, audit log"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -59,6 +59,11 @@ biosensor_mcp = [
     "_fixtures/**/*.csv",
     "_fixtures/**/*.json",
     "_fixtures/**/*.md",
+    # Top-level recipient docs shipped at the root of the package so an
+    # external Claude session inspecting the wheel zip listing can
+    # discover `biosensor-mcp tour` without parsing source code (closes
+    # the v6.10.2 web-Claude-mediated-debugging discoverability gap).
+    "*.md",
 ]
 
 [tool.pytest.ini_options]

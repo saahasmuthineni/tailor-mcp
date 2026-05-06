@@ -37,7 +37,10 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 import sys
+import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -1892,3 +1895,492 @@ def test_tour_vaultable_tools_all_have_renderers() -> None:
         finally:
             for child in (running, csv_child, force_child, emg_child):
                 child.close()
+
+
+# ──────────────────────────────────────────────────────────────────
+# v6.10.x — SetupHelpLayer / biosensor_setup_help subprocess surfaces
+# SH1–SH7, added this audit run
+#
+# The SetupHelpLayer is a conditionally-registered framework-level
+# surface (parallel to VaultLayer + LocalLLMLayer) that only appears
+# in tools/list when no demo scaffold is installed.  These tests
+# drive it as a real subprocess speaking JSON-RPC to close the gap
+# between the existing unit-level tests in
+# ``tests/framework/test_setup_help_layer.py`` and the wire surface.
+#
+# Surfaces under test:
+#   SH1 — tools/list reflects conditional registration (absent config
+#          → biosensor_setup_help present; demo config → absent).
+#   SH2 — tools/call returns wire-correct envelope with all required keys.
+#   SH3 — _dumps serialization seam: no repr artifacts; round-trips
+#          cleanly through json.loads.
+#   SH4 — Path redaction on the wire: home path does not leak.
+#   SH5 — Audit-row provenance after the tools/call.
+#   SH6 — Extra params do not error (empty schema passes extras through).
+#   SH7 — Conditional registration safety: force_csv config → absent.
+# ──────────────────────────────────────────────────────────────────
+
+
+def _spawn_empty_config_server():
+    """
+    Context manager: spawn the server with an empty user_config.json
+    (no demo blocks) so SetupHelpLayer registers and
+    ``biosensor_setup_help`` appears in tools/list.
+
+    Returns ``(client, config_dir, data_dir)`` inside the context.
+    We use ``ignore_cleanup_errors=True`` on the TemporaryDirectory so
+    Windows does not error when the audit.db WAL is still open.
+    """
+    import contextlib
+    import tempfile
+
+    @contextlib.contextmanager
+    def _ctx():
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+            config_dir = Path(tmp) / "config"
+            data_dir = Path(tmp) / "data"
+            config_dir.mkdir()
+            data_dir.mkdir()
+            (config_dir / "user_config.json").write_text(
+                json.dumps({}), encoding="utf-8",
+            )
+            env = {
+                **os.environ,
+                "BIOSENSOR_CONFIG_DIR": str(config_dir),
+                "BIOSENSOR_DATA_DIR": str(data_dir),
+            }
+            import subprocess
+            proc = subprocess.Popen(
+                [sys.executable, "-m", "biosensor_mcp", "serve"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=env,
+            )
+            from tests._mcp_client import MCPClient
+            client = MCPClient(proc)
+            try:
+                yield client, config_dir, data_dir
+            finally:
+                try:
+                    if proc.stdin is not None:
+                        proc.stdin.close()
+                except (OSError, BrokenPipeError):
+                    pass
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait()
+
+    return _ctx()
+
+
+def test_sh1_tools_list_biosensor_setup_help_present_on_empty_config() -> None:
+    """SH1a: tools/list on a server with no demo blocks contains
+    ``biosensor_setup_help``.
+
+    The SetupHelpLayer is registered conditionally in ``cmd_serve`` only
+    when ``_demo_blocks_absent(user_config)`` is True. An empty
+    ``user_config.json`` satisfies the condition. This test drives the
+    full subprocess to confirm the conditional-registration code path
+    produces the expected wire surface.
+
+    Also pins: no repr artifacts on the full tools/list payload.
+    """
+    with _spawn_empty_config_server() as (client, _cfg, _data):
+        client.initialize()
+        resp = client.list_tools()
+        assert "error" not in resp, f"tools/list error: {resp}"
+
+        raw = json.dumps(resp)
+        assert_no_repr_artifacts(raw)
+
+        names = {t["name"] for t in resp["result"]["tools"]}
+        assert "biosensor_setup_help" in names, (
+            "biosensor_setup_help is absent from tools/list even though "
+            "user_config.json has no demo blocks — SetupHelpLayer "
+            "conditional-registration gate did not fire. "
+            f"Present tools: {sorted(names)}"
+        )
+
+
+def test_sh2_biosensor_setup_help_call_returns_correct_envelope() -> None:
+    """SH2: tools/call of biosensor_setup_help returns a wire-correct
+    envelope with all documented top-level keys.
+
+    Pins:
+    - Top-level keys: diagnosis, recipient_steps, diagnostics, _meta
+      (if_tour_keeps_failing is also present but is supplementary).
+    - _meta carries: package_version (== __version__), tool_name
+      (== 'biosensor_setup_help'), called_at (ISO-8601 parseable),
+      domain (== 'setup_help'), tier (== 1), scrubber_id (non-empty).
+    - recipient_steps is a non-empty list of strings.
+    - diagnostics is a dict.
+    - No repr artifacts on the raw wire payload.
+    """
+    from datetime import datetime
+
+    from biosensor_mcp import __version__
+
+    with _spawn_empty_config_server() as (client, _cfg, _data):
+        client.initialize()
+        resp = client.call_tool("biosensor_setup_help", {})
+        assert "error" not in resp, f"tools/call returned error envelope: {resp}"
+
+        text = extract_text_result(resp)
+        assert_no_repr_artifacts(text)
+
+        body = json.loads(text)
+
+        # Required top-level keys
+        for key in ("diagnosis", "recipient_steps", "diagnostics", "_meta"):
+            assert key in body, (
+                f"biosensor_setup_help response missing required key {key!r}. "
+                f"Keys present: {sorted(body.keys())}"
+            )
+
+        # recipient_steps: non-empty list of strings
+        steps = body["recipient_steps"]
+        assert isinstance(steps, list) and len(steps) >= 1, (
+            f"recipient_steps must be a non-empty list; got: {steps!r}"
+        )
+        assert all(isinstance(s, str) for s in steps), (
+            "recipient_steps must contain only strings"
+        )
+        # The canonical tour command must be present
+        assert any("biosensor-mcp tour" in s for s in steps), (
+            "recipient_steps does not mention 'biosensor-mcp tour' — "
+            "the canonical scaffolding command is absent from the wire payload"
+        )
+
+        # diagnostics: dict
+        assert isinstance(body["diagnostics"], dict), (
+            f"diagnostics must be a dict; got {type(body['diagnostics']).__name__}"
+        )
+
+        # _meta provenance
+        meta = body["_meta"]
+        assert meta["package_version"] == __version__, (
+            f"_meta.package_version {meta['package_version']!r} != "
+            f"__version__ {__version__!r}"
+        )
+        assert meta["tool_name"] == "biosensor_setup_help", (
+            f"_meta.tool_name {meta['tool_name']!r} != 'biosensor_setup_help'"
+        )
+        assert meta["domain"] == "setup_help", (
+            f"_meta.domain {meta['domain']!r} != 'setup_help'"
+        )
+        assert meta["tier"] == 1, (
+            f"_meta.tier {meta['tier']!r} != 1"
+        )
+        assert meta.get("scrubber_id"), (
+            "_meta.scrubber_id is absent or empty — ADR 0003 stamping not applied"
+        )
+        # called_at must be ISO-8601 parseable
+        datetime.fromisoformat(meta["called_at"].replace("Z", "+00:00"))
+
+
+def test_sh3_setup_help_dumps_seam_no_repr_round_trips() -> None:
+    """SH3: _dumps serialization seam on biosensor_setup_help response.
+
+    The diagnostics dict contains string-valued path fields and bool
+    flags. Tests:
+    - No Python repr() artifacts in the raw wire payload.
+    - json.loads(wire_payload) succeeds (no partial encoding).
+    - All bool fields deserialize as JSON booleans (not the strings
+      'True'/'False' — a default=str coercion bug signature).
+    - String fields do not contain Python repr artifacts.
+    """
+    with _spawn_empty_config_server() as (client, _cfg, _data):
+        client.initialize()
+        resp = client.call_tool("biosensor_setup_help", {})
+
+        text = extract_text_result(resp)
+
+        # Full payload is valid JSON — no partial encoding
+        body = json.loads(text)  # raises json.JSONDecodeError on failure
+
+        # No repr artifacts
+        assert_no_repr_artifacts(text)
+
+        # Bool fields must be JSON booleans, not strings
+        diag = body["diagnostics"]
+        bool_fields = [k for k, v in diag.items() if isinstance(v, bool)]
+        # At least config_dir_exists and user_config_exists are bool-typed
+        # in the execute() implementation.
+        assert bool_fields, (
+            "diagnostics has no boolean fields — either the execute() "
+            "impl changed or _dumps coerced them to strings (which "
+            "would not raise here but assert_no_repr_artifacts would "
+            "catch the 'True'/'False' literal). "
+            f"diagnostics keys: {list(diag.keys())}"
+        )
+        for k in bool_fields:
+            val = diag[k]
+            assert isinstance(val, bool), (
+                f"diagnostics[{k!r}] was coerced by _dumps: expected bool "
+                f"but got {type(val).__name__}: {val!r}. This is a "
+                f"default=str coercion bug on the boolean type."
+            )
+
+        # String fields must not be repr artifacts
+        for _k, v in diag.items():
+            if isinstance(v, str):
+                assert_no_repr_artifacts(v)
+
+
+def test_sh4_setup_help_path_redaction_on_wire() -> None:
+    """SH4: Diagnostic paths are home-redacted on the wire payload.
+
+    The ``_redact_home`` function collapses ``Path.home()`` to ``~``
+    before the response dict is serialized. This test drives the full
+    subprocess and asserts that the raw home path
+    (e.g., C:\\Users\\saaha or /home/user) does NOT appear in the
+    wire payload as a JSON string literal.
+
+    The redaction is critical for phi-irb-risk-reviewer Lens 1 closure:
+    HIPAA Safe Harbor §164.514(b)(2)(i)(R) treats the OS username as a
+    unique identifying characteristic on participant-recipient deployments.
+
+    Platform note: on Windows the home path contains the username
+    (e.g. C:\\Users\\saaha); on macOS it is /Users/<name>; on Linux
+    it is /home/<name>. All of these must be absent from the wire.
+    """
+    from pathlib import Path
+
+    home = str(Path.home()).replace("\\", "/")
+
+    with _spawn_empty_config_server() as (client, _cfg, _data):
+        client.initialize()
+        resp = client.call_tool("biosensor_setup_help", {})
+
+        text = extract_text_result(resp)
+
+        # The raw home path (normalised to forward slashes for comparison)
+        # must not appear as a bare string in the wire payload.
+        # We do NOT normalise the raw wire payload to forward slashes —
+        # the _redact_home implementation handles platform path separators
+        # internally; if it does not, the platform-native separator form
+        # would appear in the payload and this check would catch it.
+        text_forward = text.replace("\\\\", "/").replace("\\", "/")
+
+        assert home not in text_forward, (
+            f"Home path {home!r} leaked into the wire payload despite "
+            f"_redact_home — HIPAA Safe Harbor §164.514(b)(2)(i)(R). "
+            f"Wire excerpt (first 500 chars): {text[:500]!r}"
+        )
+
+
+def test_sh5_setup_help_audit_row_provenance() -> None:
+    """SH5: After tools/call biosensor_setup_help, audit.db contains a
+    row with correct provenance: domain='setup_help', outcome='SUCCESS',
+    tool_name='biosensor_setup_help', subject_id=NULL, scrubber_id stamped.
+
+    This is the subprocess-level complement to the router-unit test
+    ``test_dispatch_setup_help_writes_audit_row`` in
+    ``tests/framework/test_setup_help_layer.py``. The subprocess path
+    adds the WAL-flush timing dependency that the in-process test avoids.
+    """
+    import sqlite3
+    import subprocess
+    import time
+
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+        config_dir = Path(tmp) / "config"
+        data_dir = Path(tmp) / "data"
+        config_dir.mkdir()
+        data_dir.mkdir()
+        (config_dir / "user_config.json").write_text(
+            json.dumps({}), encoding="utf-8",
+        )
+        env = {
+            **os.environ,
+            "BIOSENSOR_CONFIG_DIR": str(config_dir),
+            "BIOSENSOR_DATA_DIR": str(data_dir),
+        }
+        proc = subprocess.Popen(
+            [sys.executable, "-m", "biosensor_mcp", "serve"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+        from tests._mcp_client import MCPClient
+        client = MCPClient(proc)
+        try:
+            client.initialize()
+            client.call_tool("biosensor_setup_help", {})
+            time.sleep(0.5)  # let WAL flush before process exits
+        finally:
+            try:
+                proc.stdin.close()
+            except (OSError, BrokenPipeError):
+                pass
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+
+        audit_db = data_dir / "audit.db"
+        assert audit_db.exists(), (
+            f"audit.db was not created at {audit_db} after "
+            "biosensor_setup_help call"
+        )
+        with sqlite3.connect(str(audit_db)) as conn:
+            rows = conn.execute(
+                "SELECT domain, tool_name, outcome, subject_id, scrubber_id "
+                "FROM audit_log WHERE tool_name = 'biosensor_setup_help'"
+            ).fetchall()
+
+        assert len(rows) >= 1, (
+            "No audit row for biosensor_setup_help found in audit.db. "
+            "The setup_help dispatch pipeline must write a SUCCESS row."
+        )
+        domain, tool_name, outcome, subject_id, scrubber_id = rows[0]
+        assert domain == "setup_help", (
+            f"audit row domain={domain!r} != 'setup_help'"
+        )
+        assert tool_name == "biosensor_setup_help", (
+            f"audit row tool_name={tool_name!r}"
+        )
+        assert outcome == "SUCCESS", (
+            f"audit row outcome={outcome!r} — expected 'SUCCESS'"
+        )
+        assert subject_id is None, (
+            f"audit row subject_id={subject_id!r} — must be NULL "
+            "(setup_help is a server-state diagnostic, not per-subject)"
+        )
+        assert scrubber_id, (
+            "audit row scrubber_id is absent or empty — ADR 0003 requires "
+            "every audit row to carry the scrubber identity"
+        )
+
+
+def test_sh6_setup_help_extra_params_do_not_error() -> None:
+    """SH6: Calling biosensor_setup_help with unexpected extra params
+    must still succeed.
+
+    The tool's param_schema is ``{}`` (empty). The ParamValidator and
+    the mcp SDK's inputSchema pre-check must both tolerate extra keys
+    gracefully — there are no required fields, so additional keys should
+    be stripped or passed through without triggering a validation error.
+
+    This pins the invariant: an LLM that passes extra params (e.g. a
+    leftover 'subject_id' from an adjacent tool call) must not receive
+    a hard error from a zero-schema tool.
+    """
+    with _spawn_empty_config_server() as (client, _cfg, _data):
+        client.initialize()
+        resp = client.call_tool(
+            "biosensor_setup_help",
+            {"unexpected": "value", "another_key": 42},
+        )
+
+        text = extract_text_result(resp)
+        assert_no_repr_artifacts(text)
+
+        body = json.loads(text)
+        # Must NOT return an error envelope
+        assert "error" not in body, (
+            f"biosensor_setup_help returned an error when called with extra "
+            f"params — expected success (empty schema tolerates extras). "
+            f"Error: {body.get('error')!r}"
+        )
+        # Must return the expected diagnostic structure
+        assert "diagnosis" in body, (
+            f"biosensor_setup_help with extra params returned unexpected "
+            f"body shape: {sorted(body.keys())}"
+        )
+
+
+def test_sh7_biosensor_setup_help_absent_when_force_csv_configured() -> None:
+    """SH7: When user_config.json contains a force_csv block,
+    biosensor_setup_help must NOT appear in tools/list.
+
+    This is the cue-card-rehearsal-auditor invariant at the wire level:
+    the setup-help tool must be invisible when the demo scaffold is
+    present so Claude cannot preferentially route cue-card prompts
+    (e.g. 'run force_cohort_summary') to the diagnostic tool instead
+    of the actual force_csv tools.
+
+    The test seeds a minimal force_csv config (path pointing at a temp
+    dir with a placeholder CSV) and spawns the server. It then lists
+    tools and asserts biosensor_setup_help is absent and that at least
+    one force_* tool is present (confirming the config was actually
+    loaded).
+    """
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+        config_dir = Path(tmp) / "config"
+        data_dir = Path(tmp) / "data"
+        force_path = Path(tmp) / "force"
+        config_dir.mkdir()
+        data_dir.mkdir()
+        force_path.mkdir()
+        # Seed a placeholder CSV so ForceCsvChild has at least one file.
+        (force_path / "S001_force.csv").write_text(
+            "t_s,force_N\n0.0,100.0\n0.5,95.0\n1.0,88.0\n",
+            encoding="utf-8",
+        )
+        user_config = {
+            "force_csv": {
+                "path": str(force_path),
+                "timestamp_column": "t_s",
+                "timestamp_format": "%s",
+                "value_columns": {"force": "Force (N)"},
+            }
+        }
+        (config_dir / "user_config.json").write_text(
+            json.dumps(user_config), encoding="utf-8",
+        )
+        env = {
+            **os.environ,
+            "BIOSENSOR_CONFIG_DIR": str(config_dir),
+            "BIOSENSOR_DATA_DIR": str(data_dir),
+        }
+        import subprocess
+        proc = subprocess.Popen(
+            [sys.executable, "-m", "biosensor_mcp", "serve"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+        from tests._mcp_client import MCPClient
+        client = MCPClient(proc)
+        try:
+            client.initialize()
+            resp = client.list_tools()
+            assert "error" not in resp, f"tools/list error: {resp}"
+
+            names = {t["name"] for t in resp["result"]["tools"]}
+
+            # The diagnostic must be absent — demo scaffold is present.
+            assert "biosensor_setup_help" not in names, (
+                "biosensor_setup_help appeared in tools/list even though "
+                "user_config.json contains a force_csv block — "
+                "SetupHelpLayer conditional-registration gate did not "
+                "suppress registration. "
+                f"All tools: {sorted(names)}"
+            )
+
+            # At least one force_* tool must be registered (config loaded).
+            force_tools = {n for n in names if n.startswith("force_")}
+            assert force_tools, (
+                "No force_* tools found in tools/list — force_csv config "
+                f"was not loaded. All tools: {sorted(names)}"
+            )
+
+            # No repr artifacts on the full tools/list payload.
+            assert_no_repr_artifacts(json.dumps(resp))
+        finally:
+            try:
+                proc.stdin.close()
+            except (OSError, BrokenPipeError):
+                pass
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()

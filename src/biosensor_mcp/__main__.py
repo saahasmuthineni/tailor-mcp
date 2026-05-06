@@ -246,6 +246,25 @@ def cmd_serve():
         vault_storage=_local_llm_vault_storage,
     ))
 
+    # Setup-help layer (framework-level recipient diagnostic). Registered
+    # only when no demo scaffold blocks are present in user_config.json —
+    # the failure mode dad's transcript surfaced (recipient lands at a
+    # bare `biosensor-mcp serve` via web-Claude-mediated manual config
+    # rather than `biosensor-mcp tour`, sees a sparse tool surface, asks
+    # for `force_cohort_summary` which doesn't exist on this server).
+    # When the demo IS scaffolded (force_csv / emg_csv / csv_dir /
+    # vault_path present), this layer is never constructed so the tool
+    # cannot collide with real cohort tools.
+    from biosensor_mcp.framework.setup_help import (
+        SetupHelpLayer,
+        _demo_blocks_absent,
+    )
+    if _demo_blocks_absent(_ucfg):
+        router.register_setup_help_layer(SetupHelpLayer(
+            config_dir=CONFIG_DIR,
+            data_dir=DATA_DIR,
+        ))
+
     # Future children (CGM, sleep, ECG, EDF, FHIR) would register here
     # following the same opt-in pattern as csv_dir above.
 

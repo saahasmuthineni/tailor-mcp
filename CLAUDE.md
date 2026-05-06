@@ -1,5 +1,37 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.10.2 (2026-05-06)** — Recipient-failure structural patch.
+> Closes the v6.9.x failure loop where a `biosensor-mcp tour` crash
+> routed the recipient via web-Claude into a degraded `serve` state with
+> no demo tools surfaced (dad's transcript: tour crash → web-Claude
+> inspect → manual `serve` config → ask_local_oracle + strava_list_runs
+> only → cue-card prompts fail on every csv_dir tool). Two structural
+> fixes: (1) `SetupHelpLayer` — a new framework-tier layer parallel to
+> `LocalLLMLayer` (per ADR 0022 shape) registered conditionally when
+> `_demo_blocks_absent()` detects no `csv_dir` blocks in
+> `user_config.json`. Surfaces a single diagnostic tool
+> (`setup_help_get_status`) that tells an external Claude "run
+> `biosensor-mcp tour`", invisible on configured deployments. Home
+> lat/lng redacted via `_redact_home()` (HIPAA Safe Harbor
+> §164.514(b)(2)(i)(R)) before surfacing on the wire. (2)
+> `RECIPIENT_README.md` bundled in the wheel (`pyproject.toml` `*.md`
+> glob added to package-data) so an external Claude inspecting the .whl
+> discovers `biosensor-mcp tour` without source-code archaeology. ADR
+> 0012 amended: Decision section extended to cover all three
+> framework-tier PHI-scrubber bypass sites (vault + local_llm +
+> setup_help) with per-layer invariants and reversal conditions; closes
+> phi-irb-risk-reviewer Lens 4 finding. CUE_CARD.md recovery row added
+> for the "tool list shows only ask_local_oracle + strava_list_runs"
+> symptom. Release-pass agents: cue-card-rehearsal-auditor REHEARSAL OK
+> (both configs, no regression); reproducibility-provenance-auditor CLEAN
+> (ADRs 0001/0002/0003/0008 all HOLD); phi-irb-risk-reviewer WATCH ×2 —
+> both addressed; mcp-protocol-auditor PROTOCOL OK (7 SH wire-tests
+> SH1-SH7); ci-gate-runner PASS (874/874 pytest, ruff clean, 76/76
+> probe, CLI smoke PASS). Tool surface: 50 when degraded (setup_help
+> visible), 49 when scaffolded (baseline unchanged). Bug fixes +
+> framework-tier layer addition; no router/security/child/vault/CLI
+> architecture changes beyond the new framework-tier layer. Patch bump.
+>
 > **v6.10.1 (2026-05-06)** — Windows recipient resilience patch.
 > Hardens four cp1252 / fresh-tour-install blockers caught during direct
 > recipient testing of `biosensor-mcp tour` on Windows 11 PowerShell

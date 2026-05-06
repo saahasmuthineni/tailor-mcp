@@ -26,6 +26,15 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.10.2 (2026-05-06)
+
+- `SetupHelpLayer` — new framework-tier layer (parallel to `LocalLLMLayer` per ADR 0022 shape) registered conditionally when `_demo_blocks_absent()` detects no `csv_dir` blocks in `user_config.json`. Surfaces a single diagnostic tool (`setup_help_get_status`) that routes an external Claude to `biosensor-mcp tour`; invisible on configured deployments (SH7 wire-test confirms). `_redact_home()` strips HIPAA Safe Harbor §164.514(b)(2)(i)(R) address components before surfacing on the wire. 16 unit tests (trigger predicate, layer surface, redaction, dispatch, audit-row provenance). 7 new subprocess wire-tests SH1-SH7 added by mcp-protocol-auditor.
+- `RECIPIENT_README.md` bundled in the wheel (`pyproject.toml` `*.md` glob added to package-data). An external Claude inspecting the .whl now discovers `biosensor-mcp tour` as the recovery path without source-code archaeology — the structural lesson from dad's transcript.
+- ADR 0012 amended: Decision section extended to all three framework-tier PHI-scrubber bypass sites (vault + local_llm + setup_help) with per-layer invariants and reversal conditions. Closes phi-irb-risk-reviewer Lens 4 finding.
+- CUE_CARD.md recovery row added for the "tool list shows only ask_local_oracle + strava_list_runs" symptom.
+- Tool surface: 50 when degraded (setup_help visible), 49 when scaffolded (baseline unchanged). Patch bump.
+- Structural lesson: an external Claude inspecting the wheel must be able to discover `biosensor-mcp tour` without source-code archaeology. `SetupHelpLayer` is the in-chat fallback when wheel-inspection fails.
+
 ## Shipped in v6.10.1 (2026-05-06)
 
 - Fixed four Windows recipient demo blockers found during direct `biosensor-mcp tour` testing on Windows 11 PowerShell cp1252: Bug 1 (`→` → `->` in `cmd_status`), Bug 2 (OperationalError guard around Strava-tier SELECT on fresh tour install), Bug 3 (`←` → `<-` in `pilot.py`), Bug 5 (unicode glyphs `❌`/`✅` → `[X]`/`[OK]` in `wizard.py`).

@@ -126,6 +126,20 @@ def _hip_lab_user_config(target_dir: Path) -> dict:
             "sample_rate_hz": 100.0,
             "value_columns": {"envelope": "envelope_uV"},
         },
+        # MRS spectra (31P stub) — registered through the generic
+        # csv_dir child rather than a dedicated MrsCsvChild so the
+        # bundled fixtures are not orphaned (no tools could touch
+        # them on v6.9.0).  csv_dir's value_columns contract is
+        # ``{actual_header: human_label}`` (different shape from
+        # force_csv / emg_csv's logical→physical alias map).
+        "csv_dir": {
+            "path": str(target_dir / "mrs"),
+            "timestamp_column": "t_s",
+            "value_columns": {
+                "pcr_relative": "Phosphocreatine (relative)",
+                "pi_relative": "Inorganic phosphate (relative)",
+            },
+        },
     }
 
 

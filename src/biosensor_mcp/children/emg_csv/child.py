@@ -965,7 +965,14 @@ class EmgCsvChild(ChildMCP):
         if not self._csv_dir.is_dir():
             return {"error": f"emg_csv directory not found: {self._csv_dir}"}
 
-        value_column = params["value_column"]
+        # Resolve logical → physical column name through the same
+        # alias map that ``_resolve_envelope_column`` honors for the
+        # per-file tools.  Closes the cohort-handler asymmetry the
+        # v6.9.0 first-prompt-failure investigation surfaced
+        # (sibling fix in force_csv/child.py:_handle_cohort_summary).
+        value_column = self._value_columns.get(
+            params["value_column"], params["value_column"],
+        )
         group_field = params["group_field"]
         metric = params["metric"]
 

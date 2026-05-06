@@ -1069,7 +1069,18 @@ class ForceCsvChild(ChildMCP):
         if not self._csv_dir.is_dir():
             return {"error": f"force_csv directory not found: {self._csv_dir}"}
 
-        value_column = params["value_column"]
+        # Resolve logical → physical column name through the same
+        # alias map that ``_resolve_force_column`` honors for the
+        # per-file tools.  Without this resolver, a non-technical
+        # caller passing the logical name ``force`` against a CSV
+        # whose actual header is ``force_N`` got 16 silent
+        # ``column not found`` load_errors and an empty cohort —
+        # the v6.9.0 first-prompt-failure footgun.  Mirrors the
+        # behaviour ``force_summary`` already provides via
+        # ``_resolve_force_column``.
+        value_column = self._value_columns.get(
+            params["value_column"], params["value_column"],
+        )
         group_field = params["group_field"]
         metric = params["metric"]
 

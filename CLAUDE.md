@@ -1,5 +1,26 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.9.2 (2026-05-06)** — Three v6.9.0 footguns hardened after the
+> 2026-05-05 operator-vault wheel-review moment elevated them from
+> "non-blocking" to load-bearing on the first real recipient debugging
+> path. (1) `cmd_uninstall` now prefix-matches `biosensor-` so
+> `biosensor-tour-<variant>` orphan entries are cleaned alongside
+> `biosensor-mcp` (red MCP indicator after clean uninstall). (2) All
+> CSV-open and JSON-sidecar reads in `force_csv` (3 sites), `emg_csv`
+> (3 sites), and `csv_dir` (6 sites) switched from `utf-8` to
+> `utf-8-sig` for transparent BOM stripping — Excel- / PowerShell-saved
+> files prepend a BOM that `utf-8` passes through as a literal prefix on
+> the first-column header, silently breaking header lookups and sidecar
+> filename matches. (3) `tour --force` now `rmtree`s the target dir
+> before scaffolding so a broken scaffold can actually be recovered as
+> `WINDOWS_QUICKSTART` documents. Structural lesson: the 2026-05-05
+> moment correctly logged these as non-blocking at moment-write time,
+> but "non-blocking" was the wrong assumption at next-recipient-failure
+> time — two of the three bugs sat directly on dad's debugging path.
+> Bug fixes only; no public API changes; no router/security/child
+> architecture changes beyond the three corrected sites. +12 regression
+> tests (834 total). Patch bump.
+>
 > **v6.9.1 (2026-05-06)** — Cohort-handler logical→physical column-alias
 > resolution on `force_csv` + `emg_csv`; MRS spectra `csv_dir` block
 > added to tour scaffolding. Closes the v6.9.0 first-prompt-failure

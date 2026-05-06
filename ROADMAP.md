@@ -26,6 +26,13 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.9.2 (2026-05-06)
+
+- Hardened `cmd_uninstall` to prefix-match `biosensor-` so `biosensor-tour-<variant>` orphan Claude Desktop entries are cleaned alongside `biosensor-mcp`; extracted `_clean_claude_desktop_biosensor_entries()` helper (7 new tests in `test_uninstall_cleanup.py`).
+- Switched all CSV-open and JSON-sidecar reads in `force_csv` (3 sites), `emg_csv` (3 sites), and `csv_dir` (6 sites) from `utf-8` to `utf-8-sig` for transparent BOM stripping — Excel- / PowerShell-saved data would otherwise silently corrupt first-column header lookups and sidecar filename matches (`TestBomTransparency` in each shape suite, +4 tests).
+- Fixed `tour --force` to `rmtree` the target dir before scaffolding so a broken scaffold can be recovered as `WINDOWS_QUICKSTART` documents (+1 test in `test_tour_subcommand.py`).
+- +12 regression tests total; 834 pass. Bug fixes only; patch bump.
+
 ## Shipped in v6.9.1 (2026-05-06)
 
 - Fixed cohort-handler logical→physical column-alias resolution in `force_csv` and `emg_csv` children. `_handle_cohort_summary` now maps `value_columns` logical alias names to physical CSV header names before metric dispatch, closing the v6.9.0 first-prompt-failure footgun (16 silent `column not found` load_errors when Claude guessed the logical name from operator prose).

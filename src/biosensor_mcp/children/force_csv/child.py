@@ -756,9 +756,16 @@ class ForceCsvChild(ChildMCP):
 
     @staticmethod
     def _read_headers(filepath: Path) -> list[str]:
-        """Read just the header row from a CSV file."""
+        """Read just the header row from a CSV file.
+
+        ``utf-8-sig`` strips a leading byte-order mark transparently so
+        an Excel- or PowerShell-redirected CSV does not silently get
+        ``﻿t_s`` as its first header (v6.9.0 footgun on real-world
+        recipient CSVs; bundled fixtures had no BOM and so the demo
+        worked fine while production data would not).
+        """
         try:
-            with open(filepath, encoding="utf-8", errors="replace", newline="") as f:
+            with open(filepath, encoding="utf-8-sig", errors="replace", newline="") as f:
                 reader = csv.reader(f)
                 return next(reader, [])
         except OSError:
@@ -768,7 +775,10 @@ class ForceCsvChild(ChildMCP):
     def _read_csv(
         filepath: Path, *, max_bytes: int = 0,
     ) -> tuple[list[str], list[dict]]:
-        """Read a CSV file.  Returns (headers, rows)."""
+        """Read a CSV file.  Returns (headers, rows).
+
+        ``utf-8-sig`` mirrors ``_read_headers`` for BOM transparency.
+        """
         if max_bytes and filepath.stat().st_size > max_bytes:
             size_mb = filepath.stat().st_size / (1024 * 1024)
             limit_mb = max_bytes / (1024 * 1024)
@@ -777,7 +787,7 @@ class ForceCsvChild(ChildMCP):
                 f"{limit_mb:.1f} MB). Use force_downsampled "
                 f"for large files."
             )
-        with open(filepath, encoding="utf-8", errors="replace", newline="") as f:
+        with open(filepath, encoding="utf-8-sig", errors="replace", newline="") as f:
             raw = f.read()
         if "�" in raw:
             log.warning(
@@ -826,14 +836,21 @@ class ForceCsvChild(ChildMCP):
     def _load_metadata_sidecar(
         self,
     ) -> tuple[dict[str, dict] | None, str | None]:
-        """Read the optional ``metadata.json`` sidecar."""
+        """Read the optional ``metadata.json`` sidecar.
+
+        ``utf-8-sig`` mirrors the CSV-read paths' BOM transparency
+        (v6.9.2 — a recipient's ``metadata.json`` saved by Excel or
+        PowerShell carries a UTF-8 BOM, which would silently drop the
+        first key from the dict and break the cohort handler's
+        filename lookup).
+        """
         if self._csv_dir is None:
             return None, None
         sidecar = self._csv_dir / METADATA_FILENAME
         if not sidecar.is_file():
             return None, None
         try:
-            data = json.loads(sidecar.read_text(encoding="utf-8"))
+            data = json.loads(sidecar.read_text(encoding="utf-8-sig"))
         except (OSError, json.JSONDecodeError) as exc:
             return None, f"could not read {METADATA_FILENAME}: {exc}"
         if not isinstance(data, dict):

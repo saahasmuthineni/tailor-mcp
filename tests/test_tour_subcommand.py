@@ -222,6 +222,38 @@ class TestScaffold:
         # Tour fixtures scaffolded successfully past the guard.
         assert (target / "force" / "S001_force.csv").is_file()
 
+    def test_force_wipes_stale_state_from_prior_tour(self, tmp_path: Path):
+        """v6.9.2 bug #3 — ``--force`` against a prior-tour target must
+        actually wipe stale state, not just bypass the guard.
+
+        Before v6.9.2, ``_copy_resource_tree`` was file-by-file
+        ``shutil.copy2`` with no rmtree, so a broken scaffold could not
+        be cleanly recovered via ``--force`` — the WINDOWS_QUICKSTART
+        recovery instruction was a lie.
+        """
+        target = tmp_path / "tour"
+        # First scaffold (clean tour).
+        rc = main([
+            "--variant=hip-lab", "--no-claude-desktop",
+            "--target", str(target),
+        ])
+        assert rc == 0
+        # Drop a stale file inside the prior-tour target as if a
+        # broken scaffold had left it there.
+        stale = target / "force" / "stale_from_broken_scaffold.csv"
+        stale.write_text("don't survive a --force", encoding="utf-8")
+        assert stale.is_file()
+        # Re-run with --force — must wipe the stale file before scaffold.
+        rc2 = main([
+            "--variant=hip-lab", "--no-claude-desktop", "--force",
+            "--target", str(target),
+        ])
+        assert rc2 == 0
+        # Stale file is gone; canonical fixtures are present.
+        assert not stale.exists()
+        assert (target / "force" / "S001_force.csv").is_file()
+        assert (target / "user_config.json").is_file()
+
 
 # ──────────────────────────────────────────────────────────────────────
 # Claude Desktop registration — auditor blocker #1 fix is load-bearing.

@@ -131,12 +131,18 @@ class CSVDirectoryChild(ChildMCP):
 
     @staticmethod
     def _load_user_config(config_dir: Path) -> dict:
-        """Load user_config.json; return empty dict on missing/error."""
+        """Load user_config.json; return empty dict on missing/error.
+
+        ``utf-8-sig`` strips a leading BOM transparently (v6.9.2 —
+        a config saved by Notepad / PowerShell-default ends up
+        BOM-prefixed and would otherwise drop the first top-level
+        key, silently disabling csv_dir registration).
+        """
         path = config_dir / "user_config.json"
         if not path.exists():
             return {}
         try:
-            return json.loads(path.read_text(encoding="utf-8"))
+            return json.loads(path.read_text(encoding="utf-8-sig"))
         except (json.JSONDecodeError, OSError) as exc:
             log.warning(f"Could not read {path}: {exc}")
             return {}
@@ -154,7 +160,7 @@ class CSVDirectoryChild(ChildMCP):
             return {}
         try:
             with open(
-                csvs[0], encoding="utf-8", errors="replace", newline="",
+                csvs[0], encoding="utf-8-sig", errors="replace", newline="",
             ) as f:
                 reader = csv.DictReader(f)
                 headers = list(reader.fieldnames or [])
@@ -527,9 +533,16 @@ class CSVDirectoryChild(ChildMCP):
 
     @staticmethod
     def _read_headers(filepath: Path) -> list[str]:
-        """Read just the header row from a CSV file."""
+        """Read just the header row from a CSV file.
+
+        ``utf-8-sig`` strips a leading byte-order mark transparently
+        so an Excel- or PowerShell-redirected CSV does not silently
+        get ``\ufeff<col>`` as its first header (v6.9.0 footgun on
+        real-world recipient CSVs; bundled fixtures had no BOM, so
+        the demo worked while production data would not).
+        """
         try:
-            with open(filepath, encoding="utf-8", errors="replace", newline="") as f:
+            with open(filepath, encoding="utf-8-sig", errors="replace", newline="") as f:
                 reader = csv.reader(f)
                 return next(reader, [])
         except OSError:
@@ -543,6 +556,7 @@ class CSVDirectoryChild(ChildMCP):
 
         If *max_bytes* is non-zero the file size is checked first and
         an ``OSError`` is raised when it exceeds the limit.
+        ``utf-8-sig`` mirrors ``_read_headers`` for BOM transparency.
         """
         if max_bytes and filepath.stat().st_size > max_bytes:
             size_mb = filepath.stat().st_size / (1024 * 1024)
@@ -552,7 +566,7 @@ class CSVDirectoryChild(ChildMCP):
                 f"{limit_mb:.1f} MB). Use csv_downsampled "
                 f"for large files."
             )
-        with open(filepath, encoding="utf-8", errors="replace", newline="") as f:
+        with open(filepath, encoding="utf-8-sig", errors="replace", newline="") as f:
             raw = f.read()
         if "\ufffd" in raw:
             log.warning(
@@ -568,7 +582,7 @@ class CSVDirectoryChild(ChildMCP):
     def _quick_row_count(filepath: Path) -> int:
         """Fast line count minus header."""
         try:
-            with open(filepath, encoding="utf-8", errors="replace") as f:
+            with open(filepath, encoding="utf-8-sig", errors="replace") as f:
                 count = sum(1 for _ in f)
             return max(0, count - 1)  # subtract header
         except OSError:
@@ -717,12 +731,17 @@ class CSVDirectoryChild(ChildMCP):
         non-None only when the sidecar exists but is malformed; missing
         is not an error (the caller decides whether the absence is
         fatal — csv_cohort_summary requires it, others ignore it).
+
+        ``utf-8-sig`` mirrors the CSV-read paths for BOM transparency
+        (v6.9.2 — a sidecar saved by Excel / PowerShell-default
+        carries a UTF-8 BOM which would silently drop the first key
+        and break the cohort handler's filename lookup).
         """
         sidecar = self._csv_path / METADATA_FILENAME
         if not sidecar.is_file():
             return None, None
         try:
-            data = json.loads(sidecar.read_text(encoding="utf-8"))
+            data = json.loads(sidecar.read_text(encoding="utf-8-sig"))
         except (OSError, json.JSONDecodeError) as exc:
             return None, f"could not read {METADATA_FILENAME}: {exc}"
         if not isinstance(data, dict):

@@ -604,6 +604,137 @@ class TestCohortSummary:
 
 
 # ═══════════════════════════════════════════════════════════════
+# UTF-8 BOM transparency (regression for v6.9.2 bug #2)
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestBomTransparency:
+    """v6.9.2 bug #2 — Excel-touched / PowerShell-redirected CSVs
+    carry a leading byte-order mark.  Before v6.9.2 every CSV-open
+    used ``encoding='utf-8'`` not ``'utf-8-sig'``, so the first
+    column header was silently rendered as ``﻿t_s`` and every
+    downstream tool returned ``column not found`` errors.
+
+    Bundled fixtures had no BOM and so the demo worked while real
+    recipient data did not.
+    """
+
+    def test_csv_with_leading_bom_reads_clean_first_header(
+        self, tmp_data_dir: Path,
+    ):
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_dir = root / "config"
+            csv_dir = root / "force_files"
+            for d in (config_dir, csv_dir):
+                d.mkdir()
+            body = _build_force_csv(
+                n_samples=200, sample_rate_hz=50.0, peak=100.0,
+                plateau_until_s=2.0, decline_to=60.0,
+            )
+            (csv_dir / "S001_trial.csv").write_bytes(
+                b"\xef\xbb\xbf" + body.encode("utf-8"),
+            )
+            (config_dir / "user_config.json").write_text(
+                json.dumps({
+                    "force_csv": {
+                        "path": str(csv_dir),
+                        "sample_rate_hz": 50.0,
+                        "value_columns": {"force": "force"},
+                    },
+                }),
+                encoding="utf-8",
+            )
+            child = ForceCsvChild(config_dir, tmp_data_dir)
+            try:
+                result = asyncio.run(child.execute(
+                    "force_list_files", {"limit": 5},
+                ))
+                assert "error" not in result
+                cols = result["files"][0]["columns"]
+                # First header must be clean t_s, not ﻿t_s
+                assert cols[0] == "t_s"
+                assert "﻿" not in cols[0]
+                # And force_summary must succeed because the column
+                # name resolves cleanly through to the body parse.
+                summary = asyncio.run(child.execute(
+                    "force_summary", {"file_id": "S001_trial.csv"},
+                ))
+                assert "error" not in summary
+                assert summary["peak"] is not None
+            finally:
+                child.close()
+
+    def test_metadata_sidecar_with_leading_bom_loads_cleanly(
+        self, tmp_data_dir: Path,
+    ):
+        """v6.9.2 — JSON sidecar BOM expansion.
+
+        A ``metadata.json`` saved by Excel / PowerShell-default
+        carries a UTF-8 BOM. Before v6.9.2, ``_load_metadata_sidecar``
+        used ``encoding='utf-8'`` so the BOM became part of the first
+        top-level key — silently dropping the first file from the
+        cohort lookup. The cohort handler would then surface that
+        file in ``missing_metadata`` even though the operator
+        believed it was registered.
+        """
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_dir = root / "config"
+            csv_dir = root / "force_files"
+            for d in (config_dir, csv_dir):
+                d.mkdir()
+            for fname, peak in (
+                ("S001_trial.csv", 100.0),
+                ("S002_trial.csv", 110.0),
+            ):
+                (csv_dir / fname).write_text(
+                    _build_force_csv(
+                        n_samples=200, sample_rate_hz=50.0, peak=peak,
+                        plateau_until_s=2.0, decline_to=60.0,
+                    ),
+                    encoding="utf-8",
+                )
+            sidecar_body = json.dumps({
+                "S001_trial.csv": {"sex": "F"},
+                "S002_trial.csv": {"sex": "M"},
+            })
+            (csv_dir / "metadata.json").write_bytes(
+                b"\xef\xbb\xbf" + sidecar_body.encode("utf-8"),
+            )
+            (config_dir / "user_config.json").write_text(
+                json.dumps({
+                    "force_csv": {
+                        "path": str(csv_dir),
+                        "sample_rate_hz": 50.0,
+                        "value_columns": {"force": "force"},
+                    },
+                }),
+                encoding="utf-8",
+            )
+            child = ForceCsvChild(config_dir, tmp_data_dir)
+            try:
+                result = asyncio.run(child.execute(
+                    "force_cohort_summary",
+                    {
+                        "group_field": "sex",
+                        "value_column": "force",
+                        "metric": "max",
+                    },
+                ))
+                assert "error" not in result
+                # Both files must appear; without the BOM-strip fix,
+                # the first file (S001) would land in missing_metadata
+                # because the dict key would have a BOM prefix.
+                assert result["subject_count"] == 2
+                assert "missing_metadata" not in result
+                assert "F" in result["groups"]
+                assert "M" in result["groups"]
+            finally:
+                child.close()
+
+
+# ═══════════════════════════════════════════════════════════════
 # COHORT SUMMARY — logical→physical column alias resolution
 # (regression for v6.9.0 first-prompt failure)
 # ═══════════════════════════════════════════════════════════════

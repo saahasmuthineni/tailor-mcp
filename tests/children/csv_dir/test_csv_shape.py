@@ -1024,3 +1024,62 @@ class TestAutoDetection:
             )
             assert "error" in result
             assert "too large" in result["error"].lower()
+
+
+# ═══════════════════════════════════════════════════════════════
+# UTF-8 BOM transparency (regression for v6.9.2 bug #2)
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestBomTransparency:
+    """v6.9.2 bug #2 — Excel-touched / PowerShell-redirected CSVs
+    carry a leading byte-order mark.  Before v6.9.2 every CSV-open
+    used ``encoding='utf-8'`` not ``'utf-8-sig'``, so the first
+    column header silently became ``﻿<col>`` and every downstream
+    tool returned ``column not found``.  Fixed across all four CSV-
+    open sites in csv_dir/child.py (auto-detect, _read_headers,
+    _read_csv, _quick_row_count).
+    """
+
+    def test_csv_with_leading_bom_reads_clean_first_header(
+        self, tmp_path: Path,
+    ):
+        config_dir = tmp_path / "config"
+        data_dir = tmp_path / "data"
+        csv_dir = tmp_path / "csv_files"
+        for d in (config_dir, data_dir, csv_dir):
+            d.mkdir()
+        (csv_dir / "fixture.csv").write_bytes(
+            b"\xef\xbb\xbf" + FIXTURE_CSV_A.encode("utf-8"),
+        )
+        (config_dir / "user_config.json").write_text(
+            json.dumps({
+                "csv_dir": {
+                    "path": str(csv_dir),
+                    "timestamp_column": "timestamp",
+                    "value_columns": {
+                        "heart_rate": "Heart rate (bpm)",
+                        "glucose": "Blood glucose (mg/dL)",
+                    },
+                },
+            }),
+            encoding="utf-8",
+        )
+        child = CSVDirectoryChild(config_dir, data_dir)
+        try:
+            result = asyncio.run(child.execute(
+                "csv_list_files", {"limit": 5},
+            ))
+            assert "error" not in result
+            cols = result["files"][0]["columns"]
+            assert cols[0] == "timestamp"
+            assert "﻿" not in cols[0]
+            detail = asyncio.run(child.execute(
+                "csv_file_detail", {"file_id": "fixture.csv"},
+            ))
+            assert "error" not in detail
+        finally:
+            # csv_dir child doesn't own a SQLite handle but be defensive.
+            close = getattr(child, "close", None)
+            if callable(close):
+                close()

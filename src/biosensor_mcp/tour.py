@@ -286,9 +286,19 @@ def main(argv: list[str] | None = None) -> int:
     target_dir = _resolve_target(args.variant, args.target)
     server_name = f"biosensor-tour-{args.variant}"
 
+    # ``--force`` means "wipe and start fresh" — without the rmtree,
+    # ``_copy_resource_tree`` is file-by-file ``shutil.copy2`` and
+    # never deletes anything, so stale files from a broken scaffold
+    # survive the supposed recovery (v6.9.0 footgun: the
+    # WINDOWS_QUICKSTART tells the operator to re-run with --force
+    # to recover, but stale files would survive).
+    if args.force and target_dir.exists() and target_dir.is_dir():
+        shutil.rmtree(target_dir, ignore_errors=True)
+
     # Guard against clobbering a non-tour directory. A prior tour
     # scaffold writes user_config.json — its presence is the cheap
-    # "this dir is mine, refresh it" signal.
+    # "this dir is mine, refresh it" signal. The rmtree above means
+    # this guard only fires when ``--force`` was NOT passed.
     if target_dir.exists() and any(target_dir.iterdir()):
         existing = target_dir / "user_config.json"
         if not existing.exists() and not args.force:

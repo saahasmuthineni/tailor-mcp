@@ -636,6 +636,59 @@ class TestCohortSummary:
 
 
 # ═══════════════════════════════════════════════════════════════
+# UTF-8 BOM transparency (regression for v6.9.2 bug #2)
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestBomTransparency:
+    """Sibling regression to ForceCsv's TestBomTransparency — covers
+    the same v6.9.2 fix on EmgCsvChild's CSV-open paths.
+    """
+
+    def test_csv_with_leading_bom_reads_clean_first_header(
+        self, tmp_data_dir: Path,
+    ):
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_dir = root / "config"
+            csv_dir = root / "emg_files"
+            for d in (config_dir, csv_dir):
+                d.mkdir()
+            body = _build_emg_envelope_csv(
+                n_samples=300, sample_rate_hz=100.0, peak=0.5,
+                plateau_until_s=2.0, decline_to=0.3,
+            )
+            (csv_dir / "S001_emg.csv").write_bytes(
+                b"\xef\xbb\xbf" + body.encode("utf-8"),
+            )
+            (config_dir / "user_config.json").write_text(
+                json.dumps({
+                    "emg_csv": {
+                        "path": str(csv_dir),
+                        "sample_rate_hz": 100.0,
+                        "value_columns": {"envelope": "envelope"},
+                    },
+                }),
+                encoding="utf-8",
+            )
+            child = EmgCsvChild(config_dir, tmp_data_dir)
+            try:
+                result = asyncio.run(child.execute(
+                    "emg_list_files", {"limit": 5},
+                ))
+                assert "error" not in result
+                cols = result["files"][0]["columns"]
+                assert cols[0] == "t_s"
+                assert "﻿" not in cols[0]
+                summary = asyncio.run(child.execute(
+                    "emg_envelope_summary", {"file_id": "S001_emg.csv"},
+                ))
+                assert "error" not in summary
+            finally:
+                child.close()
+
+
+# ═══════════════════════════════════════════════════════════════
 # COHORT SUMMARY — logical→physical column alias resolution
 # (regression for v6.9.0 first-prompt failure)
 # ═══════════════════════════════════════════════════════════════

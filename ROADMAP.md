@@ -26,6 +26,12 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.10.0 (2026-05-06)
+
+- `cue-card-rehearsal-auditor` specialist promoted per [ADR 0025](docs/adr/0025-cue-card-rehearsal-as-release-gate.md). Read-only agent (opus model, tools: Read/Grep/Glob) audits cue-card prompts against ToolDefinition schemas and emits per-prompt verdicts (PASS / WRONG-TOOL / WRONG-PARAMS / AMBIGUOUS). Closes the structural class of failure responsible for both v6.9.1 and v6.9.2: schemas whose envelope passes structural gates but silently fails when Claude infers parameters from operator prose. Mandatory pre-tag trigger wired into `release-shipper`.
+- ADR 0025 cites ADRs 0008, 0010, 0011, 0014, 0016. First-run dogfood evidence included: REVIEW aggregate, AMBIGUOUS verdict on Step 2 cohort prompt demonstrates the gate fires on real under-specification without false-positiving on structural envelope correctness. Deferred (named in ROADMAP): `emg_cohort_summary.value_column` schema hygiene; CUE_CARD.md v6.9.0-footgun recovery row retention decision (boss-decision item).
+- Same governance/team-shape release shape as v6.3.0 (no framework code changes); 834/834 pytest, ruff clean, 76/76 probe, CLI smoke PASS. Minor bump.
+
 ## Shipped in v6.9.2 (2026-05-06)
 
 - Hardened `cmd_uninstall` to prefix-match `biosensor-` so `biosensor-tour-<variant>` orphan Claude Desktop entries are cleaned alongside `biosensor-mcp`; extracted `_clean_claude_desktop_biosensor_entries()` helper (7 new tests in `test_uninstall_cleanup.py`).

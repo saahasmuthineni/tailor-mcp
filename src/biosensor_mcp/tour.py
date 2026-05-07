@@ -3,10 +3,12 @@ Tour subcommand
 ===============
 Scaffold a guided framework walkthrough from bundled fixtures.
 
-The tour pattern is the framework's live-audience demo path —
-distinct from ``biosensor-mcp demo`` (operator self-verification
-on synthetic running-data; deferred rename to ``verify`` per
-ROADMAP). A tour copies bundled synthetic fixtures into a target
+The tour pattern is the framework's audience-walkthrough surface
+— distinct from ``biosensor-mcp demo``, which is a researcher
+first-look that drives the same bundled HIP Lab fixtures through
+``CSVDirectoryChild.execute()`` in a tempdir without writing
+anything durable (per ADR 0027). A tour copies the same fixtures
+into a target
 directory, writes ``user_config.json`` with absolute paths,
 indexes the vault, and registers with Claude Desktop so a
 non-technical recipient can run the walkthrough from a fresh chat

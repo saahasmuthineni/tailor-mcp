@@ -87,7 +87,7 @@ not engineering elegance.
 - HIP Lab realistic fixtures bundled into the wheel. Migrated from `examples/hip_lab_demo/realistic/` to `src/biosensor_mcp/_fixtures/hip_lab_demo_realistic/`; `pyproject.toml` package-data globs extended. Distribution: pre-built wheel via Drive/email; no PyPI publish; wheel size 1.26 MB (budget 10 MB).
 - ADR 0024 codifies synthetic-by-construction precondition — bundling permitted only for bytes that are synthetic by construction; real or de-identified cohort data require a superseding ADR.
 - `examples/hip_lab_demo/realistic/setup.py` preserved as thin shim delegating to `tour_main()`; `rehearse.py` rewritten to rehearse the recipient code path against a temp dir; `WINDOWS_QUICKSTART.md` becomes a fully wheel-driven recipient guide.
-- Deferred (named in ROADMAP): legacy `biosensor-mcp demo` → `verify` rename; PyPI publish path when recipient set crosses ~10.
+- Deferred (named in ROADMAP): legacy `biosensor-mcp demo` → `verify` rename (subsequently *killed* in v6.10.5 per [ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md) — `demo` is now a researcher first-look, not operator self-verification, so the `verify` rename became the wrong move); PyPI publish path when recipient set crosses ~10.
 - 23 new tests (20 `test_tour_subcommand.py` + 3 subprocess `test_serve_mcp_protocol.py`); 818/818 passed. 7-agent release pass clean.
 
 ## Shipped in v6.8.1 (2026-05-03)
@@ -640,26 +640,20 @@ present UX gain — the disambiguation note in `--help` is doing the
 heavy lifting fine for now. Re-evaluate when external doc
 references stabilise or when a third wizard joins the lineup.
 
-## CLI UX: rename legacy `demo` → `verify`
+## CLI UX: ~~rename legacy `demo` → `verify`~~ — KILLED in v6.10.5 per ADR 0027
 
-`biosensor-mcp demo` today runs `run_demo` from
-[`src/biosensor_mcp/demo/runner.py`](src/biosensor_mcp/demo/runner.py)
-against the bundled synthetic running-data sample — it prints
-analytics output to the terminal and is structurally an
-*operator self-verification path* ("does my install work?"), not a
-live-audience walkthrough. v6.9.0 added
-[`biosensor-mcp tour`](docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md)
-as the live-audience walkthrough surface. The legacy `demo` should
-rename to `verify` (or `selftest`) so the verb names what it
-actually does and `tour` vs `demo` doesn't read as redundant or
-swappable. Deferred from v6.9.0 because the doc-churn cost (every
-README, CLAUDE.md banner cross-reference, the `coverage.run.omit`
-glob in `pyproject.toml`, possible external docs) exceeds the
-present UX gain — the live-audience surface is already correctly
-named on the `tour` side, and the ADR 0024 cite path makes the
-distinction clear to anyone reading the codebase. Re-evaluate when
-external doc references stabilise or when a third operator-side
-verification utility ships.
+The deferred rename is no longer the right move. v6.10.5 reframed
+`biosensor-mcp demo` from operator-self-verification (synthetic
+running-data sample) to **researcher first-look** (bundled HIP Lab
+cohort fixtures driven through `CSVDirectoryChild.execute()`) per
+[ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md). A
+researcher-first-look surface should not be called `verify`; the
+`verify` framing presupposed the operator-self-verification job
+the demo no longer does. The `tour` vs `demo` distinction is now:
+`tour` is the audience walkthrough that scaffolds durable state
+and registers Claude Desktop; `demo` is the cold first-look that
+runs cohort tools against the same bundled fixtures in a tempdir
+and writes nothing.
 
 ## Pre-existing csv_dir HIGH-region coverage debt (v6.5.1)
 

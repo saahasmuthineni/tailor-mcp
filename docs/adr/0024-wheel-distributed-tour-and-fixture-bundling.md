@@ -281,10 +281,15 @@ sibling-MCP-server preservation on merge.
   documentation (CUE_CARD, README, WINDOWS_QUICKSTART) all live
   in-repo. Only the *generated artifacts* relocated.
 - **`pilot` is unchanged.** Existing v6.2.1 behaviour holds.
-- **The `demo` subcommand is unchanged.** Operator
+- **The `demo` subcommand is unchanged in v6.9.0.** Operator
   self-verification still runs `python -m biosensor_mcp.demo` via
-  the same dispatch entry. The deferred rename to `verify` lands
-  in a separate release.
+  the same dispatch entry as of this ADR's landing. Subsequently
+  reframed in v6.10.5 per [ADR 0027](0027-demo-as-researcher-first-look.md):
+  the `demo` subcommand is now a researcher first-look that runs
+  the CSV cohort tools against the bundled fixtures from this ADR,
+  and the deferred `demo` → `verify` rename is killed (a researcher-
+  first-look surface should not be called `verify`). The dispatch
+  entry is unchanged; the implementation and framing are.
 - **Cross-platform behaviour:** Windows + macOS get the full
   Claude Desktop registration flow; Linux gets the scaffold but
   silently skips the Claude Desktop merge (no Claude Desktop on

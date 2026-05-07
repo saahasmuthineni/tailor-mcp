@@ -7,7 +7,7 @@ Usage:
     biosensor-mcp tour       # Scaffold a live-audience walkthrough (HIP Lab realistic demo by default)
     biosensor-mcp setup      # Run Strava OAuth setup wizard
     biosensor-mcp status     # Diagnostic check
-    biosensor-mcp demo       # Run analytics on synthetic data (operator self-verification)
+    biosensor-mcp demo       # Researcher first-look — run cohort tools on bundled HIP Lab fixtures (ADR 0027)
     biosensor-mcp uninstall  # Clean removal
 """
 
@@ -287,8 +287,12 @@ def cmd_pilot():
 def cmd_tour():
     """Scaffold a live-audience walkthrough from bundled fixtures.
 
-    Companion to ``cmd_demo``: ``demo`` is operator self-verification;
-    ``tour`` is the live-audience demo path. See ADR 0024.
+    Companion to ``cmd_demo``: ``demo`` is a researcher first-look
+    that runs the cohort tools against bundled fixtures in a tempdir
+    (no durable state); ``tour`` is the audience-walkthrough path
+    that scaffolds the same fixtures into a recipient-visible
+    directory and registers with Claude Desktop. See ADRs 0024 and
+    0027.
     """
     from biosensor_mcp.tour import main as tour_main
     sys.exit(tour_main())
@@ -465,7 +469,8 @@ def cmd_status():
 
 
 def cmd_demo():
-    """Run analytics on synthetic data — no Strava account needed."""
+    """Researcher first-look — run CSV cohort tools against bundled
+    HIP Lab fixtures. See ADR 0027."""
     from biosensor_mcp.demo import run_demo
     run_demo()
 

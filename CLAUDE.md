@@ -914,8 +914,11 @@ src/biosensor_mcp/
       processing.py        # TemplateProcessing — stateless analytics stubs
   demo/
     __init__.py            # Exports run_demo
-    sample_data.py         # Synthetic 60-minute run data (reproducible, stdlib-only)
-    runner.py              # Demo runner — execute analytics on synthetic data
+    sample_data.py         # Library-shaped synthetic-Strava generator
+                           #   (preserved per ADR 0008 § Alternatives;
+                           #   no longer the demo's data source — see ADR 0027)
+    runner.py              # Researcher-first-look — runs CSV cohort tools
+                           #   against bundled HIP Lab fixtures (ADR 0027)
 
 tests/                     # Mirrors src/ layout
   conftest.py              # Shared fixtures (tmp_data_dir, tmp_vault_dirs)
@@ -1027,8 +1030,9 @@ biosensor-mcp --help
 
 # Subcommands
 biosensor-mcp pilot      # Multi-subject CSV pilot setup wizard (v6.2.1+)
+biosensor-mcp tour       # Live-audience walkthrough (HIP Lab realistic; ADR 0024)
 biosensor-mcp setup      # Strava OAuth wizard for the worked-example child
-biosensor-mcp demo       # Run analytics on synthetic data (no setup needed)
+biosensor-mcp demo       # Researcher first-look — runs cohort tools on bundled HIP Lab fixtures (ADR 0027)
 biosensor-mcp serve      # Start MCP server (Claude Desktop calls this)
 biosensor-mcp status     # Diagnostic check
 ```

@@ -19,7 +19,7 @@ pip install -e ".[dev]"
 pytest -v                          # run tests (~250+ tests)
 python tests/security_probe.py     # standalone security-gate probe
 biosensor-mcp --help               # CLI smoke test
-biosensor-mcp demo                 # run analytics on synthetic data (no Strava creds needed)
+biosensor-mcp demo                 # researcher first-look on bundled HIP Lab fixtures (ADR 0027)
 ```
 
 ### Lint & format

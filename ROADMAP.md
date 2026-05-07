@@ -26,6 +26,18 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.10.4 (2026-05-06)
+
+- Dual-path Claude Desktop config resolution closes the Microsoft Store / Classic install mismatch on Windows. `_claude_desktop_config_path() -> Path | None` refactored to `_claude_desktop_config_paths() -> list[Path]`; Windows now writes to both the classic `%APPDATA%\Claude\` path and any matching UWP sandbox path (`%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude\`). Recipient who sees "successfully registered" but no biosensor tools is now routed correctly regardless of which Claude Desktop distribution they installed.
+- New `_RegistrationResult` dataclass + `_write_registration_to_path` helper with per-path atomic semantics: read → clean siblings → add entry → atomic write. PermissionError on one path does not abort writes to others; exit code 1 only if every path failed; `.tmp` artifacts unlinked on partial failure.
+- `cmd_status` reframed to surface human-readable recovery instructions instead of engineering jargon.
+- Three duplicated platform-conditional Windows branches in `__main__.py` collapsed into the shared helper.
+- ADR 0026 NEW (cites ADRs 0010 / 0014 / 0024); ADR 0024 amended with historical-context framing at two references to the now-refactored singular helper.
+- CUE_CARD.md: two new recovery rows for the dual-path surface (partial-write and Store-version-no-tools-after-launch).
+- +14 regression tests (890 total): 13 in `test_dual_path_registration.py` covering 8 audit-named scenarios; 1 in `test_uninstall_cleanup.py` for cross-config iteration.
+- Invariant locked: after a successful `tour --force`, exactly one `biosensor-*` entry exists in EACH detected Claude Desktop config; the entry is identical across configs.
+- Structural lesson: the write site must enumerate all paths the reader will ever check — not just the canonical path from official docs. UWP sandbox redirection is silent and invisible from the writer side without prefix-glob enumeration.
+
 ## Shipped in v6.10.3 (2026-05-06)
 
 - Tour cleans sibling `biosensor-*` entries from `claude_desktop_config.json` before adding its own. Closes the multi-entry coexistence trap: a recipient who had a stale bare `biosensor-mcp` entry (written by web-Claude during a failed v6.9.x install) would end up with two MCP servers after `tour --force`, leaking `biosensor_setup_help` into the working-demo state. Symmetric with v6.9.2's prefix-match cleanup in `cmd_uninstall` — uninstall cleans on teardown, tour cleans on setup.

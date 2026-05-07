@@ -1,5 +1,41 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.10.4 (2026-05-06)** — Dual-path Claude Desktop config resolution
+> closes the Microsoft Store / Classic install mismatch on Windows. The
+> Microsoft Store version of Claude Desktop runs in a UWP container that
+> silently redirects `%APPDATA%\Claude\` to a per-package sandbox at
+> `C:\Users\<user>\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\`.
+> Pre-v6.10.4 wrote only the unredirected classic path; Store-installed
+> Claude Desktop read from the sandbox; the recipient saw a "successfully
+> registered" message and no biosensor tools after restart. Boss reported
+> hitting this "a million times since day one"; dad hit it on the
+> v6.10.3 install path tested 2026-05-06. Fix: `_claude_desktop_config_path()
+> -> Path | None` refactored into `_claude_desktop_config_paths() ->
+> list[Path]`. Windows: classic always included (created lazily on first
+> write); Store sandbox paths included via prefix-glob
+> `%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude\` — one
+> entry per matching UWP package. New `_RegistrationResult` dataclass +
+> shared `_write_registration_to_path` helper enforce per-path atomic
+> semantics (read → clean siblings → add entry → atomic write), each path
+> wrapped in try/except. PermissionError on one path does not abort writes
+> to others; exit code 1 only if every path failed; `.tmp` artifacts
+> unlinked on partial failure. `cmd_status` reframed to surface recovery
+> instructions instead of engineering jargon. Three duplicated Windows
+> branches in `__main__.py` collapsed into the single helper. Invariant
+> locked: after a successful `tour --force`, exactly one `biosensor-*`
+> entry exists in EACH detected Claude Desktop config; the entry is
+> identical across configs. ADR 0026 NEW (cites ADRs 0010 / 0014 / 0024);
+> ADR 0024 amended at lines 116 and 285 with historical-context framing.
+> Release-pass agents: `integration-auditor --proposal-mode` REVISE (3
+> BLOCKING + 5 IMPORTANT addressed in code before any Edit landed);
+> `ci-gate-runner` SHIPPABLE (890/890 pytest, ruff clean, 76/76 probe,
+> CLI smoke PASS); `red-team-reviewer` OBJECTION (medium) on
+> release-artifact completeness + ADR 0024 stale-reference doc-truth —
+> both addressed. CUE_CARD.md gains two new recovery rows for the
+> dual-path surface. 876 → 890 tests (+14). No
+> router/security/child/vault/CLI architecture changes; no public API
+> changes; patch bump.
+>
 > **v6.10.3 (2026-05-06)** — Tour cleans sibling biosensor-* entries
 > before adding its own. Closes the multi-entry coexistence trap surfaced
 > by dad's 2026-05-06 post-v6.10.2 debrief: a recipient who had a bare

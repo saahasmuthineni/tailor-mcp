@@ -24,7 +24,7 @@ For a developer exploring the framework:
 git clone https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
 cd Biosensor-to-LLM-Connector
 pip install -e ".[dev]"
-biosensor-mcp demo           # analytics on synthetic data — no OAuth, no network
+biosensor-mcp demo           # researcher first-look: HIP Lab cohort tools on bundled fixtures
 biosensor-mcp --help         # see all commands
 ```
 
@@ -295,17 +295,16 @@ interpreter.
 | Command | Description |
 |---|---|
 | `biosensor-mcp pilot` | Multi-subject CSV pilot wizard (v6.2.1) — three prompts, end-to-end smoke check |
+| `biosensor-mcp tour` | Live-audience walkthrough — scaffolds bundled HIP Lab fixtures + registers with Claude Desktop (ADR 0024) |
 | `biosensor-mcp serve` | Start the MCP server (invoked by the LLM client) |
-| `biosensor-mcp demo` | Run analytics on synthetic data (no network) |
+| `biosensor-mcp demo` | Researcher first-look — runs cohort tools on bundled HIP Lab fixtures (ADR 0027) |
 | `biosensor-mcp setup` | Strava OAuth wizard (for the worked example) |
 | `biosensor-mcp status` | Diagnostic check: tokens, DB state, vault config |
 | `biosensor-mcp uninstall` | Clean removal |
 
 ### Worked example: the running child
 
-```bash
-biosensor-mcp demo     # synthetic data, no Strava account needed
-```
+The running child wraps Strava as one example of the ChildMCP pattern — see CLAUDE.md for the framing. To exercise it against live data (separate from `demo`, which now showcases the canonical CSV cohort path):
 
 To run against live Strava data:
 

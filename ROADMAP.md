@@ -18,13 +18,24 @@ one- or two-sentence pitch plus context; no implementation details.
 | ~~[Worked-example notebook](#worked-example-notebook-against-a-published-analytical-question)~~ *(shipped — [docs/guides/worked-example.ipynb](docs/guides/worked-example.ipynb))* | — | — | — |
 | [LLM-client evaluation harness](#evaluation-harness-for-llm-client-behavior) | M | Medium | Making the governance claim measurable |
 | [CLI UX: rename `setup` → `setup-strava`](#cli-ux-rename-setup--setup-strava) | XS | Low | Disambiguating the two wizards |
-| [CLI UX: rename legacy `demo` → `verify`](#cli-ux-rename-legacy-demo--verify) | XS | Low | Naming the operator-self-verification path correctly alongside `tour` |
+| ~~[CLI UX: rename legacy `demo` → `verify`](#cli-ux-rename-legacy-demo----verify--killed-in-v6105-per-adr-0027)~~ *(killed in v6.10.5 — `demo` is now a researcher first-look, not operator self-verification; `verify` is the wrong name)* | — | — | — |
 | [Pre-existing csv_dir HIGH-region coverage debt (v6.5.1)](#pre-existing-csv_dir-high-region-coverage-debt-v651) | XS | Low | Cleaner ADR-0014 baseline |
 | ~~[Local-LLM guardian](#local-llm-guardian)~~ *(shipped in v6.6 — see [ADR 0022](docs/adr/0022-local-llm-guardian.md))* | — | — | — |
 | [PHI sidecar-schema validator (deferred)](#phi-sidecar-schema-validator-deferred) | S | High | Stronger IRB-cleared posture for csv_dir |
 
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
+
+## Shipped in v6.10.5 (2026-05-07)
+
+- `biosensor-mcp demo` reframed from synthetic-Strava operator self-verification to bundled HIP Lab cohort fixtures researcher first-look per [ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md). Closes the drift between CLAUDE.md's stated framing ("Strava is a worked example, not the canonical use case") and the demo's actual behavior across the entire v6.x cycle.
+- `demo/runner.py` rewritten: instantiates `CSVDirectoryChild`, exercises `csv_cohort_summary` (by sex, by group) + `csv_force_decline` on pinned subject S001 against bundled `_fixtures/hip_lab_demo_realistic/force/`. Output is the real result envelope shape; the router / audit / consent-gate path is explicitly out-of-scope with a pointer to `biosensor-mcp tour`.
+- `demo/sample_data.py` preserved untouched per ADR 0008 § Alternatives.
+- Deferred `demo` → `verify` rename KILLED: a researcher-first-look surface should not be called `verify`. ROADMAP item rewritten as KILLED with explanation. ADR 0024 deferral paragraph updated to name the kill.
+- Doc-truth drift cleanup (9 sites caught by `red-team-reviewer` adversarial pass per ADR 0010): README.md ×3, CONTRIBUTING.md, tour.py module docstring, ROADMAP.md ×2, docs/guides/claude-desktop-demo.md ×2. Known debt: `docs/assets/demo.svg` orphan asset queued for future doc-pass per ADR 0027 § Negative consequences.
+- ADR 0027 NEW: researcher-first-look framing, trade-off vs RouterMCP path, named negative consequences.
+- +8 tests in `tests/test_demo_runner.py` (890 → 898): end-to-end run, output-mentions-HIP-Lab-not-Strava, balanced-by-sex cohort (F+M n=8, Hunter & Senefeld 2024 sex-differences thesis), cohort-by-group, force-decline-on-S001, deterministic-across-reruns (ADR 0008 surfaced as recipient-checkable property), sample_data importability, bundled-fixture loadability.
+- Gates: 898/898 pytest, ruff clean, 76/76 probe, CLI smoke PASS. Patch bump.
 
 ## Shipped in v6.10.4 (2026-05-06)
 
@@ -87,7 +98,7 @@ not engineering elegance.
 - HIP Lab realistic fixtures bundled into the wheel. Migrated from `examples/hip_lab_demo/realistic/` to `src/biosensor_mcp/_fixtures/hip_lab_demo_realistic/`; `pyproject.toml` package-data globs extended. Distribution: pre-built wheel via Drive/email; no PyPI publish; wheel size 1.26 MB (budget 10 MB).
 - ADR 0024 codifies synthetic-by-construction precondition — bundling permitted only for bytes that are synthetic by construction; real or de-identified cohort data require a superseding ADR.
 - `examples/hip_lab_demo/realistic/setup.py` preserved as thin shim delegating to `tour_main()`; `rehearse.py` rewritten to rehearse the recipient code path against a temp dir; `WINDOWS_QUICKSTART.md` becomes a fully wheel-driven recipient guide.
-- Deferred (named in ROADMAP): legacy `biosensor-mcp demo` → `verify` rename; PyPI publish path when recipient set crosses ~10.
+- Deferred (named in ROADMAP): legacy `biosensor-mcp demo` → `verify` rename (subsequently *killed* in v6.10.5 per [ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md) — `demo` is now a researcher first-look, not operator self-verification, so the `verify` rename became the wrong move); PyPI publish path when recipient set crosses ~10.
 - 23 new tests (20 `test_tour_subcommand.py` + 3 subprocess `test_serve_mcp_protocol.py`); 818/818 passed. 7-agent release pass clean.
 
 ## Shipped in v6.8.1 (2026-05-03)
@@ -640,26 +651,20 @@ present UX gain — the disambiguation note in `--help` is doing the
 heavy lifting fine for now. Re-evaluate when external doc
 references stabilise or when a third wizard joins the lineup.
 
-## CLI UX: rename legacy `demo` → `verify`
+## CLI UX: ~~rename legacy `demo` → `verify`~~ — KILLED in v6.10.5 per ADR 0027
 
-`biosensor-mcp demo` today runs `run_demo` from
-[`src/biosensor_mcp/demo/runner.py`](src/biosensor_mcp/demo/runner.py)
-against the bundled synthetic running-data sample — it prints
-analytics output to the terminal and is structurally an
-*operator self-verification path* ("does my install work?"), not a
-live-audience walkthrough. v6.9.0 added
-[`biosensor-mcp tour`](docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md)
-as the live-audience walkthrough surface. The legacy `demo` should
-rename to `verify` (or `selftest`) so the verb names what it
-actually does and `tour` vs `demo` doesn't read as redundant or
-swappable. Deferred from v6.9.0 because the doc-churn cost (every
-README, CLAUDE.md banner cross-reference, the `coverage.run.omit`
-glob in `pyproject.toml`, possible external docs) exceeds the
-present UX gain — the live-audience surface is already correctly
-named on the `tour` side, and the ADR 0024 cite path makes the
-distinction clear to anyone reading the codebase. Re-evaluate when
-external doc references stabilise or when a third operator-side
-verification utility ships.
+The deferred rename is no longer the right move. v6.10.5 reframed
+`biosensor-mcp demo` from operator-self-verification (synthetic
+running-data sample) to **researcher first-look** (bundled HIP Lab
+cohort fixtures driven through `CSVDirectoryChild.execute()`) per
+[ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md). A
+researcher-first-look surface should not be called `verify`; the
+`verify` framing presupposed the operator-self-verification job
+the demo no longer does. The `tour` vs `demo` distinction is now:
+`tour` is the audience walkthrough that scaffolds durable state
+and registers Claude Desktop; `demo` is the cold first-look that
+runs cohort tools against the same bundled fixtures in a tempdir
+and writes nothing.
 
 ## Pre-existing csv_dir HIGH-region coverage debt (v6.5.1)
 

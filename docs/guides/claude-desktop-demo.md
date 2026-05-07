@@ -5,7 +5,7 @@ This documents how to produce `docs/claude-desktop-demo.gif` — a short screenc
 ## Setup
 
 1. **Window size:** 1280x800 (Retina/HiDPI), zoom 100%
-2. **Data source:** Use synthetic data from `biosensor-mcp demo` — avoid real Strava data for privacy
+2. **Data source:** Run `biosensor-mcp tour` first (ADR 0024) — scaffolds the bundled HIP Lab synthetic fixtures and registers a sandboxed MCP server entry with Claude Desktop. Strictly synthetic data; never use real participant data when recording GIFs.
 3. **Ensure biosensor-mcp is connected** in Claude Desktop (check via `biosensor-mcp status`)
 
 ## Prompt script
@@ -38,7 +38,7 @@ ffmpeg -i input.mp4 -vf "fps=15,scale=900:-1:flags=lanczos" -loop 0 docs/claude-
 ## Constraints
 
 - **File size:** < 3 MB (larger image area than terminal GIF)
-- **Privacy:** Use demo/synthetic data only — no real Strava activity names or heart rate data
+- **Privacy:** Tour-scaffolded synthetic fixtures only — no real participant data, no real Strava activity names, no real biometric streams
 - **Looping:** GIF should look natural when looping (start and end in similar UI state)
 
 ## Current placeholder

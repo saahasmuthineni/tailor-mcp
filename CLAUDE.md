@@ -1,5 +1,42 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.10.5 (2026-05-07)** — `biosensor-mcp demo` reframed from
+> synthetic-Strava operator self-verification to bundled HIP Lab cohort
+> fixtures researcher first-look per [ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md).
+> The pre-v6.10.5 demo ran `run_demo` against synthetic Strava running
+> streams, silently positioning the running child (Strava) as canonical
+> for the entire v6.x cycle — a structural contradiction with CLAUDE.md's
+> explicit framing that "Strava is a worked example… retained for teaching
+> value; not the canonical use case." Boss surfaced the drift 2026-05-06.
+> `src/biosensor_mcp/demo/runner.py` rewritten: copies bundled
+> `_fixtures/hip_lab_demo_realistic/force/` (16 synthetic subjects +
+> `metadata.json` sidecar) into a tempdir, instantiates
+> `CSVDirectoryChild`, exercises `csv_cohort_summary` (by sex, by group)
+> + `csv_force_decline` on pinned subject S001 via `child.execute()`.
+> Printed output is the real result envelope shape; closing prose names
+> what the demo exercises (server-side computation, deterministic
+> reproducibility per ADR 0008) and what it does not (router pipeline /
+> audit / consent gates — pointer to `biosensor-mcp tour` for the full
+> router-mediated path). `demo/sample_data.py` preserved untouched per
+> ADR 0008 § Alternatives explicit-rejection-of-removal clause.
+> Deferred `demo` → `verify` rename KILLED: under the researcher-first-
+> look reframe a surface named `verify` would be wrong; the deferred
+> ROADMAP item is rewritten as KILLED with explanation in ADR 0027 §
+> Negative consequences. Doc-truth drift cleanup: 9 recipient-visible
+> drift sites patched (README.md ×3, CONTRIBUTING.md, tour.py module
+> docstring, ROADMAP.md ×2, docs/guides/claude-desktop-demo.md ×2) —
+> all caught by `red-team-reviewer` adversarial pass (ADR 0010). One
+> known debt: `docs/assets/demo.svg` is an orphan asset still showing
+> pre-v6.10.5 framing; not on first-look path; queued for a future
+> doc-pass per ADR 0027 § Negative consequences. Release-pass agents:
+> `ci-gate-runner` SHIPPABLE (898/898 pytest, ruff clean, 76/76 probe,
+> CLI smoke PASS); `researcher-utility-reviewer` RESHAPE → resolved
+> (PI LOAD-BEARING medium, analyst LOAD-BEARING medium, IRB audit-log
+> over-claim trimmed); `red-team-reviewer` OBJECTION (medium) → resolved
+> via 9-site doc-rename pass and ADR 0027 amendment. +8 tests in
+> `tests/test_demo_runner.py` (890 → 898). No router / security / child /
+> vault / CLI architecture changes. Patch bump.
+>
 > **v6.10.4 (2026-05-06)** — Dual-path Claude Desktop config resolution
 > closes the Microsoft Store / Classic install mismatch on Windows. The
 > Microsoft Store version of Claude Desktop runs in a UWP container that
@@ -914,8 +951,11 @@ src/biosensor_mcp/
       processing.py        # TemplateProcessing — stateless analytics stubs
   demo/
     __init__.py            # Exports run_demo
-    sample_data.py         # Synthetic 60-minute run data (reproducible, stdlib-only)
-    runner.py              # Demo runner — execute analytics on synthetic data
+    sample_data.py         # Library-shaped synthetic-Strava generator
+                           #   (preserved per ADR 0008 § Alternatives;
+                           #   no longer the demo's data source — see ADR 0027)
+    runner.py              # Researcher-first-look — runs CSV cohort tools
+                           #   against bundled HIP Lab fixtures (ADR 0027)
 
 tests/                     # Mirrors src/ layout
   conftest.py              # Shared fixtures (tmp_data_dir, tmp_vault_dirs)
@@ -1027,8 +1067,9 @@ biosensor-mcp --help
 
 # Subcommands
 biosensor-mcp pilot      # Multi-subject CSV pilot setup wizard (v6.2.1+)
+biosensor-mcp tour       # Live-audience walkthrough (HIP Lab realistic; ADR 0024)
 biosensor-mcp setup      # Strava OAuth wizard for the worked-example child
-biosensor-mcp demo       # Run analytics on synthetic data (no setup needed)
+biosensor-mcp demo       # Researcher first-look — runs cohort tools on bundled HIP Lab fixtures (ADR 0027)
 biosensor-mcp serve      # Start MCP server (Claude Desktop calls this)
 biosensor-mcp status     # Diagnostic check
 ```

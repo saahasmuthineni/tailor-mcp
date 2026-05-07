@@ -40,13 +40,14 @@ from importlib.resources import as_file, files
 from pathlib import Path
 
 # Reuse the v6.2.1 pilot-wizard hardenings (atomic write, BOM
-# round-trip, deep-merge into existing mcpServers). These are
-# private helpers but live in the same package; treat them as
-# package-internal not public API.
+# round-trip, deep-merge into existing mcpServers) extended in v6.10.4
+# per ADR 0026 to dual-write across Classic + Microsoft Store Claude
+# Desktop config paths. These are private helpers but live in the same
+# package; treat them as package-internal not public API.
 from biosensor_mcp.pilot import (
-    _claude_desktop_config_path,
-    _read_claude_config,
-    _write_claude_config,
+    _claude_desktop_config_paths,
+    _RegistrationResult,
+    _write_registration_to_path,
 )
 
 # Default scaffold root. Sits under the operator's biosensor-mcp
@@ -186,11 +187,13 @@ def _index_vault(target_dir: Path) -> dict[str, int]:
 
 def _register_with_claude_desktop(
     target_dir: Path, *, server_name: str,
-) -> tuple[Path | None, list[str]]:
-    """Register the tour entry; clean any pre-existing biosensor-*
-    siblings so the recipient does not end up with two MCP servers
-    running simultaneously after a debugging detour (v6.10.3 — closes
-    the dad-2026-05-06 multi-entry-coexistence trap).
+) -> list[_RegistrationResult]:
+    """Register the tour entry in every detected Claude Desktop config;
+    clean any pre-existing ``biosensor-*`` siblings on each path so the
+    recipient does not end up with two MCP servers running
+    simultaneously after a debugging detour (v6.10.3 — closes the
+    dad-2026-05-06 multi-entry-coexistence trap, generalised per-path
+    in v6.10.4 per ADR 0026).
 
     Recipient-failure shape this closes: web-Claude-mediated debugging
     on a v6.9.x failed-tour install adds a bare ``biosensor-mcp`` entry
@@ -203,21 +206,18 @@ def _register_with_claude_desktop(
     ``cmd_uninstall``: tour cleans on setup, uninstall cleans on
     teardown.
 
-    Returns ``(config_path, cleaned)`` — ``cleaned`` is the list of
-    stale ``biosensor-*`` keys removed; empty when there were none.
+    v6.10.4 invariant: after a successful ``tour --force``, exactly
+    one ``biosensor-*`` entry exists in **each detected** Claude
+    Desktop config; the entry is identical across configs. See ADR
+    0026 § "Per-path atomic semantics".
+
+    Returns the list of per-path :class:`_RegistrationResult` records.
+    Empty list on Linux (no Claude Desktop on this platform).
     """
-    config_path = _claude_desktop_config_path()
-    if config_path is None:
-        return None, []  # Linux build — no Claude Desktop on this platform
-    config, had_bom = _read_claude_config(config_path)
-    servers = config.setdefault("mcpServers", {})
-    cleaned = [
-        k for k in list(servers)
-        if k.startswith("biosensor-") and k != server_name
-    ]
-    for key in cleaned:
-        del servers[key]
-    servers[server_name] = {
+    paths = _claude_desktop_config_paths()
+    if not paths:
+        return []
+    entry = {
         "command": sys.executable,
         "args": ["-m", "biosensor_mcp", "serve"],
         "env": {
@@ -225,8 +225,10 @@ def _register_with_claude_desktop(
             "BIOSENSOR_DATA_DIR": str(target_dir / "data"),
         },
     }
-    _write_claude_config(config_path, config, with_bom=had_bom)
-    return config_path, cleaned
+    return [
+        _write_registration_to_path(p, server_name=server_name, entry=entry)
+        for p in paths
+    ]
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -242,27 +244,75 @@ def _resolve_target(variant: str, override: str | None) -> Path:
 
 
 def _print_next_steps(
-    target_dir: Path, claude_config: Path | None, server_name: str,
+    target_dir: Path,
+    results: list[_RegistrationResult],
+    server_name: str,
+    *,
+    skipped: bool = False,
 ) -> None:
+    """Print tour-completion banner with per-path Claude Desktop status.
+
+    Per ADR 0026 § "Per-path atomic semantics", the success message is
+    conditional: ``Tour scaffolded successfully`` prints only if every
+    detected path was written. On any partial failure, the banner
+    states the partial-success count and lists per-path failures with
+    a plain-language remediation.
+    """
+    written = [r for r in results if r.written]
+    failed = [r for r in results if not r.written]
+    all_ok = (skipped or not failed) and (skipped or written or not results)
+
     print()
     print("=" * 64)
-    print("  Tour scaffolded successfully")
+    if all_ok:
+        print("  Tour scaffolded successfully")
+    elif written:
+        print(f"  Tour scaffolded with {len(written)} of {len(results)} "
+              f"Claude Desktop registrations succeeded")
+    else:
+        print("  Tour scaffolded; Claude Desktop registration FAILED")
     print("=" * 64)
     print(f"  Target dir:     {target_dir}")
     print(f"  user_config:    {target_dir / 'user_config.json'}")
     print(f"  vault index:    {target_dir / 'data' / 'vault.db'}")
-    if claude_config is not None:
-        print(f"  Claude Desktop: registered as '{server_name}' in")
-        print(f"                  {claude_config}")
+
+    if skipped:
+        print("  Claude Desktop: not registered (--no-claude-desktop)")
+        print(f"  Manual env vars: BIOSENSOR_CONFIG_DIR={target_dir}")
+        print(f"                   BIOSENSOR_DATA_DIR={target_dir / 'data'}")
         print()
+        return
+
+    if not results:
+        print("  Claude Desktop: not registered (Linux, or APPDATA missing)")
+        print(f"  Manual env vars: BIOSENSOR_CONFIG_DIR={target_dir}")
+        print(f"                   BIOSENSOR_DATA_DIR={target_dir / 'data'}")
+        print()
+        return
+
+    if written:
+        if len(written) == 1:
+            print(f"  Claude Desktop: registered as '{server_name}' in")
+            print(f"                  {written[0].path}")
+        else:
+            print(f"  Claude Desktop: registered as '{server_name}' in:")
+            for r in written:
+                print(f"                  {r.path}")
+    if failed:
+        print()
+        print("  ERRORS — these Claude Desktop config paths could not be written:")
+        for r in failed:
+            print(f"    - {r.path}")
+            print(f"      {type(r.error).__name__}: {r.error}")
+        print()
+        print("  Quit Claude Desktop fully (system tray Quit on Windows,")
+        print("  Cmd+Q on macOS) and re-run `biosensor-mcp tour --force`.")
+    print()
+    if written:
         print("  Next: fully quit Claude Desktop (system tray Quit on Windows,")
         print("        Cmd+Q on macOS), then re-open it. Try this prompt:")
         print()
         print('    "List the available biosensor MCP tools."')
-    else:
-        print("  Claude Desktop: not registered")
-        print(f"  Manual env vars: BIOSENSOR_CONFIG_DIR={target_dir}")
-        print(f"                   BIOSENSOR_DATA_DIR={target_dir / 'data'}")
     print()
 
 
@@ -357,24 +407,33 @@ def main(argv: list[str] | None = None) -> int:
     )
     print()
     print("  (4/4) register with Claude Desktop")
-    claude_config: Path | None = None
-    if args.no_claude_desktop:
+    results: list[_RegistrationResult] = []
+    skipped = bool(args.no_claude_desktop)
+    if skipped:
         print("        skipped (--no-claude-desktop)")
     else:
-        claude_config, cleaned = _register_with_claude_desktop(
+        results = _register_with_claude_desktop(
             target_dir, server_name=server_name,
         )
-        if claude_config is not None:
-            if cleaned:
-                print(
-                    f"        cleaned stale biosensor-* entries: "
-                    f"{', '.join(cleaned)}"
-                )
-            print(f"        wrote entry '{server_name}' to {claude_config}")
-        else:
+        if not results:
             print("        skipped (Linux, or APPDATA missing)")
+        for r in results:
+            if r.written:
+                if r.cleaned:
+                    print(
+                        f"        cleaned stale biosensor-* in {r.path.name}: "
+                        f"{', '.join(r.cleaned)}"
+                    )
+                print(f"        wrote entry '{server_name}' to {r.path}")
+            else:
+                print(f"        [error] could not write {r.path}")
+                print(f"                {type(r.error).__name__}: {r.error}")
 
-    _print_next_steps(target_dir, claude_config, server_name)
+    _print_next_steps(target_dir, results, server_name, skipped=skipped)
+    # Exit non-zero if every detected path failed; succeed if at least
+    # one path was written or the user opted out via --no-claude-desktop.
+    if results and not any(r.written for r in results):
+        return 1
     return 0
 
 

@@ -113,9 +113,15 @@ The Claude Desktop merge code is **explicitly inherited** from
 [`src/biosensor_mcp/pilot.py`](../../src/biosensor_mcp/pilot.py)'s
 v6.2.1 hardenings — atomic write via `os.replace`, BOM round-trip,
 deep-merge into existing `mcpServers` so sibling MCP servers
-survive. `tour.py` imports `_claude_desktop_config_path`,
-`_read_claude_config`, and `_write_claude_config` from `pilot.py`
-rather than reimplementing them. Pilot and tour are siblings — both
+survive. `tour.py` imports the path-resolution helper plus
+`_write_registration_to_path` from `pilot.py` rather than
+reimplementing them. (Naming context: at the time of this ADR's
+landing in v6.9.0 the helper was singular,
+`_claude_desktop_config_path() -> Path | None`; v6.10.4 generalised
+it to `_claude_desktop_config_paths() -> list[Path]` per
+[ADR 0026](0026-claude-desktop-config-dual-path.md) so the dual-write
+under UWP sandboxing on Windows extends through the same inheritance
+seam.) Pilot and tour are siblings — both
 scaffold a working configuration for a non-technical recipient —
 but they are *not* unified: pilot is for "ingest your own CSV
 directory and connect it"; tour is for "run a canned demo against
@@ -282,8 +288,11 @@ sibling-MCP-server preservation on merge.
 - **Cross-platform behaviour:** Windows + macOS get the full
   Claude Desktop registration flow; Linux gets the scaffold but
   silently skips the Claude Desktop merge (no Claude Desktop on
-  Linux). `_claude_desktop_config_path()` returns `None` on Linux;
-  the tour reports `"skipped (Linux, or APPDATA missing)"`.
+  Linux). `_claude_desktop_config_paths()` returns `[]` on Linux
+  (singular `_claude_desktop_config_path()` returning `None` was
+  the v6.9.0–v6.10.3 shape; v6.10.4 generalised the helper per
+  [ADR 0026](0026-claude-desktop-config-dual-path.md)); the tour
+  reports `"skipped (Linux, or APPDATA missing)"`.
 
 ## Alternatives
 

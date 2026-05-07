@@ -272,8 +272,8 @@ class TestClaudeDesktopRegistration:
         none) instead of the demo, and the recipient sees no tools."""
         fake_config = tmp_path / "claude_desktop_config.json"
         monkeypatch.setattr(
-            "biosensor_mcp.tour._claude_desktop_config_path",
-            lambda: fake_config,
+            "biosensor_mcp.tour._claude_desktop_config_paths",
+            lambda: [fake_config],
         )
         target = tmp_path / "tour"
         rc = main(["--variant=hip-lab", "--target", str(target)])
@@ -298,8 +298,8 @@ class TestClaudeDesktopRegistration:
             },
         }), encoding="utf-8")
         monkeypatch.setattr(
-            "biosensor_mcp.tour._claude_desktop_config_path",
-            lambda: fake_config,
+            "biosensor_mcp.tour._claude_desktop_config_paths",
+            lambda: [fake_config],
         )
         target = tmp_path / "tour"
         main(["--variant=hip-lab", "--target", str(target)])
@@ -336,8 +336,8 @@ class TestClaudeDesktopRegistration:
             },
         }), encoding="utf-8")
         monkeypatch.setattr(
-            "biosensor_mcp.tour._claude_desktop_config_path",
-            lambda: fake_config,
+            "biosensor_mcp.tour._claude_desktop_config_paths",
+            lambda: [fake_config],
         )
         target = tmp_path / "tour"
         rc = main(["--variant=hip-lab", "--target", str(target)])
@@ -373,8 +373,8 @@ class TestClaudeDesktopRegistration:
             },
         }), encoding="utf-8")
         monkeypatch.setattr(
-            "biosensor_mcp.tour._claude_desktop_config_path",
-            lambda: fake_config,
+            "biosensor_mcp.tour._claude_desktop_config_paths",
+            lambda: [fake_config],
         )
         target = tmp_path / "tour"
         rc = main([
@@ -393,8 +393,8 @@ class TestClaudeDesktopRegistration:
     ):
         fake_config = tmp_path / "claude_desktop_config.json"
         monkeypatch.setattr(
-            "biosensor_mcp.tour._claude_desktop_config_path",
-            lambda: fake_config,
+            "biosensor_mcp.tour._claude_desktop_config_paths",
+            lambda: [fake_config],
         )
         target = tmp_path / "tour"
         main([
@@ -403,14 +403,14 @@ class TestClaudeDesktopRegistration:
         ])
         assert not fake_config.exists()
 
-    def test_linux_no_op_when_config_path_is_none(
+    def test_linux_no_op_when_config_paths_empty(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     ):
-        """On Linux ``_claude_desktop_config_path`` returns None — the
-        scaffolder must complete cleanly without raising."""
+        """On Linux ``_claude_desktop_config_paths`` returns an empty list —
+        the scaffolder must complete cleanly without raising."""
         monkeypatch.setattr(
-            "biosensor_mcp.tour._claude_desktop_config_path",
-            lambda: None,
+            "biosensor_mcp.tour._claude_desktop_config_paths",
+            lambda: [],
         )
         target = tmp_path / "tour"
         rc = main(["--variant=hip-lab", "--target", str(target)])

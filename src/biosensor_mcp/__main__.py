@@ -13,7 +13,6 @@ Usage:
 
 import json
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -400,32 +399,66 @@ def cmd_status():
             except sqlite3.OperationalError:
                 print("  Table not yet created")
 
-    # Claude Desktop config
+    # Claude Desktop config — per ADR 0026, iterate every detected
+    # config path (Classic + Microsoft Store sandboxes) and report
+    # per-path registration state with recovery-instruction framing.
     print("\nClaude Desktop integration:")
-    if sys.platform == "darwin":
-        config_path = Path.home() / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
-    elif sys.platform == "win32":
-        config_path = Path(os.environ.get("APPDATA", "")) / "Claude" / "claude_desktop_config.json"
-    else:
-        config_path = Path.home() / ".config" / "Claude" / "claude_desktop_config.json"
+    from biosensor_mcp.pilot import _claude_desktop_config_paths
 
-    print(f"  Config: {config_path}")
-    if config_path.exists():
-        try:
-            # Strip UTF-8 BOM if present — PowerShell 5 writes one with
-            # -Encoding UTF8, which Python's json.loads() rejects.
-            raw = config_path.read_bytes().lstrip(b"\xef\xbb\xbf").decode("utf-8")
-            config = json.loads(raw)
-            servers = config.get("mcpServers", {})
-            if "biosensor-mcp" in servers:
-                print("  Registered: Yes")
-                print(f"  Command: {servers['biosensor-mcp'].get('command', 'N/A')}")
-            else:
-                print("  Registered: No — run 'biosensor-mcp setup' or add manually")
-        except Exception as e:
-            print(f"  Error reading: {e}")
+    paths = _claude_desktop_config_paths()
+    if not paths:
+        print("  Not supported on this platform (Linux)")
     else:
-        print("  Not found — Claude Desktop may not be installed")
+        registered_paths: list[Path] = []
+        for cfg_path in paths:
+            print(f"\n  Config: {cfg_path}")
+            if not cfg_path.exists():
+                print("    Status: Config file not found yet")
+                continue
+            try:
+                raw = cfg_path.read_bytes().lstrip(b"\xef\xbb\xbf").decode("utf-8")
+                config = json.loads(raw)
+                servers = config.get("mcpServers", {})
+                bio_keys = [k for k in servers if k.startswith("biosensor-")]
+                if bio_keys:
+                    registered_paths.append(cfg_path)
+                    print(f"    Registered: Yes ({', '.join(bio_keys)})")
+                    primary = servers.get("biosensor-mcp") or servers.get(bio_keys[0])
+                    print(f"    Command: {primary.get('command', 'N/A')}")
+                else:
+                    print("    Registered: No biosensor-* entries")
+            except Exception as exc:
+                print(f"    Error reading: {exc}")
+
+        # Recovery-framed summary per ADR 0026 § "cmd_status framing
+        # as recovery instructions, not state report".
+        print()
+        if not registered_paths:
+            print("  Status: NOT registered — run `biosensor-mcp tour` or `pilot`.")
+        elif len(registered_paths) == len(paths):
+            if len(paths) == 1:
+                print("  Status: Registered for Claude Desktop.")
+            else:
+                print(
+                    "  Status: Registered for both Claude Desktop variants "
+                    "(Classic + Microsoft Store)."
+                )
+        else:
+            unregistered = [p for p in paths if p not in registered_paths]
+            print(
+                f"  Status: Registered for {len(registered_paths)} of "
+                f"{len(paths)} detected configs."
+            )
+            print(
+                "          If the Claude Desktop you're running is "
+                "the unregistered variant,"
+            )
+            print(
+                "          run `biosensor-mcp tour --force` to register "
+                "in the missing one."
+            )
+            for p in unregistered:
+                print(f"          (unregistered: {p})")
 
     print("\n" + "=" * 40)
     print("Done.")
@@ -437,8 +470,9 @@ def cmd_demo():
     run_demo()
 
 
-def _clean_claude_desktop_biosensor_entries(config_path: Path) -> list[str]:
-    """Remove every ``biosensor-*`` entry from a Claude Desktop config.
+def _clean_claude_desktop_biosensor_entries() -> dict[Path, list[str]]:
+    """Remove every ``biosensor-*`` entry from every detected Claude
+    Desktop config (Classic + Microsoft Store sandboxes per ADR 0026).
 
     Match every key the framework registers:
       - ``biosensor-mcp``             (pilot wizard / manual install)
@@ -447,23 +481,35 @@ def _clean_claude_desktop_biosensor_entries(config_path: Path) -> list[str]:
     Without this prefix match, ``biosensor-mcp uninstall`` left stale
     ``biosensor-tour-hip-lab`` entries pointing at a removed binary,
     so Claude Desktop showed a red MCP indicator after a clean
-    uninstall (v6.9.2 bug 1).
+    uninstall (v6.9.2 bug 1). v6.10.4 generalises the cleanup to
+    every Claude Desktop config the framework can confirm on this
+    machine — symmetric with the dual-write in `_register_with_claude_desktop`.
 
-    Returns the list of removed keys; empty list when the config does
-    not exist or has no matching entries. Sibling MCP servers are
-    preserved.
+    Returns a mapping ``{path: [removed_keys, ...]}`` for every
+    detected path; the value is an empty list when the config does
+    not exist, has no matching entries, or could not be parsed.
+    Sibling MCP servers are preserved on every path.
     """
-    if not config_path.exists():
-        return []
-    raw = config_path.read_bytes().lstrip(b"\xef\xbb\xbf").decode("utf-8")
-    config = json.loads(raw)
-    servers = config.get("mcpServers", {})
-    removed = [k for k in list(servers) if k.startswith("biosensor-")]
-    for key in removed:
-        del servers[key]
-    if removed:
-        config_path.write_text(json.dumps(config, indent=2))
-    return removed
+    from biosensor_mcp.pilot import _claude_desktop_config_paths
+
+    results: dict[Path, list[str]] = {}
+    for config_path in _claude_desktop_config_paths():
+        if not config_path.exists():
+            results[config_path] = []
+            continue
+        try:
+            raw = config_path.read_bytes().lstrip(b"\xef\xbb\xbf").decode("utf-8")
+            config = json.loads(raw)
+            servers = config.get("mcpServers", {})
+            removed = [k for k in list(servers) if k.startswith("biosensor-")]
+            for key in removed:
+                del servers[key]
+            if removed:
+                config_path.write_text(json.dumps(config, indent=2))
+            results[config_path] = removed
+        except (OSError, ValueError):
+            results[config_path] = []
+    return results
 
 
 def cmd_uninstall():
@@ -471,26 +517,21 @@ def cmd_uninstall():
     print("Biosensor MCP — Uninstall")
     print("This will remove:")
     print(f"  - Config directory: {CONFIG_DIR}")
-    print("  - Claude Desktop MCP registration")
+    print("  - Claude Desktop MCP registration (every detected config)")
     confirm = input("\nProceed? (yes/no): ").strip().lower()
     if confirm != "yes":
         print("Cancelled.")
         return
 
-    # Remove from Claude Desktop config
-    if sys.platform == "darwin":
-        config_path = Path.home() / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
-    elif sys.platform == "win32":
-        config_path = Path(os.environ.get("APPDATA", "")) / "Claude" / "claude_desktop_config.json"
-    else:
-        config_path = Path.home() / ".config" / "Claude" / "claude_desktop_config.json"
-
+    # Remove from every Claude Desktop config (Classic + Microsoft
+    # Store sandboxes per ADR 0026).
     try:
-        removed = _clean_claude_desktop_biosensor_entries(config_path)
-        for key in removed:
-            print(f"Removed '{key}' from Claude Desktop config.")
+        per_path = _clean_claude_desktop_biosensor_entries()
+        for cfg_path, removed in per_path.items():
+            for key in removed:
+                print(f"Removed '{key}' from {cfg_path}")
     except Exception as e:
-        print(f"Warning: Could not update config: {e}")
+        print(f"Warning: Could not update Claude Desktop configs: {e}")
 
     import shutil
     if CONFIG_DIR.exists():

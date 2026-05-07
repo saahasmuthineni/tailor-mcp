@@ -413,3 +413,17 @@ shape (an agent reading prose and schemas, not a real Claude
 inferring tool calls) preserves the project's local-first posture
 and is sufficient for the failure class the v6.9.0 incident
 demonstrated.
+
+## v6.11.x amendments — enforcement mechanism
+
+The original ADR 0025 wording said the agent is *"mandatory pre-tag trigger via `release-shipper`."* That phrasing implied the release tool itself enforced the gate, but `release-shipper.md` as of v6.11.0 did not reference this agent at all; the gate fired only when the main session in release prep "remembered" to spawn it. The 2026-05-08 cross-ADR review closes this gap.
+
+The actual enforcement is **attestation-required at release-shipper pre-flight**:
+
+- `release-shipper.md` § "Pre-tag gate composition" inspects `git diff --name-only main...HEAD` against this agent's trigger globs (`CUE_CARD.md`; `children/**/child.py`; `framework/vault/layer.py`; `framework/local_llm/layer.py`; any file declaring `ToolDefinition` schemas).
+- If any trigger matches and the caller has not passed `--gates-confirmed=cue-card-rehearsal:<verdict>`, release-shipper hard-refuses with the same shape as the dirty-working-tree refusal.
+- The verdict string is recorded verbatim in the release commit body (`## Pre-tag gates attested`). release-shipper does not parse verdict semantics — the boss is the authority on whether the verdict is acceptable. A deliberately-false attestation becomes a deliberately-false statement in the durable audit record.
+
+**Why attestation rather than inline re-spawn.** The agent runs in seconds, but most releases do not touch its trigger globs. Re-spawning unconditionally would waste runtime; not re-spawning at all would recreate the convention-only gap. Attestation makes the convention auditable at the cost of one flag, while letting the boss run the gate at any point during release prep — not specifically at release-shipper invocation. The cost-vs-frequency tradeoff per [ADR 0011](0011-promotion-policy.md) is the load-bearing argument for the policy choice.
+
+The original "mandatory pre-tag trigger" wording stands on the record; the v6.11.x amendment refines what *triggered* means mechanically (file-touched trigger map in `release-shipper.md`) and what *mandatory* means mechanically (attestation hard-refusal). The structural argument (schemas under-specified for prompt-driven inference is the failure class) is unchanged.

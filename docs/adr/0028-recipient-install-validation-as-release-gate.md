@@ -88,3 +88,51 @@ The rule, plain English: the team has been treating recipient-install failures a
 **Skip the agent; rely on the v6.10.x quartet's accumulated documentation as the closure.** Rejected. Documentation enumerates known failure modes; it does not detect new ones. The argument-from-precedent — *"the team has now learned about cp1252, UWP sandbox, sibling-coexistence, dual-path, and partial-write surfaces"* — predicts that v6.11+ recipient-install failures will be different in shape from the ones the v6.10.x patches closed. Detecting *new* failure shapes is what the agent does that documentation cannot.
 
 **Run the agent as a manual operator tool only (not a checked-in specialist).** Considered. The boss could spin up a clean Win 11 VM manually before any tour-touching release and run the install ritual by hand. Rejected on consistency grounds: the v6.10.x quartet shows that ad-hoc manual testing is exactly what didn't happen on the four patches that needed it. Promoting the gate from manual-when-remembered to mandatory-when-files-touched is the structural patch on "remember to test recipient install before shipping" — same shape as ADR 0010's adversarial-pairing argument that confirmation-shape dispatch produces confirmation-shape outputs.
+
+**Snapshot-revert as the only cleanup mechanism.** Considered for the v1 spec and chosen — the v1 prompt's Phase 3 says explicitly "Do NOT `vagrant destroy`" and relies on `vagrant snapshot restore base` at the start of each run for cleanliness. Rejected for v6.11.x amendment after the v1 first-wild-run on 2026-05-07 produced an orphan running VM (155+ minutes of host CPU before manual cleanup). The mechanism's failure mode is structural: snapshot revert only fires *when the agent runs again*. A run interrupted mid-Phase-1 — by host reboot, by the dispatching session timing out, by the agent's own watcher silently parking — never reaches its successor's snapshot-revert step. Halt-on-exit (added in v6.11.x) closes this failure mode without modifying the v1 architecture (no destroy, snapshot preserved). See "v6.11.x amendments" below.
+
+## v6.11.x amendments (post-first-wild-run)
+
+The 2026-05-07 first wild invocation of `recipient-install-validator` (boss-requested capability test on clean main at v6.11.0) surfaced three structural gaps in the v1 prompt that the v6.11.0 promotion-pass dogfood did not catch. The dogfood ran successfully end-to-end; the gaps live on the *failure-handling* paths the dogfood did not exercise.
+
+**Gap 1 — Halt-on-exit absent.** The v1 Phase 3 says `vagrant snapshot restore base` and explicitly says NOT to `vagrant destroy`, but says nothing about `vagrant halt`. On a successful run, snapshot-revert handles cleanliness. On a failed/interrupted/timed-out run, the guest VM stays running until the next invocation's snapshot-revert step — which may never come. Evidence: a 155-minute orphan VM (`biosensor-vagrant-win11-smoke_*`) from a prior session was already running on the host when the 2026-05-07 first-wild-run started. The agent (correctly) did not touch the orphan, but its own run also produced one when interrupted. **Patch (v6.11.x prompt):** halt-on-exit is mandatory on every exit path (PASS / WARN / FAIL / TIMEOUT-WATCHER-DEAD); snapshot-revert is preserved for the success path; destroy is still forbidden. Codified in the agent's "Safety rules" and "Phase 3 — Teardown" sections.
+
+**Gap 2 — Watcher timeout enforcement unspecified.** The v1 Vagrantfile encodes `boot_timeout = 1800` but the v1 prompt does not constrain the agent's own watcher `timeout_ms` values. In the 2026-05-07 first wild run, the agent's three parallel watchers (vagrant-up, boot-success poller, boot-milestone poller) parked silently past the 30-minute boot envelope and continued for an additional 70+ minutes without firing a terminal event. The Monitor "silence is not success" failure mode is the structural cause: watchers that grep only for happy-path markers stay silent through hangs and crashloops. **Patch (v6.11.x prompt):** new "Watcher discipline" section requires `timeout_ms ≤ boot_timeout + 120s` and failure-signature coverage on every watcher. A watcher whose deadline expires without a terminal event yields the new `RECIPIENT-INSTALL TIMEOUT-WATCHER-DEAD` aggregate verdict, which still triggers halt-on-exit before reporting.
+
+**Gap 3 — Mid-flight observability absent.** The v1 prompt's "Be terse" guidance and tabular final report give the dispatching session no signal during the audit's long tail (Phase 1 step 1's `pip install` of the wheel through `cryptography`/`lxml`-style C extensions on a Hyper-V-emulation guest, plus Phase 2 pytest). The 2026-05-07 first wild run was indistinguishable from a hang from the dispatching session's perspective. **Patch (v6.11.x prompt):** new "Progress emission" section requires `[validator] phase X step Y/N` heartbeat lines at every observable boundary, plus per-step `elapsed: <seconds>` columns in the final report.
+
+These three patches do not change the agent's substantive correctness contract (the eight Phase 1 assertions, the cross-path-identity invariant, the HIP-Lab-not-Strava check, the in-guest pytest selection). They harden the failure-handling and observability paths — exactly the surface the v6.11.0 promotion-pass dogfood could not exercise because it ran the happy path successfully.
+
+The operational-hardening amendments leave the v1 coverage gap (option α — no Claude Desktop in base image) and v2 escalation (option β — fake-Packages-dir pre-creation) as-named. They do, however, surface the cost evidence that motivates the policy refinement below.
+
+## v6.11.x mandate refinement — opt-in, not mandatory
+
+The original ADR 0028 wording said the agent is *"mandatory + file-touched-gated"* and that *"when it fires, `release-shipper` blocks on its verdict."* Both clauses turn out to be aspirational rather than implemented:
+
+- **Aspirational mandate.** As of v6.11.0, `release-shipper.md` did not reference this agent at all. The gate fired only when the main session in release prep "remembered" to spawn it — convention, not enforcement. The same gap exists on ADRs 0016 / 0025, addressed there in parallel by the v6.11.x amendments to those ADRs (attestation enforcement at release-shipper pre-flight).
+- **Cost evidence from the first wild run.** The 2026-05-07 capability test ran the agent for 101 minutes before manual interrupt; in normal usage on the boss's Win 11 Home host (Hyper-V emulation mode per § Negative consequences), a successful end-to-end run is 30–100 minutes. That cost is asymmetric with the other two file-touched gates: `cue-card-rehearsal-auditor` runs in seconds, `mcp-protocol-auditor` in minutes.
+
+The cost-vs-frequency analysis the original ADR did not have:
+
+- The bug history that justified the gate's promotion (v6.10.1 → v6.10.4) was clustered in a single nine-day window in early 2026-05. The install-path code has been quiet since.
+- Forward-projecting to v6.12+, releases that meaningfully change the install path are likely 2–4× per year, not every release. The file-touched globs over-trigger — a typo fix in `tour.py` matches the trigger but has zero recipient-install risk.
+- A 30–100 minute mandatory gate, fired on every install-path-touching release whether substantive or not, will routinely add an hour to release ceremony. Under release pressure, a heavyweight always-on gate pushes the team to silence-or-skip — which is the failure mode the original mandate was meant to close.
+
+The v6.11.x mandate refinement: **the gate becomes boss-discretionary opt-in.** Mechanism per `release-shipper.md` § "Pre-tag gate composition":
+
+- release-shipper inspects `git diff --name-only main...HEAD` against the trigger globs.
+- If any glob matches, release-shipper SURFACES the recommendation in pre-flight output (and records it in the release commit body) — but does NOT refuse.
+- The boss explicitly opts in via `--full-validate`. Then release-shipper spawns the agent inline (same shape as `ci-gate-runner` spawn at pre-flight step 3) and blocks on its verdict.
+- Default is "do not fire." The boss judges when the install path has changed substantively enough to warrant the cost.
+
+**Why opt-in rather than attestation-required.** The other two gates use attestation (boss runs the gate, attests verdict via `--gates-confirmed`) because their cost is low enough that running them every applicable release is cheap. This gate's cost is high enough that even attestation would create silence-or-skip pressure — the boss, knowing he has to run a 30–100 min gate to attest a verdict, will be tempted to skip it on a typo-fix release. Opt-in removes the implicit pressure: the recommendation is surfaced, the cost is named, the boss decides.
+
+**What this gives up.** The "manual-when-remembered fails" structural argument from § Alternatives § "Run the agent as a manual operator tool only" softens to "manual-when-recommended-and-acknowledged." That is a real concession. The mitigating arguments:
+
+1. The recommendation is now an active surface in release-shipper output, not a passive "should-have-remembered." A boss who declines is declining explicitly, not forgetting.
+2. The release commit body records `## Pre-tag gates surfaced` — `recipient-install-validator: triggered, not opted-in` — making the decision auditable.
+3. The cost asymmetry is real, and the original framing did not reckon with it. Opt-in is the policy that survives the actual cost; mandatory was the policy that would have eroded into silence on its own.
+
+**What this does NOT give up.** The substantive correctness contract is unchanged: when the gate runs, it runs the full eight-step ritual with the v6.11.x operational hardening. The v1 coverage gap (option α) and v2 escalation (option β) are unchanged. The bug-history-based justification for the gate's existence is unchanged.
+
+The original "mandatory + file-touched-gated" wording stands on the record; the v6.11.x amendment refines the policy to match the actual cost-vs-frequency profile the first wild run revealed.

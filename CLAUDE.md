@@ -1,5 +1,28 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.11.0 (2026-05-07)** — `recipient-install-validator` specialist + ADR 0028 land as a
+> single bundled governance/team-shape release. Codifies the structural class of failure
+> that produced the v6.10.1–v6.10.4 patch quartet: bugs that only appear when someone
+> other than the developer installs the wheel on a clean Windows machine — cp1252 character
+> crashes, degraded Claude Desktop configs, stale MCP server entries, dual config-path
+> misses. The new specialist (`recipient-install-validator`, opus model) provisions a clean
+> Windows 11 VM via VirtualBox + Vagrant, installs the freshly-built wheel via the
+> documented recipient command, runs `biosensor-mcp tour`, and verifies the install
+> end-to-end against the wheel-installed package on a foreign machine — host-side gates
+> running against the dev tree cannot see these failures. Gate is mandatory +
+> file-touched-gated: fires when any of `tour.py`, `pilot.py`, `__main__.py`, `wizard.py`,
+> `pyproject.toml` package-data globs, or `_fixtures/**` changes. ADR 0028 codifies the
+> structural argument under ADR 0011's promotion policy, the eight-step install-ritual
+> assertion list, and six alternatives considered + rejected. Accepted v1 gap named
+> explicitly: no Claude Desktop pre-installed in base image, so ADR 0026 dual-write logic
+> is exercised by mocked unit tests on host but not on a real Windows guest; v2 escalation
+> path named in ADR 0028. VirtualBox 7.2.8 + Vagrant 2.4.9 empirically validated on Win 11
+> Home despite `VirtualMachinePlatform = Enabled`; `boot_timeout=1800s` baked in (Hyper-V
+> emulation mode is the reason). No `src/` changes, no `tests/` changes, no router/
+> security/child/vault/CLI architecture changes. Pure governance/team-shape release.
+> Includes pending governance edits per ADR 0028 (agent table row + ADR file). 898/898
+> pytest, ruff clean, 76/76 probe, CLI smoke PASS. Minor bump.
+>
 > **v6.10.5 (2026-05-07)** — `biosensor-mcp demo` reframed from
 > synthetic-Strava operator self-verification to bundled HIP Lab cohort
 > fixtures researcher first-look per [ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md).
@@ -775,6 +798,7 @@ Manager mode is the default working style on this repo. The general conventions 
 | [`mcp-protocol-auditor`](.claude/agents/mcp-protocol-auditor.md) | End-to-end subprocess MCP-protocol audit — drives `python -m biosensor_mcp serve` as a real subprocess speaking JSON-RPC over stdio, asserts wire-level correctness on `initialize` / `tools/list` / `tools/call` / consent gate / cost gate / error envelopes / `_dumps` serialization seam. Catches the gate-evasion class no other specialist owns: upstream-mcp-SDK signature drift, missing schema keys, silent type coercion, markdown round-trip lossiness, post-execute hook silent failures | After any change touching `framework/router.py`, `framework/audit.py`, `framework/security.py`, `framework/vault/{layer,writer}.py`, or any child's `execute()` path; mandatory before every release. Promoted v6.5.0 after 5 protocol-adapter ship-blocker bugs surfaced in 90 minutes that 8 existing gates missed |
 | [`cue-card-rehearsal-auditor`](.claude/agents/cue-card-rehearsal-auditor.md) | Read-only cue-card audit — maps each cue-card prompt against the registered ToolDefinition schemas and emits per-prompt verdicts (PASS / WRONG-TOOL / WRONG-PARAMS / AMBIGUOUS) with file:line citations. Catches the schema-under-specification class of failure: schemas that pass structural gates but silently fail when Claude infers parameters from operator prose | Before every release that ships or revises a cue card (`--cue-card=<path>` arg); whenever `CUE_CARD.md` or any `ToolDefinition` schema changes. Promoted v6.10.0 per [ADR 0025](docs/adr/0025-cue-card-rehearsal-as-release-gate.md) after v6.9.1 + v6.9.2 closed the same structural gap twice in one week |
 | [`adr-weigher`](.claude/agents/adr-weigher.md) | Weighs a candidate ADR concept against five criteria (decision-shaped, reversal-changes-code, WHY-non-obvious, cites-prior-ADRs, severity) and returns `PASS / REJECT-NOT-ADR-WORTHY / DEFER-NEEDS-BOSS-INPUT / INSUFFICIENT-INPUT`. Read-only — produces a verdict, not an ADR | Before `adr-drafter` is invoked during autonomous overnight sessions — gates premature-ADR drift the same way [ADR 0011](docs/adr/0011-promotion-policy.md) gates premature-specialist drift. Per [ADR 0017](docs/adr/0017-adr-weigher-and-autonomous-session-cap.md), the autonomous-session ADR cap is six per session with `adr-weigher` as the binding quality constraint |
+| [`recipient-install-validator`](.claude/agents/recipient-install-validator.md) | End-to-end recipient-install validation — provisions a clean Windows 11 base box via VirtualBox + Vagrant, installs the freshly-built wheel via the documented recipient command, runs `biosensor-mcp tour`, validates per-path Claude Desktop config (per ADR 0026), exercises `biosensor-mcp demo` (per ADR 0027), and runs wheel-install-dependent pytest in-guest. Catches the failure class that produced the v6.10.1–v6.10.4 patch quartet — bugs that exist between the wheel artifact and a stranger's machine, invisible to host-side gates that test against the dev tree | Mandatory + file-touched-gated. Fires when any of `tour.py`, `pilot.py`, `__main__.py`, `wizard.py`, `pyproject.toml` package-data globs, or `_fixtures/**` are modified in a release branch. Promoted v6.11.0 per [ADR 0028](docs/adr/0028-recipient-install-validation-as-release-gate.md) — the gate composes at `release-shipper` with `ci-gate-runner` (host: dev-tree pytest) and `recipient-install-validator` (guest: wheel-installed package) |
 
 The agents are checked into the repo so the team is reproducible across machines. Per `.gitignore`: `.claude/*` ignores per-machine settings; `!.claude/agents/` re-includes the roster. New specialists land via [ADR 0011 — promotion-policy](docs/adr/0011-promotion-policy.md): structural argument + severity + per-agent maintenance estimate, with frequency-based 3+-uses as the fallback signal in the absence of a structural argument. The deferred roster (parked candidates with named promotion triggers) lives in [docs/design/operating-model.md § Deferred roster](docs/design/operating-model.md).
 

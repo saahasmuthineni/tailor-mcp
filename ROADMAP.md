@@ -26,6 +26,14 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.11.0 (2026-05-07)
+
+- New `recipient-install-validator` specialist provisioned via VirtualBox + Vagrant. Provisions a clean Windows 11 base box, installs the freshly-built wheel via the documented recipient command, runs `biosensor-mcp tour`, and validates end-to-end against the wheel-installed package — catching the failure class that produced the v6.10.1–v6.10.4 patch quartet (bugs invisible to host-side gates running against the dev tree).
+- Gate is mandatory + file-touched-gated. Fires when any of `tour.py`, `pilot.py`, `__main__.py`, `wizard.py`, `pyproject.toml` package-data globs, or `_fixtures/**` changes. Composes with `ci-gate-runner` at the `release-shipper` boundary.
+- ADR 0028 codifies the structural argument under ADR 0011's promotion policy, eight-step install-ritual assertion list, `boot_timeout=1800s` (empirically validated on Win 11 Home with `VirtualMachinePlatform = Enabled`), and six alternatives considered + rejected.
+- Accepted v1 gap named explicitly: no Claude Desktop pre-installed in base image; ADR 0026 dual-write logic exercised by mocked host tests but not in-guest. v2 escalation path named in ADR 0028.
+- Pure governance/team-shape release. No `src/` changes, no `tests/` changes, no router/security/child/vault/CLI architecture changes.
+
 ## Shipped in v6.10.5 (2026-05-07)
 
 - `biosensor-mcp demo` reframed from synthetic-Strava operator self-verification to bundled HIP Lab cohort fixtures researcher first-look per [ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md). Closes the drift between CLAUDE.md's stated framing ("Strava is a worked example, not the canonical use case") and the demo's actual behavior across the entire v6.x cycle.

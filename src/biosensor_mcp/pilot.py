@@ -370,16 +370,96 @@ def _write_user_config(cfg: dict, *, force: bool = False) -> Path:
 
 
 # ──────────────────────────────────────────────────────────────────────
-# Claude Desktop registration (audit fix F2)
+# Claude Desktop registration — see ADR 0026 for the dual-path design
+# under UWP sandboxing. v6.10.4 generalises the v6.2.1 pilot-wizard
+# (audit fix F2) helpers from a single classic config path to every
+# Claude Desktop config path the framework can confirm with positive
+# evidence on this machine.
 # ──────────────────────────────────────────────────────────────────────
 
+# UWP package-family prefix for the Microsoft Store version of Claude
+# Desktop. The full family name is currently ``Claude_pzs8sxrjxfjjc``
+# but the suffix is a Microsoft-signing publisher-hash that changes
+# whenever Anthropic re-signs or re-publishes the package. Globbing
+# the prefix survives suffix drift; the path-shape constraint
+# downstream (``LocalCache/Roaming/Claude/claude_desktop_config.json``
+# inside the sandbox) bounds the false-positive risk on unrelated
+# ``Claude_*``-named UWP packages. See ADR 0026 § "Detection by
+# prefix-glob, not hardcoded family name" for the rejection of the
+# hardcoded-full-name alternative and the adversarial-pairing
+# resolution per ADR 0010.
+_CLAUDE_DESKTOP_UWP_PACKAGE_PREFIX = "Claude_"
 
-def _claude_desktop_config_path() -> Path | None:
+
+@dataclass
+class _RegistrationResult:
+    """Per-path Claude Desktop registration outcome.
+
+    See ADR 0026 § "Per-path atomic semantics" for the contract: each
+    path's read → clean siblings → add entry → atomic write block is
+    wrapped in try/except, and a failure on one path does not abort
+    writes to others. Empty ``cleaned`` list when no stale
+    ``biosensor-*`` siblings were present; ``error`` is None on a
+    successful write.
+    """
+
+    path: Path
+    written: bool
+    cleaned: list[str] = field(default_factory=list)
+    error: BaseException | None = None
+
+
+def _claude_desktop_config_paths() -> list[Path]:
+    """Return every Claude Desktop config-file path the framework can
+    confirm on this machine.
+
+    On Windows the candidate set is: the classic path under
+    ``%APPDATA%\\Claude\\claude_desktop_config.json`` (always included
+    when ``%APPDATA%`` resolves; the classic install creates this
+    directory on first registration), plus one path per UWP package
+    family-name match for ``Claude_*`` whose
+    ``%LOCALAPPDATA%\\Packages\\Claude_<suffix>\\`` directory exists.
+    On macOS the candidate set is the single canonical path
+    (``~/Library/Application Support/Claude/...``). On Linux the
+    candidate set is empty.
+
+    See ADR 0026 for the rationale and the rejection of detect-and-pick.
+    """
     if sys.platform == "darwin":
-        return Path.home() / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
+        return [
+            Path.home()
+            / "Library"
+            / "Application Support"
+            / "Claude"
+            / "claude_desktop_config.json",
+        ]
     if sys.platform == "win32":
-        return Path(os.environ.get("APPDATA", "")) / "Claude" / "claude_desktop_config.json"
-    return None
+        paths: list[Path] = []
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            # Classic path is always included. ``_write_claude_config``
+            # creates the parent on first registration; on a Store-only
+            # machine that has never run Claude Desktop this is a no-op
+            # write that neither variant reads — acceptable per ADR 0026
+            # § "First-time-install on a Store-only machine".
+            paths.append(Path(appdata) / "Claude" / "claude_desktop_config.json")
+        local_appdata = os.environ.get("LOCALAPPDATA")
+        if local_appdata:
+            packages_dir = Path(local_appdata) / "Packages"
+            if packages_dir.exists():
+                for pkg in sorted(
+                    packages_dir.glob(f"{_CLAUDE_DESKTOP_UWP_PACKAGE_PREFIX}*")
+                ):
+                    if pkg.is_dir():
+                        paths.append(
+                            pkg
+                            / "LocalCache"
+                            / "Roaming"
+                            / "Claude"
+                            / "claude_desktop_config.json"
+                        )
+        return paths
+    return []
 
 
 def _read_claude_config(path: Path) -> tuple[dict, bool]:
@@ -408,45 +488,110 @@ def _write_claude_config(path: Path, data: dict, *, with_bom: bool) -> None:
     os.replace(tmp, path)
 
 
+def _write_registration_to_path(
+    path: Path, *, server_name: str, entry: dict,
+) -> _RegistrationResult:
+    """Read → clean ``biosensor-*`` siblings → add entry → atomic write.
+
+    Per ADR 0026 § "Per-path atomic semantics", the entire block is
+    wrapped in try/except. ``PermissionError`` (Claude Desktop has the
+    file open) and ``OSError`` (disk full, antivirus quarantine) are
+    captured into the result rather than propagating. The ``.tmp``
+    artifact from ``_write_claude_config`` is unlinked on partial
+    failure to avoid clutter across debugging loops.
+    """
+    try:
+        config, had_bom = _read_claude_config(path)
+        servers = config.setdefault("mcpServers", {})
+        cleaned = [
+            k for k in list(servers)
+            if k.startswith("biosensor-") and k != server_name
+        ]
+        for key in cleaned:
+            del servers[key]
+        servers[server_name] = entry
+        _write_claude_config(path, config, with_bom=had_bom)
+        return _RegistrationResult(path=path, written=True, cleaned=cleaned)
+    except (PermissionError, OSError) as exc:
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except OSError:
+            pass
+        return _RegistrationResult(path=path, written=False, error=exc)
+
+
 def _register_with_claude_desktop(
     server_cmd: list[str], *, force: bool = False,
-) -> bool:
-    """Merge a biosensor-mcp entry into Claude Desktop's mcpServers.
+) -> list[_RegistrationResult]:
+    """Register ``biosensor-mcp`` in every detected Claude Desktop config.
 
-    Returns True if the config was written, False if skipped.
+    Returns the list of per-path results. Empty list when the platform
+    has no Claude Desktop (Linux) or the user typed ``skip`` at the
+    pre-write prompt. See ADR 0026.
     """
-    config_path = _claude_desktop_config_path()
-    if config_path is None:
+    paths = _claude_desktop_config_paths()
+    if not paths:
         print("  [skip] Claude Desktop registration is macOS/Windows only on this build.")
-        return False
+        return []
 
     print("\n  Step 3 of 3 — register with Claude Desktop")
-    print(f"  Config file: {config_path}")
+    if len(paths) == 1:
+        print(f"  Config file: {paths[0]}")
+    else:
+        print(f"  Detected {len(paths)} Claude Desktop config paths:")
+        for p in paths:
+            print(f"    {p}")
     print("  Please quit Claude Desktop before continuing (the config file may")
     print("  be locked by a running instance).")
     answer = input("  Press Enter when ready, or type 'skip': ").strip().lower()
     if answer == "skip":
         print("  Skipped Claude Desktop registration.")
-        return False
+        return []
 
-    config, had_bom = _read_claude_config(config_path)
-    servers = config.setdefault("mcpServers", {})
+    if not force:
+        existing = []
+        for p in paths:
+            try:
+                cfg, _ = _read_claude_config(p)
+                if "biosensor-mcp" in cfg.get("mcpServers", {}):
+                    existing.append(p)
+            except OSError:
+                pass
+        if existing:
+            if len(paths) == 1:
+                msg = "  biosensor-mcp is already registered. [overwrite/skip]: "
+            else:
+                msg = (
+                    f"  biosensor-mcp is already registered in "
+                    f"{len(existing)} of {len(paths)} detected configs. "
+                    f"Overwrite all? [overwrite/skip]: "
+                )
+            choice = input(msg).strip().lower()
+            if choice != "overwrite":
+                print("  Kept existing registration.")
+                return []
 
-    if "biosensor-mcp" in servers and not force:
-        choice = input(
-            "  biosensor-mcp is already registered. [overwrite/skip]: "
-        ).strip().lower()
-        if choice != "overwrite":
-            print("  Kept existing registration.")
-            return False
+    entry = {"command": server_cmd[0], "args": server_cmd[1:]}
+    results = [
+        _write_registration_to_path(p, server_name="biosensor-mcp", entry=entry)
+        for p in paths
+    ]
 
-    servers["biosensor-mcp"] = {
-        "command": server_cmd[0],
-        "args": server_cmd[1:],
-    }
-    _write_claude_config(config_path, config, with_bom=had_bom)
-    print(f"  Wrote {config_path}")
-    return True
+    for result in results:
+        if result.written:
+            print(f"  Wrote {result.path}")
+            if result.cleaned:
+                print(f"    cleaned stale biosensor-*: {', '.join(result.cleaned)}")
+        else:
+            err = result.error
+            print(f"  [error] Could not write {result.path}")
+            print(f"          Reason: {type(err).__name__}: {err}")
+            print("          Quit Claude Desktop fully (system tray Quit on Windows,")
+            print("          Cmd+Q on macOS) and re-run.")
+
+    return results
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -509,17 +654,41 @@ def _smoke_check(
 # ──────────────────────────────────────────────────────────────────────
 
 
-def _next_steps_summary(csv_dir: Path, registered: bool) -> None:
+def _next_steps_summary(
+    csv_dir: Path, results: list[_RegistrationResult],
+) -> None:
     print("\n  Next steps")
     print("  ----------")
     print(f"  CSV directory:  {csv_dir}")
     print(f"  Config written: {CONFIG_PATH}")
-    if registered:
-        print("  Claude Desktop: registered. Restart Claude Desktop to pick up the change.")
-        print("  Then ask: 'list the CSV files you can see' to verify wiring.")
-    else:
+    written = [r for r in results if r.written]
+    failed = [r for r in results if not r.written]
+    if not results:
         print("  Claude Desktop: not registered.")
         print("  Add this server manually, or rerun `biosensor-mcp pilot` later.")
+    elif written and not failed:
+        if len(written) == 1:
+            print("  Claude Desktop: registered. Restart Claude Desktop to pick up the change.")
+        else:
+            print(
+                f"  Claude Desktop: registered in {len(written)} configs "
+                f"(both classic and Microsoft Store variants)."
+            )
+            print("  Fully quit Claude Desktop (system tray Quit) and re-open.")
+        print("  Then ask: 'list the CSV files you can see' to verify wiring.")
+    elif written and failed:
+        print(
+            f"  Claude Desktop: registered in {len(written)} of "
+            f"{len(results)} detected configs. The remaining write(s) failed:"
+        )
+        for r in failed:
+            print(f"    - {r.path}: {type(r.error).__name__}")
+        print("  Quit Claude Desktop fully and rerun `biosensor-mcp pilot` to retry.")
+    else:
+        print("  Claude Desktop: NOT registered. All writes failed:")
+        for r in failed:
+            print(f"    - {r.path}: {type(r.error).__name__}: {r.error}")
+        print("  Quit Claude Desktop fully and rerun `biosensor-mcp pilot`.")
     print("  Audit log lives at ~/.biosensor-mcp/data/audit.db (one row per tool call).\n")
 
 

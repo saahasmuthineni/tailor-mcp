@@ -133,16 +133,18 @@ def test_existing_claude_desktop_mcpservers_preserved(
     }
     cd_path.write_text(json.dumps(pre_existing, indent=2), encoding="utf-8")
 
-    monkeypatch.setattr(pilot, "_claude_desktop_config_path", lambda: cd_path)
+    monkeypatch.setattr(pilot, "_claude_desktop_config_paths", lambda: [cd_path])
     monkeypatch.setattr(
         "builtins.input",
         _fake_input([""]),  # press Enter to proceed past the quit-Claude prompt
     )
 
-    written = pilot._register_with_claude_desktop(
+    results = pilot._register_with_claude_desktop(
         ["/usr/bin/python", "-m", "biosensor_mcp", "serve"],
     )
-    assert written is True
+    assert len(results) == 1
+    assert results[0].written is True
+    assert results[0].path == cd_path
 
     out = json.loads(cd_path.read_text(encoding="utf-8"))
     assert out["mcpServers"]["obsidian"]["command"] == "/usr/local/bin/obsidian-mcp"
@@ -160,12 +162,13 @@ def test_bom_round_trip(
     body = json.dumps({"mcpServers": {"obsidian": {"command": "x"}}}, indent=2)
     cd_path.write_bytes(b"\xef\xbb\xbf" + body.encode("utf-8"))
 
-    monkeypatch.setattr(pilot, "_claude_desktop_config_path", lambda: cd_path)
+    monkeypatch.setattr(pilot, "_claude_desktop_config_paths", lambda: [cd_path])
     monkeypatch.setattr("builtins.input", _fake_input([""]))
 
-    pilot._register_with_claude_desktop(
+    results = pilot._register_with_claude_desktop(
         ["/usr/bin/python", "-m", "biosensor_mcp", "serve"],
     )
+    assert len(results) == 1 and results[0].written
 
     raw = cd_path.read_bytes()
     assert raw.startswith(b"\xef\xbb\xbf"), "BOM must be re-emitted"
@@ -216,16 +219,17 @@ def test_smoke_check_fails_loud_on_broken_columns(
 def test_linux_skips_claude_desktop(
     monkeypatch: pytest.MonkeyPatch, isolated_config: Path,
 ) -> None:
-    """On Linux the Claude Desktop config path is None → step is skipped."""
+    """On Linux ``_claude_desktop_config_paths`` returns an empty list and
+    registration is a no-op (no Claude Desktop on this platform)."""
     import biosensor_mcp.pilot as pilot
 
     monkeypatch.setattr(sys, "platform", "linux")
-    assert pilot._claude_desktop_config_path() is None
+    assert pilot._claude_desktop_config_paths() == []
 
-    written = pilot._register_with_claude_desktop(
+    results = pilot._register_with_claude_desktop(
         ["/usr/bin/python", "-m", "biosensor_mcp", "serve"],
     )
-    assert written is False
+    assert results == []
 
 
 def test_cloud_sync_warning_blocks_on_no(

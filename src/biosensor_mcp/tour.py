@@ -186,12 +186,37 @@ def _index_vault(target_dir: Path) -> dict[str, int]:
 
 def _register_with_claude_desktop(
     target_dir: Path, *, server_name: str,
-) -> Path | None:
+) -> tuple[Path | None, list[str]]:
+    """Register the tour entry; clean any pre-existing biosensor-*
+    siblings so the recipient does not end up with two MCP servers
+    running simultaneously after a debugging detour (v6.10.3 — closes
+    the dad-2026-05-06 multi-entry-coexistence trap).
+
+    Recipient-failure shape this closes: web-Claude-mediated debugging
+    on a v6.9.x failed-tour install adds a bare ``biosensor-mcp`` entry
+    with no env block to ``claude_desktop_config.json``. A subsequent
+    ``biosensor-mcp tour --force`` previously left that bare entry in
+    place and added a sibling ``biosensor-tour-hip-lab`` — Claude
+    Desktop would then launch both, with the bare server's
+    SetupHelpLayer (v6.10.2) leaking into the working-demo tool
+    surface. Mirrors the v6.9.2 prefix-match cleanup pattern in
+    ``cmd_uninstall``: tour cleans on setup, uninstall cleans on
+    teardown.
+
+    Returns ``(config_path, cleaned)`` — ``cleaned`` is the list of
+    stale ``biosensor-*`` keys removed; empty when there were none.
+    """
     config_path = _claude_desktop_config_path()
     if config_path is None:
-        return None  # Linux build — no Claude Desktop on this platform
+        return None, []  # Linux build — no Claude Desktop on this platform
     config, had_bom = _read_claude_config(config_path)
     servers = config.setdefault("mcpServers", {})
+    cleaned = [
+        k for k in list(servers)
+        if k.startswith("biosensor-") and k != server_name
+    ]
+    for key in cleaned:
+        del servers[key]
     servers[server_name] = {
         "command": sys.executable,
         "args": ["-m", "biosensor_mcp", "serve"],
@@ -201,7 +226,7 @@ def _register_with_claude_desktop(
         },
     }
     _write_claude_config(config_path, config, with_bom=had_bom)
-    return config_path
+    return config_path, cleaned
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -336,10 +361,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.no_claude_desktop:
         print("        skipped (--no-claude-desktop)")
     else:
-        claude_config = _register_with_claude_desktop(
+        claude_config, cleaned = _register_with_claude_desktop(
             target_dir, server_name=server_name,
         )
         if claude_config is not None:
+            if cleaned:
+                print(
+                    f"        cleaned stale biosensor-* entries: "
+                    f"{', '.join(cleaned)}"
+                )
             print(f"        wrote entry '{server_name}' to {claude_config}")
         else:
             print("        skipped (Linux, or APPDATA missing)")

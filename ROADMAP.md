@@ -26,6 +26,13 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.10.3 (2026-05-06)
+
+- Tour cleans sibling `biosensor-*` entries from `claude_desktop_config.json` before adding its own. Closes the multi-entry coexistence trap: a recipient who had a stale bare `biosensor-mcp` entry (written by web-Claude during a failed v6.9.x install) would end up with two MCP servers after `tour --force`, leaking `biosensor_setup_help` into the working-demo state. Symmetric with v6.9.2's prefix-match cleanup in `cmd_uninstall` — uninstall cleans on teardown, tour cleans on setup.
+- `_register_with_claude_desktop` return type changed from `Path | None` to `tuple[Path | None, list[str]]`; `tour_main` prints cleaned entries when non-empty.
+- +2 regression tests: `test_cleans_stale_biosensor_entries_before_writing`, `test_no_op_when_only_target_entry_already_present`.
+- Structural lesson: the tour-write site must be symmetric with uninstall in its handling of `biosensor-*` siblings. Same shape as v6.9.2's prefix-match-uninstall loop closure.
+
 ## Shipped in v6.10.2 (2026-05-06)
 
 - `SetupHelpLayer` — new framework-tier layer (parallel to `LocalLLMLayer` per ADR 0022 shape) registered conditionally when `_demo_blocks_absent()` detects no `csv_dir` blocks in `user_config.json`. Surfaces a single diagnostic tool (`setup_help_get_status`) that routes an external Claude to `biosensor-mcp tour`; invisible on configured deployments (SH7 wire-test confirms). `_redact_home()` strips HIPAA Safe Harbor §164.514(b)(2)(i)(R) address components before surfacing on the wire. 16 unit tests (trigger predicate, layer surface, redaction, dispatch, audit-row provenance). 7 new subprocess wire-tests SH1-SH7 added by mcp-protocol-auditor.

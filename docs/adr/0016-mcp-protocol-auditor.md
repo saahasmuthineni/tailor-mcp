@@ -298,3 +298,17 @@ server against fresh temp directories, and exits. The cost is paid
 per run rather than amortised, which matches the per-release fire
 frequency the agent is calibrated for. A persistent harness optimises
 for a frequency the project does not have.
+
+## v6.11.x amendments — enforcement mechanism
+
+The original ADR 0016 wording said the agent is *"mandatory before every release."* That mandate was load-bearing for the gate's structural argument but its **enforcement mechanism** was unspecified. As of v6.11.0, `release-shipper.md` did not reference `mcp-protocol-auditor`; the gate fired only when the main session in release prep "remembered" to spawn it. That is convention, not enforcement.
+
+The 2026-05-08 cross-ADR review (sparked by the `recipient-install-validator` first-wild-run that exposed the same gap on ADR 0028) closes this. The actual enforcement is **attestation-required at release-shipper pre-flight**:
+
+- `release-shipper.md` § "Pre-tag gate composition" inspects `git diff --name-only main...HEAD` against this agent's trigger globs (`framework/router.py`, `framework/audit.py`, `framework/security.py`, `framework/vault/{layer,writer}.py`, `children/*/child.py`).
+- If any trigger matches and the caller has not passed `--gates-confirmed=mcp-protocol:<verdict>`, release-shipper hard-refuses with the same shape as the dirty-working-tree refusal.
+- The verdict string is recorded verbatim in the release commit body (`## Pre-tag gates attested`). release-shipper does not parse verdict semantics — the boss is the authority on whether the verdict is acceptable. A deliberately-false attestation becomes a deliberately-false statement in the durable audit record.
+
+**Why attestation rather than inline re-spawn.** The agent runs in minutes, not seconds, but most releases do not touch its trigger globs. Attestation makes the convention auditable at the cost of one flag while letting the boss run the gate at any point during release prep — not specifically at release-shipper invocation. The cost-vs-frequency tradeoff per [ADR 0011](0011-promotion-policy.md) is the load-bearing argument for the policy choice.
+
+The original "mandatory before every release" wording stands on the record; the v6.11.x amendment refines what mandatory *means* mechanically. The structural argument (wire-level correctness is a seam, not a hope) is unchanged.

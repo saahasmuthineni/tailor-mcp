@@ -44,7 +44,8 @@ This is the right mode when an old PR is sitting open and the boss says "merge #
    python -m pytest -q && python -m ruff check src/ tests/ && python tests/security_probe.py && python -m biosensor_mcp --help
    ```
    Stop on any failure.
-4. **Echo current version.** `python -c "from biosensor_mcp import __version__; print(__version__)"`. The new version is computed from this + the bump kind (e.g. 6.1.0 + minor → 6.2.0; 6.1.0 + patch → 6.1.1).
+4. **Pre-tag gate composition** — see the section below. Compute touched files via `git diff --name-only main...HEAD`, classify each file-touched gate as `not-triggered` / `triggered-attestation-required` / `triggered-opt-in`, refuse hard if any attestation-required gate lacks a `--gates-confirmed` entry, surface (do not refuse) opt-in gates absent `--full-validate`. The trigger map and refusal messages live in their own section to keep this pre-flight short.
+5. **Echo current version.** `python -c "from biosensor_mcp import __version__; print(__version__)"`. The new version is computed from this + the bump kind (e.g. 6.1.0 + minor → 6.2.0; 6.1.0 + patch → 6.1.1).
 
 ## Hard refusal: dirty working tree
 
@@ -120,6 +121,70 @@ If `--include-pending` was passed but a file fails the allowlist, fail with a mo
 
 - **Mode B (merge-only invocation)**: Mode B does not version-bump or banner-prepend; it just merges an existing PR. Dirty working tree at Mode B time is a different concern (the caller is mid-work but choosing to merge a previously-opened PR). For Mode B, run `git status --porcelain` and warn (not refuse) if dirty; the caller can proceed knowing main session has uncommitted work.
 - **`gh pr checkout <PR>` flow inside Mode B**: the checkout itself produces a clean tree against the PR head. Dirty-tree detection runs against the PR head's state, not the pre-checkout main session state.
+
+## Pre-tag gate composition
+
+Three specialists are file-touched-gated release-time checks owned by ADRs 0016 / 0025 / 0028. Pre-flight step 4 inspects the diff against `main` and applies a tiered policy: lightweight gates require **attestation** (the convention becomes auditable at the cost of one flag); the heavyweight gate is **opt-in** (the boss judges when its 30–100 min cost is warranted). The asymmetry tracks the gates' actual cost — see ADR 0028 § "v6.11.x mandate refinement" for the cost evidence; see ADRs 0016 / 0025 for the attestation enforcement mechanism.
+
+### Trigger map
+
+| Gate | Trigger globs | Cost | Policy |
+|---|---|---|---|
+| `cue-card-rehearsal-auditor` | `examples/hip_lab_demo/realistic/CUE_CARD.md`, `src/biosensor_mcp/children/**/child.py`, `src/biosensor_mcp/framework/vault/layer.py`, `src/biosensor_mcp/framework/local_llm/layer.py` (any file declaring `ToolDefinition` schemas) | seconds | attestation-required |
+| `mcp-protocol-auditor` | `src/biosensor_mcp/framework/router.py`, `src/biosensor_mcp/framework/audit.py`, `src/biosensor_mcp/framework/security.py`, `src/biosensor_mcp/framework/vault/layer.py`, `src/biosensor_mcp/framework/vault/writer.py`, `src/biosensor_mcp/children/*/child.py` | minutes | attestation-required |
+| `recipient-install-validator` | `src/biosensor_mcp/tour.py`, `src/biosensor_mcp/pilot.py`, `src/biosensor_mcp/__main__.py`, `src/biosensor_mcp/wizard.py`, `pyproject.toml` (package-data globs only — see below), `src/biosensor_mcp/_fixtures/**` | 30–100 min | opt-in |
+
+Compute touched files via:
+
+```
+git diff --name-only main...HEAD
+```
+
+For each gate: a touched file is a trigger match if it matches any of the gate's globs. `pyproject.toml` is a special case for `recipient-install-validator` — only changes inside the `[tool.setuptools.package-data]` block (or equivalent) are triggers; version-line changes are not. If you cannot tell, treat the file as a match (false-positive on the cheap side; the boss can decline to opt-in if the change does not warrant the gate).
+
+### Attestation-required gates: refuse without `--gates-confirmed`
+
+If any attestation-required gate is triggered and the caller has not passed a corresponding `--gates-confirmed=<gate>:<verdict>,...` entry, refuse with the format below. The flag accepts comma-separated `<gate-name>:<verdict-string>` pairs. Verdict strings are recorded verbatim — release-shipper does not parse verdict semantics. The boss is the authority on whether the verdict is acceptable; a deliberately false attestation becomes a deliberate lie in the durable audit record (the release commit body), which is what makes the convention auditable rather than enforceable.
+
+The attestation is recorded as a `## Pre-tag gates attested` section in the release commit body, mirroring the dirty-tree `## Pending edits bundled` pattern. Each line: `- <gate-name>: <verdict-string>`.
+
+Refusal message format:
+
+```
+=== RELEASE-SHIPPER PRE-FLIGHT REFUSED ===
+Reason: pre-tag gate composition: triggered attestation-required gate(s) lack --gates-confirmed entries.
+
+Triggered (attestation required):
+  - {gate-name} — matched files: {path1}, {path2}, ...
+  - {gate-name} — matched files: ...
+
+Triggered (opt-in, not blocking):
+  - recipient-install-validator — matched files: ...
+  - (no --full-validate supplied; the boss may proceed without running this gate)
+
+Resolution:
+  Re-invoke release-shipper with:
+  --gates-confirmed="cue-card-rehearsal:PASS,mcp-protocol:PROTOCOL-OK"
+  (substitute each triggered gate's actual verdict string from its run output)
+
+Refusing to proceed.
+```
+
+### Opt-in gate: surface, do not refuse
+
+If `recipient-install-validator` is triggered, release-shipper SURFACES the recommendation in pre-flight output but does NOT refuse. The boss decides whether to opt in via the `--full-validate` flag.
+
+- If `--full-validate` is passed and `recipient-install-validator` is triggered: spawn the specialist inline (same shape as `ci-gate-runner` spawn at pre-flight step 3) and block on its verdict. Refuse if the verdict is `RECIPIENT-INSTALL BROKEN` or `RECIPIENT-INSTALL TIMEOUT-WATCHER-DEAD`. Proceed on `RECIPIENT-INSTALL OK` or `RECIPIENT-INSTALL WARNINGS` (warnings are surfaced in pre-flight output but do not block; the boss reads them and decides).
+- If `--full-validate` is passed but `recipient-install-validator` is NOT triggered: note the attestation would be vacuous, do not spawn, proceed.
+- If `--full-validate` is NOT passed and `recipient-install-validator` is triggered: pre-flight output names the trigger files, recommends the boss consider running with `--full-validate`, and proceeds. The recommendation is recorded in the release commit body as `## Pre-tag gates surfaced` — `- recipient-install-validator: triggered, not opted-in`.
+
+The asymmetry between attestation-required and opt-in is deliberate. The lightweight gates' attestation is cheap to comply with; the convention becoming visible is the value. The heavyweight gate's run cost is real (30–100 min on Hyper-V-emulation hosts per ADR 0028 § v6.11.x amendments); requiring a default-on attestation would push the team to silence-or-skip on time pressure, which is the failure mode the policy exists to avoid.
+
+### When this rule does NOT apply
+
+- **Mode B (merge-only invocation)**: same as the dirty-tree rule — Mode B does not version-bump and the gates were attested at PR-creation time. Re-running gate composition on merge is double work and double accountability.
+
+(An empty diff — `git diff --name-only main...HEAD` returning nothing — is not a "does not apply" case; gate composition still runs but trivially passes, since no touched files means no triggers match. It is handled by the normal Detection step, not by an exception.)
 
 ## The ritual
 

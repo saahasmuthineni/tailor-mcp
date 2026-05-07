@@ -26,6 +26,15 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.11.1 (2026-05-07)
+
+- `recipient-install-validator` operational hardening: halt-on-exit semantics (non-zero guest exit code fails the gate), structured progress emission, and watcher discipline for Windows Defender / AV interference — ADR 0028 v6.11.x amendments.
+- `release-shipper` Pre-tag gate composition: tiered policy implementing mandatory `ci-gate-runner`, attestation-required `mcp-protocol-auditor` + `cue-card-rehearsal-auditor` (skippable with `--gates-confirmed`), and heavyweight opt-in `recipient-install-validator` (skippable with `--full-validate`).
+- ADR 0016 (`mcp-protocol-auditor`) enforcement amendment: release-shipper attestation replaces prior "mandatory before every release" prose as the binding enforcement mechanism.
+- ADR 0025 (`cue-card-rehearsal-auditor`) enforcement amendment: same pattern as ADR 0016 — release-shipper attestation replaces prose-only mandate.
+- ADR 0028 (`recipient-install-validator`) mandate-refinement section: operational hardening + tiered-gate mandate codified as v6.11.x amendment.
+- Pure governance/team-shape patch release. No `src/` changes, no `tests/` changes, no router/security/child/vault/CLI architecture changes. Gates: 898/898 pytest, ruff clean, 76/76 probe, CLI smoke PASS.
+
 ## Shipped in v6.11.0 (2026-05-07)
 
 - New `recipient-install-validator` specialist provisioned via VirtualBox + Vagrant. Provisions a clean Windows 11 base box, installs the freshly-built wheel via the documented recipient command, runs `biosensor-mcp tour`, and validates end-to-end against the wheel-installed package — catching the failure class that produced the v6.10.1–v6.10.4 patch quartet (bugs invisible to host-side gates running against the dev tree).

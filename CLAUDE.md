@@ -1,5 +1,23 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.11.1 (2026-05-07)** — Post-first-wild-run amendment batch: governance/team-shape
+> patch, no `src/` changes, no breaking API changes, no router/security/child/vault/CLI
+> architecture changes. Five-file diff (+192/-15). Three ADR enforcement amendments: ADR
+> 0016 (`mcp-protocol-auditor`) and ADR 0025 (`cue-card-rehearsal-auditor`) gain
+> release-shipper attestation as the enforcement mechanism replacing the prior
+> "mandatory before every release" prose; ADR 0028 (`recipient-install-validator`) gains
+> operational hardening (halt-on-exit semantics, watcher discipline, progress emission)
+> and a mandate-refinement section. `release-shipper` agent gains a "Pre-tag gate
+> composition" section implementing a tiered policy: `ci-gate-runner` (mandatory, always),
+> `mcp-protocol-auditor` + `cue-card-rehearsal-auditor` (attestation-required on affected
+> paths, skippable with `--gates-confirmed`), `recipient-install-validator` (heavyweight
+> opt-in, skippable with `--full-validate` flag). `recipient-install-validator` agent
+> prompt hardened with halt-on-exit contract, structured progress emission, and watcher
+> discipline for Windows Defender / AV interference. No `src/` changes; 898/898 pytest,
+> ruff clean, 76/76 probe, CLI smoke PASS. Includes pending governance edits per ADRs
+> 0016 / 0025 / 0028 (agent table row + ADR enforcement amendments + validator hardening).
+> Patch bump.
+>
 > **v6.11.0 (2026-05-07)** — `recipient-install-validator` specialist + ADR 0028 land as a
 > single bundled governance/team-shape release. Codifies the structural class of failure
 > that produced the v6.10.1–v6.10.4 patch quartet: bugs that only appear when someone

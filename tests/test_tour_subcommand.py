@@ -307,6 +307,87 @@ class TestClaudeDesktopRegistration:
         assert "some-other-server" in cfg["mcpServers"]
         assert "biosensor-tour-hip-lab" in cfg["mcpServers"]
 
+    def test_cleans_stale_biosensor_entries_before_writing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    ):
+        """v6.10.3 — closes the dad-2026-05-06 multi-entry trap.
+
+        Recipient debugged via web-Claude on a v6.9.x failed-tour
+        install, ending up with a bare ``biosensor-mcp`` entry
+        (no env block) added to claude_desktop_config.json. A
+        subsequent ``biosensor-mcp tour --force`` previously left
+        that bare entry in place; Claude Desktop would then launch
+        two MCP servers, the bare one's SetupHelpLayer leaking into
+        the working-demo tool surface. Tour must clean every
+        ``biosensor-*`` sibling before adding its own.
+        """
+        fake_config = tmp_path / "claude_desktop_config.json"
+        fake_config.write_text(json.dumps({
+            "mcpServers": {
+                "biosensor-mcp": {
+                    "command": "biosensor-mcp",
+                    "args": ["serve"],
+                },
+                "biosensor-tour-old-variant": {
+                    "command": "python",
+                    "args": ["-m", "biosensor_mcp", "serve"],
+                },
+                "some-other-server": {"command": "foo", "args": []},
+            },
+        }), encoding="utf-8")
+        monkeypatch.setattr(
+            "biosensor_mcp.tour._claude_desktop_config_path",
+            lambda: fake_config,
+        )
+        target = tmp_path / "tour"
+        rc = main(["--variant=hip-lab", "--target", str(target)])
+        assert rc == 0
+        cfg = json.loads(fake_config.read_text(encoding="utf-8"))
+        servers = cfg["mcpServers"]
+        # Stale biosensor-* entries are gone.
+        assert "biosensor-mcp" not in servers
+        assert "biosensor-tour-old-variant" not in servers
+        # Fresh tour entry is present.
+        assert "biosensor-tour-hip-lab" in servers
+        # Non-biosensor sibling MCP servers are preserved.
+        assert "some-other-server" in servers
+        assert servers["some-other-server"] == {
+            "command": "foo", "args": [],
+        }
+
+    def test_no_op_when_only_target_entry_already_present(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    ):
+        """Re-running ``tour --force`` against a clean prior tour
+        scaffold must NOT mis-classify the target entry as stale and
+        delete it. The cleanup is "every biosensor-* EXCEPT the one
+        we're about to write" — confirms the !=server_name guard."""
+        fake_config = tmp_path / "claude_desktop_config.json"
+        fake_config.write_text(json.dumps({
+            "mcpServers": {
+                "biosensor-tour-hip-lab": {
+                    "command": "python",
+                    "args": ["-m", "biosensor_mcp", "serve"],
+                    "env": {"BIOSENSOR_CONFIG_DIR": "/old/path"},
+                },
+            },
+        }), encoding="utf-8")
+        monkeypatch.setattr(
+            "biosensor_mcp.tour._claude_desktop_config_path",
+            lambda: fake_config,
+        )
+        target = tmp_path / "tour"
+        rc = main([
+            "--variant=hip-lab", "--target", str(target), "--force",
+        ])
+        assert rc == 0
+        cfg = json.loads(fake_config.read_text(encoding="utf-8"))
+        # Entry survives; env was overwritten with the new target.
+        assert "biosensor-tour-hip-lab" in cfg["mcpServers"]
+        entry = cfg["mcpServers"]["biosensor-tour-hip-lab"]
+        resolved = target.expanduser().resolve()
+        assert entry["env"]["BIOSENSOR_CONFIG_DIR"] == str(resolved)
+
     def test_no_claude_desktop_flag_skips_write(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     ):

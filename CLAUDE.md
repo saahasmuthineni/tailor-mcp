@@ -1,5 +1,24 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.10.3 (2026-05-06)** — Tour cleans sibling biosensor-* entries
+> before adding its own. Closes the multi-entry coexistence trap surfaced
+> by dad's 2026-05-06 post-v6.10.2 debrief: a recipient who had a bare
+> `biosensor-mcp` entry (no env block, no demo tools — written by
+> web-Claude-mediated debugging during a failed v6.9.x install) would end
+> up with TWO MCP servers after `tour --force`: the stale bare entry plus
+> the new `biosensor-tour-<variant>` entry. With two servers both
+> registered, `biosensor_setup_help` leaked into the working-demo state,
+> breaking the "invisible on a working demo" invariant the v6.10.2
+> cue-card-rehearsal audit blessed. Fix: `_register_with_claude_desktop`
+> strips every `biosensor-*` key from `mcpServers` (except the entry being
+> written) before writing its own — symmetric with v6.9.2's prefix-match
+> cleanup in `cmd_uninstall`. UX side effect: dad's recovery now takes two
+> commands (`pip install --upgrade` + `tour --force`) instead of three
+> (`uninstall` + `pip install` + `tour`). +2 regression tests in
+> `TestClaudeDesktopRegistration`. 876/876 pytest, ruff clean, 76/76
+> probe, CLI smoke PASS. No router/security/child architecture changes; no
+> public API changes. Patch bump.
+>
 > **v6.10.2 (2026-05-06)** — Recipient-failure structural patch.
 > Closes the v6.9.x failure loop where a `biosensor-mcp tour` crash
 > routed the recipient via web-Claude into a degraded `serve` state with

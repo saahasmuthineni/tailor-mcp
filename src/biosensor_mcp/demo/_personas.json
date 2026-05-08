@@ -1,0 +1,111 @@
+{
+  "_schema_doc": "Canonical researcher personas for Biosensor MCP. Single source of truth, referenced by .claude/agents/researcher-utility-reviewer.md (the agent's prompt copies these definitions; this file is the schema-validated, parser-readable version), .claude/agents/phi-irb-risk-reviewer.md (which cites researcher-utility-reviewer.md as canonical), and src/biosensor_mcp/demo/runner.py in --audience=public mode (renders per-section interpretation panels from demo_section_panels). Per ADR 0030, persona definitions stay single-sourced; the public mirror page reads from this file (not from the agent prompt) so a parse error here surfaces at render time (CI hard-fail) rather than silently producing empty panels under each section heading. Per ADR 0011, cross-surface persona reuse follows the structural-argument promotion shape — one definition, many consumers.",
+  "schema_version": 1,
+  "personas": {
+    "pi": {
+      "name": "Principal Investigator",
+      "short_label": "PI",
+      "owns": [
+        "IRB submission",
+        "grant deliverables",
+        "paper publication",
+        "study design integrity"
+      ],
+      "cares_about": [
+        "reproducibility for a paper",
+        "defensible audit trail",
+        "multi-subject support",
+        "time-from-install-to-first-result",
+        "the ability to defend the analysis pipeline to a journal reviewer or IRB committee"
+      ],
+      "decisions_made": [
+        "Should this framework be approved for the next protocol amendment?",
+        "Is this analysis defensible if a reviewer asks 'show me the audit trail'?",
+        "Can a co-investigator at another site reproduce this on their machine?"
+      ],
+      "failure_mode": "the analysis ships, the paper goes to peer review, a reviewer asks 'what was the data flow?' and the PI cannot answer."
+    },
+    "analyst": {
+      "name": "Analyst / Research Software Engineer",
+      "short_label": "Analyst / RSE",
+      "owns": [
+        "day-to-day data analysis",
+        "tool ergonomics",
+        "schema clarity",
+        "error-message intelligibility",
+        "the practical work of running the framework on real participant data"
+      ],
+      "cares_about": [
+        "clear schemas (knowing what subject_id means, what _meta carries, what columns the audit log has)",
+        "good error messages when something breaks",
+        "low-friction tool ergonomics",
+        "the ability to debug a session without reading framework source"
+      ],
+      "decisions_made": [
+        "Is this schema documented well enough for me to use?",
+        "Will this error message tell me *why* my pilot failed, or just *that* it failed?",
+        "Can I integrate this into my notebook workflow?"
+      ],
+      "failure_mode": "the analyst hits an opaque error, can't diagnose it, and either patches around it or abandons the framework."
+    },
+    "irb": {
+      "name": "IRB / Compliance reviewer",
+      "short_label": "IRB",
+      "owns": [
+        "institutional risk",
+        "participant-trust integrity",
+        "HIPAA / Common Rule compliance",
+        "audit-log completeness",
+        "scrubber configuration",
+        "data retention policy"
+      ],
+      "cares_about": [
+        "PHI handling correctness",
+        "audit-log completeness across every dispatch path",
+        "scrubber subclass identifiability (scrubber_id per ADR 0003)",
+        "subject_id integrity (set-once, never reassignable per ADR 0009)",
+        "data flow that survives consent revocation",
+        "retention assumptions"
+      ],
+      "decisions_made": [
+        "Does this framework configuration meet our HIPAA Safe Harbor expectations?",
+        "Is the audit log defensible if we're asked for it in an OHRP inquiry?",
+        "Are the consent boundaries enforced server-side, or do they rely on the LLM behaving?"
+      ],
+      "failure_mode": "institutional review approves a deployment that has a quiet compliance hole; the hole surfaces only when an incident triggers retrospective review."
+    }
+  },
+  "demo_section_panels": {
+    "_doc": "Per-section interpretation panels for the public demo page. Used only by src/biosensor_mcp/demo/runner.py in --audience=public mode. Each panel is 2-4 sentences naming what that persona sees in that demo section. Voice constraint: friend-facing register, NOT agent-evaluation register. Section keys mirror the five sections emitted by run_demo() per ADR 0029. Adding a Section 6 means adding a section_6 block here AND updating runner.py's section-header regex to match.",
+    "section_1": {
+      "title": "cohort thesis",
+      "pi": "Defensible n / mean / std for a paper. The numerics never enter LLM context — they come from CSVProcessing.cohort_stats(), a pure function (ADR 0008). A reviewer asking 'show me the data flow for this table' gets a one-line answer: pure function over CSV columns, deterministic across runs.",
+      "analyst": "The metadata sidecar shape (group_by, value_columns) is the REDCap / Frictionless convention you already know. The result envelope tells you exactly which group each statistic came from — no opaque dictionary keys, no fabricated values. Errors surface with the column name attached, not just 'missing data.'",
+      "irb": "Raw force streams never enter LLM context — the cohort statistics are computed server-side via the CSV directory child's Tier 1 surface. ADR 0008 determinism is what makes this claim hold across replays; the audit log captures who ran the call when."
+    },
+    "section_2": {
+      "title": "router pipeline",
+      "pi": "Every tool call lands a row in audit.db with subject_id, called_at, package_version, scrubber_id, and per-call token counts. This is the audit trail you cite in the methods section of a paper — durable, queryable, and tied to the framework version that produced it.",
+      "analyst": "The _meta block on every result envelope tells you exactly what was called, when, by whom (scrubber_id), and at what cost. Debug a stuck session by tailing audit.db; reproduce a result by re-running the call with the same parameters.",
+      "irb": "Audit completeness — every dispatch path through RouterMCP writes an audit_log row before the result returns. The scrubber_id column distinguishes a misconfigured deployment (no-op default scrubber per ADR 0003) from a real institutional policy. Consent revocations also write audit rows with PURGE_CACHE per ADR 0013."
+    },
+    "section_3": {
+      "title": "three-tier resolution walk",
+      "pi": "The same question gets three resolutions — scalar, downsampled, raw. The PI's job is to pick the lowest tier that defends the analysis: most analytical claims hold at Tier 1, which means raw biometric streams stay on the analyst's machine and never enter LLM context. Cost gates make 'I want full resolution' an explicit choice with a token budget, not an accident.",
+      "analyst": "Tier 2 is consent-gated; Tier 3 is consent + cost-gated. Both gates return structured LLMInstruction (ADR 0004) telling the LLM what to do next, so an analyst doesn't have to interpret a free-text refusal. The cost estimate fires before execution (ADR 0005), not after — your token bill is bounded by the gate, not the result size.",
+      "irb": "Tier-mediated access is the technical implementation of data minimization. Consent gate is per-domain, session-scoped, and revocable; cost gate fires pre-execution from stream metadata. Both gates write audit_log rows with the LLM's reply, so 'why did you escalate to Tier 3?' is reconstructable years later."
+    },
+    "section_4": {
+      "title": "vault as second persistence tier",
+      "pi": "Cross-session analytical memory — observations made today survive into next month's session without the analyst having to remember them. Themes carry an optional subject_id (ADR 0009) so a multi-subject pilot can keep per-participant interpretations cleanly scoped. The vault is markdown source-of-truth; SQLite is the query index, not the canonical record.",
+      "analyst": "Vault tools skip the biosensor-tier gates (the analyst's notes aren't participant biometrics — only param validation + audit apply). VaultLayer is parallel to ChildMCP, registered separately. Wikilinks resolve to markdown files you can grep and edit by hand if the framework misbehaves.",
+      "irb": "Vault tools bypass the PHI-scrubber seam by design (ADR 0012) because the analyst's notes are not participant biometrics. The bypass is documented and audited — every vault write lands an audit_log row, and the markdown files themselves are the source of truth (no opaque database state)."
+    },
+    "section_5": {
+      "title": "local-LLM oracle (cooperation loop)",
+      "pi": "The local-LLM guardian (ADR 0022) means a model on the analyst's machine can compose narrative prose over deterministic processing output without raw biometric streams ever leaving the local machine. Numbers come from processing.py; prose comes from the local LLM. The OracleResponse schema enforces this — you cannot ship a hosted-LLM 'summary' that fabricated the numbers.",
+      "analyst": "ask_local_oracle returns numerical_claims (cited from resolved_context) plus narrative prose (from the local backend). NullBackend is the no-op default — your existing deployments behave unchanged. Opt into Ollama via the local_llm block in user_config.json; tier choices are Scout / Sentinel / Guardian / Titan.",
+      "irb": "When opted in, no biometric streams leave the analyst's machine, ever, at any tier — including to hosted LLMs. The local LLM has structurally-unique vault read access (related_substrate populates from the vault deterministically); hosted Claude does not. Every oracle call writes oracle_* audit columns for IRB-grade provenance (ADR 0023)."
+    }
+  }
+}

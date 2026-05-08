@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "biosensor-mcp"
-version = "6.12.0"
+version = "6.13.0"
 description = "MCP middleware framework for piping high-frequency biosensor data into LLM context windows — server-side analytics, consent gates, cost gates, audit log"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -64,6 +64,10 @@ biosensor_mcp = [
     # discover `biosensor-mcp tour` without parsing source code (closes
     # the v6.10.2 web-Claude-mediated-debugging discoverability gap).
     "*.md",
+    # Demo persona schema shipped with the package so
+    # `biosensor-mcp demo --audience=public --save-shareable` can render
+    # per-persona panels on the recipient's machine (per ADR 0030).
+    "demo/_personas.json",
 ]
 
 [tool.pytest.ini_options]

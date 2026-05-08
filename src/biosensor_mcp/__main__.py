@@ -473,18 +473,26 @@ def cmd_demo():
     architectural claims against bundled HIP Lab fixtures. See ADRs
     0027 and 0029.
 
-    Optional flag:
+    Optional flags:
         --save-shareable [PATH]   Capture the demo's stdout into a
-            self-contained markdown file (install command + transcript +
-            'what to read next' breadcrumbs) suitable for emailing or
+            self-contained markdown file suitable for emailing or
             hosting at a static URL. PATH is optional; defaults to
             ``~/.biosensor-mcp/shareable-demo-vX.Y.Z.md``.
+        --audience=<developer|public>   Default ``developer``. In
+            ``public`` mode (per ADR 0030) the saved markdown gets
+            per-persona reading panels + attribution-only footer + a
+            render-time URL-allowlist hard-fail; suitable for the
+            public mirror page. In ``developer`` mode the saved
+            markdown carries ADR breadcrumbs for a co-developer
+            reader (existing v6.12.0 behaviour). Has no effect when
+            ``--save-shareable`` is not also passed.
     """
     from biosensor_mcp import __version__ as _pkg_version
     from biosensor_mcp.demo import run_demo
 
     args = sys.argv[2:]
     save_shareable: Path | None = None
+    audience: str = "developer"
     i = 0
     while i < len(args):
         arg = args[i]
@@ -506,9 +514,31 @@ def cmd_demo():
             )
             i += 1
             continue
+        if arg == "--audience":
+            if i + 1 < len(args) and not args[i + 1].startswith("--"):
+                audience = args[i + 1]
+                i += 2
+                continue
+            print(
+                "Error: --audience requires a value (developer|public).",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        if arg.startswith("--audience="):
+            audience = arg.split("=", 1)[1]
+            i += 1
+            continue
         i += 1
 
-    run_demo(save_shareable_path=save_shareable)
+    if audience not in ("developer", "public"):
+        print(
+            f"Error: --audience must be 'developer' or 'public'; "
+            f"got {audience!r}.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    run_demo(save_shareable_path=save_shareable, audience=audience)
 
 
 def _clean_claude_desktop_biosensor_entries() -> dict[Path, list[str]]:

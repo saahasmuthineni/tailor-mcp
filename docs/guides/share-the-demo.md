@@ -112,17 +112,33 @@ This produces `dist/biosensor_mcp-<version>-py3-none-any.whl`.
 
 ### 2. Generate the shareable transcript
 
+For the public mirror page, always pass `--audience=public` (per
+[ADR 0030](../adr/0030-public-mirror-narrative-and-affordance-depth.md)):
+
 ```
-biosensor-mcp demo --save-shareable
+biosensor-mcp demo --audience=public --save-shareable
 ```
+
+In `--audience=public` mode the saved markdown gets per-persona
+reading panels (PI / analyst / IRB) spliced after each demo section,
+an attribution-only footer (no outbound contact mechanisms — no
+mailto, no Discord, no contact form per ADR 0030's
+zero-outbound-affordances invariant), and a render-time URL-allowlist
+check that hard-fails CI if any disallowed outbound URL appears.
 
 By default this writes to
 `~/.biosensor-mcp/shareable-demo-v<version>.md`. The output path is
 printed at the end of the demo. You can also pass an explicit path:
 
 ```
-biosensor-mcp demo --save-shareable demo-share.md
+biosensor-mcp demo --audience=public --save-shareable demo-share.md
 ```
+
+Drop `--audience=public` (or pass `--audience=developer`) only when
+you want a developer-shaped transcript with ADR breadcrumbs in the
+footer — useful for sharing a debug transcript with a co-developer
+who can resolve the references, but the wrong shape for the public
+mirror.
 
 ### 3. Push to the public mirror
 
@@ -150,14 +166,35 @@ In your local clone of `biosensormcpdemo` (the public repo):
 ### 4. Verify
 
 - Open `https://<your-username>.github.io/biosensormcpdemo/` in a
-  browser. Confirm:
-  - The transcript is the latest version (check the version-stamp at
-    the top).
-  - The `uvx --from <wheel-url> biosensor-mcp demo` command in the
-    page points at a valid release URL.
+  browser. Confirm the structural shape per ADR 0030:
+  - **Version-stamp** at the top of the page matches the wheel-URL
+    version-pin in the install command.
+  - **Per-persona reading panels** after each of the five demo
+    sections — count: 5 sections × 3 personas (PI / analyst / IRB) =
+    **15 panels** total. Each panel is 2–4 sentences and starts with
+    a bolded persona label.
+  - **Attribution-only footer** at the bottom: a single attribution
+    line naming the author, with no mailto buttons, no contact form,
+    no Discord link, no social handles, no GitHub Issues pointer, no
+    Substack signup, no PyPI link.
+  - **No dead-link breadcrumbs** — the previous v6.12.0 footer's
+    private-repo links (`README.md`, `CLAUDE.md`, `docs/design/`,
+    ADR pointers) must not appear.
+  - **Wheel-URL only** for outbound links — the `uvx --from <url>`
+    command's URL is the only `https://` link on the page (the
+    render-time URL allowlist hard-fails CI if any other outbound
+    URL slipped through).
 - Click the wheel-URL itself; confirm GitHub serves the wheel file.
 - (Optional, on a clean machine) run the `uvx` command yourself to
   confirm end-to-end installation works against the public URL.
+
+**If `biosensor-mcp demo --audience=public --save-shareable` itself
+fails with `ValueError: ...rendered output contains disallowed
+outbound URL...`**, that is the ADR 0030 render-time allowlist
+working as designed: a contributor accidentally introduced a contact
+mechanism on the public surface. Fix the offending link before
+pushing; do not work around it by passing `--audience=developer` (the
+developer-mode shape is wrong for the public mirror).
 
 ### 5. Send the URL
 

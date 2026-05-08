@@ -50,6 +50,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import shutil
 import sqlite3
 import sys
@@ -209,36 +210,264 @@ class _Tee:
         return getattr(self._streams[0], name)
 
 
+# ----- ADR 0030 helpers (audience-aware shareable rendering) ---------
+#
+# The block below implements the rendering side of ADR 0030's
+# "narrative + zero-outbound-affordances" decision. Three concerns:
+#
+#   * F1 mitigation — persona content is loaded from the structured
+#     ``_personas.json`` schema shipped with the package, NOT parsed
+#     out of the agent file's markdown headings (which had no schema
+#     contract).
+#   * F3 mitigation — public-mode output is checked at render time
+#     against an URL allowlist; only the wheel-release-asset URL is
+#     permitted. Any banned scheme (mailto, ftp) or any other outbound
+#     URL hard-fails CI rather than silently shipping.
+#   * F4 mitigation — the ``audience`` parameter preserves the existing
+#     developer-to-developer transcript-share use case (with ADR
+#     breadcrumbs) while opting into the public-mirror render shape.
+
+# Section header pattern emitted by ``_print_section_header`` — three
+# lines: 64 dashes, ``Section N - <title>``, 64 dashes.
+_SECTION_HEADER_PATTERN = re.compile(
+    r"^-{64}\nSection ([1-5]) - (.+)\n-{64}$",
+    re.MULTILINE,
+)
+
+# Public-mirror URL allowlist: only the wheel-release-asset URL is
+# permitted in audience=public output. Any other ``https://`` outbound
+# link is a structural violation of ADR 0030's zero-outbound-affordances
+# invariant.
+_ALLOWED_PUBLIC_URL_PATTERN = re.compile(
+    r"^https://github\.com/[^/]+/[^/]+/releases/download/"
+)
+_OUTBOUND_URL_PATTERN = re.compile(r"https?://[^\s)\]\"'>]+")
+_BANNED_URL_SCHEMES = ("mailto:", "ftp:", "tel:")
+
+
+def _load_personas() -> dict:
+    """Load canonical persona definitions + per-section panels from the
+    package's ``_personas.json`` data file.
+
+    Returns the parsed JSON as a dict. Hard-fails (lets JSONDecodeError
+    or FileNotFoundError propagate) on a malformed or missing schema —
+    that's the point of using a structured schema (closes
+    ``integration-auditor`` F1: silent coupling against an unschema'd
+    markdown file).
+    """
+    data = (
+        files("biosensor_mcp.demo")
+        .joinpath("_personas.json")
+        .read_text(encoding="utf-8")
+    )
+    return json.loads(data)
+
+
+def _render_persona_panel(section_key: str, personas_data: dict) -> str:
+    """Emit a markdown 'how to read this section' panel block for one
+    section, with one paragraph per persona (PI / analyst / IRB).
+
+    Returns an empty string if ``section_key`` isn't in
+    ``demo_section_panels`` (defensive — a future Section 6 added to
+    ``runner.py`` without a corresponding ``_personas.json`` entry
+    produces no panel rather than a wrong one).
+    """
+    panels = personas_data.get("demo_section_panels", {}).get(section_key)
+    personas = personas_data.get("personas", {})
+    if not panels or not personas:
+        return ""
+    title = panels.get("title", section_key)
+    parts = [f"### How to read this section ({title})", ""]
+    for persona_key in ("pi", "analyst", "irb"):
+        persona = personas.get(persona_key, {})
+        label = persona.get("name", persona_key)
+        copy = panels.get(persona_key, "")
+        if copy:
+            parts.append(f"**{label}:** {copy}")
+            parts.append("")
+    return "\n".join(parts)
+
+
+def _splice_panels_into_transcript(
+    transcript: str, personas_data: dict
+) -> str:
+    """In ``audience=public`` mode, split the captured transcript at
+    section-header boundaries and emit per-section persona panels
+    OUTSIDE the code fence so they render as markdown.
+
+    Output structure: a code-fenced preamble, then for each section a
+    code-fenced section block followed by a markdown panel naming what
+    each persona sees in that section.
+
+    Defensive: if no section headers match (e.g. the captured transcript
+    is malformed), wrap the whole thing in a single code fence and
+    return — no panels, but no crash either.
+    """
+    matches = list(_SECTION_HEADER_PATTERN.finditer(transcript))
+    if not matches:
+        return f"```\n{transcript}\n```\n"
+
+    chunks: list[str] = []
+
+    preamble = transcript[: matches[0].start()].rstrip()
+    if preamble:
+        chunks.append(f"```\n{preamble}\n```")
+        chunks.append("")
+
+    for i, match in enumerate(matches):
+        section_num = match.group(1)
+        section_key = f"section_{section_num}"
+        end = (
+            matches[i + 1].start()
+            if i + 1 < len(matches)
+            else len(transcript)
+        )
+        section_text = transcript[match.start() : end].rstrip()
+        chunks.append(f"```\n{section_text}\n```")
+        chunks.append("")
+        panel = _render_persona_panel(section_key, personas_data)
+        if panel:
+            chunks.append(panel)
+            chunks.append("")
+
+    return "\n".join(chunks)
+
+
+def _enforce_public_url_allowlist(rendered: str) -> None:
+    """Hard-fail per ADR 0030 if the rendered markdown contains any
+    outbound URL outside the wheel-release-asset allowlist or any
+    banned URL scheme (mailto, ftp, tel).
+
+    Raises ``ValueError`` on any violation. The render-time check is
+    the structural backstop on the zero-outbound-affordances invariant
+    — a future contributor adding a Discord link "to be helpful" gets
+    a CI failure rather than a silently-shipped public page.
+    """
+    for scheme in _BANNED_URL_SCHEMES:
+        if scheme in rendered:
+            raise ValueError(
+                f"--audience=public rendered output contains banned "
+                f"scheme {scheme!r}; ADR 0030 prohibits outbound contact "
+                f"mechanisms on the public mirror page (no mailto, no "
+                f"platform links, no community-shape destinations). "
+                f"Either render with --audience=developer or remove the "
+                f"offending link before generating the shareable file."
+            )
+    for match in _OUTBOUND_URL_PATTERN.finditer(rendered):
+        url = match.group(0)
+        if not _ALLOWED_PUBLIC_URL_PATTERN.match(url):
+            raise ValueError(
+                f"--audience=public rendered output contains disallowed "
+                f"outbound URL {url!r}; ADR 0030 permits outbound URLs "
+                f"only for the wheel release asset (a "
+                f"github.com/<owner>/<repo>/releases/download/ pattern). "
+                f"Either render with --audience=developer or remove the "
+                f"offending link before generating the shareable file."
+            )
+
+
 def _generate_shareable_markdown(
     transcript: str,
     version: str,
     install_url_base: str,
+    audience: str = "developer",
 ) -> str:
-    """Wrap a captured demo transcript in a shareable markdown
-    document with a one-line install command, the transcript itself,
-    and a 'where to read next' footer.
+    """Wrap a captured demo transcript in a shareable markdown document.
 
     Args:
-        transcript: The captured stdout of a ``biosensor-mcp demo``
-            run (the entire five-section walk).
+        transcript: The captured stdout of a ``biosensor-mcp demo`` run
+            (the entire five-section walk).
         version: ``biosensor_mcp.__version__`` — substituted into the
             install URL so the wheel filename matches the release on
             the public mirror repo.
-        install_url_base: The GitHub release URL prefix for the
-            public mirror repo (default points at saahasmuthineni's
-            mirror; overridable via the
-            ``BIOSENSOR_DEMO_INSTALL_URL_BASE`` env var). Used to
-            generate the wheel-download URL the recipient pastes
-            into their terminal.
+        install_url_base: The GitHub release URL prefix for the public
+            mirror repo (default points at saahasmuthineni's mirror;
+            overridable via ``BIOSENSOR_DEMO_INSTALL_URL_BASE``).
+        audience: Either ``"developer"`` (default; existing v6.12.0
+            behaviour with ADR breadcrumbs in the footer, transcript
+            in a single code fence — suitable for sharing a debug
+            transcript with a co-developer who can resolve the ADR
+            references) or ``"public"`` (per ADR 0030: per-persona
+            reading panels spliced after each section, attribution-only
+            footer with no outbound contact mechanisms, render-time
+            URL-scheme allowlist enforced — suitable for public-mirror
+            rendering).
 
     Returns:
-        A complete markdown document suitable for emailing as an
-        attachment, hosting via GitHub Pages, or pasting into any
-        markdown-aware messenger. Self-contained — no external
-        assets or relative links.
+        A complete markdown document. In ``audience="public"`` mode,
+        raises ``ValueError`` if the rendered output contains any
+        outbound URL outside the wheel-release-asset allowlist (the
+        structural enforcement of ADR 0030's zero-outbound-affordances
+        invariant).
     """
+    if audience not in ("developer", "public"):
+        raise ValueError(
+            f"audience must be 'developer' or 'public'; got {audience!r}"
+        )
+
     wheel_filename = f"biosensor_mcp-{version}-py3-none-any.whl"
     wheel_url = f"{install_url_base}/v{version}/{wheel_filename}"
+
+    if audience == "public":
+        # Per ADR 0030: per-section persona panels spliced in,
+        # attribution-only footer, URL allowlist enforced.
+        personas_data = _load_personas()
+        transcript_block = _splice_panels_into_transcript(
+            transcript, personas_data
+        )
+        # Install instructions in public mode use bare technical names
+        # for `uv` and `pipx` (no link to docs.astral.sh) so the
+        # wheel-release-asset stays the only outbound URL on the page.
+        rendered = (
+            f"# Biosensor MCP — demo (v{version})\n"
+            "\n"
+            "Local-first infrastructure for LLM-assisted analysis of\n"
+            "biometric data, built for health-research workflows where\n"
+            "data governance, audit trails, and reproducibility matter.\n"
+            "The transcript below is the actual output of\n"
+            f"`biosensor-mcp demo` on v{version}; running the same\n"
+            "command on your machine should produce structurally-\n"
+            "identical output (Section 1's numerical claims are\n"
+            "bit-identical by design).\n"
+            "\n"
+            "## Run it yourself (one command)\n"
+            "\n"
+            "If you have `uv` installed (recommended; install separately\n"
+            "if needed):\n"
+            "\n"
+            "```\n"
+            f"uvx --from {wheel_url} biosensor-mcp demo\n"
+            "```\n"
+            "\n"
+            "Or with `pipx`:\n"
+            "\n"
+            "```\n"
+            f"pipx run --spec {wheel_url} biosensor-mcp demo\n"
+            "```\n"
+            "\n"
+            "Either command installs the wheel into an ephemeral\n"
+            "isolated env, runs the demo (~30 seconds), and exits clean.\n"
+            "Nothing persists on your machine.\n"
+            "\n"
+            "## Demo output\n"
+            "\n"
+            f"{transcript_block}\n"
+            "---\n"
+            "\n"
+            "Built by **Saahas Muthineni**. If you received this URL\n"
+            "personally and have questions, reply through whatever\n"
+            "channel he sent it through.\n"
+            "\n"
+            "---\n"
+            "\n"
+            f"Generated by `biosensor-mcp demo --audience=public "
+            f"--save-shareable` on v{version}.\n"
+        )
+        # Hard-fail per ADR 0030 if any disallowed outbound URL appears.
+        _enforce_public_url_allowlist(rendered)
+        return rendered
+
+    # Developer mode (default; backward-compatible with v6.12.0).
     return f"""# Biosensor MCP - demo (v{version})
 
 Local-first infrastructure for LLM-assisted analysis of biometric
@@ -283,11 +512,16 @@ load-bearing ones for this demo are:
 - ADR 0008 - Analytical processing is deterministic by construction
 - ADR 0022 - Local-LLM guardian (the cooperation loop in Section 5)
 - ADR 0029 - Token reduction is analytical quality, not just cost optimization
+- ADR 0030 - Public-mirror page deepens narratively; outbound affordances pruned to zero
 
 For the longer audience-facing overview, see the project's `README.md`.
 For the IRB / RSE deep dive, see `docs/design/research-framing.md`.
 The full ADR set lives at `docs/adr/`. (Source repo currently private;
 ask for access if interested.)
+
+(This is the developer-mode shareable transcript; for the public-
+mirror render with per-persona reading panels and zero outbound
+affordances per ADR 0030, pass `--audience=public`.)
 
 ---
 
@@ -311,7 +545,11 @@ def _approx_token_count(payload) -> int:
     return max(1, len(json.dumps(payload, default=str)) // 4)
 
 
-def run_demo(*, save_shareable_path: Path | None = None) -> None:
+def run_demo(
+    *,
+    save_shareable_path: Path | None = None,
+    audience: str = "developer",
+) -> None:
     """Researcher first-look — five-section walk through the framework's
     load-bearing architectural claims against bundled HIP Lab fixtures.
     See ADR 0029.
@@ -319,13 +557,24 @@ def run_demo(*, save_shareable_path: Path | None = None) -> None:
     Args:
         save_shareable_path: When non-``None``, also captures the
             demo's stdout into a shareable markdown file at this path.
-            The file is self-contained — install command + transcript
-            + 'what to read next' breadcrumbs — and suitable for
-            emailing or hosting at a static URL. The user still sees
-            the demo run interactively in their terminal; the tee
-            captures alongside, doesn't replace. See
+            The file is self-contained and suitable for emailing or
+            hosting at a static URL. The user still sees the demo run
+            interactively in their terminal; the tee captures
+            alongside, doesn't replace. See
             ``_generate_shareable_markdown`` for the template.
+        audience: Either ``"developer"`` (default; existing v6.12.0
+            behaviour — captured transcript carries ADR breadcrumbs
+            for a co-developer reader) or ``"public"`` (per ADR 0030 —
+            the captured transcript drops developer-tier breadcrumbs
+            and the rendered markdown gets per-persona reading panels
+            + attribution-only footer + URL-allowlist enforcement,
+            suitable for the public mirror page). Has no effect when
+            ``save_shareable_path`` is ``None`` (no transcript captured).
     """
+    if audience not in ("developer", "public"):
+        raise ValueError(
+            f"audience must be 'developer' or 'public'; got {audience!r}"
+        )
     # Suppress the framework's INFO/WARNING log lines so stderr does not
     # interleave with the demo's stdout output. The structurally
     # important warnings (e.g. PHIScrubber's no-op default) still
@@ -852,63 +1101,75 @@ def run_demo(*, save_shareable_path: Path | None = None) -> None:
     print(
         "timestamps that wrap them."
     )
-    print()
-    print(
-        "Where to read next, in order of depth:"
-    )
-    print(
-        "  - README.md             - audience-facing overview"
-    )
-    print(
-        "  - CLAUDE.md             - architectural map + agent roster"
-    )
-    print(
-        "  - docs/adr/             - numbered design decisions; ADR"
-    )
-    print(
-        "                            citations above link here"
-    )
-    print(
-        "  - docs/design/research-framing.md"
-    )
-    print(
-        "                          - the longer-form RSE / IRB doc"
-    )
-    print()
-    print(
-        "If you want to use this with your own data:"
-    )
-    print(
-        "  - `biosensor-mcp pilot` - three-prompt wizard for a"
-    )
-    print(
-        "                            multi-subject CSV pilot"
-    )
-    print(
-        "  - `biosensor-mcp tour`  - scaffolds the demo fixtures into"
-    )
-    print(
-        "                            a durable directory and registers"
-    )
-    print(
-        "                            with Claude Desktop"
-    )
-    print()
-    print(
-        "Tip: save this transcript as a shareable markdown file with"
-    )
-    print(
-        "  `biosensor-mcp demo --save-shareable`"
-    )
-    print(
-        "(emits to ~/.biosensor-mcp/shareable-demo-vX.Y.Z.md by"
-    )
-    print(
-        "default; pass a path to override). The resulting file is"
-    )
-    print(
-        "self-contained and ready to email or host."
-    )
+    # Developer-mode breadcrumbs: ADR pointers + alternative-CLI
+    # surfaces. Suppressed in audience=public per ADR 0030 because the
+    # public mirror page contains no outbound contact mechanisms and
+    # the breadcrumbs reference private-repo files that 404 to any
+    # non-collaborator.
+    if audience == "developer":
+        print()
+        print(
+            "Where to read next, in order of depth:"
+        )
+        print(
+            "  - README.md             - audience-facing overview"
+        )
+        print(
+            "  - CLAUDE.md             - architectural map + agent roster"
+        )
+        print(
+            "  - docs/adr/             - numbered design decisions; ADR"
+        )
+        print(
+            "                            citations above link here"
+        )
+        print(
+            "  - docs/design/research-framing.md"
+        )
+        print(
+            "                          - the longer-form RSE / IRB doc"
+        )
+        print()
+        print(
+            "If you want to use this with your own data:"
+        )
+        print(
+            "  - `biosensor-mcp pilot` - three-prompt wizard for a"
+        )
+        print(
+            "                            multi-subject CSV pilot"
+        )
+        print(
+            "  - `biosensor-mcp tour`  - scaffolds the demo fixtures into"
+        )
+        print(
+            "                            a durable directory and registers"
+        )
+        print(
+            "                            with Claude Desktop"
+        )
+
+    # The "save with --save-shareable" tip is redundant once the user
+    # has invoked the flag; suppress on saved runs (independent of
+    # audience). Closes the integration-auditor BORDER finding about
+    # the three-breadcrumb-surface convergence.
+    if save_shareable_path is None:
+        print()
+        print(
+            "Tip: save this transcript as a shareable markdown file with"
+        )
+        print(
+            "  `biosensor-mcp demo --save-shareable`"
+        )
+        print(
+            "(emits to ~/.biosensor-mcp/shareable-demo-vX.Y.Z.md by"
+        )
+        print(
+            "default; pass a path to override). The resulting file is"
+        )
+        print(
+            "self-contained and ready to email or host."
+        )
 
     # Tee finalization. If save_shareable_path was set, restore the
     # original stdout and write the captured transcript wrapped in a
@@ -929,6 +1190,7 @@ def run_demo(*, save_shareable_path: Path | None = None) -> None:
             transcript=_shareable_buffer.getvalue(),
             version=_pkg_version,
             install_url_base=install_url_base,
+            audience=audience,
         )
         save_shareable_path.parent.mkdir(parents=True, exist_ok=True)
         save_shareable_path.write_text(markdown, encoding="utf-8")

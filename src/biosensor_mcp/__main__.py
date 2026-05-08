@@ -7,7 +7,7 @@ Usage:
     biosensor-mcp tour       # Scaffold a live-audience walkthrough (HIP Lab realistic demo by default)
     biosensor-mcp setup      # Run Strava OAuth setup wizard
     biosensor-mcp status     # Diagnostic check
-    biosensor-mcp demo       # Researcher first-look — run cohort tools on bundled HIP Lab fixtures (ADR 0027)
+    biosensor-mcp demo       # Five-section walk through the framework's architectural claims on bundled HIP Lab fixtures (ADRs 0027 + 0029); pass --save-shareable for an emailable markdown transcript
     biosensor-mcp uninstall  # Clean removal
 """
 
@@ -469,10 +469,46 @@ def cmd_status():
 
 
 def cmd_demo():
-    """Researcher first-look — run CSV cohort tools against bundled
-    HIP Lab fixtures. See ADR 0027."""
+    """Researcher first-look — five-section walk through the framework's
+    architectural claims against bundled HIP Lab fixtures. See ADRs
+    0027 and 0029.
+
+    Optional flag:
+        --save-shareable [PATH]   Capture the demo's stdout into a
+            self-contained markdown file (install command + transcript +
+            'what to read next' breadcrumbs) suitable for emailing or
+            hosting at a static URL. PATH is optional; defaults to
+            ``~/.biosensor-mcp/shareable-demo-vX.Y.Z.md``.
+    """
+    from biosensor_mcp import __version__ as _pkg_version
     from biosensor_mcp.demo import run_demo
-    run_demo()
+
+    args = sys.argv[2:]
+    save_shareable: Path | None = None
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--save-shareable":
+            # `--save-shareable <path>` or `--save-shareable` (no path
+            # → default versioned path under CONFIG_DIR).
+            if i + 1 < len(args) and not args[i + 1].startswith("--"):
+                save_shareable = Path(args[i + 1]).expanduser().resolve()
+                i += 2
+                continue
+            save_shareable = (
+                CONFIG_DIR / f"shareable-demo-v{_pkg_version}.md"
+            )
+            i += 1
+            continue
+        if arg.startswith("--save-shareable="):
+            save_shareable = (
+                Path(arg.split("=", 1)[1]).expanduser().resolve()
+            )
+            i += 1
+            continue
+        i += 1
+
+    run_demo(save_shareable_path=save_shareable)
 
 
 def _clean_claude_desktop_biosensor_entries() -> dict[Path, list[str]]:

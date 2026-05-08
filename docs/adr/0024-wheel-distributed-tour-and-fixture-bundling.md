@@ -2,7 +2,8 @@
 
 - **Status:** Accepted
 - **Date:** 2026-05-04
-- **Related:** [ADR 0008 (Deterministic by construction)](0008-deterministic-by-construction-processing.md), [ADR 0014 (Coverage criticality is an invariant)](0014-coverage-criticality-invariant.md), [ADR 0015 (Tier-1 cohort surface + metadata sidecar)](0015-tier-1-cohort-surface-and-metadata-sidecar.md), [CLAUDE.md § Workflow: manager mode](../../CLAUDE.md#workflow-manager-mode), [CLAUDE.md § Boss-architect protocols (Tier 1)](../../CLAUDE.md#boss-architect-protocols-tier-1--main-session-discipline)
+- **Amended:** 2026-05-07 — § 3.1 added (public release-only mirror as a friend-shareable carve-out alongside the existing Drive/email distribution); see § 3.1 for the carve-out's invariants and reversal conditions. Cites [ADR 0029 (Token reduction is analytical quality)](0029-token-reduction-as-analytical-quality.md).
+- **Related:** [ADR 0008 (Deterministic by construction)](0008-deterministic-by-construction-processing.md), [ADR 0014 (Coverage criticality is an invariant)](0014-coverage-criticality-invariant.md), [ADR 0015 (Tier-1 cohort surface + metadata sidecar)](0015-tier-1-cohort-surface-and-metadata-sidecar.md), [ADR 0029 (Token reduction is analytical quality)](0029-token-reduction-as-analytical-quality.md), [CLAUDE.md § Workflow: manager mode](../../CLAUDE.md#workflow-manager-mode), [CLAUDE.md § Boss-architect protocols (Tier 1)](../../CLAUDE.md#boss-architect-protocols-tier-1--main-session-discipline)
 
 ## Context
 
@@ -151,6 +152,75 @@ This shape works because the immediate recipient set is small (one
 family member, one PI). For 10+ recipients, PyPI becomes the right
 answer; the work converts trivially (one `twine upload` invocation
 once `python -m build` is in dev extras). See § Alternatives.
+
+### 3.1. Public release-only mirror for friend-shareable demo (amended 2026-05-07)
+
+The 2026-05-04 decision in § 3 above named a single distribution
+channel (Drive/email). The 2026-05-07 amendment adds a parallel
+channel — **a public release-only GitHub mirror repo at
+`saahasmuthineni/biosensormcpdemo`** — for the specific use case of
+*"send the demo to a CS-grad-shaped friend who wants to evaluate the
+framework with one click."* The motivating boss-architect intent
+(2026-05-07): *"my only requirement is I can easily send this demo
+and my friend can try it easily as well."* That requirement is not
+met by the Drive/email path — the boss has to attach a wheel, the
+friend has to know how to install it locally, and there's no
+copyable URL for messengers.
+
+The carve-out's mechanism: the boss creates one public GitHub repo
+(no source code, no docs) whose only purpose is hosting (a) a
+GitHub Pages-rendered shareable demo transcript and (b) versioned
+wheel files as release assets. Each `release-shipper` run uploads
+the new wheel to this mirror and regenerates `index.md` from the
+output of `biosensor-mcp demo --save-shareable`. The boss then has
+a permanent URL (e.g.
+`https://saahasmuthineni.github.io/biosensormcpdemo/`) to share
+through any channel; the friend's one-line `uvx --from <wheel-url>
+biosensor-mcp demo` runs the same demo on their machine without any
+account, clone, or env-setup ritual.
+
+**Invariants the carve-out preserves:**
+
+1. **Source repo stays private.** The mirror is release-artifact-only.
+   No source code, no ADRs, no design docs, no CLAUDE.md propagate to
+   the public mirror. The mirror's `README` says only *"this is the
+   release distribution channel for the (private) Biosensor MCP
+   project; the demo URL is …"* with a contact-the-author breadcrumb.
+2. **Synthetic-by-construction precondition holds.** § 4 below is
+   load-bearing for this carve-out — the wheel is shareable publicly
+   only because every byte it contains is synthetic by construction
+   (HIP Lab fixtures from `random.Random(20260504)`, fictitious
+   subject IDs, no possibility of real participant data passing
+   through). A future bundle of real or de-identified-real data
+   under § 4's reversal conditions immediately disqualifies this
+   carve-out — public distribution becomes a covered-data egress
+   event with no audit trail. The carve-out reverses if § 4 reverses.
+3. **Recipient set scale is unchanged.** The carve-out is for a
+   handful of evaluator-friends, not for general public adoption. At
+   ~10+ public consumers, PyPI publication (Alternative 1 below)
+   becomes the right answer for the same reasons named in § 3 — the
+   carve-out is a friction-reducing intermediate, not a scaling step.
+
+**Reversal condition:** if recipient feedback shows the public-URL
+shape damages first-impression formation, or if the synthetic-by-
+construction precondition reverses (per § 4), or if the project's
+private-to-IRB-review-readiness trajectory shifts, retire the
+public mirror and revert to § 3's Drive/email-only path. The mirror
+is purely additive; deletion is reversible.
+
+**Boss-side setup (one-time, ~10 minutes):** create a public repo
+named `biosensormcpdemo`, configure GitHub Pages from `main` /
+`(root)`, and provide `release-shipper` with a Personal Access Token
+(scope: `public_repo`) so the publish step is automatic per release.
+Setup checklist lives at `docs/guides/share-the-demo.md` (added in
+the same patch).
+
+**Companion to ADR 0029.** The carve-out only matters because the
+demo *itself* now demonstrates the framework's load-bearing
+architectural claims (per ADR 0029); a friend running the prior-
+v6.10.5 router-bypassed cohort-only demo would have had less to
+evaluate. ADR 0029 makes the demo worth sharing publicly; this
+amendment makes the sharing path itself frictionless.
 
 ### 4. Synthetic-by-construction precondition
 

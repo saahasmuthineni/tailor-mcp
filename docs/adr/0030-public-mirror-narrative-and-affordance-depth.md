@@ -1,6 +1,10 @@
 # ADR 0030: Public-mirror page deepens narratively; outbound affordances pruned to zero (recipient already has a back-channel by carve-out construction)
 
-- **Status:** Proposed
+- **Status:** Accepted (flipped 2026-05-08 after the live page at
+  `https://saahasmuthineni.github.io/biosensormcpdemo/` was verified to
+  match all four commitments — version pin v6.13.0, 5 sections × 3
+  persona panels = 15 labels, attribution-only footer, zero outbound
+  URLs except the wheel-release asset)
 - **Date:** 2026-05-08
 - **Related:** [ADR 0024 (Wheel-distributed tour and fixture bundling)](0024-wheel-distributed-tour-and-fixture-bundling.md) — § 3.1 carve-out being extended, § 4 synthetic-by-construction precondition inherited unchanged, Alternative 1 PyPI escalation path the reversal condition references; [ADR 0011 (Promotion policy)](0011-promotion-policy.md) — structural-argument framing for cross-surface persona reuse; [ADR 0027 (Demo as researcher first-look)](0027-demo-as-researcher-first-look.md) — the demo this page renders; [`.claude/agents/researcher-utility-reviewer.md` § Personas](../../.claude/agents/researcher-utility-reviewer.md) — canonical PI / analyst / IRB-reviewer definitions the per-persona panels reuse verbatim
 
@@ -184,14 +188,14 @@ the handful threshold.
 
 ### Status pathway
 
-`Status: Proposed` at draft time. The work is not yet implemented in
-the rendered page; the v6.12.0 mirror still ships the dead-breadcrumb
-footer and the no-persona-panels transcript dump. Status flips to
-`Accepted` when the next release ships the persona-panel rendering,
-the attribution-only footer, and the render-time URL-scheme allowlist
-that enforces the zero-outbound-affordances invariant — and the
-boss-architect confirms the live page now matches the decision
-recorded here.
+`Status: Proposed` at draft time. v6.13.0 shipped 2026-05-08 with the
+persona-panel rendering, the attribution-only footer, the render-time
+URL-scheme allowlist, and the structured `_personas.json` schema. The
+boss-architect verified the live page at
+`https://saahasmuthineni.github.io/biosensormcpdemo/` matches all four
+commitments (15 persona labels = 5 sections × 3, attribution footer
+present, zero outbound URLs except the wheel-release asset, version
+pin v6.13.0). Status: Accepted.
 
 ## Consequences
 

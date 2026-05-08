@@ -159,19 +159,21 @@ warns against treating it as canonical.
   but a future maintainer who refactors the fixtures has to
   preserve the sidecar or the demo regresses. Test coverage names
   the sidecar dependency explicitly.
-- **One asset is stale and unreferenced.**
-  [`docs/assets/demo.svg`](../assets/demo.svg) is a hand-rolled
-  illustration showing "biosensor-mcp demo · synthetic 60-min run"
-  framing — it depicts the Strava-shaped pre-v6.10.5 demo. As of
-  v6.10.5 it is not embedded in `README.md` (which embeds only
-  `vault-insights.svg` and `footprint.svg`) and is not referenced
-  by any docs guide. Listed here as known asset-render-debt: a
+- **One asset was stale and unreferenced — resolved in v6.12.x cleanup.**
+  `docs/assets/demo.svg` was a hand-rolled illustration showing
+  "biosensor-mcp demo · synthetic 60-min run" framing — it depicted
+  the Strava-shaped pre-v6.10.5 demo. As of v6.10.5 it was not
+  embedded in `README.md` (which embeds only `vault-insights.svg`
+  and `footprint.svg`) and was not referenced by any docs guide.
+  Listed here as known asset-render-debt; the v6.12.0 cleanup pass
+  took the "remove the orphan SVG" branch of the named fork ("a
   future doc-pass may either remove the orphan SVG or replace it
-  with a HIP Lab cohort visualization. Out of scope for v6.10.5
-  because the asset is not on any recipient's first-look path
-  (`docs/guides/demo.tape`, the `vhs` tape that produces
-  `docs/assets/demo.gif`, runs `biosensor-mcp demo` directly and
-  is forward-compatible with the reframed demo's output).
+  with a HIP Lab cohort visualization"). Replacement with a HIP Lab
+  cohort visualization remains an open creative item; the orphan
+  itself is gone. The `vhs` tape at `docs/guides/demo.tape` that
+  produces `docs/assets/demo.gif` was unaffected — it runs
+  `biosensor-mcp demo` directly and is forward-compatible with the
+  reshaped v6.12.0 demo's output.
 - **The demo bypasses `RouterMCP` by design.** Calls go directly
   to `CSVDirectoryChild.execute()`, so the printed result envelopes
   do *not* carry the `_meta` block, `scrubber_warning`, audit-log

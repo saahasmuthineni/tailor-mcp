@@ -1,6 +1,6 @@
 # ADR 0029: Token reduction is analytical quality, not just cost optimization; the demo demonstrates the architecture, not only the cohort thesis
 
-- **Status:** Proposed
+- **Status:** Accepted (flipped from Proposed on 2026-05-08 when v6.12.0 shipped)
 - **Date:** 2026-05-07
 - **Partially supersedes:** [ADR 0027 (Demo as researcher first-look)](0027-demo-as-researcher-first-look.md) — § Negative consequences "the demo bypasses RouterMCP by design" (lines 174-193) and the framing-prose contract that names `_meta` in prose because the demo doesn't exercise the router. ADR 0027's central claim — cohort thesis as canonical first-look, no Strava data — is preserved.
 - **Related:** [ADR 0001 (Audit log is the backbone)](0001-audit-log-as-backbone.md), [ADR 0005 (Cost pre-estimation)](0005-cost-pre-estimation.md), [ADR 0008 (Deterministic-by-construction processing)](0008-deterministic-by-construction-processing.md), [ADR 0015 (Tier-1 cohort surface)](0015-tier-1-cohort-surface-and-metadata-sidecar.md), [ADR 0022 (Local-LLM guardian)](0022-local-llm-guardian.md), [ADR 0023 (Local-LLM cooperation loop)](0023-local-llm-cooperation-loop.md), [ADR 0028 (Recipient-install validation)](0028-recipient-install-validation-as-release-gate.md), [CLAUDE.md § Three-Tier Access Model](../../CLAUDE.md#three-tier-access-model)
@@ -163,10 +163,15 @@ Concrete mechanism:
   this question. Drift detection does not need per-second resolution."*
 - **Section 4 — vault as durable memory.** A `VaultLayer` is wired
   with a tempdir vault path, the post-execute writer hook is
-  registered (only at this section, not earlier), a moment is
-  captured via `vault_capture_moment` scoped to `subject_id="S001"`,
-  and a follow-up `vault_search_notes` retrieves it. The framing
-  prose names the second persistence tier (CLAUDE.md § "Two
+  registered (only at this section, not earlier), and a moment is
+  captured via `vault_capture_moment` scoped to `subject_id="S001"`.
+  The runner reads the resulting markdown file off disk and prints
+  it inline so the recipient sees the source-of-truth markdown
+  directly (the SQLite vault index that future `vault_search_notes`
+  / `vault_list_notes` calls would query is populated as a side
+  effect of the same write but not surfaced in this demo's output —
+  Section 5's substrate scan is what exercises the index path
+  recipient-visibly). The framing prose names the second persistence tier (CLAUDE.md § "Two
   persistence tiers, architecturally distinct") and the markdown
   source-of-truth contract from [ADR 0007](0007-rendering-layers-policy.md):
   *"`activities.db` is rebuildable; `vault/*.md` is the canonical
@@ -303,9 +308,13 @@ pending that evidence.
 ### Negative
 
 - **The demo grows from ~3 calls / ~80 lines of framing prose to
-  ~7 calls across 5 sections.** Recipient cold-run time grows from
-  under a second to a few seconds. Acceptable on absolute terms,
-  but the longer surface plants more for the recipient to track.
+  ~10 calls across 5 sections** (Section 1: 3 child-direct calls;
+  Section 2: 1 router call + audit-row tail-print; Section 3: 4
+  router calls including the consent-blocked retry pair; Section 4:
+  1 router call + markdown print; Section 5: 1 router call).
+  Recipient cold-run time grows from under a second to roughly 10-30
+  seconds. Acceptable on absolute terms, but the longer surface
+  plants more for the recipient to track.
   Mitigation: each section's framing prose opens with one sentence
   naming what it shows, so a recipient skimming output reads the
   thesis even if they skip the envelopes.
@@ -372,10 +381,12 @@ pending that evidence.
   is the mechanism — no separate ADR for the assertion update.
 - **The `docs/assets/demo.svg` orphan named in
   [ADR 0027](0027-demo-as-researcher-first-look.md) §
-  Negative consequences remains stale.** That asset depicts the
-  pre-v6.10.5 Strava-shaped demo and was already not on the
-  recipient's first-look path. The reshape under this ADR does not
-  refresh it; future doc-pass debt named for closure separately.
+  Negative consequences was removed in the v6.12.x cleanup pass.**
+  That asset depicted the pre-v6.10.5 Strava-shaped demo, was not
+  embedded anywhere, and was on no recipient first-look path. The
+  cleanup took the "remove the orphan" branch of ADR 0027's named
+  fork; replacement with a HIP Lab cohort visualization remains an
+  open creative item, separate from the v6.12.0 reshape.
 
 ## Alternatives considered
 

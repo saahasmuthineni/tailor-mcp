@@ -2,7 +2,8 @@
 
 - **Status:** Accepted
 - **Date:** 2026-05-06
-- **Related:** [ADR 0008 (Deterministic-by-construction processing)](0008-deterministic-by-construction-processing.md), [ADR 0015 (Tier-1 cohort surface)](0015-tier-1-cohort-surface-and-metadata-sidecar.md), [ADR 0024 (Wheel-distributed tour and fixture bundling)](0024-wheel-distributed-tour-and-fixture-bundling.md)
+- **Partially superseded by:** [ADR 0029 (Token reduction is analytical quality)](0029-token-reduction-as-analytical-quality.md) (2026-05-07) — § Negative consequences "the demo bypasses RouterMCP by design" (lines 174-193 below) and the framing-prose contract that names `_meta` in prose because the demo doesn't exercise the router. ADR 0027's central claim — cohort thesis as canonical first-look, no Strava data — is preserved as Section 1 of the v6.12.0 demo.
+- **Related:** [ADR 0008 (Deterministic-by-construction processing)](0008-deterministic-by-construction-processing.md), [ADR 0015 (Tier-1 cohort surface)](0015-tier-1-cohort-surface-and-metadata-sidecar.md), [ADR 0024 (Wheel-distributed tour and fixture bundling)](0024-wheel-distributed-tour-and-fixture-bundling.md), [ADR 0029 (Token reduction is analytical quality)](0029-token-reduction-as-analytical-quality.md)
 
 ## Context
 

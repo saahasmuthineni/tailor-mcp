@@ -108,7 +108,7 @@ Execute the following inside the guest via `vagrant winrm -c "<command>"`. Captu
 | 3 | (parse step 2 stdout banner) | distinguish `"Tour scaffolded successfully"` (all paths) vs `"Tour scaffolded with N of M Claude Desktop registrations succeeded"` (partial) vs `"Tour scaffolded; Claude Desktop registration FAILED"` (all failed). Banner branch matches step 2 exit code. |
 | 4 | (read each path returned by `_claude_desktop_config_paths()` inside the guest) | Per-path: exactly one `biosensor-*` entry in `mcpServers`. Cross-path: entries identical. |
 | 5 | (read `~\.biosensor-mcp\user_config.json`) | demo blocks present: `force_csv`, `emg_csv`, `csv_dir` for `mrs/` |
-| 6 | `biosensor-mcp demo` | exit 0; stdout mentions "HIP Lab" not "Strava"; cohort-summary + force-decline output blocks present (per ADR 0027) |
+| 6 | `biosensor-mcp demo` | exit 0; stdout mentions "HIP Lab" not "Strava"; per ADR 0029 the five-section header line `Section 1 - cohort thesis` AND `Section 5 - local-LLM oracle` BOTH appear in stdout (Sections 2/3/4 implied by their position between); the closing `Demo complete.` line appears; no Python traceback in stderr |
 | 7 | `biosensor-mcp status` | per-path registration with recovery framing; on the v1 default base image (no Claude Desktop installed), expect `"Status: Registered for Claude Desktop."` (single classic-only path). |
 | 8 | spawn `biosensor-mcp serve` (background) with stdin redirected from NUL, sleep 3s, kill | no Python traceback in stderr |
 

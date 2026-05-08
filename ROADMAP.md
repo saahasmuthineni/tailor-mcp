@@ -26,6 +26,14 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.13.0 (2026-05-08)
+
+- ADR 0030 NEW: *"Public-mirror narrative and zero-outbound-affordances"* — codifies the `--audience=public` rendering contract, the URL allowlist hard-fail seam, and the attribution-only footer pattern. Cites ADRs 0011 / 0024 / 0027 and the researcher-utility-reviewer persona definitions. Status: Proposed → shipped.
+- `--audience=developer|public` CLI flag on `biosensor-mcp demo`: public mode splices per-persona panels (PI / analyst / IRB) after each of the 5 demo sections and applies zero-outbound-affordances (attribution-only footer, render-time URL-allowlist hard-fail).
+- `src/biosensor_mcp/demo/_personas.json`: new canonical single-source schema for persona definitions + per-section panel content — closes the F1 finding from integration-auditor (personas were split across researcher-utility-reviewer agent and inline runner logic).
+- `docs/guides/share-the-demo.md` updated: per-release ritual now uses `--audience=public`; verify checklist updated for panel count + URL-allowlist behaviour.
+- +12 tests (909 → 921+). ci-gate-runner PASS: 923/923 pytest, ruff clean, 76/76 probe, CLI smoke clean. Minor bump.
+
 ## Shipped in v6.12.0 (2026-05-08)
 
 - `biosensor-mcp demo` reshaped from 3-call cohort first-look into 5-section architectural showcase per ADR 0029 (NEW). Sections 2–5 exercise router pipeline visibility, three-tier resolution model, vault durable persistence, and local-LLM oracle substrate scan — in sequence, using the same bundled HIP Lab S001 fixture throughout.

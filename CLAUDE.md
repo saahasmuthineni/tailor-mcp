@@ -1,5 +1,38 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.13.0 (2026-05-08)** — ADR 0030 (Public-mirror narrative + zero-outbound-affordances)
+> lands with the `--audience=public` rendering shape for `biosensor-mcp demo`. Per-persona
+> panels (PI / analyst / IRB) are spliced after each of the 5 demo sections, attribution-only
+> footer replaces dead-link breadcrumbs, and a render-time URL-allowlist hard-fail enforces
+> the new zero-outbound-affordances invariant — a future contributor adding a Discord link
+> gets a CI failure rather than a quietly-shipped public page.
+>
+> The integration-auditor REVISE → revise loop surfaced two significant findings before
+> ship: F2 — the boss's personal email almost shipped onto a search-indexed public page;
+> resolved by the boss's reframe ("my email doesn't need to go there; this demo should only
+> work for people who know me personally; my name is enough") — replaced with zero-outbound
+> + name-only attribution pattern. C1 — a recipient-threshold contradiction between ADR 0030
+> prose and ADR 0024 § 3.1's ~10-evaluator threshold; resolved by trimming the ADR 0030
+> framing rather than raising the threshold. Both findings are in the ADR 0030 decision
+> record.
+>
+> Structural artifact: `src/biosensor_mcp/demo/_personas.json` — a new single-source
+> canonical schema for PI/analyst/IRB persona definitions + per-section panels for the 5
+> demo sections (closes integration-auditor F1: personas were previously split across the
+> researcher-utility-reviewer agent and inline runner logic). Shipped in the wheel via a
+> `pyproject.toml` package-data glob extension.
+>
+> Gates: ci-gate-runner PASS (923/923 pytest, ruff clean, 76/76 probe, CLI smoke clean,
+> 84% coverage). mcp-protocol-auditor NOT TRIGGERED (no framework/router/security/vault
+> paths touched). cue-card-rehearsal-auditor NOT TRIGGERED (no CUE_CARD.md or ToolDefinition
+> schema changes). recipient-install-validator SKIPPED (opt-in heavyweight; `__main__.py`
+> change is CLI-flag-parser-only, not tour/pilot/wizard logic; v6.11.x falsification
+> documented in project memory grounds the skip per v6.11.1 opt-in policy). ADR 0030 cites
+> ADRs 0011 / 0024 / 0027 and the researcher-utility-reviewer persona definitions. +12 tests
+> in `tests/test_demo_runner.py`; suite total now 923/923 pytest pass. Public API additions only —
+> new `--audience` CLI flag, new `audience` kwarg on `run_demo`, new `_personas.json`
+> resource. No router/security/child/vault/CLI architecture changes. Minor bump.
+
 > **v6.12.0 (2026-05-08)** — `biosensor-mcp demo` reshaped from a 3-call cohort
 > first-look into a 5-section architectural showcase per
 > [ADR 0029](docs/adr/0029-token-reduction-as-analytical-quality.md) (NEW, Proposed

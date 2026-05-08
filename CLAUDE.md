@@ -29,7 +29,7 @@
 > change is CLI-flag-parser-only, not tour/pilot/wizard logic; v6.11.x falsification
 > documented in project memory grounds the skip per v6.11.1 opt-in policy). ADR 0030 cites
 > ADRs 0011 / 0024 / 0027 and the researcher-utility-reviewer persona definitions. +12 tests
-> (909 → 921... wait: ci-gate-runner confirmed 923/923 total). Public API additions only —
+> in `tests/test_demo_runner.py`; suite total now 923/923 pytest pass. Public API additions only —
 > new `--audience` CLI flag, new `audience` kwarg on `run_demo`, new `_personas.json`
 > resource. No router/security/child/vault/CLI architecture changes. Minor bump.
 

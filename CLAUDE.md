@@ -1,5 +1,36 @@
 # CLAUDE.md — Biosensor MCP
 
+> **v6.12.0 (2026-05-08)** — `biosensor-mcp demo` reshaped from a 3-call cohort
+> first-look into a 5-section architectural showcase per
+> [ADR 0029](docs/adr/0029-token-reduction-as-analytical-quality.md) (NEW, Proposed
+> → Accepted on this ship): *"Token reduction is analytical quality, not just cost
+> optimization; the demo demonstrates the architecture, not only the cohort thesis."*
+> Section 1 preserves the ADR 0027 invariant (cohort thesis, `csv_cohort_summary` ×2 +
+> `csv_force_decline` via `child.execute()`, no Strava data). Sections 2–5 exercise the
+> framework's remaining load-bearing claims in sequence: Section 2 makes the router
+> pipeline visible (`csv_summary_report` via `RouterMCP._dispatch`, prints `_meta` block
+> + tails `audit.db` row with `subject_id="S001"` — ADR 0001); Section 3 walks the
+> three-tier resolution model on a single question (Tier 1 scalar / Tier 2
+> consent-gated downsampled / Tier 3 cost-gated raw — ADR 0005, demo router uses
+> `cost_threshold=15_000` so bundled S001 fixture trips the gate); Section 4 writes a
+> vault moment scoped to `subject_id="S001"` and prints the markdown source-of-truth
+> (durable cross-session memory — ADR 0001 / ADR 0008); Section 5 calls
+> `ask_local_oracle` with `NullBackend` and shows `related_substrate` auto-populated
+> by the ADR 0023 substrate scan finding the Section 4 moment. New `--save-shareable
+> [PATH]` CLI flag tees stdout into a self-contained markdown file (install command +
+> transcript + breadcrumb footer) — suitable for emailing or static hosting. ADR 0024
+> § 3.1 amended to codify a public release-only mirror at
+> `saahasmuthineni/biosensormcpdemo` (GitHub Pages `https://saahasmuthineni.github.io/
+> biosensormcpdemo/` verified live) as a friend-shareable distribution carve-out
+> alongside Drive/email; source-repo privacy + synthetic-by-construction preconditions
+> preserved. ADR 0027 header amended with "Partially superseded by ADR 0029"
+> forward-cite. `recipient-install-validator` Step 6 assertion list updated for the
+> new five-section demo output. New `docs/guides/share-the-demo.md` checklist for
+> boss-side public-mirror setup ritual. +11 tests (898 → 909). Framework ADRs exercised
+> by the demo: 0001 / 0005 / 0008 / 0022 / 0023 / 0027 / 0028 / 0029. No
+> router/security/child/vault/CLI architecture changes beyond the demo runner rewrite
+> and `--save-shareable` CLI flag addition. Minor bump.
+>
 > **v6.11.1 (2026-05-07)** — Post-first-wild-run amendment batch: governance/team-shape
 > patch, no `src/` changes, no breaking API changes, no router/security/child/vault/CLI
 > architecture changes. Five-file diff (+192/-15). Three ADR enforcement amendments: ADR

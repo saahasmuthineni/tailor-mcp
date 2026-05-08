@@ -26,6 +26,17 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v6.12.0 (2026-05-08)
+
+- `biosensor-mcp demo` reshaped from 3-call cohort first-look into 5-section architectural showcase per ADR 0029 (NEW). Sections 2–5 exercise router pipeline visibility, three-tier resolution model, vault durable persistence, and local-LLM oracle substrate scan — in sequence, using the same bundled HIP Lab S001 fixture throughout.
+- New `--save-shareable [PATH]` CLI flag: tees demo stdout into a self-contained markdown file (install command + transcript + breadcrumb footer), suitable for emailing or static hosting.
+- ADR 0029 NEW: *"Token reduction is analytical quality, not just cost optimization; the demo demonstrates the architecture, not only the cohort thesis."* Partially supersedes ADR 0027 § Negative consequences.
+- ADR 0024 § 3.1 amended: public release-only mirror at `saahasmuthineni/biosensormcpdemo` (GitHub Pages `https://saahasmuthineni.github.io/biosensormcpdemo/` verified live) codified as a friend-shareable distribution carve-out alongside Drive/email channel.
+- ADR 0027 header amended with "Partially superseded by ADR 0029" forward-cite.
+- `recipient-install-validator` Step 6 assertion list updated for the new five-section demo output.
+- New `docs/guides/share-the-demo.md`: boss-side checklist for the public-mirror setup ritual (one-time + per-release).
+- +11 tests (898 → 909): Sections 2–5 demo coverage + `--save-shareable` invariants. Gates: 909/909 pytest, ruff clean, 76/76 probe, CLI smoke PASS. Minor bump.
+
 ## Shipped in v6.11.1 (2026-05-07)
 
 - `recipient-install-validator` operational hardening: halt-on-exit semantics (non-zero guest exit code fails the gate), structured progress emission, and watcher discipline for Windows Defender / AV interference — ADR 0028 v6.11.x amendments.

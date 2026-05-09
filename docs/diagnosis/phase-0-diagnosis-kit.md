@@ -126,7 +126,7 @@ Start-Transcript -Path "$env:USERPROFILE\diagnosis-transcript-attempt-1-part2.tx
 #### A6 — Install tailor via uv
 
 ```powershell
-uv tool install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
+uv tool install git+https://github.com/saahasmuthineni/tailor-mcp.git
 ```
 
 **Expected:** Resolves dependencies, installs `tailor` command into uv's tool space.

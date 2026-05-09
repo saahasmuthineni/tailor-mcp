@@ -114,7 +114,7 @@ from a v6 install state no external machine has ever held).
 
 | Deliverable | Effort | Why it matters |
 |---|---|---|
-| **Rename GitHub repo** `Biosensor-to-LLM-Connector` → `tailor-mcp` | 30 min | Closes brand dissonance for any public discovery path; auto-redirect preserves any existing clones |
+| ~~**Rename GitHub repo** `Biosensor-to-LLM-Connector` → `tailor-mcp`~~ — **landed 2026-05-10** as a doc-truth pass closing the [ADR 0031 § Negative consequences](docs/adr/0031-rename-to-tailor-and-wardrobe.md) known-debt entry; auto-redirect preserves any existing clones. To be filed in § Shipped at the next version bump. | — | — |
 | **Remove `tailor migrate` subcommand + draft ADR 0032** | half-day | Migrate was scaffolding for a hypothetical v6 user population that turned out to be zero — no successful external v6 install ever happened. Counter-ADR cites ADR 0031's reversal conditions and explains the population accounting. Simplify the startup warning to point at manual rename or fresh install. |
 | **Update README install commands** to reflect the install path that survived Phase 0 | 1-2 hours | Whether Phase 0 patched the existing `uv tool install` ritual or restructured (single-binary, Docker, one-shot installer), the README has to match the install path that actually works. |
 | **Update v7.0.0 banner in CLAUDE.md** to reflect post-migrate-removal state | 30 min | Banner is current shipping reality, not historical record; safe to update. CHANGELOG.md and the Shipped log stay unchanged per the historical-preservation principle. |
@@ -559,6 +559,21 @@ prior roadmap revisions per the same historical-preservation principle
 [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) applies to
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
+
+### Shipped in v7.0.5 (2026-05-10)
+
+- GitHub repo renamed `Biosensor-to-LLM-Connector` → `tailor-mcp` (GitHub
+  auto-redirect preserves existing clones). Closes the [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md)
+  § Negative consequences known-debt entry.
+- Codebase doc-truth pass: Project URLs (`pyproject.toml`), CI badge + install
+  commands + clone instructions (`README.md`), install command (`CLAUDE.md`,
+  `docs/guides/multi-subject-pilot.md`, `docs/diagnosis/phase-0-diagnosis-kit.md`
+  A6), issues URL (`docs/external-review.md`), example path
+  (`examples/hip_lab_demo/beta/README.md`), ADR URL + known-debt closeout
+  (`docs/adr/0031-rename-to-tailor-and-wardrobe.md`).
+- Phase 1 strikethrough row updated with "landed 2026-05-10" annotation.
+- Vault project-folder cross-link updated out-of-band via Obsidian MCP.
+- No `src/` changes; no test changes; no public API changes. Patch bump.
 
 ### Shipped in v7.0.4 (2026-05-10)
 

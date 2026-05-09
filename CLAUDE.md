@@ -1,5 +1,30 @@
 # CLAUDE.md — Tailor
 
+> **v7.0.5 (2026-05-10)** — GitHub repo renamed `Biosensor-to-LLM-Connector` →
+> `tailor-mcp` (closes [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md)
+> § Negative consequences known-debt entry). Codebase doc-truth pass updating
+> Project URLs in `pyproject.toml`, CI badge + install commands + clone
+> instructions in `README.md`, install command in `CLAUDE.md` Running and
+> Testing §, install commands in `docs/guides/multi-subject-pilot.md`,
+> install command in `docs/diagnosis/phase-0-diagnosis-kit.md` (A6; local-FS
+> dev-box paths at lines 43 and 209 intentionally preserved as working-copy refs),
+> issues URL in `docs/external-review.md`, `TAILOR_CONFIG_DIR` example path in
+> `examples/hip_lab_demo/beta/README.md`, migration-story URL + § Negative
+> consequences known-debt closeout sub-bullet in
+> `docs/adr/0031-rename-to-tailor-and-wardrobe.md`, and Phase 1 strikethrough
+> row in `ROADMAP.md`. GitHub auto-redirect preserves existing clones.
+> Vault project-folder cross-link (`projects/tailor/index.md`) updated
+> out-of-band via Obsidian MCP.
+>
+> No `src/` changes; no test changes; no public API changes. Patch bump.
+> Gates: ci-gate-runner SHIPPABLE (940/940 pytest, ruff clean, 76/76 probe,
+> CLI smoke clean). mcp-protocol-auditor NOT TRIGGERED (no
+> framework/router/security/vault paths touched). cue-card-rehearsal-auditor
+> NOT TRIGGERED (no CUE_CARD.md or ToolDefinition schema changes).
+> recipient-install-validator SKIPPED (opt-in heavyweight; v6.11.x
+> falsification documented in project memory grounds the skip per v6.11.1
+> opt-in policy).
+
 > **v7.0.4 (2026-05-10)** — Phase 0 deliverable 2 patch (PATCH not
 > RESTRUCTURE per the 2026-05-09 self-driven diagnosis). Closes the four
 > findings the two attempts surfaced against `tailor tour` and the
@@ -1292,7 +1317,7 @@ For end users (PIs, analysts), the canonical install path is uv (or
 pipx) against the GitHub URL — no Python install, no venv ritual:
 
 ```bash
-uv tool install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
+uv tool install git+https://github.com/saahasmuthineni/tailor-mcp.git
 tailor pilot     # Three-prompt wizard for the multi-subject CSV pilot
 ```
 

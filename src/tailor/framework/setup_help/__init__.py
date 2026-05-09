@@ -79,7 +79,7 @@ def _redact_home(value: str) -> str:
 
 
 _SETUP_HELP_DESCRIPTION = (
-    "RECIPIENT SETUP DIAGNOSTIC. This server is running but the biosensor "
+    "RECIPIENT SETUP DIAGNOSTIC. This Tailor server is running but the "
     "demo scaffold has not been installed yet. If you are trying to call "
     "force_cohort_summary, emg_cohort_summary, force_summary, "
     "emg_envelope_summary, csv_summary_report, csv_cohort_summary, "
@@ -121,7 +121,7 @@ class SetupHelpLayer:
     def tool_definitions(self) -> list[ToolDefinition]:
         return [
             ToolDefinition(
-                "biosensor_setup_help",
+                "tailor_setup_help",
                 1,
                 _SETUP_HELP_DESCRIPTION,
                 {},
@@ -130,11 +130,11 @@ class SetupHelpLayer:
 
     @property
     def param_schemas(self) -> dict[str, dict[str, ValidationSchema]]:
-        return {"biosensor_setup_help": {}}
+        return {"tailor_setup_help": {}}
 
     async def execute(self, tool_name: str, params: dict) -> dict:
         """Return scaffolding instructions + diagnostic state."""
-        if tool_name != "biosensor_setup_help":
+        if tool_name != "tailor_setup_help":
             return {"error": f"Unknown setup-help tool: {tool_name}"}
 
         config_dir_exists = self._config_dir.exists()
@@ -167,7 +167,7 @@ class SetupHelpLayer:
                 "icon and choose Quit on Windows; Cmd+Q on macOS — "
                 "closing the window is not enough).",
                 "Re-open Claude Desktop and start a fresh chat.",
-                "Try: 'List the available biosensor MCP tools.' — you "
+                "Try: 'List the available Tailor tools.' — you "
                 "should see force_csv_*, emg_csv_*, vault_*, strava_* "
                 "tools.",
             ],
@@ -180,12 +180,12 @@ class SetupHelpLayer:
                     str(default_tour_target),
                 ),
                 "default_tour_target_exists": tour_target_exists,
-                "biosensor_config_dir_env": _redact_home(
+                "tailor_config_dir_env": _redact_home(
                     os.environ.get(
                         "TAILOR_CONFIG_DIR", "(not set)",
                     ),
                 ),
-                "biosensor_data_dir_env": _redact_home(
+                "tailor_data_dir_env": _redact_home(
                     os.environ.get(
                         "TAILOR_DATA_DIR", "(not set)",
                     ),

@@ -44,7 +44,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # Windows PowerShell:
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-# Install Biosensor MCP into uv's tool environment
+# Install Tailor into uv's tool environment
 uv tool install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
 ```
 

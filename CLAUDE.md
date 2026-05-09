@@ -1,4 +1,59 @@
-# CLAUDE.md — Biosensor MCP
+# CLAUDE.md — Tailor
+
+> **v7.0.0 (2026-05-08)** — Project rename: `Biosensor MCP` → **Tailor**.
+> The PyPI distribution is `tailor-mcp` (the bare `tailor` was taken on
+> PyPI); the Python import name is `tailor` (`from tailor import ...`),
+> the CLI command is `tailor` (e.g. `tailor serve`, `tailor tour`,
+> `tailor demo`). Configuration paths move from `~/.biosensor-mcp/` to
+> `~/.tailor/`; environment variables move from `BIOSENSOR_*` to
+> `TAILOR_*`. A new `tailor migrate` subcommand handles the v6 → v7
+> filesystem upgrade non-destructively (copies by default, `--move` to
+> remove the legacy directory after copying). Claude Desktop cleanup
+> logic (`_clean_claude_desktop_orphan_entries` + the new
+> `_is_orphan_entry_key` matcher) cleans BOTH legacy `biosensor-*` keys
+> AND current `tailor` / `tailor-*` keys so v6 → v7 upgrades don't leave
+> orphan entries pointing at a removed binary.
+>
+> Engine word: **Wardrobe** (replaces the working term "substrate" used
+> in design conversations). Wardrobe is the user-facing term for what
+> the framework holds on the user's behalf — themes, moments, evidence,
+> audit history, source data — the structured personal collection that
+> lives entirely on the user's machine. Wardrobe pairs with Tailor as
+> place-shape + character-shape (your Tailor curates your Wardrobe).
+> Counter-programming commitment per ADR 0031: visual language stays
+> non-fashion (no fabric / garment imagery, no haute-couture aesthetic)
+> and onboarding copy actively redirects the literal-clothing read
+> ("not clothes — your stuff"). Future contributors who drift toward
+> fashion-domain language are in conflict with ADR 0031.
+>
+> Historical preservation: `CHANGELOG.md`, the 2026-05-05 vault moment
+> file, and `docs/reports/*-2026-05-01.md` retain the legacy
+> `biosensor-mcp` / `Biosensor MCP` references — they describe past
+> state under the old name, and rewriting them would falsify the
+> historical record. New release notes (this banner, ADR 0031, future
+> changelog entries) use the new name.
+>
+> Structural changes: package directory renamed (`src/biosensor_mcp/`
+> → `src/tailor/` via `git mv`, history preserved); 1,400+ string
+> occurrences across ~120 files updated mechanically; 6 cleanup tests
+> migrated to dual-prefix semantics; +13 net new tests verifying the
+> migration matcher contract directly. Major version bump because
+> package import name, CLI command, env vars, default paths, and
+> Claude Desktop registration keys all changed — every existing v6
+> install needs the new install command + a one-time migration. ADR
+> 0031 codifies the rename, the Wardrobe naming decision, the
+> counter-programming invariant, and the migration story.
+>
+> Gates: ci-gate-runner PASS (930/930 pytest, ruff clean, 76/76 probe,
+> CLI smoke clean). mcp-protocol-auditor NOT TRIGGERED (no
+> framework/router/security/vault behavioural paths touched — only
+> import names changed). cue-card-rehearsal-auditor NOT TRIGGERED
+> (CUE_CARD.md got the mechanical rename pass but no schema changes).
+> recipient-install-validator SKIPPED (opt-in heavyweight; rename
+> directly affects the recipient-install path so it would normally
+> fire, but per v6.11.x falsification documented in project memory
+> the validator silently parks; ADR 0031 documents the operator
+> hand-validation path until ADR 0028's v2 escalation lands). Major bump.
 
 > **v6.13.0 (2026-05-08)** — ADR 0030 (Public-mirror narrative + zero-outbound-affordances)
 > lands with the `--audience=public` rendering shape for `tailor demo`. Per-persona
@@ -185,7 +240,7 @@
 > web-Claude-mediated debugging during a failed v6.9.x install) would end
 > up with TWO MCP servers after `tour --force`: the stale bare entry plus
 > the new `biosensor-tour-<variant>` entry. With two servers both
-> registered, `biosensor_setup_help` leaked into the working-demo state,
+> registered, `tailor_setup_help` leaked into the working-demo state,
 > breaking the "invisible on a working demo" invariant the v6.10.2
 > cue-card-rehearsal audit blessed. Fix: `_register_with_claude_desktop`
 > strips every `biosensor-*` key from `mcpServers` (except the entry being
@@ -851,9 +906,26 @@
 
 ## What This Project Is
 
-**Local-first infrastructure for LLM-assisted analysis of high-frequency biometric data — built for health research workflows where data governance, audit trails, and reproducibility matter.**
+**Tailor is a local-first MCP framework that lets any MCP-speaking AI work with your own data — without that data ever leaving your machine, with every action recorded in a durable audit log, and with results stamped for reproducibility.**
 
-The intended users are health researchers (academic medical centers, mHealth labs, sleep/CGM/cardiology groups) and the research-software engineers who support them. The deliverables are a router that owns cross-cutting concerns, a ChildMCP extension point for new data sources, and a vault layer for durable cross-session analytical memory.
+The first deployment recipe shipped end-to-end is a health-research workflow: high-frequency biometric data, cohort analysis, IRB-grade audit trails, and the worked example of a Strava-API child. The intended users for this first recipe are health researchers (academic medical centers, mHealth labs, sleep/CGM/cardiology groups) and the research-software engineers who support them. The deliverables are a router that owns cross-cutting concerns, a ChildMCP extension point for new data sources, and a vault layer for durable cross-session analytical memory.
+
+The framework generalises beyond health research — the architecture (router + ChildMCP plurality + Wardrobe + audit + consent + cost gates) is data-agnostic and use-case-agnostic. Future deployment recipes (knowledge work, clinical workflows, household / family contexts, creative archives) compose on the same engine. The research recipe is the first one shipped end-to-end, not the platform's identity.
+
+### Your Wardrobe
+
+Your **Wardrobe** is what your AI knows about you: the structured collection of your data and prior analytical work that lives entirely on your machine. *Not clothes — your stuff.* The Wardrobe accumulates:
+
+- **Themes** — persistent questions / hypotheses you keep returning to (research questions for a PI; recurring threads for a writer; case formulations for a clinician)
+- **Moments** — observations worth remembering across sessions (an aha; a captured mid-analysis insight; a clinical impression)
+- **Evidence** — data that grounds a theme (a specific time-window, a specific cohort comparison, a specific trace)
+- **Failure modes** — documented dead-ends so the AI doesn't suggest them again
+- **Audit history** — every action your AI took on your behalf, with timestamps, parameters, outcomes
+- **Source data** — the biometric streams, CSVs, vault notes the AI reasons over
+
+Tailor curates your Wardrobe — adds to it, retrieves from it, governs how the AI reaches into it — and never sends any of it to a service you didn't choose. Internally the framework still has component names like `vault/` (the markdown storage layer), `framework/` (the security pipeline), `audit.db` (the SQLite audit log); user-facing language uses **Wardrobe** as the term for what those components hold collectively.
+
+Counter-programming invariant per [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md): visual language stays non-fashion; onboarding copy actively redirects the literal-clothing read; content shown in any "your Wardrobe" view is visibly diverse (not just one data type) from first impression. The clothing metaphor is internal-coherence (Tailor + Wardrobe is a thematic pairing); the brand identity is *personal data substrate*, not fashion.
 
 The running child (Strava data) is one **worked example** of the ChildMCP pattern — a complete, copyable template for wrapping a streaming biometric source. It is retained for teaching value; it is not the canonical use case.
 

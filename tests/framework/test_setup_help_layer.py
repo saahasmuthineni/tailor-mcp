@@ -67,7 +67,7 @@ def test_layer_exposes_single_tool(tmp_path):
     layer = SetupHelpLayer(config_dir=tmp_path, data_dir=tmp_path / "data")
     tools = layer.tool_definitions
     assert len(tools) == 1
-    assert tools[0].name == "biosensor_setup_help"
+    assert tools[0].name == "tailor_setup_help"
     assert tools[0].tier == 1
     # The description must name the missing tools by name so Claude's
     # deferred-tool-search routes recipient prompts here when those
@@ -80,7 +80,7 @@ def test_layer_exposes_single_tool(tmp_path):
 
 def test_layer_param_schema_is_empty(tmp_path):
     layer = SetupHelpLayer(config_dir=tmp_path, data_dir=tmp_path / "data")
-    assert layer.param_schemas == {"biosensor_setup_help": {}}
+    assert layer.param_schemas == {"tailor_setup_help": {}}
 
 
 # ── Direct execute ──
@@ -89,7 +89,7 @@ def test_layer_param_schema_is_empty(tmp_path):
 @pytest.mark.asyncio
 async def test_execute_returns_recipient_steps(tmp_path):
     layer = SetupHelpLayer(config_dir=tmp_path, data_dir=tmp_path / "data")
-    result = await layer.execute("biosensor_setup_help", {})
+    result = await layer.execute("tailor_setup_help", {})
     assert "diagnosis" in result
     assert "recipient_steps" in result
     assert isinstance(result["recipient_steps"], list)
@@ -124,7 +124,7 @@ async def test_execute_redacts_home_from_diagnostic_paths(tmp_path, monkeypatch)
     layer = SetupHelpLayer(
         config_dir=config_dir, data_dir=config_dir / "data",
     )
-    result = await layer.execute("biosensor_setup_help", {})
+    result = await layer.execute("tailor_setup_help", {})
 
     # On platforms where Path.home() resolves via HOME / USERPROFILE,
     # the redaction must apply; otherwise the test exits without a
@@ -180,9 +180,9 @@ def router_with_setup_help(tmp_path):
 
 def test_register_setup_help_layer_adds_tool_to_map(router_with_setup_help):
     router = router_with_setup_help
-    assert "biosensor_setup_help" in router.registered_tools
+    assert "tailor_setup_help" in router.registered_tools
     assert (
-        router._framework_layer_owner["biosensor_setup_help"] == "setup_help"
+        router._framework_layer_owner["tailor_setup_help"] == "setup_help"
     )
 
 
@@ -202,7 +202,7 @@ def test_register_setup_help_layer_twice_is_an_error(tmp_path):
 @pytest.mark.asyncio
 async def test_dispatch_setup_help_writes_audit_row(router_with_setup_help, tmp_path):
     router = router_with_setup_help
-    response = await router._dispatch("biosensor_setup_help", {})
+    response = await router._dispatch("tailor_setup_help", {})
     assert len(response) == 1
     payload = json.loads(response[0].text)
     assert "diagnosis" in payload
@@ -216,11 +216,11 @@ async def test_dispatch_setup_help_writes_audit_row(router_with_setup_help, tmp_
     with sqlite3.connect(str(audit_db)) as conn:
         rows = conn.execute(
             "SELECT domain, tool_name, outcome, subject_id, scrubber_id "
-            "FROM audit_log WHERE tool_name = 'biosensor_setup_help'"
+            "FROM audit_log WHERE tool_name = 'tailor_setup_help'"
         ).fetchall()
     assert len(rows) == 1
     assert rows[0][0] == "setup_help"
-    assert rows[0][1] == "biosensor_setup_help"
+    assert rows[0][1] == "tailor_setup_help"
     assert rows[0][2] == "SUCCESS"
     assert rows[0][3] is None  # subject_id intentionally absent
     assert rows[0][4]  # scrubber_id stamped per ADR 0003

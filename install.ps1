@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════
-# Biosensor MCP — One-Click Installer (Windows)
+# Tailor — One-Click Installer (Windows)
 # Usage: irm https://raw.githubusercontent.com/saahasmuthineni/biosensor-to-llm-middleware/main/install.ps1 | iex
 # ═══════════════════════════════════════════════════════════════
 
@@ -19,7 +19,7 @@ $VENV_DIR = Join-Path $INSTALL_DIR "venv"
 $SRC_DIR = Join-Path $INSTALL_DIR "src"
 
 Write-Host ""
-Write-Host "  Biosensor MCP - Installer v6.0" -ForegroundColor Cyan
+Write-Host "  Tailor - Installer v6.0" -ForegroundColor Cyan
 Write-Host "  ================================" -ForegroundColor Cyan
 Write-Host ""
 

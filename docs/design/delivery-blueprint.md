@@ -1,4 +1,4 @@
-# Biosensor MCP — Delivery Blueprint
+# Tailor — Delivery Blueprint
 
 > **Status**: Working plan as of 2026-05-03. Revised from a v1
 > "GitHub repo → research-ready deliverable" framing after grounding

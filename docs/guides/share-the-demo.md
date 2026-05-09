@@ -27,7 +27,7 @@ On GitHub:
 - Owner: your account
 - Repository name: `biosensormcpdemo`
 - Description: *"Public release distribution + demo transcript for
-  Biosensor MCP. Source repo is private — see project author for
+  Tailor. Source repo is private — see project author for
   details."*
 - Visibility: **Public**
 - Initialize with a README ✓
@@ -41,7 +41,7 @@ will overwrite this with the transcript-rendered version on each
 release; the initial content is just a placeholder).
 
 ```markdown
-# Biosensor MCP — public release distribution
+# Tailor — public release distribution
 
 Local-first infrastructure for LLM-assisted analysis of biometric
 data. The source repo is private (ask the author for access if

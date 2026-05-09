@@ -184,7 +184,7 @@ account, clone, or env-setup ritual.
 1. **Source repo stays private.** The mirror is release-artifact-only.
    No source code, no ADRs, no design docs, no CLAUDE.md propagate to
    the public mirror. The mirror's `README` says only *"this is the
-   release distribution channel for the (private) Biosensor MCP
+   release distribution channel for the (private) Tailor
    project; the demo URL is …"* with a contact-the-author breadcrumb.
 2. **Synthetic-by-construction precondition holds.** § 4 below is
    load-bearing for this carve-out — the wheel is shareable publicly

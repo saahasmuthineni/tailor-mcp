@@ -28,7 +28,7 @@
 > *Show: terminal at the demo β directory.*
 
 "Hi — I'm Saahas. This is a 5-minute walkthrough of a tool I've
-been building called Biosensor MCP. The pitch is: an LLM-assisted
+been building called Tailor. The pitch is: an LLM-assisted
 analysis layer for biometric data where the participant data
 never enters the LLM's context window — only server-computed
 summaries do. The data and configuration on screen are a

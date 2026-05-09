@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ═══════════════════════════════════════════════════════════════
-# Biosensor MCP — One-Click Installer (Mac/Linux)
+# Tailor — One-Click Installer (Mac/Linux)
 # Usage: curl -sSL https://raw.githubusercontent.com/saahasmuthineni/biosensor-to-llm-middleware/main/install.sh | bash
 # ═══════════════════════════════════════════════════════════════
 
@@ -13,7 +13,7 @@ VENV_DIR="$INSTALL_DIR/venv"
 SRC_DIR="$INSTALL_DIR/src"
 
 echo "╔══════════════════════════════════════╗"
-echo "║  Biosensor MCP — Installer v6.0       ║"
+echo "║  Tailor — Installer v6.0       ║"
 echo "╚══════════════════════════════════════╝"
 echo ""
 

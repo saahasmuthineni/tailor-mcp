@@ -1,13 +1,31 @@
-# Biosensor MCP — LLM-Assisted Analysis for Health Research
+# Tailor — your AI works with your data, on your machine
 
 [![CI](https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector/actions/workflows/ci.yml/badge.svg)](https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector/actions/workflows/ci.yml)
 [![Python 3.10 | 3.11 | 3.12](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/downloads/)
 [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows-lightgrey)](.github/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 
-Local-first infrastructure for LLM-assisted analysis of high-frequency
-biometric data — built for health research workflows where data
-governance, audit trails, and reproducibility matter.
+**Tailor** is a local-first MCP framework that lets any MCP-speaking AI
+(Claude Desktop, Cline, Cursor, local models via Ollama) work with your
+own data — without that data ever leaving your machine, with every
+action recorded in a durable audit log, and with results stamped for
+reproducibility.
+
+Your **Wardrobe** is what your AI knows about you: the structured
+collection of your data and prior analytical work that lives entirely
+on your machine. *Not clothes — your stuff.* Your Wardrobe accumulates
+themes (questions you keep returning to), moments (observations worth
+remembering), evidence (data that grounds your themes), audit history
+(every action your AI took on your behalf), and the source data
+itself. Tailor curates your Wardrobe — adds to it, retrieves from it,
+governs how the AI reaches into it — and never sends any of it to a
+service you didn't choose.
+
+The current worked example is a health-research workflow on
+high-frequency biometric data — built for cohorts, audit trails,
+reproducibility, and IRB-grade data governance. The framework
+generalises beyond that domain; the research recipe is the first one
+shipped end-to-end, not the platform's identity.
 
 ## 30-second quickstart
 
@@ -106,7 +124,7 @@ when they use LLMs as analytical assistants:
 | **Reproducibility** — analyses in chat windows don't replay six months later. No log of which tool saw which data, no hook for a replication package. | Audit log (every call in SQLite with optional `subject_id`) + `_meta` provenance stamps on every result. |
 | **Longitudinal memory** — observations get dropped at session end. The note an analyst made about a participant in April is exactly what the analyst in September needs. | Vault layer: themes, moments, evidence logs — append-only, Obsidian-backed, queryable across sessions. |
 
-Biosensor MCP is a local MCP server that sits between any MCP-speaking
+Tailor is a local MCP server that sits between any MCP-speaking
 client and your data sources, owning the cross-cutting concerns — gating,
 scrubbing, audit, provenance, durable memory — that each problem needs.
 
@@ -114,7 +132,7 @@ scrubbing, audit, provenance, durable memory — that each problem needs.
 
 Hosted Memory is a chat-convenience feature: cross-session continuity
 inside one vendor's product, opaque to the user, mutable, and
-conversation-scoped. Biosensor MCP's vault is governance
+conversation-scoped. Tailor's vault is governance
 infrastructure: append-only markdown that survives the LLM client,
 human-readable in Obsidian or any text editor, supersession-tracked
 via [`vault_correct_evidence`](CLAUDE.md#vaultlayer--25-tools-v61),
@@ -122,12 +140,12 @@ study-scoped via `subject_id`, and inspectable down to the SQLite
 index. Same word, different artifact category. For a chat assistant
 remembering your name across conversations, Hosted Memory is the right
 tool. For an analytical record an IRB or PI can attach to a protocol
-amendment six months later, it is not. Biosensor MCP's vault layer
+amendment six months later, it is not. Tailor's vault layer
 exists for the second case.
 
 For the related question of *"can I use Anthropic Managed Agents on
-top of Biosensor MCP?"* — yes, the framework supports a network-MCP
-deployment where a hosted agent calls Biosensor MCP as a governed
+top of Tailor?"* — yes, the framework supports a network-MCP
+deployment where a hosted agent calls Tailor as a governed
 data boundary. See [docs/design/managed-agents-compat.md](docs/design/managed-agents-compat.md)
 for which threat models that path addresses and which it doesn't.
 
@@ -361,7 +379,7 @@ or issue before writing code — several have real design questions
 ## Architecture
 
 <p align="center">
-  <img src="docs/assets/footprint.svg" alt="Biosensor MCP system footprint — router, child, vault layer" width="760">
+  <img src="docs/assets/footprint.svg" alt="Tailor system footprint — router, child, vault layer" width="760">
 </p>
 
 ```mermaid

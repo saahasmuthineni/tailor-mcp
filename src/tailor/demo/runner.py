@@ -419,7 +419,7 @@ def _generate_shareable_markdown(
         # for `uv` and `pipx` (no link to docs.astral.sh) so the
         # wheel-release-asset stays the only outbound URL on the page.
         rendered = (
-            f"# Biosensor MCP — demo (v{version})\n"
+            f"# Tailor — demo (v{version})\n"
             "\n"
             "Local-first infrastructure for LLM-assisted analysis of\n"
             "biometric data, built for health-research workflows where\n"
@@ -468,7 +468,7 @@ def _generate_shareable_markdown(
         return rendered
 
     # Developer mode (default; backward-compatible with v6.12.0).
-    return f"""# Biosensor MCP - demo (v{version})
+    return f"""# Tailor - demo (v{version})
 
 Local-first infrastructure for LLM-assisted analysis of biometric
 data, built for health-research workflows where data governance,
@@ -595,7 +595,7 @@ def run_demo(
         _shareable_buffer = StringIO()
         sys.stdout = _Tee(_original_stdout, _shareable_buffer)
 
-    print("Biosensor MCP - Demo")
+    print("Tailor - Demo")
     print("=" * 64)
     print(
         "Local-first infrastructure for LLM-assisted analysis of"
@@ -636,7 +636,7 @@ def run_demo(
     )
     print()
 
-    with tempfile.TemporaryDirectory(prefix="biosensor-demo-") as tmpdir:
+    with tempfile.TemporaryDirectory(prefix="tailor-demo-") as tmpdir:
         tmp_root = Path(tmpdir)
         config_dir = tmp_root / "config"
         data_dir = tmp_root / "data"
@@ -666,7 +666,7 @@ def run_demo(
         from tailor.framework.vault import VaultLayer, VaultWriter
 
         router = RouterMCP(
-            name="biosensor-demo",
+            name="tailor-demo",
             data_dir=data_dir,
             cost_threshold=_DEMO_COST_THRESHOLD,
             circuit_threshold=3,

@@ -87,7 +87,7 @@ not engineering elegance.
 
 ## Shipped in v6.10.3 (2026-05-06)
 
-- Tour cleans sibling `biosensor-*` entries from `claude_desktop_config.json` before adding its own. Closes the multi-entry coexistence trap: a recipient who had a stale bare `tailor` entry (written by web-Claude during a failed v6.9.x install) would end up with two MCP servers after `tour --force`, leaking `biosensor_setup_help` into the working-demo state. Symmetric with v6.9.2's prefix-match cleanup in `cmd_uninstall` — uninstall cleans on teardown, tour cleans on setup.
+- Tour cleans sibling `biosensor-*` entries from `claude_desktop_config.json` before adding its own. Closes the multi-entry coexistence trap: a recipient who had a stale bare `tailor` entry (written by web-Claude during a failed v6.9.x install) would end up with two MCP servers after `tour --force`, leaking `tailor_setup_help` into the working-demo state. Symmetric with v6.9.2's prefix-match cleanup in `cmd_uninstall` — uninstall cleans on teardown, tour cleans on setup.
 - `_register_with_claude_desktop` return type changed from `Path | None` to `tuple[Path | None, list[str]]`; `tour_main` prints cleaned entries when non-empty.
 - +2 regression tests: `test_cleans_stale_biosensor_entries_before_writing`, `test_no_op_when_only_target_entry_already_present`.
 - Structural lesson: the tour-write site must be symmetric with uninstall in its handling of `biosensor-*` siblings. Same shape as v6.9.2's prefix-match-uninstall loop closure.
@@ -502,7 +502,7 @@ or child changes.
   `(theme_slug, evidence_timestamp)` pair, so re-running the same
   correction never duplicates markers.
 - **[docs/design/managed-agents-compat.md](docs/design/managed-agents-compat.md)** —
-  positions Biosensor MCP relative to Anthropic Managed Agents over
+  positions Tailor relative to Anthropic Managed Agents over
   network MCP. Path A (local-first orchestration, default) vs Path B
   (Managed Agent calling the local router); both preserve the same
   governance pipeline.

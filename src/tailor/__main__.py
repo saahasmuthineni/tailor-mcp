@@ -301,7 +301,7 @@ def cmd_tour():
 
 def cmd_status():
     """Check configuration and connectivity."""
-    print("Biosensor MCP — Status Check")
+    print("Tailor — Status Check")
     print("=" * 40)
 
     # Config dir
@@ -612,7 +612,7 @@ def _clean_claude_desktop_orphan_entries() -> dict[Path, list[str]]:
 
 def cmd_uninstall():
     """Clean removal."""
-    print("Biosensor MCP — Uninstall")
+    print("Tailor — Uninstall")
     print("This will remove:")
     print(f"  - Config directory: {CONFIG_DIR}")
     print("  - Claude Desktop MCP registration (every detected config)")

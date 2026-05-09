@@ -1,4 +1,4 @@
-# Biosensor MCP — Research Framing
+# Tailor — Research Framing
 
 This document is written for health researchers, research-software
 engineers, and reviewers evaluating whether this project is appropriate
@@ -21,7 +21,7 @@ what was accessed, by whom, on what date, and for what question.
 
 The workarounds research groups reach for — manually truncating
 streams, summarizing by hand, or skipping LLM-assisted analysis
-entirely — are either leaky, labor-intensive, or both. Biosensor MCP
+entirely — are either leaky, labor-intensive, or both. Tailor
 is a local-first alternative: the server runs on a workstation next to
 the data, the LLM client communicates with it over MCP, and only
 server-computed summaries cross the boundary between the analyst's

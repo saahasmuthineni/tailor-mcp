@@ -88,7 +88,7 @@ def test_run_demo_executes_end_to_end_without_raising() -> None:
         run_demo()
 
     output = buf.getvalue()
-    assert "Biosensor MCP" in output
+    assert "Tailor" in output
     assert "Demo complete." in output
 
 
@@ -334,7 +334,7 @@ def test_save_shareable_writes_self_contained_markdown(tmp_path: Path) -> None:
     content = out_path.read_text(encoding="utf-8")
 
     # Header / title
-    assert "# Biosensor MCP - demo" in content
+    assert "# Tailor - demo" in content
     # Install command section with both uvx and pipx
     assert "uvx --from" in content
     assert "pipx run --spec" in content

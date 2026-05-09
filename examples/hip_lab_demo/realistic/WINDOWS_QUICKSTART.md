@@ -145,7 +145,7 @@ response before sending the next.
 
 ### Prompt 1 — confirm tools loaded
 
-> List the available biosensor MCP tools.
+> List the available Tailor tools.
 
 Claude should list a long set of tool names — `force_csv_*`,
 `emg_csv_*`, `vault_*`, `strava_*`. If it says "I don't have MCP

@@ -97,7 +97,7 @@ class _Cleanup:
 
 
 def _print_banner() -> None:
-    print("\n  Biosensor MCP — pilot setup wizard\n")
+    print("\n  Tailor — pilot setup wizard\n")
 
 
 def _yes(answer: str, *, default: bool = False) -> bool:

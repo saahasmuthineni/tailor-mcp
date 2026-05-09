@@ -107,7 +107,7 @@ re-open. The new MCP server appears under the entry name above.
 
 In a fresh Claude Desktop chat, type:
 
-> *"List the available biosensor MCP tools."*
+> *"List the available Tailor tools."*
 
 You should see ~55 tools across `force_csv`, `emg_csv`, `vault_*`,
 `strava_*` (Strava is the worked-example child; loads but errors

@@ -316,7 +316,7 @@ def _print_next_steps(
         print("  Next: fully quit Claude Desktop (system tray Quit on Windows,")
         print("        Cmd+Q on macOS), then re-open it. Try this prompt:")
         print()
-        print('    "List the available biosensor MCP tools."')
+        print('    "List the available Tailor tools."')
     print()
 
 

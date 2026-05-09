@@ -1,4 +1,4 @@
-# Biosensor MCP — one-page reference for HIP Lab
+# Tailor — one-page reference for HIP Lab
 
 > Companion to the live walkthrough and the 5-minute video.
 > Written so an IRB coordinator or a non-engineer PI can read

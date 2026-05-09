@@ -243,7 +243,7 @@ class RouterMCP:
         Register the framework-level setup-help layer (recipient diagnostic).
 
         Tools use the same ``(None, tool_def)`` sentinel as vault and
-        local_llm; ``_framework_layer_owner["biosensor_setup_help"]`` is
+        local_llm; ``_framework_layer_owner["tailor_setup_help"]`` is
         set to ``"setup_help"`` so ``_dispatch`` routes to
         ``_dispatch_setup_help()`` — a stripped-down pipeline (param
         validation + execute + audit) that skips consent, cost, circuit

@@ -1,5 +1,5 @@
 """
-Biosensor MCP — Local-First LLM-Assisted Biometric Analysis
+Tailor — Local-First LLM-Assisted Biometric Analysis
 ============================================================
 A local-first MCP server for LLM-assisted analysis of
 high-frequency biometric data in health research workflows.

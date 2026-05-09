@@ -1,4 +1,4 @@
-# Biosensor MCP - recipient onboarding (read me first)
+# Tailor - recipient onboarding (read me first)
 
 If you (or a Claude session inspecting this wheel for you) are
 reading this, you almost certainly want to scaffold the demo with
@@ -34,7 +34,7 @@ tailor tour
 
 Then fully quit Claude Desktop (right-click the system-tray icon
 on Windows and choose Quit; Cmd+Q on macOS) and re-open it.
-In a fresh chat, ask: "List the available biosensor MCP tools."
+In a fresh chat, ask: "List the available Tailor tools."
 
 If you only see `ask_local_oracle` and `strava_list_runs` after
 following the steps above, the tour did not finish. Re-run with
@@ -47,7 +47,7 @@ upgrading is the fix.
 
 If tour fails AND you end up at a bare `tailor serve` (no
 scaffold), the server still registers a single diagnostic tool
-called `biosensor_setup_help`. Calling it from Claude returns
+called `tailor_setup_help`. Calling it from Claude returns
 the recipient-side instructions in this file plus diagnostic state
 (which environment variables are set, where the bundled fixtures
 live, whether the default tour target exists). That tool is

@@ -1,6 +1,6 @@
 # External code review — primer for the reviewer
 
-You've been asked to review **Biosensor MCP**, a local-first MCP server
+You've been asked to review **Tailor**, a local-first MCP server
 for LLM-assisted analysis of biometric data in health research. This
 document gets you oriented and tells you specifically what we want
 skeptical eyes on.

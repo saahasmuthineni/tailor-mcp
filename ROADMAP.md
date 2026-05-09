@@ -1,32 +1,459 @@
 # Roadmap
 
-Work that's explicitly deferred — what the framework is *not* yet, and
-why each item matters for the research framing. Each section is a
-one- or two-sentence pitch plus context; no implementation details.
+Tailor is a *personal AI server with research-grade trust* — a
+local-first MCP framework that lets any MCP-speaking LLM work with
+your data, with every action audited and every result reproducible. The
+identity stabilised at v7.0.0 ([ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md));
+this roadmap describes how Tailor moves from "researcher first-look on
+a hand-delivered wheel" to canonical *personal AI server* over the
+next several years.
+
+The roadmap has two halves. **Phases 0, 1, and 2** are scheduled —
+concrete deliverables with rough windows because the work is in arm's
+reach and sequencing matters. **Phases 3, 4, and 5** are
+direction-oriented — what Tailor is aiming at, with triggering
+conditions instead of dates, because committing to schedules past six
+months out is more cosmetic than honest.
+
+**Phase 0 is the binding constraint and the most important honesty in
+this document.** Empirically, no version of Tailor (or its
+predecessors under the *Biosensor MCP* name) has been successfully
+installed end-to-end on a machine that wasn't the project author's.
+Every prior external send produced a degraded or failed install state.
+Until that changes, every later-phase item is castle-on-sand. The
+roadmap reflects this by making install-path validation the first
+phase; what was previously labelled *"Phase 0 — ship-quality v7.0.0"*
+is now Phase 1, with every other phase shifted accordingly.
+
+Health-research workflows remain the first deployment recipe shipped
+end-to-end. They are not the platform's identity. Future deployment
+recipes (knowledge work, clinical, household, creative archives)
+compose on the same engine.
 
 ## At a glance
 
-| Item | Effort | Impact | Unblocks |
-|---|---|---|---|
-| [New ChildMCPs (CGM / sleep / ECG / EDF / FHIR)](#new-childmcps-for-research-relevant-data-sources) *(template skeleton + CSV child shipped — see that section)* | M–L | High | Broader adoption |
-| ~~[Per-subject `subject_id` on vault tools](#per-subject-parameter-scoping-on-vault-tools)~~ *(shipped in v6.2 — see [ADR 0009](docs/adr/0009-vault-subject-keying.md))* | — | — | — |
-| [Real PHI-scrubbing implementations](#real-phi-scrubbing-implementations-behind-the-phiscrubber-slot) | M | High | Any deployment with actual PHI |
-| [Per-analyst attribution on vault evidence](#per-analyst-attribution-on-vault-evidence-blocks) | S | Medium | Multi-analyst studies |
-| [Deterministic mode + seed control](#deterministic-mode-with-seed-control) *(prerequisite shipped silently; residual scope is the audited-flag-plus-provenance-hash pairing — see [ADR 0008](docs/adr/0008-deterministic-by-construction-processing.md))* | XS | Low | Reproducible paper results |
-| [Provenance hashing on derived metrics](#real-provenance-hashing-on-derived-metrics) | M | Medium | Byte-level reviewer traceability |
-| [Vault-freeze for manuscript submission](#freeze-vault-operation-for-manuscript-submission) | S | Medium | Submission-ready snapshots |
-| ~~[Worked-example notebook](#worked-example-notebook-against-a-published-analytical-question)~~ *(shipped — [docs/guides/worked-example.ipynb](docs/guides/worked-example.ipynb))* | — | — | — |
-| [LLM-client evaluation harness](#evaluation-harness-for-llm-client-behavior) | M | Medium | Making the governance claim measurable |
-| [CLI UX: rename `setup` → `setup-strava`](#cli-ux-rename-setup--setup-strava) | XS | Low | Disambiguating the two wizards |
-| ~~[CLI UX: rename legacy `demo` → `verify`](#cli-ux-rename-legacy-demo----verify--killed-in-v6105-per-adr-0027)~~ *(killed in v6.10.5 — `demo` is now a researcher first-look, not operator self-verification; `verify` is the wrong name)* | — | — | — |
-| [Pre-existing csv_dir HIGH-region coverage debt (v6.5.1)](#pre-existing-csv_dir-high-region-coverage-debt-v651) | XS | Low | Cleaner ADR-0014 baseline |
-| ~~[Local-LLM guardian](#local-llm-guardian)~~ *(shipped in v6.6 — see [ADR 0022](docs/adr/0022-local-llm-guardian.md))* | — | — | — |
-| [PHI sidecar-schema validator (deferred)](#phi-sidecar-schema-validator-deferred) | S | High | Stronger IRB-cleared posture for csv_dir |
+| Phase | Status | Defining question at exit |
+|---|---|---|
+| **Phase 0 — Install-path validation** | Active (duration TBD by diagnosis) | Can two outside recipients on different OSes install Tailor end-to-end without the project author touching their machine? |
+| **Phase 1 — Ship-quality housekeeping** | Queued (after Phase 0 → ~2 weeks) | Do the docs and identity match the install path that actually works? |
+| **Phase 2 — Public-launch readiness** | Queued (after Phase 1 → ~3 months) | If a stranger discovers Tailor cold, can they find, install, and start trusting it in under 30 minutes? |
+| **Phase 3 — Beachhead proof + public launch** | Direction | Has one real research lab used Tailor on real data, cited it in a paper, and would they recommend it? |
+| **Phase 4 — Platform-shape proof** | Direction | Can a stranger use Tailor with their notes / calendar / photos and any MCP client of their choice? |
+| **Phase 5 — Category formation** | Direction | Do strangers know what *"personal AI server"* means, and do they think of Tailor when they think of it? |
 
-Effort: S (days), M (weeks), L (month+). Impact reflects research value,
-not engineering elegance.
+Items not in a phase live in [Held](#held-items-revisit-when-the-trigger-fires) (waiting for a triggering condition), [Killed](#killed-items-with-rationale) (explicitly not doing), or [Shipped](#shipped-chronological) (history).
 
-## Shipped in v7.0.0 (2026-05-08)
+---
+
+## Phase 0 — Install-path validation *(active; duration TBD by diagnosis)*
+
+Empirically, no version of Tailor (or its predecessors under the
+*Biosensor MCP* name) has ever been successfully installed end-to-end
+on a machine that wasn't the project author's. The v6.10.x patch
+quartet (cp1252, dual-path Claude Desktop, sibling cleanup, Microsoft
+Store sandbox), the v6.11.0 `recipient-install-validator` (silent-
+parked on its second wild run per project memory; falsified), and the
+v6.13.0 demo polish all compose on top of *"the framework runs on the
+user's machine"* — a baseline assumption that is empirically not yet
+true outside the project author's own dev environment.
+
+Phase 0 is the discovery and resolution work that makes that
+assumption honestly true for at least two external recipients. This
+phase has no fixed window because its duration is diagnosis-bound. It
+could be days (visible bugs that fix cleanly) or weeks (architecture-
+level rework — single-binary executable, Docker container, one-shot
+installer). Both outcomes are valid; Phase 0 is the work that reveals
+which.
+
+| Deliverable | Why it matters |
+|---|---|
+| **Diagnose what's actually breaking installs.** Pick a fresh VM or a colleague's clean machine; walk through the install ritual exactly as documented; log every friction point with timestamps. *Do not fix anything yet — diagnose first.* | The v6.10.x patch quartet was reactive — each visible bug got fixed and the install still didn't work. That suggests the surface bugs aren't the actual binding constraint. Diagnosis precedes patches. |
+| **Decide whether the current install architecture is achievable for non-developers.** After diagnosis, decide: patch the existing `uv tool install + tailor tour + Claude Desktop restart` ritual, or restructure (single-binary executable via PyInstaller / Nuitka; Docker container; one-shot installer that drives Claude Desktop config programmatically). | Determines whether Phase 0 is *days of bug fixes* or *weeks of rearchitecting*. Conflating them is what produced the patch quartet without solving the underlying problem. |
+| **Prove install works on ONE outside fresh machine.** Whatever architecture survives diagnosis, the success criterion is: the chosen machine completes install end-to-end, demo runs, vault writes, Claude Desktop sees the tools — without the project author touching the recipient machine at any step. | This is the binding constraint. Without it, every roadmap item past this phase is castle-on-sand. |
+| **Prove install works on a SECOND outside fresh machine, different OS.** Reproducibility is the test. One install success could be lucky (machine state, network conditions, undocumented step the recipient happened to know); two consecutive successes on different machines and different OSes is the property the project has never had. | Phase 0's exit criterion is *reproducibility*, not *one-time success*. |
+
+**Phase 0 exit criterion**: two consecutive fresh-machine installs by
+outside parties on different OSes succeed end-to-end without
+intervention from the project author. *Until this is achieved, no
+Phase 1+ work ships publicly* — public action without working installs
+amplifies the failure rather than the project.
+
+---
+
+## Phase 1 — Ship-quality housekeeping *(after Phase 0 → ~2 weeks)*
+
+Once Phase 0 produces a reliably-working install path, the
+housekeeping work that was previously labelled *"ship-quality v7.0.0"*
+lands honestly. These deliverables clean up artifacts of v7.0.0's
+shipping shape — some of which were over-engineered for a population
+that turned out not to exist (notably `tailor migrate`, which migrates
+from a v6 install state no external machine has ever held).
+
+| Deliverable | Effort | Why it matters |
+|---|---|---|
+| **Rename GitHub repo** `Biosensor-to-LLM-Connector` → `tailor-mcp` | 30 min | Closes brand dissonance for any public discovery path; auto-redirect preserves any existing clones |
+| **Remove `tailor migrate` subcommand + draft ADR 0032** | half-day | Migrate was scaffolding for a hypothetical v6 user population that turned out to be zero — no successful external v6 install ever happened. Counter-ADR cites ADR 0031's reversal conditions and explains the population accounting. Simplify the startup warning to point at manual rename or fresh install. |
+| **Update README install commands** to reflect the install path that survived Phase 0 | 1-2 hours | Whether Phase 0 patched the existing `uv tool install` ritual or restructured (single-binary, Docker, one-shot installer), the README has to match the install path that actually works. |
+| **Update v7.0.0 banner in CLAUDE.md** to reflect post-migrate-removal state | 30 min | Banner is current shipping reality, not historical record; safe to update. CHANGELOG.md and the Shipped log stay unchanged per the historical-preservation principle. |
+
+**Phase 1 exit criterion**: docs and identity match the install path
+that actually works, the repo is publicly discoverable under its real
+name, and the project's surface area no longer carries scaffolding for
+problems that don't actually exist.
+
+---
+
+## Phase 2 — Public-launch readiness *(after Phase 1 → ~3 months)*
+
+Phase 2 closes the gates between *"private repo, hand-delivered wheel"*
+and *"publicly discoverable, pip-installable OSS framework."* Each
+deliverable removes a structural friction that would otherwise meet
+strangers at the door.
+
+| Deliverable | Effort | Why it matters |
+|---|---|---|
+| **Publish to PyPI as `tailor-mcp`** | 1 day | The canonical install path named in [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) ("when published"). Closes the hand-delivered-wheel gap. `pip install tailor-mcp` becomes the install command. |
+| **Make the GitHub repo public** | 30 min | Without this, the trust narrative ("look at the audit log; look at the 31 ADRs; look at the determinism invariants") cannot establish itself in OSS culture. The discipline only signals trust if outsiders can read it. |
+| **Promote `counter-programming-invariant-auditor` agent** | 1 day | [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md)'s invariant currently relies on memory. A read-only specialist (parallel shape to `phi-irb-risk-reviewer`) that scans diffs for fashion-domain language, garment imagery, and missing redirects makes the invariant *enforced by review at PR time*. |
+| **First-time-user setup pass** | 1 week | Walk through `tailor pilot` and `tailor demo` cold, in someone else's hands, with attention to the friction points an early adopter would hit. README, error messages, and onboarding copy revised against the friction surfaced. |
+| **Apple Silicon reference deployment recipe** | 1 week | Document the *"Tailor on a Mac mini"* recipe for newcomers — recommended hardware tier (M4 24GB minimum), bundled local LLM (Llama 3.1 8B via MLX), always-on LaunchAgent setup, troubleshooting. Decides what *"AI-optimized computer"* means concretely for v1. |
+| **CONTRIBUTING + community machinery** | 2 days | Issue templates for bug / feature / child contribution; PR template; child contribution guide; code of conduct beyond defaults. Without this, public-launch contributions hit unstructured chaos. |
+
+**Phase 2 exit criterion**: a stranger who hears about Tailor through a
+blog post or HN thread can complete `pip install tailor-mcp →
+tailor pilot → working demo` in under 30 minutes, on either a Mac mini
+or their daily-driver machine, without reading source code.
+
+---
+
+## Phase 3 — Beachhead proof + public launch *(direction)*
+
+Phase 3 is about turning private architecture into public reputation.
+The platform is real; the trust narrative needs evidence. Two
+parallel directions:
+
+**Direction A — land a real research lab using Tailor on real data.**
+The Senefeld thread (per project memory, the off-blueprint detour built
+realistic-rate child ahead of the meeting) is the seed. Success looks
+like one PI running an actual analysis through `tailor` on their lab's
+own data, citing the framework in a methods section, and being willing
+to be referenced in launch materials. A second beachhead lab is worth
+seeking in parallel as a fallback.
+
+**Direction B — ship the launch narrative.** The artifacts that get
+distributed everywhere a stranger might discover Tailor:
+
+- A long-form launch post — *"Why we built a Tailor for your AI's
+  Wardrobe"* or similar — that defines Wardrobe in the first
+  paragraph (counter-programming), lands the trust moat in the second,
+  names the beachhead use case in the third, points at the public repo
+  + PyPI in the fourth. ~1500 words.
+- An honest comparison artifact against Khoj / Open WebUI /
+  AnythingLLM — *"What changes when governance is structural."* The
+  honest comparison post does more work than any ad copy.
+- A conference talk in the beachhead tribe (kinesiology / biomech /
+  RSE / mHealth). The talk pays for itself in adoption signal.
+- Distribution to HN, r/selfhosted, r/LocalLLaMA, Mastodon, conference
+  adjacency posts — all in the same week as the launch post, so the
+  signal compounds.
+
+**Trust-moat strengtheners that ship in this phase as launch-narrative
+content**:
+
+- [Provenance hashing on derived metrics](#provenance-hashing-on-derived-metrics) — closes the [ADR 0008](docs/adr/0008-deterministic-by-construction-processing.md) residual gap; lands well in the launch narrative ("every published number traces to exact bytes").
+- [Vault-freeze for manuscript submission](#vault-freeze-for-manuscript-submission) — ships when the beachhead lab needs it for an actual submission.
+
+**Direction-level exit criterion**: one real research lab has used
+Tailor on real data, the launch post is live, and the trust narrative
+has been pressure-tested by strangers (some of whom disagreed with it
+publicly — that's the test that the narrative holds).
+
+---
+
+## Phase 4 — Platform-shape proof *(direction)*
+
+Phase 4 turns the platform vision into a property. Today, *"any data
+source, any MCP-speaking LLM"* is a claim the architecture supports
+but the shipped recipes do not yet demonstrate. Three directional
+moves close the gap.
+
+**Direction A — one non-biometric flagship child.** The smallest move
+that makes data-agnostic a property, not a claim. Notes (Apple Notes,
+Obsidian, plaintext), calendar (CalDAV, Google Calendar), email (IMAP,
+Gmail), or photos (vision-indexed) are the natural candidates. The
+pick is shaped by which beachhead tribe pulls hardest after Phase 3 —
+if researchers ask for it, calendar; if knowledge workers ask, notes;
+if quantified-self users ask, photos. The structural lesson: *"Tailor
+isn't biometric infrastructure"* lands the moment one non-biometric
+child works.
+
+**Direction B — one non-Claude MCP client integration.** The smallest
+move that makes plug-and-play a property, not a claim. Cline (VSCode
+extension, MCP-native) and Goose (Block's open-source MCP client) are
+the strongest candidates because they're MCP-native and active. A
+documented end-to-end run — install Tailor, install Cline, ask a
+question, see the response come from Tailor — closes the *"works with
+any MCP-speaking LLM"* gap.
+
+**Direction C — framework visibility surfaces.** Two interlocking
+pieces:
+
+- **Web UI dashboard / live inspector** — framework visibility. A
+  `localhost:8000` dashboard showing live audit log, current consent
+  state, vault graph, last 10 analyses. Non-technical adopters need a
+  *"what's it doing"* surface; IRB reviewers and co-PIs need
+  inspect-without-querying-SQLite.
+- **Data-quality surface for messy real-world data** — real biometric
+  data is messier than synthetic. The framework computes statistics on
+  whatever loads, with no flag for *"this subject's data is suspect
+  because X."* A QA layer that scores data quality per subject and
+  surfaces structured warnings makes the framework actually trustworthy
+  on real-world dirty data, not just synthetic fixtures. This is also
+  where the *"everything is synthetic by construction"* precondition
+  starts to break the moment a real adopter loads real data.
+
+**Trust-moat extensions that ship in this phase**:
+
+- [Deterministic mode + seed control](#deterministic-mode-and-provenance-hashing) — bundled with provenance hashing because the cosmetic flag is pointless alone.
+- [LLM-client evaluation harness](#llm-client-evaluation-harness) — measures the plug-and-play claim; promoted from the previous roadmap because it becomes *the* measurement infrastructure for cross-client governance.
+
+**Direction-level exit criterion**: a stranger could use Tailor with
+their own notes (or calendar, or photos), querying via Cline (or
+Goose, or local Ollama through Open WebUI), and have everything work.
+*Platform-shape* stops being a claim.
+
+---
+
+## Phase 5 — Category formation *(direction)*
+
+Phase 5 is the longest horizon and the most aspirational. It assumes
+Phase 4 succeeded — platform-shape is proven, plug-and-play works,
+one non-biometric child shipped. The question becomes: *do strangers
+know what category Tailor is in, and is Tailor canonical in that
+category?*
+
+**Direction A — tribe-2 and tribe-3 adoption.** The trust narrative
+established by researchers (Phase 3) earns adoption from clinicians,
+therapists, lawyers, journalists — professionals dealing with sensitive
+data who can't put it in the cloud. Each tribe has slightly different
+ingest needs (clinical notes, case files, source documents) but the
+trust moat is identical. Each new tribe adopting validates the
+platform framing for the next.
+
+**Direction B — community contribution.** Strangers contribute their
+own children — for data sources nobody on the team has ever worked
+with. The plugin contract has to be public-stranger-friendly enough
+that contributing a child is a 30-minute experience for a casual
+outside developer, not a 4-hour journey through internal abstractions.
+The structural test: a child contributed by someone who has never met
+the maintainer.
+
+**Direction C — multi-user / household deployment recipe.** The
+*"AI-optimized computer for a family"* deployment shape per the v7.0
+strategic conversation. Networked MCP transport (SSE / HTTP), real
+authn / authz, per-user vault scoping, mobile companion (iOS Shortcuts
+integration at minimum). This is genuinely product-shaped engineering
+and only makes sense once the single-user framework is canonical.
+
+**Trust-moat work that lands as the category solidifies**:
+
+- [Real PHI-scrubbing implementations](#real-phi-scrubbing-implementations) — institutional-policy-shaped; ships when a real institutional adopter brings their policy.
+- [PHI sidecar-schema validator](#phi-sidecar-schema-validator) — pairs with real PHI-scrubbing.
+- [New ChildMCPs (CGM, sleep, ECG, EDF, FHIR)](#new-childmcps-for-research-relevant-data-sources) — research-shaped children. CGM is most natural; could be promoted to Phase 4 if it doubles as a non-research demo (continuous-glucose tracking for the quantified-self tribe).
+
+**Direction-level exit criterion**: when someone says *"personal AI
+server"* in a developer or quantified-self context, *Tailor* is one of
+the first names mentioned. The category exists in stranger vocabulary
+and Tailor is canonical-shaped within it.
+
+---
+
+## Held items (revisit when the trigger fires)
+
+These items are out of scope for active phases but kept on the radar
+with explicit triggering conditions. When the trigger fires, the item
+gets promoted into the next applicable phase.
+
+### Real PHI-scrubbing implementations
+
+`PHIScrubber.scrub()` ships today as a documented no-op seam. The
+roadmap items are institutional-policy-specific implementations:
+transforms that drop or hash identifying fields before results leave
+the router, bound to the specific shape of a CGM child, a sleep child,
+a FHIR-bundle child, etc. As of v6.2 the `scrubber_id` is recorded in
+audit-log column + `_meta` block; v6.3.1 surfaces the no-op warning
+into every successful result. See [ADR 0003](docs/adr/0003-phi-scrubber-seam.md).
+
+**Trigger**: a real institutional adopter brings an IRB-approved
+policy that needs wiring. Earlier than that, the seam is the right
+shape; the implementation is institutional-specific work that cannot
+be done speculatively.
+
+### New ChildMCPs for research-relevant data sources
+
+Each is a candidate worked-example child for a research group that
+doesn't want to start from scratch:
+
+- **CGM child** against OhioT1DM or the Jaeb Diabetes Research Center's public datasets — time-in-range, glycemic variability, meal-response curves, nocturnal hypoglycemia flagging.
+- **Sleep child** against PhysioNet's Sleep-EDF — stage durations, efficiency, latency, fragmentation indices, REM/NREM structure.
+- **ECG child** against MIT-BIH — rhythm classification, HRV windows, QT intervals, beat-level anomaly flagging.
+- **EDF file child** — direct ingestion of European Data Format recordings common in sleep and EEG research.
+- **FHIR bundle child** — ingestion of FHIR bundles for lab values, medication histories, or vitals.
+
+A `children/template/` skeleton already ships with three Tier-1 tools,
+one Tier-2, one Tier-3, every abstract method stubbed, param schemas
+illustrated, and `subject_id` wired throughout. New children fork from
+`src/tailor/children/template/` rather than reading the running child
+end-to-end.
+
+**Trigger**: Phase 5 by default; CGM specifically can promote to
+Phase 4 if it doubles as a non-research platform-shape demo (e.g. a
+quantified-self user wants their own glucose data in their Wardrobe).
+
+### Per-analyst attribution on vault evidence blocks
+
+Evidence blocks on theme notes are timestamped but unattributed. In
+multi-analyst studies, *"who recorded this observation"* is
+load-bearing context. Vault-writer parameter for analyst identity,
+threaded through to evidence-block frontmatter and rendered in the
+Obsidian view, is the clean version.
+
+**Trigger**: a multi-analyst lab actually adopts Tailor and the
+ambiguity matters in practice. Until then, single-analyst is the
+working assumption.
+
+### Vault-freeze for manuscript submission
+
+A tool or CLI command that snapshots the vault state (markdown files,
+index rows, associated audit rows, exact code version running at
+snapshot time) into a single archive suitable for attaching to a
+manuscript submission.
+
+**Trigger**: a beachhead lab needs it for an actual submission. Likely
+Phase 3 with the Senefeld partnership. Could ship earlier if a
+different research adopter requests it first.
+
+### Worked-example notebook v2 against a published analytical question
+
+A first-pass notebook ships at [docs/guides/worked-example.ipynb](docs/guides/worked-example.ipynb).
+What's deferred is a second notebook against a *public dataset*
+answering a *published analytical question* — demonstrates the
+framework on a reference result an outside reviewer can check, rather
+than synthetic data.
+
+**Trigger**: best paired with whichever non-Strava research child
+lands first (CGM with OhioT1DM, or Sleep with PhysioNet Sleep-EDF, are
+the natural anchors).
+
+### Provenance hashing on derived metrics
+
+The `_meta` block stamps package version, tool name, and call
+timestamp today. The full version is a hash chain from raw-data input
+through intermediate processing stages to each derived metric — so a
+paper reviewer can trace every published number to exact code version
+and exact input bytes that produced it.
+
+**Trigger**: targets Phase 3 as launch-narrative content (*"every
+published number traces to exact bytes"* is a strong trust signal).
+Bundles with deterministic mode below.
+
+### Deterministic mode and provenance hashing
+
+Per [ADR 0008](docs/adr/0008-deterministic-by-construction-processing.md),
+no analytical function in `framework/` or any `children/*/processing.py`
+touches PRNG, reads a clock, or holds module state — every method is
+a `@staticmethod` pure function. Same Tier-1 call returns the same
+numbers across machines without any runtime flag.
+
+What remains: a router-level `deterministic_mode` flag stamped into
+`_meta`, paired with content-hashed provenance (above) so a reviewer
+can confirm a result was produced under the invariant. The flag is
+cosmetic without the hash; ADR 0008 commits to deferring as joint
+work with provenance-hashing.
+
+**Trigger**: ships with provenance hashing in Phase 3 / 4.
+
+### LLM-client evaluation harness
+
+Different LLM clients (Claude Desktop, Claude API directly, third-
+party MCP clients) vary in how they handle consent and cost gate
+prompts. An evaluation harness that replays scripted analytical
+conversations through different clients and measures gate compliance,
+scope drift, and vault-recall accuracy makes the *"client-agnostic
+governance"* claim measurable.
+
+**Trigger**: Phase 4 — becomes the measurement infrastructure for
+plug-and-play once the first non-Claude integration ships.
+
+### PHI sidecar-schema validator
+
+[ADR 0015](docs/adr/0015-tier-1-cohort-surface-and-metadata-sidecar.md)
+documents that the `metadata.json` sidecar sits *out-of-band* of the
+[ADR 0003](docs/adr/0003-phi-scrubber-seam.md) PHI-scrubber seam. A
+deployer can pack HIPAA Safe Harbor §164.514(b)(2) identifiers (full
+DOB, full ZIP at 5-digit, MRN, full name) into the sidecar and the
+framework will not police it. Fix: a `csv_dir.metadata_schema` config
+knob declaring allowed / denied field names, enforced at child init,
+fail-closed.
+
+**Trigger**: bundles with real PHI-scrubbing work (Phase 5 default).
+
+---
+
+## Killed items (with rationale)
+
+Items that were on the prior roadmap and are explicitly *not* being
+done. Listed with kill rationale so a future contributor reading the
+roadmap understands why the item disappeared rather than assuming it
+was forgotten.
+
+### CLI UX rename `setup` → `setup-strava` — KILLED
+
+The previous roadmap deferred this on doc-churn grounds. Under the
+v7.0.0 platform-vision identity, the rename is the wrong shape: as
+more children land, Strava becomes one of many domain-specific OAuth
+flows, and the right pattern is *"each child owns its own
+domain-specific setup if needed"* — not a top-level `setup-strava`.
+The structural answer is that `tailor setup` will eventually be
+deprecated entirely as Strava-specific, with each child wiring its own
+auth subcommand if needed. Re-evaluate only if Strava remains the only
+OAuth-bearing child after Phase 4.
+
+### Pre-existing `csv_dir` HIGH-region coverage debt — KILLED as roadmap entry
+
+The 34 lines of pre-existing test debt in `csv_dir/child.py` are
+engineering hygiene, not roadmap-shaped. A roadmap entry implies
+strategic decision; coverage debt is a *do-it-during-the-next-hygiene-
+pass* item. The [`coverage-criticality-mapper`](.claude/agents/coverage-criticality-mapper.md)
+agent surfaces it on every diff that touches the file; that's the
+right enforcement seam, not a roadmap line. Will be closed
+opportunistically when other work touches that surface.
+
+### Legacy `demo` → `verify` rename — KILLED in v6.10.5 per ADR 0027
+
+(Preserved here from the prior ROADMAP for historical continuity.)
+
+The deferred rename is no longer the right move. v6.10.5 reframed
+`tailor demo` from operator-self-verification to **researcher
+first-look** per [ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md).
+A researcher-first-look surface should not be called `verify`; the
+`verify` framing presupposed the operator-self-verification job the
+demo no longer does. The `tour` vs `demo` distinction is now: `tour`
+is the audience walkthrough that scaffolds durable state and registers
+Claude Desktop; `demo` is the cold first-look that runs cohort tools
+against the same bundled fixtures in a tempdir and writes nothing.
+
+---
+
+## Shipped (chronological)
+
+History of the project's shipped releases. Preserved verbatim from
+prior roadmap revisions per the same historical-preservation principle
+[ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) applies to
+`CHANGELOG.md` — these entries describe past state and rewriting them
+would falsify the historical record.
+
+### Shipped in v7.0.0 (2026-05-08)
 
 Project rename: `Biosensor MCP` → **Tailor**. The first major version
 bump in the project's history. PyPI `tailor-mcp`; Python import +
@@ -62,7 +489,7 @@ ADR 0031 codifies the rename, the Wardrobe naming decision, the
 counter-programming invariant, the migration story, six alternatives
 considered, and four reversal conditions.
 
-## Shipped in v6.13.0 (2026-05-08)
+### Shipped in v6.13.0 (2026-05-08)
 
 - ADR 0030 NEW: *"Public-mirror narrative and zero-outbound-affordances"* — codifies the `--audience=public` rendering contract, the URL allowlist hard-fail seam, and the attribution-only footer pattern. Cites ADRs 0011 / 0024 / 0027 and the researcher-utility-reviewer persona definitions. Status: Proposed → shipped.
 - `--audience=developer|public` CLI flag on `tailor demo`: public mode splices per-persona panels (PI / analyst / IRB) after each of the 5 demo sections and applies zero-outbound-affordances (attribution-only footer, render-time URL-allowlist hard-fail).
@@ -70,7 +497,7 @@ considered, and four reversal conditions.
 - `docs/guides/share-the-demo.md` updated: per-release ritual now uses `--audience=public`; verify checklist updated for panel count + URL-allowlist behaviour.
 - +12 tests (909 → 921+). ci-gate-runner PASS: 923/923 pytest, ruff clean, 76/76 probe, CLI smoke clean. Minor bump.
 
-## Shipped in v6.12.0 (2026-05-08)
+### Shipped in v6.12.0 (2026-05-08)
 
 - `tailor demo` reshaped from 3-call cohort first-look into 5-section architectural showcase per ADR 0029 (NEW). Sections 2–5 exercise router pipeline visibility, three-tier resolution model, vault durable persistence, and local-LLM oracle substrate scan — in sequence, using the same bundled HIP Lab S001 fixture throughout.
 - New `--save-shareable [PATH]` CLI flag: tees demo stdout into a self-contained markdown file (install command + transcript + breadcrumb footer), suitable for emailing or static hosting.
@@ -81,7 +508,7 @@ considered, and four reversal conditions.
 - New `docs/guides/share-the-demo.md`: boss-side checklist for the public-mirror setup ritual (one-time + per-release).
 - +11 tests (898 → 909): Sections 2–5 demo coverage + `--save-shareable` invariants. Gates: 909/909 pytest, ruff clean, 76/76 probe, CLI smoke PASS. Minor bump.
 
-## Shipped in v6.11.1 (2026-05-07)
+### Shipped in v6.11.1 (2026-05-07)
 
 - `recipient-install-validator` operational hardening: halt-on-exit semantics (non-zero guest exit code fails the gate), structured progress emission, and watcher discipline for Windows Defender / AV interference — ADR 0028 v6.11.x amendments.
 - `release-shipper` Pre-tag gate composition: tiered policy implementing mandatory `ci-gate-runner`, attestation-required `mcp-protocol-auditor` + `cue-card-rehearsal-auditor` (skippable with `--gates-confirmed`), and heavyweight opt-in `recipient-install-validator` (skippable with `--full-validate`).
@@ -90,7 +517,7 @@ considered, and four reversal conditions.
 - ADR 0028 (`recipient-install-validator`) mandate-refinement section: operational hardening + tiered-gate mandate codified as v6.11.x amendment.
 - Pure governance/team-shape patch release. No `src/` changes, no `tests/` changes, no router/security/child/vault/CLI architecture changes. Gates: 898/898 pytest, ruff clean, 76/76 probe, CLI smoke PASS.
 
-## Shipped in v6.11.0 (2026-05-07)
+### Shipped in v6.11.0 (2026-05-07)
 
 - New `recipient-install-validator` specialist provisioned via VirtualBox + Vagrant. Provisions a clean Windows 11 base box, installs the freshly-built wheel via the documented recipient command, runs `tailor tour`, and validates end-to-end against the wheel-installed package — catching the failure class that produced the v6.10.1–v6.10.4 patch quartet (bugs invisible to host-side gates running against the dev tree).
 - Gate is mandatory + file-touched-gated. Fires when any of `tour.py`, `pilot.py`, `__main__.py`, `wizard.py`, `pyproject.toml` package-data globs, or `_fixtures/**` changes. Composes with `ci-gate-runner` at the `release-shipper` boundary.
@@ -98,7 +525,7 @@ considered, and four reversal conditions.
 - Accepted v1 gap named explicitly: no Claude Desktop pre-installed in base image; ADR 0026 dual-write logic exercised by mocked host tests but not in-guest. v2 escalation path named in ADR 0028.
 - Pure governance/team-shape release. No `src/` changes, no `tests/` changes, no router/security/child/vault/CLI architecture changes.
 
-## Shipped in v6.10.5 (2026-05-07)
+### Shipped in v6.10.5 (2026-05-07)
 
 - `tailor demo` reframed from synthetic-Strava operator self-verification to bundled HIP Lab cohort fixtures researcher first-look per [ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md). Closes the drift between CLAUDE.md's stated framing ("Strava is a worked example, not the canonical use case") and the demo's actual behavior across the entire v6.x cycle.
 - `demo/runner.py` rewritten: instantiates `CSVDirectoryChild`, exercises `csv_cohort_summary` (by sex, by group) + `csv_force_decline` on pinned subject S001 against bundled `_fixtures/hip_lab_demo_realistic/force/`. Output is the real result envelope shape; the router / audit / consent-gate path is explicitly out-of-scope with a pointer to `tailor tour`.
@@ -109,7 +536,7 @@ considered, and four reversal conditions.
 - +8 tests in `tests/test_demo_runner.py` (890 → 898): end-to-end run, output-mentions-HIP-Lab-not-Strava, balanced-by-sex cohort (F+M n=8, Hunter & Senefeld 2024 sex-differences thesis), cohort-by-group, force-decline-on-S001, deterministic-across-reruns (ADR 0008 surfaced as recipient-checkable property), sample_data importability, bundled-fixture loadability.
 - Gates: 898/898 pytest, ruff clean, 76/76 probe, CLI smoke PASS. Patch bump.
 
-## Shipped in v6.10.4 (2026-05-06)
+### Shipped in v6.10.4 (2026-05-06)
 
 - Dual-path Claude Desktop config resolution closes the Microsoft Store / Classic install mismatch on Windows. `_claude_desktop_config_path() -> Path | None` refactored to `_claude_desktop_config_paths() -> list[Path]`; Windows now writes to both the classic `%APPDATA%\Claude\` path and any matching UWP sandbox path (`%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude\`). Recipient who sees "successfully registered" but no biosensor tools is now routed correctly regardless of which Claude Desktop distribution they installed.
 - New `_RegistrationResult` dataclass + `_write_registration_to_path` helper with per-path atomic semantics: read → clean siblings → add entry → atomic write. PermissionError on one path does not abort writes to others; exit code 1 only if every path failed; `.tmp` artifacts unlinked on partial failure.
@@ -121,14 +548,14 @@ considered, and four reversal conditions.
 - Invariant locked: after a successful `tour --force`, exactly one `biosensor-*` entry exists in EACH detected Claude Desktop config; the entry is identical across configs.
 - Structural lesson: the write site must enumerate all paths the reader will ever check — not just the canonical path from official docs. UWP sandbox redirection is silent and invisible from the writer side without prefix-glob enumeration.
 
-## Shipped in v6.10.3 (2026-05-06)
+### Shipped in v6.10.3 (2026-05-06)
 
 - Tour cleans sibling `biosensor-*` entries from `claude_desktop_config.json` before adding its own. Closes the multi-entry coexistence trap: a recipient who had a stale bare `tailor` entry (written by web-Claude during a failed v6.9.x install) would end up with two MCP servers after `tour --force`, leaking `tailor_setup_help` into the working-demo state. Symmetric with v6.9.2's prefix-match cleanup in `cmd_uninstall` — uninstall cleans on teardown, tour cleans on setup.
 - `_register_with_claude_desktop` return type changed from `Path | None` to `tuple[Path | None, list[str]]`; `tour_main` prints cleaned entries when non-empty.
 - +2 regression tests: `test_cleans_stale_biosensor_entries_before_writing`, `test_no_op_when_only_target_entry_already_present`.
 - Structural lesson: the tour-write site must be symmetric with uninstall in its handling of `biosensor-*` siblings. Same shape as v6.9.2's prefix-match-uninstall loop closure.
 
-## Shipped in v6.10.2 (2026-05-06)
+### Shipped in v6.10.2 (2026-05-06)
 
 - `SetupHelpLayer` — new framework-tier layer (parallel to `LocalLLMLayer` per ADR 0022 shape) registered conditionally when `_demo_blocks_absent()` detects no `csv_dir` blocks in `user_config.json`. Surfaces a single diagnostic tool (`setup_help_get_status`) that routes an external Claude to `tailor tour`; invisible on configured deployments (SH7 wire-test confirms). `_redact_home()` strips HIPAA Safe Harbor §164.514(b)(2)(i)(R) address components before surfacing on the wire. 16 unit tests (trigger predicate, layer surface, redaction, dispatch, audit-row provenance). 7 new subprocess wire-tests SH1-SH7 added by mcp-protocol-auditor.
 - `RECIPIENT_README.md` bundled in the wheel (`pyproject.toml` `*.md` glob added to package-data). An external Claude inspecting the .whl now discovers `tailor tour` as the recovery path without source-code archaeology — the structural lesson from dad's transcript.
@@ -137,34 +564,34 @@ considered, and four reversal conditions.
 - Tool surface: 50 when degraded (setup_help visible), 49 when scaffolded (baseline unchanged). Patch bump.
 - Structural lesson: an external Claude inspecting the wheel must be able to discover `tailor tour` without source-code archaeology. `SetupHelpLayer` is the in-chat fallback when wheel-inspection fails.
 
-## Shipped in v6.10.1 (2026-05-06)
+### Shipped in v6.10.1 (2026-05-06)
 
 - Fixed four Windows recipient demo blockers found during direct `tailor tour` testing on Windows 11 PowerShell cp1252: Bug 1 (`→` → `->` in `cmd_status`), Bug 2 (OperationalError guard around Strava-tier SELECT on fresh tour install), Bug 3 (`←` → `<-` in `pilot.py`), Bug 5 (unicode glyphs `❌`/`✅` → `[X]`/`[OK]` in `wizard.py`).
 - New private `_make_cli_stdout_resilient()` in `__main__.py`: reconfigures sys.stdout/sys.stderr with `errors='replace'` so future non-cp1252 glyphs degrade to `?` rather than crashing. 3-layer defense: static glyph removal + runtime reconfigure + static guard test suite.
 - +17 regression tests (851 total): 10 in `test_cli_windows_resilience.py` (5 parametrized static-guard, 3 stdout-helper, 2 fresh-tour-install); +8 subprocess tour-path MCP wire tests in `test_serve_mcp_protocol.py` covering previously-untested force_csv + emg_csv wire surface.
 - Bug 4 (`_extract_timestamps` paired-iteration refactor) deferred to v6.11.0: red-team-reviewer HIGH OBJECTION — minimal fix produced 40% systematic error in `time_to_50pct_drop_s` on mixed-defect CSVs via silent index-misalignment. ADR 0010 adversarial pairing demonstrably caught this. No API changes; patch bump.
 
-## Shipped in v6.10.0 (2026-05-06)
+### Shipped in v6.10.0 (2026-05-06)
 
 - `cue-card-rehearsal-auditor` specialist promoted per [ADR 0025](docs/adr/0025-cue-card-rehearsal-as-release-gate.md). Read-only agent (opus model, tools: Read/Grep/Glob) audits cue-card prompts against ToolDefinition schemas and emits per-prompt verdicts (PASS / WRONG-TOOL / WRONG-PARAMS / AMBIGUOUS). Closes the structural class of failure responsible for both v6.9.1 and v6.9.2: schemas whose envelope passes structural gates but silently fails when Claude infers parameters from operator prose. Mandatory pre-tag trigger wired into `release-shipper`.
 - ADR 0025 cites ADRs 0008, 0010, 0011, 0014, 0016. First-run dogfood evidence included: REVIEW aggregate, AMBIGUOUS verdict on Step 2 cohort prompt demonstrates the gate fires on real under-specification without false-positiving on structural envelope correctness. Deferred (named in ROADMAP): `emg_cohort_summary.value_column` schema hygiene; CUE_CARD.md v6.9.0-footgun recovery row retention decision (boss-decision item).
 - Same governance/team-shape release shape as v6.3.0 (no framework code changes); 834/834 pytest, ruff clean, 76/76 probe, CLI smoke PASS. Minor bump.
 
-## Shipped in v6.9.2 (2026-05-06)
+### Shipped in v6.9.2 (2026-05-06)
 
 - Hardened `cmd_uninstall` to prefix-match `biosensor-` so `biosensor-tour-<variant>` orphan Claude Desktop entries are cleaned alongside `tailor`; extracted `_clean_claude_desktop_biosensor_entries()` helper (7 new tests in `test_uninstall_cleanup.py`).
 - Switched all CSV-open and JSON-sidecar reads in `force_csv` (3 sites), `emg_csv` (3 sites), and `csv_dir` (6 sites) from `utf-8` to `utf-8-sig` for transparent BOM stripping — Excel- / PowerShell-saved data would otherwise silently corrupt first-column header lookups and sidecar filename matches (`TestBomTransparency` in each shape suite, +4 tests).
 - Fixed `tour --force` to `rmtree` the target dir before scaffolding so a broken scaffold can be recovered as `WINDOWS_QUICKSTART` documents (+1 test in `test_tour_subcommand.py`).
 - +12 regression tests total; 834 pass. Bug fixes only; patch bump.
 
-## Shipped in v6.9.1 (2026-05-06)
+### Shipped in v6.9.1 (2026-05-06)
 
 - Fixed cohort-handler logical→physical column-alias resolution in `force_csv` and `emg_csv` children. `_handle_cohort_summary` now maps `value_columns` logical alias names to physical CSV header names before metric dispatch, closing the v6.9.0 first-prompt-failure footgun (16 silent `column not found` load_errors when Claude guessed the logical name from operator prose).
 - Registered the 16 bundled 31P-MRS CSVs in the `tour` scaffolding output. The files were bundled in the wheel but `user_config.json` had no `csv_dir` block for `mrs/`; they were unreachable via any tool until this fix.
 - 6 new regression tests: `TestCohortSummaryAliasResolution` (2 tests) in `force_csv` and `emg_csv` shape suites; updated user_config-shape assertion in `test_tour_subcommand.py`.
 - `CUE_CARD.md` sharpened: Variant-C recovery steps clarified; Variant-B rows added for `force_cohort_summary` / `emg_cohort_summary` tools.
 
-## Shipped in v6.9.0 (2026-05-04)
+### Shipped in v6.9.0 (2026-05-04)
 
 - Wheel-distributed `tailor tour` CLI subcommand ([ADR 0024](docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md)). Scaffolds the HIP Lab realistic demo from bundled wheel fixtures into `~/.tailor/demos/hip-lab/`; copies 48 CSVs + 3 metadata sidecars + 1 seed vault moment via `importlib.resources`; writes `user_config.json` with absolute paths; merges Claude Desktop config — recipient never types an env var. Flags: `--variant`, `--target`, `--no-claude-desktop`, `--force`. Inherits `pilot.py`'s atomic-write + BOM round-trip + deep-merge hardenings.
 - HIP Lab realistic fixtures bundled into the wheel. Migrated from `examples/hip_lab_demo/realistic/` to `src/tailor/_fixtures/hip_lab_demo_realistic/`; `pyproject.toml` package-data globs extended. Distribution: pre-built wheel via Drive/email; no PyPI publish; wheel size 1.26 MB (budget 10 MB).
@@ -173,19 +600,19 @@ considered, and four reversal conditions.
 - Deferred (named in ROADMAP): legacy `tailor demo` → `verify` rename (subsequently *killed* in v6.10.5 per [ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md) — `demo` is now a researcher first-look, not operator self-verification, so the `verify` rename became the wrong move); PyPI publish path when recipient set crosses ~10.
 - 23 new tests (20 `test_tour_subcommand.py` + 3 subprocess `test_serve_mcp_protocol.py`); 818/818 passed. 7-agent release pass clean.
 
-## Shipped in v6.8.1 (2026-05-03)
+### Shipped in v6.8.1 (2026-05-03)
 
 - C3 peak-tie systematic bias fix in `csv_dir/processing.py`. New `_last_peak_index` module-level helper scans values from the end backward; applied at both call sites (`aggregate_metric` for `time_to_50pct_drop_s`, `force_decline_summary` for `peak_index`). Eliminates the systematic inflation of `time_to_50pct_drop_s` on isometric force traces with ramp → plateau → decline shape: participants with longer plateau holds received larger positive bias, creating a between-groups confound for `csv_cohort_summary` comparisons. Three new regression tests closing the plateau / unique-peak regression paths. 676 → 679 tests; 85% coverage; `processing.py` at 99%. No architecture changes; patch bump.
 
-## Shipped in v6.8.0 (2026-05-03)
+### Shipped in v6.8.0 (2026-05-03)
 
 - Local-LLM cooperation-loop pattern, PR2 (LLM-driven gap reasoning). [ADR 0023](docs/adr/0023-local-llm-cooperation-loop.md). New `OracleResponse.next_best_calls` and `OracleResponse.unresolved_intent` fields completing the cooperation-loop contract; `OllamaBackend` JSON-mode prompt extension with defensive list-coercion; `NullBackend` empty-default inheritance by construction; `ask_local_oracle` tool description rewritten to teach hosted Claude the multi-pass cooperation loop; two new `audit_log` columns (`oracle_next_best_calls_count`, `oracle_unresolved_intent_count`) by symmetry with PR1's `oracle_substrate_count`. ADR 0023 amended: § Audit-log columns names all three, § Negative consequences token-estimate corrected (~290 measured vs ~2500 estimated), § Neutral consequences PR1/PR2 ADR 0012 distinction added. Operator guide: "Important precision — gap-reasoning egress" subsection added. Research-framing § Consent withdrawal: oracle audit rows named as third retention category. 15 new regression tests (12 PR2 contract/parser/fallback + 3 audit-column) + 4 subprocess tests from mcp-protocol-auditor; 676/676 pass. Coverage 85%. 7-agent release pass clean (all WATCH/OBJECTION findings addressed before ship). No new tools — `ask_local_oracle` gains response fields only.
 
-## Shipped in v6.7.0 (2026-05-03)
+### Shipped in v6.7.0 (2026-05-03)
 
 - Local-LLM cooperation-loop pattern, PR1 (substrate-vision asymmetry made executable). [ADR 0023](docs/adr/0023-local-llm-cooperation-loop.md). New `OracleResponse.related_substrate` field; new `audit_log.oracle_substrate_count` column; new public `VaultWriter.storage` property; `(kind, slug)` substrate dedup; `substrate_scan_warning` parallel to `scrubber_warning` for swallowed VaultStorage exceptions; `_collect_subjects` scalar-filtered to mirror `_flatten_claims`. 26 new regression tests; 657/657 pass. 7-agent release pass clean. Operator guide gains substrate-metadata-egress + Path-A-vs-B warnings.
 
-## Shipped in v6.6.0 (2026-05-01)
+### Shipped in v6.6.0 (2026-05-01)
 
 Local-LLM guardian release. SemVer minor bump — public API additions
 only, no breaking changes.
@@ -218,7 +645,7 @@ enforcement, migration of remaining 45 tools to oracle mediation, IRB
 prompt-injection threat-model update, performance characterization,
 pilot-wizard tier-detection, real Ollama end-to-end smoke.
 
-## Shipped in v6.5.0 (2026-04-30)
+### Shipped in v6.5.0 (2026-04-30)
 
 Tier-1 cohort surface release. SemVer minor bump — public API
 additions only, no breaking changes. CSV directory child surface
@@ -279,7 +706,7 @@ widens from 5 to 7 tools.
   surfaced when a real MCP client tried to connect. 577/577 tests
   pass (was 576).
 
-## Shipped in v6.4.1 (2026-04-30)
+### Shipped in v6.4.1 (2026-04-30)
 
 Coverage-hardening patch closing four CRITICAL untested regions. No
 public API changes. 526/526 tests pass; package coverage 84% (was 82%).
@@ -306,7 +733,7 @@ public API changes. 526/526 tests pass; package coverage 84% (was 82%).
   boss-report-auditor REVISE remediated; reproducibility-provenance-auditor
   CLEAN.
 
-## Shipped in v6.4.0 (2026-04-30)
+### Shipped in v6.4.0 (2026-04-30)
 
 Cache-only purge on consent revocation. SemVer minor bump (breaking:
 `ChildMCP.purge_cache` is now a mandatory abstract method). No router
@@ -338,7 +765,7 @@ the revocation-handler rewrite.
 - **Closes Lens 6 retention WATCH** from v6.3.0 hygiene-pass hall-of-fame
   team expansion.
 
-## Shipped in v6.3.1 (2026-04-30)
+### Shipped in v6.3.1 (2026-04-30)
 
 Hygiene-pass patch release. Three IRB-blocking VIOLATIONS patched with
 regression tests; documentation drift corrected; ADR 0012 added; ADR
@@ -372,7 +799,7 @@ vault-layer architecture changes.
   table); `vault/layer.py:137-140` (`vault_list_notes` kind-filter now
   lists all 7 allowed values).
 
-## Shipped in v6.3.0 (2026-04-30)
+### Shipped in v6.3.0 (2026-04-30)
 
 Hall-of-fame team-expansion release. Governance / team-shape only — no
 router, security-pipeline, child, vault-layer, or CLI architecture
@@ -401,7 +828,7 @@ auditor reshape, two new ADRs, and several process hard-rails.
   governance-shape allowlist; reasons must cite ADR/PR/issue or contain
   ≥5 words; trail dual-recorded in release commit body + banner summary.
 
-## Shipped in v6.2.1 (2026-04-29)
+### Shipped in v6.2.1 (2026-04-29)
 
 The pilot-wizard release. Closes the install-and-configure friction for
 non-technical PIs by collapsing the seven-step multi-subject pilot
@@ -437,7 +864,7 @@ security-pipeline, child, or vault-layer architecture changes.
   handled in `--help` text; re-evaluate when external doc references
   stabilise (see ROADMAP entry below).
 
-## Shipped in v6.2.0 (2026-04-29)
+### Shipped in v6.2.0 (2026-04-29)
 
 The pilot-ready release. Closes the multi-subject vault failure mode
 the proposal-mode auditor named for the v6.2 framing (a friendly
@@ -486,7 +913,7 @@ existing v6.1 vaults upgrade in place via lazy rescan.
   names the target shape (Camp A-light) and explicitly defers the
   fuller institutional and personal-craft framings to v6.3+.
 
-## Shipped in v6.1.1 (2026-04-29)
+### Shipped in v6.1.1 (2026-04-29)
 
 Docs and governance release. No Python code touched; no router, security,
 child, vault, or CLI changes.
@@ -511,7 +938,7 @@ child, vault, or CLI changes.
   pre-implementation defensive imagining on a proposal description rather
   than a diff. Own pre-flight, evaluation procedure, and report format.
 
-## Shipped in v6.1.0 (2026-04-29)
+### Shipped in v6.1.0 (2026-04-29)
 
 The vault layer gained dual-output rendering policy plus three new
 tools that round out the analytical-memory model. No router, security,
@@ -543,7 +970,7 @@ or child changes.
   (Managed Agent calling the local router); both preserve the same
   governance pipeline.
 
-## Shipped in v6.0 (2026-04-23)
+### Shipped in v6.0 (2026-04-23)
 
 The vault overhaul ported seven governance features from personal
 knowledge-management practice into the VaultLayer; these items are no
@@ -569,219 +996,8 @@ entry:
 
 ---
 
-## Real PHI-scrubbing implementations behind the `PHIScrubber` slot
-
-`PHIScrubber.scrub()` ships today as a documented no-op seam. The
-roadmap items are institutional-policy-specific implementations:
-transforms that drop or hash identifying fields before results leave
-the router, bound to the specific shape of a CGM child, a sleep child,
-a FHIR-bundle child, etc. Getting this right requires an actual study
-to anchor the policy against; it is deliberately not a framework-level
-decision.
-
-As of v6.2 (2026-04-29), the `scrubber_id` is recorded in a dedicated
-column on every `audit_log` row and stamped on every `_meta` block
-returned to the LLM. A deployment running the no-op default is
-distinguishable from one running an institutional subclass at query
-time *and* in any individual response. Earlier doc claims of this
-behaviour predated the wire-up; v6.2 closed the gap (see
-[ADR 0003](docs/adr/0003-phi-scrubber-seam.md) for the seam decision
-and the v6.2 shipped section for the drift-audit context). v6.3.1
-additionally surfaces the no-op warning into every successful result's
-`_meta` block so a misconfigured deployment is visible inside the LLM
-transcript itself, not only in stderr (which is swallowed by Claude
-Desktop's spawned-subprocess process model).
-
-## New ChildMCPs for research-relevant data sources
-
-Each of these is a candidate worked-example child for a research
-group that doesn't want to start from scratch:
-
-- **CGM child** against OhioT1DM or the Jaeb Diabetes Research
-  Center's public datasets — time-in-range, glycemic variability,
-  meal-response curves, nocturnal hypoglycemia flagging.
-- **Sleep child** against PhysioNet's Sleep-EDF — stage durations,
-  efficiency, latency, fragmentation indices, REM/NREM structure.
-- **ECG child** against MIT-BIH — rhythm classification, HRV windows,
-  QT intervals, beat-level anomaly flagging.
-- ~~**Generic CSV directory child**~~ **Shipped** — see
-  `src/tailor/children/csv_dir/`. Given a directory of
-  per-subject CSVs with a declared timestamp column and value schema,
-  exposes 7 tiered analytical tools (v6.5.0 added `csv_cohort_summary` +
-  `csv_force_decline` per ADR 0015). Opt-in via `csv_dir` key in
-  `user_config.json`.
-- **EDF file child** — direct ingestion of European Data Format
-  recordings common in sleep and EEG research.
-- **FHIR bundle child** — ingestion of FHIR bundles for lab values,
-  medication histories, or vitals. Bridges clinical data into the
-  same governance pipeline.
-
-**Shipped**: a minimal `children/template/` skeleton — three Tier-1
-tools, one Tier-2, one Tier-3, with every abstract method stubbed
-out, param schemas illustrated, and `subject_id` wired throughout.
-New children fork from `src/tailor/children/template/` rather
-than reading the running child end-to-end. Shape-contract tests at
-`tests/children/template/test_template_shape.py` are copyable as a
-starting point for the new child's own tests.
-
-## Per-subject parameter scoping on vault tools
-
-**Shipped in v6.2 (2026-04-29).** [ADR 0009](docs/adr/0009-vault-subject-keying.md)
-documents the design; all 25 vault tools now declare `subject_id` in
-their schemas; `vault_notes` and `vault_themes` carry nullable
-`subject_id` columns; `vault_upsert_theme` enforces a set-once
-invariant; evidence and moment renderers stamp the subject of the
-writing call; list and search tools filter by `subject_id` with the
-IS-NULL branch preserving cross-subject and v6.1-legacy visibility.
-Existing v6.1 vaults upgrade in place via lazy rescan — no markdown
-rewrites required.
-
-**Not shipped (v6.3+):** subject-aware search ranking, cross-subject
-theme aggregation tools, multi-analyst attribution interaction with
-subjects, and vault-freeze export-by-subject. See the ADR for the
-full out-of-scope list.
-
-## Per-analyst attribution on vault evidence blocks
-
-Evidence blocks on theme notes are currently timestamped but
-unattributed. In multi-analyst studies, "who recorded this
-observation" is load-bearing context. A vault-writer parameter for
-analyst identity, threaded through to the evidence block's
-frontmatter and rendered in the Obsidian view, is the clean version.
-
-## Deterministic mode with seed control
-
-**Partially shipped — see [ADR 0008](docs/adr/0008-deterministic-by-construction-processing.md).**
-The 2026-04-29 drift audit confirmed that no analytical function in
-`framework/` or any `children/*/processing.py` touches pseudo-
-randomness, reads a clock, or holds module state — every method is a
-`@staticmethod` pure function. The same Tier-1 call with the same
-inputs returns the same numbers across machines, runs, and Python
-versions where stdlib semantics match, *without* any runtime flag.
-
-What remains under this heading is a small, deferred residual: a
-router-level `deterministic_mode` flag stamped into the `_meta`
-block, paired with content-hashed provenance (the next item) so a
-reviewer can confirm a result was actually produced under the
-invariant. The flag is cosmetic without the hash; ADR 0008 commits
-to deferring it as joint work with the provenance-hashing item.
-
-## Real provenance hashing on derived metrics
-
-The `_meta` block stamps package version, tool name, and call
-timestamp today. The full version is a hash chain from raw-data input
-through intermediate processing stages to each derived metric — so a
-paper reviewer can trace every published number to the exact code
-version and exact input bytes that produced it. The `_meta` stamps
-are intended to make this retrofit localized.
-
-## "Freeze vault" operation for manuscript submission
-
-A tool or CLI command that snapshots the vault state (markdown files,
-index rows, associated audit rows, the exact code version running at
-snapshot time) into a single archive suitable for attaching to a
-manuscript submission. Complements the audit log as the canonical
-"state of the analysis at submission" artifact.
-
-## Worked-example notebook against a published analytical question
-
-**Shipped** (first pass) — [docs/guides/worked-example.ipynb](docs/guides/worked-example.ipynb).
-A 10-minute end-to-end walkthrough on the bundled synthetic run data:
-router wiring, a Tier-1 call, the audit row, the Tier-2 consent gate
-firing and being approved, a vault theme round-tripping to
-Obsidian-compatible markdown. No Strava account, OAuth, or network.
-
-What's still deferred: a second notebook against a *public dataset*
-answering a *published analytical question*. That version demonstrates
-the framework on a reference result an outside reviewer can check,
-rather than on synthetic data. Best paired with the CGM or Sleep
-child once one of those lands — OhioT1DM or PhysioNet Sleep-EDF are
-natural candidates.
-
-## Evaluation harness for LLM-client behavior
-
-Different LLM clients (Claude Desktop, Claude API directly, third-
-party MCP clients) will vary in how they handle the consent and cost
-gate prompts. An evaluation harness that replays scripted analytical
-conversations through different clients and measures gate compliance,
-scope drift (did the LLM expand the scope of a consent it was
-granted?), and vault-recall accuracy (did the LLM actually consult
-existing themes before writing a new one?) would make the "client-
-agnostic governance" claim measurable.
-
-## CLI UX: rename `setup` → `setup-strava`
-
-After v6.2.1, the framework ships two wizard subcommands under
-generic English verbs: `tailor setup` (Strava OAuth, the
-worked-example child) and `tailor pilot` (the multi-subject
-CSV setup, the v6.2 flagship use case). Disambiguation today lives
-in `--help` text only; the cleaner long-term answer is to rename
-`setup` → `setup-strava` so each verb names what it actually
-configures. Deferred from v6.2.1 because the doc-churn cost (every
-README, every quickstart, every notebook reference) exceeds the
-present UX gain — the disambiguation note in `--help` is doing the
-heavy lifting fine for now. Re-evaluate when external doc
-references stabilise or when a third wizard joins the lineup.
-
-## CLI UX: ~~rename legacy `demo` → `verify`~~ — KILLED in v6.10.5 per ADR 0027
-
-The deferred rename is no longer the right move. v6.10.5 reframed
-`tailor demo` from operator-self-verification (synthetic
-running-data sample) to **researcher first-look** (bundled HIP Lab
-cohort fixtures driven through `CSVDirectoryChild.execute()`) per
-[ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md). A
-researcher-first-look surface should not be called `verify`; the
-`verify` framing presupposed the operator-self-verification job
-the demo no longer does. The `tour` vs `demo` distinction is now:
-`tour` is the audience walkthrough that scaffolds durable state
-and registers Claude Desktop; `demo` is the cold first-look that
-runs cohort tools against the same bundled fixtures in a tempdir
-and writes nothing.
-
-## Pre-existing csv_dir HIGH-region coverage debt (v6.5.1)
-
-The v6.5.0 release pass identified 34 lines of pre-existing HIGH-region
-test debt in [`csv_dir/child.py`](src/tailor/children/csv_dir/child.py)
-across init, config-load, consent-property, and pre-v6.5 handler error
-paths (lines 105, 137, 140-142, 151, 154, 164-165, 167, 198, 209, 228,
-428, 464, 492, 501, 519-520, 542, 558-559, 583, 615, 640, 644-645, 659).
-Not a regression per [ADR 0014](docs/adr/0014-coverage-criticality-invariant.md)
-— these were uncovered before v6.5.0 — but visible to the
-[`coverage-criticality-mapper`](.claude/agents/coverage-criticality-mapper.md)
-agent on every diff and on the radar as deferred work. Closing them is
-mechanical: regression tests for the OSError, config-malformed, and
-handler-error branches in the pre-v6.5 surface. Ships as v6.5.1 patch
-with no public API change. ~few hours of work.
-
-## PHI sidecar-schema validator (deferred)
-
-[ADR 0015](docs/adr/0015-tier-1-cohort-surface-and-metadata-sidecar.md)
-documents that the `metadata.json` sidecar sits *out-of-band* of the
-[ADR 0003](docs/adr/0003-phi-scrubber-seam.md) PHI-scrubber seam — the
-sidecar is read by the cohort handler and used for grouping but its
-contents never enter a tool result, so `PHIScrubber.scrub()` does not
-see it. A deployer can therefore pack HIPAA Safe Harbor §164.514(b)(2)
-identifiers (full DOB, full ZIP at 5-digit precision, MRN, full name,
-etc.) into the sidecar and the framework will not police it. The
-v6.5.0 remediation was documentation-only — caveats in the demo README
-and ADR 0015 § sidecar mechanism — and the structural gap remains as
-a documented known limitation analogous to
-[ADR 0013](docs/adr/0013-cache-only-purge-on-consent-revocation.md)'s
-single-account-per-domain caveat. The v6.6 fix is a code-level
-validator: a `csv_dir.metadata_schema` config knob declaring
-allowed / denied field names, enforced at child init, fail-closed
-(the framework refuses to start with a sidecar that contains a
-denied-name field). Pattern matches ADR 0003's seam shape —
-institutional configuration, not a built-in policy. ~1–2 days work
-plus a new ADR codifying the fail-closed contract. Ships as v6.6
-minor scope.
-
----
-
 ## Contributing
 
-These items are all roadmap-level, not ticketed. If one of them is
-the reason you showed up, open a discussion or issue on GitHub first
-— some have real design questions (especially the `subject_id` →
-vault keying question and the per-analyst attribution one) that are
-worth talking through before code.
+These items are roadmap-level, not ticketed. If one of them is the
+reason you showed up, open a discussion or issue on GitHub first —
+several have real design questions worth talking through before code.

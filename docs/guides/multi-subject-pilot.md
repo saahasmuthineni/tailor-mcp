@@ -45,7 +45,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
 # Install Tailor into uv's tool environment
-uv tool install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
+uv tool install git+https://github.com/saahasmuthineni/tailor-mcp.git
 ```
 
 If your institution blocks uv's installer (PowerShell ExecutionPolicy
@@ -53,7 +53,7 @@ restrictions on managed Windows are the most common reason), the
 `pipx` alternative works identically:
 
 ```bash
-pipx install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
+pipx install git+https://github.com/saahasmuthineni/tailor-mcp.git
 ```
 
 Verify the install:
@@ -194,8 +194,8 @@ write before it happens — the wizard's steps map cleanly onto a
 manual flow:
 
 ```bash
-git clone https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
-cd Biosensor-to-LLM-Connector
+git clone https://github.com/saahasmuthineni/tailor-mcp.git
+cd tailor-mcp
 python -m venv .venv && source .venv/bin/activate    # or .venv\Scripts\activate on Windows
 pip install -e ".[dev]"
 ```

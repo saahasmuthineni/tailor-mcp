@@ -181,7 +181,7 @@ matters most.
 Three channels, choose whichever fits your style.
 
 - **GitHub issue** — open one with a `[REVIEW]` prefix at
-  https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector/issues.
+  https://github.com/saahasmuthineni/tailor-mcp/issues.
   Best for discrete findings.
 - **Pull request** — branch from `main`, propose specific changes;
   we'll merge or discuss.

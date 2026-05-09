@@ -147,7 +147,7 @@ If running the demo through Claude Desktop, add to
       "command": "/path/to/your/python",
       "args": ["-m", "tailor", "serve"],
       "env": {
-        "TAILOR_CONFIG_DIR": "/path/to/Biosensor-to-LLM-Connector/examples/hip_lab_demo/beta"
+        "TAILOR_CONFIG_DIR": "/path/to/tailor-mcp/examples/hip_lab_demo/beta"
       }
     }
   }

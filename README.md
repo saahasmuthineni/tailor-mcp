@@ -1,6 +1,6 @@
 # Tailor — your AI works with your data, on your machine
 
-[![CI](https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector/actions/workflows/ci.yml/badge.svg)](https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector/actions/workflows/ci.yml)
+[![CI](https://github.com/saahasmuthineni/tailor-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/saahasmuthineni/tailor-mcp/actions/workflows/ci.yml)
 [![Python 3.10 | 3.11 | 3.12](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/downloads/)
 [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows-lightgrey)](.github/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
@@ -35,15 +35,15 @@ sends any of it to a service you didn't choose.
 For a PI or analyst running a multi-subject CSV pilot:
 
 ```bash
-uv tool install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
+uv tool install git+https://github.com/saahasmuthineni/tailor-mcp.git
 tailor pilot          # three prompts, end-to-end smoke check
 ```
 
 For a developer exploring the framework:
 
 ```bash
-git clone https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
-cd Biosensor-to-LLM-Connector
+git clone https://github.com/saahasmuthineni/tailor-mcp.git
+cd tailor-mcp
 pip install -e ".[dev]"
 tailor demo           # five-section architectural showcase on bundled HIP Lab fixtures (ADRs 0027 + 0029)
 tailor --help         # see all commands
@@ -310,7 +310,7 @@ framework. Most readers want the recipient path.
 **Recipient install** — what a PI or analyst would use:
 
 ```bash
-uv tool install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
+uv tool install git+https://github.com/saahasmuthineni/tailor-mcp.git
 tailor tour          # walkthrough scaffold — registers with Claude Desktop automatically
 # or:
 tailor pilot         # multi-subject CSV pilot wizard — three prompts
@@ -348,8 +348,8 @@ Claude Desktop *"What MCP servers are connected?"*.
 **Developer / contributor install** — editable source tree:
 
 ```bash
-git clone https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
-cd Biosensor-to-LLM-Connector
+git clone https://github.com/saahasmuthineni/tailor-mcp.git
+cd tailor-mcp
 pip install -e ".[dev]"
 ```
 

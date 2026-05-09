@@ -14,10 +14,10 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from biosensor_mcp.children.csv_dir import CSVDirectoryChild
-from biosensor_mcp.framework.vault import parser as vault_parser
-from biosensor_mcp.framework.vault.layer import VaultLayer
-from biosensor_mcp.framework.vault.writer import VaultWriter
+from tailor.children.csv_dir import CSVDirectoryChild
+from tailor.framework.vault import parser as vault_parser
+from tailor.framework.vault.layer import VaultLayer
+from tailor.framework.vault.writer import VaultWriter
 
 
 def run(c):

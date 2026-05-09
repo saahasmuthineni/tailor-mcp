@@ -72,7 +72,7 @@ reshaping the existing roster, and where does that seam fire?*
 
 A new specialist, `mcp-protocol-auditor`, owns wire-level correctness
 of the MCP-protocol-adapter surface. The agent drives `python -m
-biosensor_mcp serve` as a real subprocess speaking JSON-RPC over
+tailor serve` as a real subprocess speaking JSON-RPC over
 stdio, and asserts wire-level correctness on every protocol surface
 the framework exposes.
 

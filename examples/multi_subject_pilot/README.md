@@ -5,12 +5,12 @@ framing. Three days × hourly heart-rate + blood-glucose rows per
 participant, with one deliberate "anomaly" hour each so the LLM has
 something to find.
 
-## Recommended path: `biosensor-mcp pilot`
+## Recommended path: `tailor pilot`
 
 For most users the right command is:
 
 ```bash
-biosensor-mcp pilot
+tailor pilot
 ```
 
 The wizard offers the bundled synthetic CSVs as the default directory,
@@ -20,7 +20,7 @@ server with Claude Desktop in one go. The full guide is at
 
 ## Where the synthetic CSVs actually live
 
-Canonical home: [`src/biosensor_mcp/_fixtures/multi_subject_pilot/csv/`](../../src/biosensor_mcp/_fixtures/multi_subject_pilot/csv/).
+Canonical home: [`src/tailor/_fixtures/multi_subject_pilot/csv/`](../../src/tailor/_fixtures/multi_subject_pilot/csv/).
 
 They live inside the package so they ship in the wheel — that means
 `uv tool install` and `pip install` users get them automatically, with

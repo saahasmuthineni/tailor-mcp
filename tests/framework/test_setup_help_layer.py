@@ -20,8 +20,8 @@ from pathlib import Path
 
 import pytest
 
-from biosensor_mcp.framework.router import RouterMCP
-from biosensor_mcp.framework.setup_help import (
+from tailor.framework.router import RouterMCP
+from tailor.framework.setup_help import (
     SetupHelpLayer,
     _demo_blocks_absent,
     _redact_home,
@@ -75,7 +75,7 @@ def test_layer_exposes_single_tool(tmp_path):
     desc = tools[0].description
     assert "force_cohort_summary" in desc
     assert "emg_cohort_summary" in desc
-    assert "biosensor-mcp tour" in desc
+    assert "tailor tour" in desc
 
 
 def test_layer_param_schema_is_empty(tmp_path):
@@ -93,8 +93,8 @@ async def test_execute_returns_recipient_steps(tmp_path):
     assert "diagnosis" in result
     assert "recipient_steps" in result
     assert isinstance(result["recipient_steps"], list)
-    # The first command surfaced must be `biosensor-mcp tour`.
-    assert any("biosensor-mcp tour" in s for s in result["recipient_steps"])
+    # The first command surfaced must be `tailor tour`.
+    assert any("tailor tour" in s for s in result["recipient_steps"])
     assert "diagnostics" in result
     # Diagnostic paths are home-redacted (phi-irb Lens 1 closure):
     # tmp_path lives under Path.home() on Windows, so the rendered
@@ -119,7 +119,7 @@ async def test_execute_redacts_home_from_diagnostic_paths(tmp_path, monkeypatch)
     fake_home.mkdir()
     monkeypatch.setenv("HOME", str(fake_home))
     monkeypatch.setenv("USERPROFILE", str(fake_home))  # Windows
-    config_dir = fake_home / ".biosensor-mcp"
+    config_dir = fake_home / ".tailor"
     config_dir.mkdir()
     layer = SetupHelpLayer(
         config_dir=config_dir, data_dir=config_dir / "data",
@@ -170,7 +170,7 @@ async def test_execute_unknown_tool_returns_error(tmp_path):
 @pytest.fixture
 def router_with_setup_help(tmp_path):
     router = RouterMCP(
-        name="biosensor-mcp", data_dir=tmp_path / "data",
+        name="tailor", data_dir=tmp_path / "data",
     )
     layer = SetupHelpLayer(config_dir=tmp_path, data_dir=tmp_path / "data")
     router.register_setup_help_layer(layer)
@@ -187,7 +187,7 @@ def test_register_setup_help_layer_adds_tool_to_map(router_with_setup_help):
 
 
 def test_register_setup_help_layer_twice_is_an_error(tmp_path):
-    router = RouterMCP(name="biosensor-mcp", data_dir=tmp_path / "data")
+    router = RouterMCP(name="tailor", data_dir=tmp_path / "data")
     try:
         layer = SetupHelpLayer(config_dir=tmp_path, data_dir=tmp_path / "data")
         router.register_setup_help_layer(layer)

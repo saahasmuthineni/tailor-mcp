@@ -17,7 +17,7 @@ You are **read-only**. You produce a memo, not a roadmap edit. The main session 
 
 ## Pre-flight
 
-1. **Locate project root.** Look for `pyproject.toml` containing `name = "biosensor-mcp"`. If absent, stop and report.
+1. **Locate project root.** Look for `pyproject.toml` containing `name = "tailor"`. If absent, stop and report.
 2. **Read the roadmap end-to-end.** ROADMAP.md, including any "Shipped in vX.Y.Z" sections — these tell you what's already done so you don't propose re-doing it.
 3. **Read CLAUDE.md** for the project's *stated* framing (the one your assigned framing is testing against).
 4. **Read the ADRs.** Glob `docs/adr/*.md`. The ADR series tells you what's *load-bearing*. Items in the roadmap that contradict accepted ADRs are usually KILL candidates.

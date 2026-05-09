@@ -22,8 +22,8 @@ from unittest.mock import patch
 
 import pytest
 
-from biosensor_mcp.framework.audit import AuditLog, _loads
-from biosensor_mcp.framework.local_llm import (
+from tailor.framework.audit import AuditLog, _loads
+from tailor.framework.local_llm import (
     DEFAULT_TIER,
     LOCAL_LLM_TIERS,
     LocalLLMLayer,
@@ -34,8 +34,8 @@ from biosensor_mcp.framework.local_llm import (
     OracleRequest,
     OracleResponse,
 )
-from biosensor_mcp.framework.local_llm.backends.null import _flatten_claims
-from biosensor_mcp.framework.router import RouterMCP
+from tailor.framework.local_llm.backends.null import _flatten_claims
+from tailor.framework.router import RouterMCP
 
 # ─── Contract object tests ─────────────────────────────────────────
 
@@ -1190,7 +1190,7 @@ class TestRouterDispatchGapReasoningCounts:
         """A LocalLLMLayer whose backend returns the supplied lists.
         Bypasses Ollama HTTP entirely — we want to test the dispatch-
         layer extraction, not the backend."""
-        from biosensor_mcp.framework.local_llm.backends import (
+        from tailor.framework.local_llm.backends import (
             LocalLLMBackend,
         )
 

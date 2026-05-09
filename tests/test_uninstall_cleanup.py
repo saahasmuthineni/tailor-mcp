@@ -5,7 +5,7 @@ Claude Desktop config (Classic + Microsoft Store sandboxes per ADR
 0026).
 
 Before v6.9.2, ``cmd_uninstall`` deleted only the literal key
-``mcpServers['biosensor-mcp']``. The ``tour`` subcommand registers
+``mcpServers['tailor']``. The ``tour`` subcommand registers
 under ``biosensor-tour-<variant>``, so a clean uninstall left the
 tour entry pointing at a removed binary, producing a red MCP
 indicator in Claude Desktop after the operator did everything right.
@@ -28,13 +28,13 @@ from pathlib import Path
 
 import pytest
 
-from biosensor_mcp.__main__ import _clean_claude_desktop_biosensor_entries
+from tailor.__main__ import _clean_claude_desktop_biosensor_entries
 
 
 def _patch_paths(monkeypatch: pytest.MonkeyPatch, paths: list[Path]) -> None:
     """Point the detection helper at a fixed list of tmp paths."""
     monkeypatch.setattr(
-        "biosensor_mcp.pilot._claude_desktop_config_paths",
+        "tailor.pilot._claude_desktop_config_paths",
         lambda: paths,
     )
 
@@ -45,14 +45,14 @@ def test_removes_pilot_wizard_entry(
     cfg = tmp_path / "claude_desktop_config.json"
     cfg.write_text(json.dumps({
         "mcpServers": {
-            "biosensor-mcp": {"command": "x"},
+            "tailor": {"command": "x"},
         },
     }))
     _patch_paths(monkeypatch, [cfg])
     result = _clean_claude_desktop_biosensor_entries()
-    assert result == {cfg: ["biosensor-mcp"]}
+    assert result == {cfg: ["tailor"]}
     after = json.loads(cfg.read_text())
-    assert "biosensor-mcp" not in after["mcpServers"]
+    assert "tailor" not in after["mcpServers"]
 
 
 def test_removes_tour_entry(
@@ -77,7 +77,7 @@ def test_removes_both_pilot_and_tour_entries(
     cfg = tmp_path / "claude_desktop_config.json"
     cfg.write_text(json.dumps({
         "mcpServers": {
-            "biosensor-mcp": {"command": "x"},
+            "tailor": {"command": "x"},
             "biosensor-tour-hip-lab": {"command": "y"},
             "biosensor-tour-sleep": {"command": "z"},
         },
@@ -85,7 +85,7 @@ def test_removes_both_pilot_and_tour_entries(
     _patch_paths(monkeypatch, [cfg])
     result = _clean_claude_desktop_biosensor_entries()
     assert set(result[cfg]) == {
-        "biosensor-mcp", "biosensor-tour-hip-lab", "biosensor-tour-sleep",
+        "tailor", "biosensor-tour-hip-lab", "biosensor-tour-sleep",
     }
     after = json.loads(cfg.read_text())
     assert after["mcpServers"] == {}
@@ -98,7 +98,7 @@ def test_preserves_sibling_mcp_servers(
     cfg = tmp_path / "claude_desktop_config.json"
     cfg.write_text(json.dumps({
         "mcpServers": {
-            "biosensor-mcp": {"command": "x"},
+            "tailor": {"command": "x"},
             "biosensor-tour-hip-lab": {"command": "y"},
             "obsidian": {"command": "node", "args": ["obsidian.js"]},
             "strava-coaching": {"command": "python"},
@@ -110,7 +110,7 @@ def test_preserves_sibling_mcp_servers(
     assert "obsidian" in after["mcpServers"]
     assert "strava-coaching" in after["mcpServers"]
     assert after["mcpServers"]["obsidian"]["command"] == "node"
-    assert set(result[cfg]) == {"biosensor-mcp", "biosensor-tour-hip-lab"}
+    assert set(result[cfg]) == {"tailor", "biosensor-tour-hip-lab"}
 
 
 def test_no_op_when_no_biosensor_entries_present(
@@ -145,12 +145,12 @@ def test_handles_utf8_bom_prefix_round_trip(
     """
     cfg = tmp_path / "claude_desktop_config.json"
     body = json.dumps({
-        "mcpServers": {"biosensor-mcp": {"command": "x"}},
+        "mcpServers": {"tailor": {"command": "x"}},
     })
     cfg.write_bytes(b"\xef\xbb\xbf" + body.encode("utf-8"))
     _patch_paths(monkeypatch, [cfg])
     result = _clean_claude_desktop_biosensor_entries()
-    assert result == {cfg: ["biosensor-mcp"]}
+    assert result == {cfg: ["tailor"]}
 
 
 def test_iterates_every_detected_config(
@@ -165,7 +165,7 @@ def test_iterates_every_detected_config(
     classic.parent.mkdir()
     classic.write_text(json.dumps({
         "mcpServers": {
-            "biosensor-mcp": {"command": "x"},
+            "tailor": {"command": "x"},
             "obsidian": {"command": "node"},
         },
     }))
@@ -181,11 +181,11 @@ def test_iterates_every_detected_config(
 
     result = _clean_claude_desktop_biosensor_entries()
 
-    assert result[classic] == ["biosensor-mcp"]
+    assert result[classic] == ["tailor"]
     assert result[sandbox] == ["biosensor-tour-hip-lab"]
     after_classic = json.loads(classic.read_text())
     after_sandbox = json.loads(sandbox.read_text())
-    assert "biosensor-mcp" not in after_classic["mcpServers"]
+    assert "tailor" not in after_classic["mcpServers"]
     assert "obsidian" in after_classic["mcpServers"]
     assert "biosensor-tour-hip-lab" not in after_sandbox["mcpServers"]
     assert "raycast" in after_sandbox["mcpServers"]

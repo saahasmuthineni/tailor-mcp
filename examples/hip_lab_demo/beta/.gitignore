@@ -3,7 +3,7 @@
 user_config.json
 
 # Runtime SQLite (audit, vault index, child caches) — created when
-# `biosensor-mcp serve` starts against this config dir.
+# `tailor serve` starts against this config dir.
 data/
 
 # Obsidian metadata, if the operator opens the demo vault in

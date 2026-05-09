@@ -64,7 +64,7 @@ the directory to a per-file scalar by metric, groups by a metadata
 field, returns per-group n/mean/std/min/max plus the file list per
 group. The metric vocabulary is the new module-level constant
 `COHORT_METRICS` in
-[`children/csv_dir/processing.py`](../../src/biosensor_mcp/children/csv_dir/processing.py):
+[`children/csv_dir/processing.py`](../../src/tailor/children/csv_dir/processing.py):
 `mean`, `max` (alias `peak`), `min`, `std`, `first`, `last`,
 `duration_s`, `time_to_50pct_drop_s`. The first two require no
 timestamps; the latter two require a usable timestamp column on

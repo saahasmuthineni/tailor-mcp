@@ -1,5 +1,5 @@
 """
-Shared pytest fixtures and configuration for the biosensor-mcp test suite.
+Shared pytest fixtures and configuration for the tailor test suite.
 
 What lives here:
 

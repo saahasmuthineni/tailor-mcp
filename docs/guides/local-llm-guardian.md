@@ -184,7 +184,7 @@ ollama pull qwen2.5:14b      # Titan (32 GB workstation)
 
 ### 3. Configure `user_config.json`
 
-Add a `local_llm` block to `~/.biosensor-mcp/user_config.json`:
+Add a `local_llm` block to `~/.tailor/user_config.json`:
 
 ```json
 {
@@ -204,7 +204,7 @@ optional with the defaults shown above.
 ### 4. Restart the MCP server
 
 ```bash
-biosensor-mcp serve
+tailor serve
 ```
 
 Look for this log line:
@@ -214,7 +214,7 @@ Registered local-LLM layer (backend=ollama, tier=guardian, model=llama3.1:8b)
 ```
 
 If you see `backend=null`, the config was not picked up — check JSON
-syntax with `python -m json.tool < ~/.biosensor-mcp/user_config.json`.
+syntax with `python -m json.tool < ~/.tailor/user_config.json`.
 
 ## How it works in conversation
 
@@ -317,7 +317,7 @@ the full list.
 
 **`backend=null` in logs even though I set `backend: "ollama"`** —
 Check JSON syntax. The most common cause is a trailing comma. Run
-`python -m json.tool < ~/.biosensor-mcp/user_config.json` to validate.
+`python -m json.tool < ~/.tailor/user_config.json` to validate.
 
 **Oracle call returns `confidence: 0.0` and "unavailable" narrative** —
 Ollama daemon is not reachable. Check that Ollama is running
@@ -326,7 +326,7 @@ Ollama daemon is not reachable. Check that Ollama is running
 **Latency is much higher than the table shows** — First call after
 server boot takes ~10 s extra to load the model. Subsequent calls
 within 5 minutes are warm. To force a warm-start on serve, call any
-oracle request once after `biosensor-mcp serve` starts.
+oracle request once after `tailor serve` starts.
 
 **RAM pressure on a 16 GB laptop** — Drop to Scout or Sentinel tier.
 Cited numerical claims are identical; only narrative quality changes.

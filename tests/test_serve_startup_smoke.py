@@ -1,8 +1,8 @@
 """
-Subprocess startup smoke tests for ``biosensor-mcp serve``.
+Subprocess startup smoke tests for ``tailor serve``.
 
 The existing CLI smoke test in ci-gate-runner only exercises
-``biosensor-mcp --help``, which never reaches the stdio server's
+``tailor --help``, which never reaches the stdio server's
 ``Server.run()`` call. Real ship-blocker bugs in v6.5.0 surfaced
 only when a real MCP client tried to connect:
 
@@ -44,7 +44,7 @@ from tests._mcp_client import seed_full_config, spawn_server
 
 
 def test_serve_starts_without_traceback() -> None:
-    """`biosensor-mcp serve` reaches the stdio read loop and exits
+    """`tailor serve` reaches the stdio read loop and exits
     cleanly when stdin is closed.
 
     Regression for the v6.5.0 missing-`initialization_options` bug
@@ -66,7 +66,7 @@ def test_serve_starts_without_traceback() -> None:
         }
 
         proc = subprocess.run(
-            [sys.executable, "-m", "biosensor_mcp", "serve"],
+            [sys.executable, "-m", "tailor", "serve"],
             stdin=subprocess.DEVNULL,
             capture_output=True,
             env=env,
@@ -76,17 +76,17 @@ def test_serve_starts_without_traceback() -> None:
         stderr = proc.stderr.decode("utf-8", errors="replace")
 
         assert "Traceback" not in stderr, (
-            "biosensor-mcp serve crashed before reaching the read "
+            "tailor serve crashed before reaching the read "
             f"loop. stderr:\n{stderr}"
         )
         assert "TypeError" not in stderr, (
-            "biosensor-mcp serve hit a TypeError — most likely an "
+            "tailor serve hit a TypeError — most likely an "
             f"mcp-SDK signature drift. stderr:\n{stderr}"
         )
         # The router logs an init banner before stdio_server() opens;
         # if that's absent, the framework didn't even reach init.
         assert "Router MCP" in stderr, (
-            "biosensor-mcp serve never logged its init banner — the "
+            "tailor serve never logged its init banner — the "
             f"framework didn't reach router construction. stderr:\n{stderr}"
         )
         # With the full config seeded, vault + csv_dir must register;

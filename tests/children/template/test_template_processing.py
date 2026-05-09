@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 
-from biosensor_mcp.children.template.processing import TemplateProcessing
+from tailor.children.template.processing import TemplateProcessing
 
 
 class TestSummarize:

@@ -8,7 +8,7 @@ set -euo pipefail
 
 REPO="saahasmuthineni/biosensor-to-llm-middleware"
 
-INSTALL_DIR="$HOME/.biosensor-mcp"
+INSTALL_DIR="$HOME/.tailor"
 VENV_DIR="$INSTALL_DIR/venv"
 SRC_DIR="$INSTALL_DIR/src"
 
@@ -86,7 +86,7 @@ if [ ! -f "$TOKEN_FILE" ]; then
     echo "  2. Create an app ('localhost' as callback)"
     echo "  3. Note your Client ID and Client Secret"
     echo ""
-    "$VENV_DIR/bin/python" -m biosensor_mcp setup
+    "$VENV_DIR/bin/python" -m tailor setup
 else
     echo "✓ Existing Strava tokens found"
 fi
@@ -111,9 +111,9 @@ config_path, venv_python, install_dir = sys.argv[1], sys.argv[2], sys.argv[3]
 with open(config_path) as f:
     config = json.load(f)
 config.setdefault('mcpServers', {})
-config['mcpServers']['biosensor-mcp'] = {
+config['mcpServers']['tailor'] = {
     'command': venv_python,
-    'args': ['-m', 'biosensor_mcp', 'serve'],
+    'args': ['-m', 'tailor', 'serve'],
     'env': {'BIOSENSOR_CONFIG_DIR': install_dir, 'BIOSENSOR_DATA_DIR': install_dir + '/data'}
 }
 with open(config_path, 'w') as f:
@@ -124,9 +124,9 @@ else
     cat > "$CLAUDE_CONFIG" << JSONEOF
 {
   "mcpServers": {
-    "biosensor-mcp": {
+    "tailor": {
       "command": "$VENV_PYTHON",
-      "args": ["-m", "biosensor_mcp", "serve"],
+      "args": ["-m", "tailor", "serve"],
       "env": {
         "BIOSENSOR_CONFIG_DIR": "$INSTALL_DIR",
         "BIOSENSOR_DATA_DIR": "$INSTALL_DIR/data"

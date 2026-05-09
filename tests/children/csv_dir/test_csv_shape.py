@@ -33,16 +33,16 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
-from biosensor_mcp.children.csv_dir import CSVDirectoryChild
-from biosensor_mcp.children.csv_dir.child import (
+from tailor.children.csv_dir import CSVDirectoryChild
+from tailor.children.csv_dir.child import (
     SUBJECT_ID_SCHEMA,
 )
-from biosensor_mcp.framework.interfaces import (
+from tailor.framework.interfaces import (
     CostEstimate,
     ToolDefinition,
     ValidationSchema,
 )
-from biosensor_mcp.framework.router import RouterMCP
+from tailor.framework.router import RouterMCP
 
 SUBJECT_ID_PATTERN = r"^[A-Za-z0-9_\-]{1,64}$"
 
@@ -620,7 +620,7 @@ class TestForceDeclineHandler:
         Lower MAX_CSV_BYTES below the fixture file size; the size guard
         in _read_csv raises OSError, which the handler must catch and
         return as an error dict (not propagate)."""
-        from biosensor_mcp.children.csv_dir import child as child_mod
+        from tailor.children.csv_dir import child as child_mod
 
         monkeypatch.setattr(child_mod, "MAX_CSV_BYTES", 10)  # tiny
         result = asyncio.run(csv_child.execute(
@@ -734,7 +734,7 @@ class TestCohortSummaryFailureBranches:
 
         Lower the cap to 3, write 5 CSVs — handler returns explicit
         "too many files" error rather than scanning silently."""
-        from biosensor_mcp.children.csv_dir import child as child_mod
+        from tailor.children.csv_dir import child as child_mod
 
         with TemporaryDirectory() as tmp:
             metadata = {"a.csv": {"sex": "F"}, "b.csv": {"sex": "M"}}
@@ -777,7 +777,7 @@ class TestCohortSummaryFailureBranches:
 
         A CSV that fails to load (size guard raises OSError) is captured
         in `load_errors` and the cohort proceeds with the others."""
-        from biosensor_mcp.children.csv_dir import child as child_mod
+        from tailor.children.csv_dir import child as child_mod
 
         with TemporaryDirectory() as tmp:
             child = self._make_child(
@@ -985,7 +985,7 @@ class TestAutoDetection:
         still initialize successfully and block oversized reads only
         at tool-call time.
         """
-        from biosensor_mcp.children.csv_dir import child as child_mod
+        from tailor.children.csv_dir import child as child_mod
 
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

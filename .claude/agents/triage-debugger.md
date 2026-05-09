@@ -65,7 +65,7 @@ print(repr(content[content.find('### Evidence'):content.find('### Evidence') + 8
 "
 
 # Hypothesis: stale package install — is the source in src/ what Python imports?
-python -c "import biosensor_mcp; print(biosensor_mcp.__file__)"
+python -c "import tailor; print(tailor.__file__)"
 ```
 
 You may write throwaway scripts to `/tmp/triage_debugger_<topic>.py` if a hypothesis needs more than a one-liner. Delete them when you're done.
@@ -76,7 +76,7 @@ Lead with the actual cause in one sentence. No hedging if you're confident; expl
 
 Examples:
 - "Root cause: `_handle_log_failure_mode` reads `fm.get('symptom')` but the renderer writes `symptom` to the body, not the frontmatter — so the field is always None on update."
-- "Root cause (likely, 80% confidence): the test imports `biosensor_mcp` from a stale install in site-packages, not from `src/`. Confirm with `pip install -e .[dev]`."
+- "Root cause (likely, 80% confidence): the test imports `tailor` from a stale install in site-packages, not from `src/`. Confirm with `pip install -e .[dev]`."
 - "Root cause not pinned. Two viable hypotheses (A) and (B); the cheapest test to discriminate is..."
 
 ### Step 6 — Suggest a fix
@@ -86,7 +86,7 @@ Provide a code snippet the caller can drop in. **Do not apply it.** Format:
 ```
 SUGGESTED FIX (not applied):
 
-  File: src/biosensor_mcp/framework/vault/layer.py
+  File: src/tailor/framework/vault/layer.py
   Around line: 2090
 
   REPLACE:

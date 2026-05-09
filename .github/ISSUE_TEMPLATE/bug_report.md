@@ -23,13 +23,13 @@ labels: bug
 
 - OS:
 - Python version: (output of `python --version`)
-- Package version: (output of `biosensor-mcp --help` header, or commit SHA if installed from source)
+- Package version: (output of `tailor --help` header, or commit SHA if installed from source)
 - Claude Desktop version (if relevant):
 
 ## Logs
 
 <!--
-If applicable, paste the last ~50 lines of ~/.biosensor-mcp/logs/server.log.
+If applicable, paste the last ~50 lines of ~/.tailor/logs/server.log.
 REDACT: Strava client IDs/secrets, athlete IDs, personal paths, vault contents.
 -->
 

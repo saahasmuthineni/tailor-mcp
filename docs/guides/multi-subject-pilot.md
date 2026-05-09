@@ -26,7 +26,7 @@ participant exports when you're ready.
 - An audit row per call, attachable to a protocol amendment if your
   IRB asks how the analyst accessed the data
 
-## Recommended path — `biosensor-mcp pilot`
+## Recommended path — `tailor pilot`
 
 Two terminal commands, three prompts. No Python install, no virtual
 environment, no manual config editing.
@@ -59,13 +59,13 @@ pipx install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.g
 Verify the install:
 
 ```bash
-biosensor-mcp --help
+tailor --help
 ```
 
 ### Step 2 — Run the pilot wizard
 
 ```bash
-biosensor-mcp pilot
+tailor pilot
 ```
 
 The wizard does what Steps 3–6 of the old quickstart did manually:
@@ -76,7 +76,7 @@ The wizard does what Steps 3–6 of the old quickstart did manually:
 2. **Auto-detects the column schema** — scans every CSV in the
    directory and warns loudly if files have divergent headers (the
    "P001 looks fine, P004 breaks at runtime" failure mode).
-3. **Writes `~/.biosensor-mcp/user_config.json`** atomically. Won't
+3. **Writes `~/.tailor/user_config.json`** atomically. Won't
    clobber an existing config.
 4. **Warns if your CSV directory is in OneDrive / iCloud / Dropbox /
    Box / Google Drive** — cloud-sync providers can corrupt SQLite
@@ -122,7 +122,7 @@ each call returns a different scope.
 ## Inspecting the audit trail
 
 ```bash
-sqlite3 ~/.biosensor-mcp/data/audit.db \
+sqlite3 ~/.tailor/data/audit.db \
   "SELECT timestamp, tool_name, subject_id, scrubber_id FROM audit_log
    ORDER BY id DESC LIMIT 10;"
 ```
@@ -135,9 +135,9 @@ for a light-IRB pilot on synthetic data the no-op default is fine.
 ## Inspecting the vault on disk
 
 ```bash
-ls ~/.biosensor-mcp/vault/themes/
+ls ~/.tailor/vault/themes/
 # glucose-spikes.md  hr-anomaly-p002.md  ...
-head -25 ~/.biosensor-mcp/vault/themes/glucose-spikes.md
+head -25 ~/.tailor/vault/themes/glucose-spikes.md
 ```
 
 Each theme note carries a `subject_id` line in its YAML frontmatter
@@ -201,18 +201,18 @@ pip install -e ".[dev]"
 ```
 
 Copy [`examples/multi_subject_pilot/user_config.example.json`](../../examples/multi_subject_pilot/user_config.example.json)
-to `~/.biosensor-mcp/user_config.json` and replace `<REPO_ROOT>` with
+to `~/.tailor/user_config.json` and replace `<REPO_ROOT>` with
 your actual clone path. The synthetic CSVs live at
-`src/biosensor_mcp/_fixtures/multi_subject_pilot/csv/`.
+`src/tailor/_fixtures/multi_subject_pilot/csv/`.
 
 Add to `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
-    "biosensor-mcp": {
+    "tailor": {
       "command": "/absolute/path/to/.venv/bin/python",
-      "args": ["-m", "biosensor_mcp", "serve"]
+      "args": ["-m", "tailor", "serve"]
     }
   }
 }

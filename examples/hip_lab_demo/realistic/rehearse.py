@@ -5,7 +5,7 @@ realistic walkthrough.
 Scaffolds a fresh tour into a temp directory, calls each tool the
 walkthrough exercises, asserts the bridge numbers and the
 cross-session-memory invariant, and exits 0 on green. No state
-lands outside the temp dir — the dev's ~/.biosensor-mcp/ is
+lands outside the temp dir — the dev's ~/.tailor/ is
 untouched.
 
 Usage:
@@ -28,8 +28,8 @@ mean) so future drift in generate.py can't silently flatten the
 demo's wow.
 
 Per ADR 0024 the tour fixtures live in the bundled package tree
-(``src/biosensor_mcp/_fixtures/hip_lab_demo_realistic/``); this
-script scaffolds them into a temp dir via ``biosensor_mcp.tour``
+(``src/tailor/_fixtures/hip_lab_demo_realistic/``); this
+script scaffolds them into a temp dir via ``tailor.tour``
 the same way mom or Senefeld would in a real install. That makes
 the rehearsal exercise the *recipient* code path, not a
 back-channel.
@@ -76,15 +76,15 @@ def _section(title: str) -> None:
 async def _run_checks(target: Path) -> int:
     # Match what the live tour does — set env vars so the children's
     # config.py reads from the temp scaffold rather than the dev's
-    # real ~/.biosensor-mcp/.
+    # real ~/.tailor/.
     os.environ["BIOSENSOR_CONFIG_DIR"] = str(target)
     os.environ["BIOSENSOR_DATA_DIR"] = str(target / "data")
 
     # Late imports so the tour scaffold (which set up user_config.json)
     # runs before child config-load.
-    from biosensor_mcp.children.emg_csv import EmgCsvChild
-    from biosensor_mcp.children.force_csv import ForceCsvChild
-    from biosensor_mcp.framework.vault.storage import VaultStorage
+    from tailor.children.emg_csv import EmgCsvChild
+    from tailor.children.force_csv import ForceCsvChild
+    from tailor.framework.vault.storage import VaultStorage
 
     force = ForceCsvChild(target, target / "data")
     emg = EmgCsvChild(target, target / "data")
@@ -300,7 +300,7 @@ async def main() -> int:
 
         # Scaffold a fresh tour into the temp dir. --no-claude-desktop
         # so the dev's Claude Desktop config stays untouched.
-        from biosensor_mcp.tour import main as tour_main
+        from tailor.tour import main as tour_main
         rc = tour_main([
             "--variant=hip-lab",
             "--no-claude-desktop",

@@ -25,19 +25,19 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
-from biosensor_mcp.children.emg_csv import EmgCsvChild
-from biosensor_mcp.children.emg_csv.child import (
+from tailor.children.emg_csv import EmgCsvChild
+from tailor.children.emg_csv.child import (
     ALL_STREAM_TYPES,
     MAX_WINDOW_SECONDS,
     PROTOCOL_EVENT_TYPES,
 )
-from biosensor_mcp.framework.interfaces import (
+from tailor.framework.interfaces import (
     SUBJECT_ID_SCHEMA,
     CostEstimate,
     ToolDefinition,
     ValidationSchema,
 )
-from biosensor_mcp.framework.router import RouterMCP
+from tailor.framework.router import RouterMCP
 
 SUBJECT_ID_PATTERN = r"^[A-Za-z0-9_\-]{1,64}$"
 
@@ -913,7 +913,7 @@ class TestProtocolEventVocabulary:
     def test_emg_vocabulary_extends_force_vocabulary(self):
         # The shared lifecycle terms must be present so paired
         # EMG + force trials share event_type strings.
-        from biosensor_mcp.children.force_csv.child import (
+        from tailor.children.force_csv.child import (
             PROTOCOL_EVENT_TYPES as FORCE_VOCAB,
         )
         for term in FORCE_VOCAB:

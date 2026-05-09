@@ -12,7 +12,7 @@
 >    LLM name-dropping "Chunyu's thesis" from prior chat history,
 >    not from the framework. Fresh chat is the only fix.
 > 2. Activate `BIOSENSOR_CONFIG_DIR=examples/hip_lab_demo/beta`
->    and start `biosensor-mcp serve`.
+>    and start `tailor serve`.
 > 3. Have a 1080p screen recorder ready. OBS Studio works
 >    cross-platform; Windows Game Bar (Win+G) works too.
 > 4. Disable notifications.
@@ -101,7 +101,7 @@ controlled markdown, not in chat history."
 ## [3:00 – 4:15] Wow moment 3 — audit log reconstructed from `_meta`
 
 > *Show: in terminal,*
-> *`sqlite3 ~/.biosensor-mcp/data/audit.db ".tables"`*
+> *`sqlite3 ~/.tailor/data/audit.db ".tables"`*
 > *then a select-by-subject_id query.*
 
 "Every tool call from the last few minutes is in this SQLite
@@ -162,7 +162,7 @@ you have time. Thanks."
 - Re-watch once at 2× to catch dead-air gaps and ums.
 - Render at 1080p, target file size under 100 MB so it can attach
   to email if YouTube unlisted is not preferred.
-- Filename: `biosensor-mcp-hip-lab-demo-2026-05-DD.mp4` with
+- Filename: `tailor-hip-lab-demo-2026-05-DD.mp4` with
   the actual recording date so version tracking is obvious.
 
 ## Hosting

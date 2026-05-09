@@ -13,9 +13,9 @@ You are **read-only**.
 
 ## Pre-flight
 
-1. **Locate project root.** Look for `pyproject.toml` containing `name = "biosensor-mcp"`. If absent, stop and report.
+1. **Locate project root.** Look for `pyproject.toml` containing `name = "tailor"`. If absent, stop and report.
 2. **Read the docs.** ROADMAP.md, CLAUDE.md, README.md, and every ADR under `docs/adr/`. These are your specification — what the project *claims* to be.
-3. **Map the codebase.** Glob `src/biosensor_mcp/`. Get the architecture: `framework/`, `framework/vault/`, `children/{running,csv_dir,template}/`, top-level (`__main__.py`, `wizard.py`, `config.py`).
+3. **Map the codebase.** Glob `src/tailor/`. Get the architecture: `framework/`, `framework/vault/`, `children/{running,csv_dir,template}/`, top-level (`__main__.py`, `wizard.py`, `config.py`).
 4. **Skim `tests/`.** One level — what's covered, what isn't, what's omitted via the coverage `omit` list in `pyproject.toml`.
 5. **Check `pyproject.toml`** for declared dependencies, Python-support surface, coverage omit list, version pins.
 

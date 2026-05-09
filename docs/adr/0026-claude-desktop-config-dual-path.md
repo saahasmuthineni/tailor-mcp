@@ -22,18 +22,18 @@ framework's recipient-onboarding code did not previously distinguish:
 
 The framework's pip-installed Python interpreter runs outside the UWP
 container. `_claude_desktop_config_path()` at
-[`src/biosensor_mcp/pilot.py:377-382`](../../src/biosensor_mcp/pilot.py)
+[`src/tailor/pilot.py:377-382`](../../src/tailor/pilot.py)
 returns `Path(os.environ.get("APPDATA", "")) / "Claude" /
 "claude_desktop_config.json"` on Windows — the classic path only — and
 `tour.py` imports the same helper per
 [ADR 0024](0024-wheel-distributed-tour-and-fixture-bundling.md)
 §2's deliberate inheritance. The same Windows branch is duplicated
-verbatim at [`src/biosensor_mcp/__main__.py:407-408`](../../src/biosensor_mcp/__main__.py)
+verbatim at [`src/tailor/__main__.py:407-408`](../../src/tailor/__main__.py)
 (in the `cmd_status` diagnostic) and at
-[`src/biosensor_mcp/__main__.py:483-484`](../../src/biosensor_mcp/__main__.py)
+[`src/tailor/__main__.py:483-484`](../../src/tailor/__main__.py)
 (in `cmd_uninstall`).
 
-A recipient with Store-installed Claude Desktop runs `biosensor-mcp
+A recipient with Store-installed Claude Desktop runs `tailor
 tour --force`, sees a `Tour scaffolded successfully` message naming
 the classic config path, restarts Claude Desktop, and finds no
 biosensor tools available. The Store-installed Claude Desktop reads
@@ -72,7 +72,7 @@ Concrete mechanism:
 
 - **`_claude_desktop_config_path() -> Path | None` is refactored to
   `_claude_desktop_config_paths() -> list[Path]`** at
-  [`src/biosensor_mcp/pilot.py:377-382`](../../src/biosensor_mcp/pilot.py).
+  [`src/tailor/pilot.py:377-382`](../../src/tailor/pilot.py).
   The return is a list of every Claude Desktop config-file path the
   framework can confirm with positive evidence on this machine. On
   Windows the candidate set is computed as: the classic path under
@@ -105,7 +105,7 @@ Concrete mechanism:
   whose UWP package directory has not yet been created (Store apps
   lazily create their `Packages\Claude_*\` sandbox on first launch).
   After first launch of the Store-installed Claude Desktop, the
-  sandbox is materialised and a re-run of `biosensor-mcp tour --force`
+  sandbox is materialised and a re-run of `tailor tour --force`
   registers in both. The next-steps output from `tour` already
   instructs recipients to launch Claude Desktop after registration; a
   cue-card recovery row added in this PR names the re-run path for
@@ -132,9 +132,9 @@ Concrete mechanism:
   loops.
 - **The duplicated Windows branches in `__main__.py` are folded into
   the new helper.** `cmd_status` at
-  [`__main__.py:404-428`](../../src/biosensor_mcp/__main__.py) and
+  [`__main__.py:404-428`](../../src/tailor/__main__.py) and
   `cmd_uninstall` at
-  [`__main__.py:480-`](../../src/biosensor_mcp/__main__.py) both
+  [`__main__.py:480-`](../../src/tailor/__main__.py) both
   switch to `_claude_desktop_config_paths()` and iterate.
   `cmd_uninstall` cleans entries from every detected path, matching
   the v6.9.2 prefix-match cleanup pattern symmetrically across
@@ -144,7 +144,7 @@ Concrete mechanism:
   recipient-actionable terms. *"Registered for both Claude Desktop
   variants"* on the bulletproof case; *"Registered for classic only —
   if you use the Microsoft Store version of Claude Desktop, run
-  `biosensor-mcp tour --force` to register there too"* on the
+  `tailor tour --force` to register there too"* on the
   partial case. The recipient should not need to learn the UWP
   redirection mechanic to read the status output.
 - **Invariant locked in writing.** After a successful `tour --force`,
@@ -169,9 +169,9 @@ are:
 
 | File | Criticality | Rationale |
 |---|---|---|
-| `src/biosensor_mcp/pilot.py:_claude_desktop_config_paths` | **HIGH** | Returns the set of paths that downstream registration / status / uninstall iterate over. A regression that drops the Store-sandbox path silently reproduces the v6.10.x failure mode this ADR closes. A regression that returns extra paths could write biosensor entries to unrelated `Claude\` directories. |
-| `src/biosensor_mcp/pilot.py` Store-package-family-name constant | **HIGH** | A typo in the family name silently breaks Store-install detection and the failure is invisible until a recipient hits it. |
-| `src/biosensor_mcp/pilot.py:_register_with_claude_desktop` (iteration loop) | **HIGH** | Per-path failure handling: a half-written registration where one path succeeds and the other fails is the worst-case state. The loop must surface per-path errors and must not abort a successful write to one path on a failure to another. |
+| `src/tailor/pilot.py:_claude_desktop_config_paths` | **HIGH** | Returns the set of paths that downstream registration / status / uninstall iterate over. A regression that drops the Store-sandbox path silently reproduces the v6.10.x failure mode this ADR closes. A regression that returns extra paths could write biosensor entries to unrelated `Claude\` directories. |
+| `src/tailor/pilot.py` Store-package-family-name constant | **HIGH** | A typo in the family name silently breaks Store-install detection and the failure is invisible until a recipient hits it. |
+| `src/tailor/pilot.py:_register_with_claude_desktop` (iteration loop) | **HIGH** | Per-path failure handling: a half-written registration where one path succeeds and the other fails is the worst-case state. The loop must surface per-path errors and must not abort a successful write to one path on a failure to another. |
 
 Regression tests land in `tests/test_pilot_wizard.py` and
 `tests/test_tour_subcommand.py` covering eight scenarios identified
@@ -198,7 +198,7 @@ ADR exists to harden.
 - **The Store-installed-Claude-Desktop recipient is reachable.** A
   recipient who installed Claude Desktop from the Microsoft Store —
   the path Microsoft promotes as default on Windows 11 — runs
-  `biosensor-mcp tour` and gets a working biosensor tool surface
+  `tailor tour` and gets a working biosensor tool surface
   on first try, without manual JSON editing or workaround docs.
 - **The both-installed case is bulletproof.** A recipient who has
   both classic and Store installs simultaneously (someone who
@@ -252,7 +252,7 @@ ADR exists to harden.
   directory on first launch; before launch, the glob returns no
   matches and `tour` writes only to the classic path. The recipient
   launches their Store-installed Claude Desktop, sees no biosensor
-  tools, and must re-run `biosensor-mcp tour --force` to register
+  tools, and must re-run `tailor tour --force` to register
   in the now-existent sandbox. Mitigated in the recipient cue card
   (a new recovery row added in this PR for the symptom *"installed
   Store version, ran tour, no tools after first launch"*) and in the
@@ -287,7 +287,7 @@ ADR exists to harden.
 - **The v6.9.2 prefix-match cleanup in `cmd_uninstall` and the
   v6.10.3 sibling-biosensor-* cleanup in `_register_with_claude_desktop`
   apply per-path.** A recipient whose classic config has a stale
-  `biosensor-mcp` entry and whose Store config has a stale
+  `tailor` entry and whose Store config has a stale
   `biosensor-tour-hip-lab` entry gets both cleaned on the next
   registration. The cleanup contracts are unchanged in shape; only
   the surface they apply to widens.
@@ -300,7 +300,7 @@ ADR exists to harden.
 **Detect via process introspection — query running processes to
 determine which Claude Desktop variant is installed and pick its
 config path.** Rejected. Process introspection is a runtime-only
-signal; the framework runs `biosensor-mcp tour` while Claude Desktop
+signal; the framework runs `tailor tour` while Claude Desktop
 is asked to be quit (so the recipient can edit the config file
 without lock contention). At registration time there is by design
 no Claude Desktop process to introspect. Even if there were, a
@@ -327,7 +327,7 @@ mistake in a different place. Detection is the framework's job.
 **Document the Store-install workaround in `RECIPIENT_README.md` and
 leave the code unchanged.** Rejected on severity grounds. The
 v6.10.2 ADR-12-amendment bundled a `RECIPIENT_README.md` in the
-wheel exactly so external Claude Desktops could discover `biosensor-mcp
+wheel exactly so external Claude Desktops could discover `tailor
 tour` without source-code archaeology; a workaround doc inside that
 file would document the failure mode rather than fix it. The boss-
 architect protocol 4 (anti-sycophancy and mandatory conflict
@@ -335,7 +335,7 @@ pushback) names the pattern: documenting around a footgun the
 framework can detect and handle is the framework refusing
 responsibility for a problem it owns. The recipient-onboarding
 trilogy's structural commitment is that the recipient runs `pip
-install` plus `biosensor-mcp tour` and the framework handles the
+install` plus `tailor tour` and the framework handles the
 rest; carving out an exception for this specific failure
 contradicts the commitment.
 

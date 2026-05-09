@@ -27,7 +27,7 @@ blanket SLAs on a personal research repository.
 
 ## What to include
 
-- Package version (`biosensor-mcp --help` header, or commit SHA).
+- Package version (`tailor --help` header, or commit SHA).
 - OS + Python version.
 - Minimal reproduction — ideally a test or a `security_probe.py`-style
   script that fails under the current code.
@@ -41,7 +41,7 @@ blanket SLAs on a personal research repository.
 
 In scope:
 
-- Anything under `src/biosensor_mcp/`.
+- Anything under `src/tailor/`.
 - The `tests/security_probe.py` standalone probe.
 - The OAuth wizard (`wizard.py`) and its localhost callback server.
 - CI workflow configuration that could leak a token or run attacker-

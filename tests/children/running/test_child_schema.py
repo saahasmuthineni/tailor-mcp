@@ -15,12 +15,12 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
-from biosensor_mcp.children.running.child import (
+from tailor.children.running.child import (
     SUBJECT_ID_SCHEMA,
     RunningChild,
 )
-from biosensor_mcp.framework.interfaces import ValidationSchema
-from biosensor_mcp.framework.security import ParamValidator
+from tailor.framework.interfaces import ValidationSchema
+from tailor.framework.security import ParamValidator
 
 SUBJECT_ID_PATTERN = r"^[A-Za-z0-9_\-]{1,64}$"
 

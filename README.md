@@ -15,7 +15,7 @@ For a PI or analyst running a multi-subject CSV pilot:
 
 ```bash
 uv tool install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
-biosensor-mcp pilot          # three prompts, end-to-end smoke check
+tailor pilot          # three prompts, end-to-end smoke check
 ```
 
 For a developer exploring the framework:
@@ -24,8 +24,8 @@ For a developer exploring the framework:
 git clone https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
 cd Biosensor-to-LLM-Connector
 pip install -e ".[dev]"
-biosensor-mcp demo           # researcher first-look: HIP Lab cohort tools on bundled fixtures
-biosensor-mcp --help         # see all commands
+tailor demo           # researcher first-look: HIP Lab cohort tools on bundled fixtures
+tailor --help         # see all commands
 ```
 
 Then open [**docs/guides/worked-example.ipynb**](docs/guides/worked-example.ipynb) for a 10-minute end-to-end walkthrough: the router pipeline, a Tier-1 call, an audit row, the analyst-side consent gate firing, and a vault theme round-tripping to Obsidian-compatible markdown — all on synthetic data, no credentials required.
@@ -263,7 +263,7 @@ pip install -e ".[dev]"
 ### Verify
 
 ```bash
-biosensor-mcp --help
+tailor --help
 pytest -v
 python tests/security_probe.py
 ```
@@ -275,32 +275,32 @@ Add to your Claude Desktop config (`claude_desktop_config.json`):
 ```json
 {
   "mcpServers": {
-    "biosensor-mcp": {
-      "command": "~/.biosensor-mcp/venv/bin/python",
-      "args": ["-m", "biosensor_mcp", "serve"],
+    "tailor": {
+      "command": "~/.tailor/venv/bin/python",
+      "args": ["-m", "tailor", "serve"],
       "env": {
-        "BIOSENSOR_CONFIG_DIR": "~/.biosensor-mcp",
-        "BIOSENSOR_DATA_DIR": "~/.biosensor-mcp/data"
+        "BIOSENSOR_CONFIG_DIR": "~/.tailor",
+        "BIOSENSOR_DATA_DIR": "~/.tailor/data"
       }
     }
   }
 }
 ```
 
-Replace `~/.biosensor-mcp/venv/bin/python` with the path to your Python
+Replace `~/.tailor/venv/bin/python` with the path to your Python
 interpreter.
 
 ### Commands
 
 | Command | Description |
 |---|---|
-| `biosensor-mcp pilot` | Multi-subject CSV pilot wizard (v6.2.1) — three prompts, end-to-end smoke check |
-| `biosensor-mcp tour` | Live-audience walkthrough — scaffolds bundled HIP Lab fixtures + registers with Claude Desktop (ADR 0024) |
-| `biosensor-mcp serve` | Start the MCP server (invoked by the LLM client) |
-| `biosensor-mcp demo` | Researcher first-look — runs cohort tools on bundled HIP Lab fixtures (ADR 0027) |
-| `biosensor-mcp setup` | Strava OAuth wizard (for the worked example) |
-| `biosensor-mcp status` | Diagnostic check: tokens, DB state, vault config |
-| `biosensor-mcp uninstall` | Clean removal |
+| `tailor pilot` | Multi-subject CSV pilot wizard (v6.2.1) — three prompts, end-to-end smoke check |
+| `tailor tour` | Live-audience walkthrough — scaffolds bundled HIP Lab fixtures + registers with Claude Desktop (ADR 0024) |
+| `tailor serve` | Start the MCP server (invoked by the LLM client) |
+| `tailor demo` | Researcher first-look — runs cohort tools on bundled HIP Lab fixtures (ADR 0027) |
+| `tailor setup` | Strava OAuth wizard (for the worked example) |
+| `tailor status` | Diagnostic check: tokens, DB state, vault config |
+| `tailor uninstall` | Clean removal |
 
 ### Worked example: the running child
 
@@ -311,7 +311,7 @@ To run against live Strava data:
 1. Create a Strava API app at
    [strava.com/settings/api](https://www.strava.com/settings/api)
    (set callback to `localhost`).
-2. Run `biosensor-mcp setup` to complete OAuth.
+2. Run `tailor setup` to complete OAuth.
 3. Restart your MCP client and query — *"summarize my last run"*,
    *"how has my HR drift changed?"* — to see the full pipeline in action.
 
@@ -394,7 +394,7 @@ Detailed notes in [CLAUDE.md](CLAUDE.md).
 | OAuth "address already in use" on port 8189 | Another process is bound to that port. Kill it or wait for it to release. |
 | `rate_limit.json` corruption warning | Delete the file — it will be rebuilt on next API call. |
 | `subject_id` not appearing in audit rows | Pass `subject_id` as a parameter in the tool call, not as a header. |
-| Vault disabled silently | Check `~/.biosensor-mcp/logs/` for a `user_config.json` parse warning. |
+| Vault disabled silently | Check `~/.tailor/logs/` for a `user_config.json` parse warning. |
 
 ---
 

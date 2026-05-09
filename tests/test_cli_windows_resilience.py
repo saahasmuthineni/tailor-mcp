@@ -7,7 +7,7 @@ existing gate (pytest, ruff, security probe, CLI smoke) passed cleanly:
 * ``cmd_status`` printed a U+2192 arrow that crashes ``UnicodeEncodeError``
   under Windows PowerShell 5's cp1252 stdout. Linux UTF-8 stdout missed it.
 * ``cmd_status`` ran ``SELECT COUNT(*) FROM activities`` without a try/except,
-  crashing on any fresh ``biosensor-mcp tour`` install (the data dir gets
+  crashing on any fresh ``tailor tour`` install (the data dir gets
   created with an empty SQLite file before the Strava child has populated
   any tables).
 
@@ -36,9 +36,9 @@ from unittest.mock import patch
 
 import pytest
 
-import biosensor_mcp.__main__ as cli
+import tailor.__main__ as cli
 
-SRC_ROOT = Path(__file__).parent.parent / "src" / "biosensor_mcp"
+SRC_ROOT = Path(__file__).parent.parent / "src" / "tailor"
 
 
 def _user_facing_print_lines(path: Path) -> list[tuple[int, str]]:
@@ -155,8 +155,8 @@ class TestStdoutReconfigureHelper:
 
 
 class TestCmdStatusOnFreshTourInstall:
-    """``biosensor-mcp tour`` creates the data dir but no Strava tables.
-    A recipient running ``biosensor-mcp status`` next must not crash on
+    """``tailor tour`` creates the data dir but no Strava tables.
+    A recipient running ``tailor status`` next must not crash on
     the activities/streams SELECT against an empty SQLite file."""
 
     def test_cmd_status_does_not_crash_when_activities_table_missing(

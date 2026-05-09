@@ -1,6 +1,6 @@
 # Share the demo with a friend (one URL)
 
-**Audience:** the boss-architect, when they want to send `biosensor-mcp
+**Audience:** the boss-architect, when they want to send `tailor
 demo` to a technical friend (CS grad, researcher, RSE) for evaluation.
 This guide walks through the one-time public-mirror setup and the
 per-release ritual that produces the shareable URL.
@@ -48,13 +48,13 @@ data. The source repo is private (ask the author for access if
 interested in the design). This repo exists only to host:
 
 - Release wheels as GitHub release assets
-- A rendered transcript of `biosensor-mcp demo` (regenerated on
+- A rendered transcript of `tailor demo` (regenerated on
   each release)
 
 A friend evaluating the framework should run:
 
 ```
-uvx --from <wheel-url-from-latest-release> biosensor-mcp demo
+uvx --from <wheel-url-from-latest-release> tailor demo
 ```
 
 The latest release page has the wheel URL.
@@ -108,7 +108,7 @@ into the existing ship-it flow.
 python -m build
 ```
 
-This produces `dist/biosensor_mcp-<version>-py3-none-any.whl`.
+This produces `dist/tailor-<version>-py3-none-any.whl`.
 
 ### 2. Generate the shareable transcript
 
@@ -116,7 +116,7 @@ For the public mirror page, always pass `--audience=public` (per
 [ADR 0030](../adr/0030-public-mirror-narrative-and-affordance-depth.md)):
 
 ```
-biosensor-mcp demo --audience=public --save-shareable
+tailor demo --audience=public --save-shareable
 ```
 
 In `--audience=public` mode the saved markdown gets per-persona
@@ -127,11 +127,11 @@ zero-outbound-affordances invariant), and a render-time URL-allowlist
 check that hard-fails CI if any disallowed outbound URL appears.
 
 By default this writes to
-`~/.biosensor-mcp/shareable-demo-v<version>.md`. The output path is
+`~/.tailor/shareable-demo-v<version>.md`. The output path is
 printed at the end of the demo. You can also pass an explicit path:
 
 ```
-biosensor-mcp demo --audience=public --save-shareable demo-share.md
+tailor demo --audience=public --save-shareable demo-share.md
 ```
 
 Drop `--audience=public` (or pass `--audience=developer`) only when
@@ -147,7 +147,7 @@ In your local clone of `biosensormcpdemo` (the public repo):
 1. Copy the shareable markdown into the repo as `README.md` (renaming
    from the default `shareable-demo-v<version>.md`):
    ```
-   cp ~/.biosensor-mcp/shareable-demo-v<version>.md ./README.md
+   cp ~/.tailor/shareable-demo-v<version>.md ./README.md
    ```
    GitHub Pages will render this as the home page.
 
@@ -160,7 +160,7 @@ In your local clone of `biosensormcpdemo` (the public repo):
 
 3. Create a GitHub release with the wheel attached:
    ```
-   gh release create v<version> dist/biosensor_mcp-<version>-py3-none-any.whl --title "v<version>" --notes "Demo for v<version>. See https://<your-username>.github.io/biosensormcpdemo/ for the rendered transcript."
+   gh release create v<version> dist/tailor-<version>-py3-none-any.whl --title "v<version>" --notes "Demo for v<version>. See https://<your-username>.github.io/biosensormcpdemo/ for the rendered transcript."
    ```
 
 ### 4. Verify
@@ -188,7 +188,7 @@ In your local clone of `biosensormcpdemo` (the public repo):
 - (Optional, on a clean machine) run the `uvx` command yourself to
   confirm end-to-end installation works against the public URL.
 
-**If `biosensor-mcp demo --audience=public --save-shareable` itself
+**If `tailor demo --audience=public --save-shareable` itself
 fails with `ValueError: ...rendered output contains disallowed
 outbound URL...`**, that is the ADR 0030 render-time allowlist
 working as designed: a contributor accidentally introduced a contact
@@ -239,6 +239,6 @@ reversible.
   — the carve-out's invariants and reversal conditions.
 - [ADR 0029](../adr/0029-token-reduction-as-analytical-quality.md) —
   the demo reshape that makes the demo worth sharing publicly.
-- `src/biosensor_mcp/demo/runner.py` — the
+- `src/tailor/demo/runner.py` — the
   `--save-shareable` implementation.
-- `src/biosensor_mcp/__main__.py:cmd_demo` — the CLI flag wiring.
+- `src/tailor/__main__.py:cmd_demo` — the CLI flag wiring.

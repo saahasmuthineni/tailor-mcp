@@ -8,8 +8,8 @@ child registered with the router.
 
 import time
 
-from biosensor_mcp.framework.interfaces import ValidationSchema
-from biosensor_mcp.framework.security import (
+from tailor.framework.interfaces import ValidationSchema
+from tailor.framework.security import (
     CircuitBreaker,
     ConsentGate,
     ParamValidator,
@@ -199,7 +199,7 @@ class TestPHIScrubber:
         # matters is that further constructions do not re-emit it.
         PHIScrubber._noop_warning_emitted = False  # reset class flag
         caplog.clear()
-        with caplog.at_level("WARNING", logger="biosensor-mcp"):
+        with caplog.at_level("WARNING", logger="tailor"):
             PHIScrubber()
             PHIScrubber()
             PHIScrubber()
@@ -223,7 +223,7 @@ class TestPHIScrubber:
 
         PHIScrubber._noop_warning_emitted = False
         caplog.clear()
-        with caplog.at_level("WARNING", logger="biosensor-mcp"):
+        with caplog.at_level("WARNING", logger="tailor"):
             RealScrubber()
             RealScrubber()
         noop_warnings = [

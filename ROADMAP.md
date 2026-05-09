@@ -29,14 +29,14 @@ not engineering elegance.
 ## Shipped in v6.13.0 (2026-05-08)
 
 - ADR 0030 NEW: *"Public-mirror narrative and zero-outbound-affordances"* — codifies the `--audience=public` rendering contract, the URL allowlist hard-fail seam, and the attribution-only footer pattern. Cites ADRs 0011 / 0024 / 0027 and the researcher-utility-reviewer persona definitions. Status: Proposed → shipped.
-- `--audience=developer|public` CLI flag on `biosensor-mcp demo`: public mode splices per-persona panels (PI / analyst / IRB) after each of the 5 demo sections and applies zero-outbound-affordances (attribution-only footer, render-time URL-allowlist hard-fail).
-- `src/biosensor_mcp/demo/_personas.json`: new canonical single-source schema for persona definitions + per-section panel content — closes the F1 finding from integration-auditor (personas were split across researcher-utility-reviewer agent and inline runner logic).
+- `--audience=developer|public` CLI flag on `tailor demo`: public mode splices per-persona panels (PI / analyst / IRB) after each of the 5 demo sections and applies zero-outbound-affordances (attribution-only footer, render-time URL-allowlist hard-fail).
+- `src/tailor/demo/_personas.json`: new canonical single-source schema for persona definitions + per-section panel content — closes the F1 finding from integration-auditor (personas were split across researcher-utility-reviewer agent and inline runner logic).
 - `docs/guides/share-the-demo.md` updated: per-release ritual now uses `--audience=public`; verify checklist updated for panel count + URL-allowlist behaviour.
 - +12 tests (909 → 921+). ci-gate-runner PASS: 923/923 pytest, ruff clean, 76/76 probe, CLI smoke clean. Minor bump.
 
 ## Shipped in v6.12.0 (2026-05-08)
 
-- `biosensor-mcp demo` reshaped from 3-call cohort first-look into 5-section architectural showcase per ADR 0029 (NEW). Sections 2–5 exercise router pipeline visibility, three-tier resolution model, vault durable persistence, and local-LLM oracle substrate scan — in sequence, using the same bundled HIP Lab S001 fixture throughout.
+- `tailor demo` reshaped from 3-call cohort first-look into 5-section architectural showcase per ADR 0029 (NEW). Sections 2–5 exercise router pipeline visibility, three-tier resolution model, vault durable persistence, and local-LLM oracle substrate scan — in sequence, using the same bundled HIP Lab S001 fixture throughout.
 - New `--save-shareable [PATH]` CLI flag: tees demo stdout into a self-contained markdown file (install command + transcript + breadcrumb footer), suitable for emailing or static hosting.
 - ADR 0029 NEW: *"Token reduction is analytical quality, not just cost optimization; the demo demonstrates the architecture, not only the cohort thesis."* Partially supersedes ADR 0027 § Negative consequences.
 - ADR 0024 § 3.1 amended: public release-only mirror at `saahasmuthineni/biosensormcpdemo` (GitHub Pages `https://saahasmuthineni.github.io/biosensormcpdemo/` verified live) codified as a friend-shareable distribution carve-out alongside Drive/email channel.
@@ -56,7 +56,7 @@ not engineering elegance.
 
 ## Shipped in v6.11.0 (2026-05-07)
 
-- New `recipient-install-validator` specialist provisioned via VirtualBox + Vagrant. Provisions a clean Windows 11 base box, installs the freshly-built wheel via the documented recipient command, runs `biosensor-mcp tour`, and validates end-to-end against the wheel-installed package — catching the failure class that produced the v6.10.1–v6.10.4 patch quartet (bugs invisible to host-side gates running against the dev tree).
+- New `recipient-install-validator` specialist provisioned via VirtualBox + Vagrant. Provisions a clean Windows 11 base box, installs the freshly-built wheel via the documented recipient command, runs `tailor tour`, and validates end-to-end against the wheel-installed package — catching the failure class that produced the v6.10.1–v6.10.4 patch quartet (bugs invisible to host-side gates running against the dev tree).
 - Gate is mandatory + file-touched-gated. Fires when any of `tour.py`, `pilot.py`, `__main__.py`, `wizard.py`, `pyproject.toml` package-data globs, or `_fixtures/**` changes. Composes with `ci-gate-runner` at the `release-shipper` boundary.
 - ADR 0028 codifies the structural argument under ADR 0011's promotion policy, eight-step install-ritual assertion list, `boot_timeout=1800s` (empirically validated on Win 11 Home with `VirtualMachinePlatform = Enabled`), and six alternatives considered + rejected.
 - Accepted v1 gap named explicitly: no Claude Desktop pre-installed in base image; ADR 0026 dual-write logic exercised by mocked host tests but not in-guest. v2 escalation path named in ADR 0028.
@@ -64,8 +64,8 @@ not engineering elegance.
 
 ## Shipped in v6.10.5 (2026-05-07)
 
-- `biosensor-mcp demo` reframed from synthetic-Strava operator self-verification to bundled HIP Lab cohort fixtures researcher first-look per [ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md). Closes the drift between CLAUDE.md's stated framing ("Strava is a worked example, not the canonical use case") and the demo's actual behavior across the entire v6.x cycle.
-- `demo/runner.py` rewritten: instantiates `CSVDirectoryChild`, exercises `csv_cohort_summary` (by sex, by group) + `csv_force_decline` on pinned subject S001 against bundled `_fixtures/hip_lab_demo_realistic/force/`. Output is the real result envelope shape; the router / audit / consent-gate path is explicitly out-of-scope with a pointer to `biosensor-mcp tour`.
+- `tailor demo` reframed from synthetic-Strava operator self-verification to bundled HIP Lab cohort fixtures researcher first-look per [ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md). Closes the drift between CLAUDE.md's stated framing ("Strava is a worked example, not the canonical use case") and the demo's actual behavior across the entire v6.x cycle.
+- `demo/runner.py` rewritten: instantiates `CSVDirectoryChild`, exercises `csv_cohort_summary` (by sex, by group) + `csv_force_decline` on pinned subject S001 against bundled `_fixtures/hip_lab_demo_realistic/force/`. Output is the real result envelope shape; the router / audit / consent-gate path is explicitly out-of-scope with a pointer to `tailor tour`.
 - `demo/sample_data.py` preserved untouched per ADR 0008 § Alternatives.
 - Deferred `demo` → `verify` rename KILLED: a researcher-first-look surface should not be called `verify`. ROADMAP item rewritten as KILLED with explanation. ADR 0024 deferral paragraph updated to name the kill.
 - Doc-truth drift cleanup (9 sites caught by `red-team-reviewer` adversarial pass per ADR 0010): README.md ×3, CONTRIBUTING.md, tour.py module docstring, ROADMAP.md ×2, docs/guides/claude-desktop-demo.md ×2. Known debt: `docs/assets/demo.svg` orphan asset queued for future doc-pass per ADR 0027 § Negative consequences (resolved in the post-v6.13.0 cleanup pass — orphan removed; replacement HIP Lab cohort visualization remains an open creative item).
@@ -87,23 +87,23 @@ not engineering elegance.
 
 ## Shipped in v6.10.3 (2026-05-06)
 
-- Tour cleans sibling `biosensor-*` entries from `claude_desktop_config.json` before adding its own. Closes the multi-entry coexistence trap: a recipient who had a stale bare `biosensor-mcp` entry (written by web-Claude during a failed v6.9.x install) would end up with two MCP servers after `tour --force`, leaking `biosensor_setup_help` into the working-demo state. Symmetric with v6.9.2's prefix-match cleanup in `cmd_uninstall` — uninstall cleans on teardown, tour cleans on setup.
+- Tour cleans sibling `biosensor-*` entries from `claude_desktop_config.json` before adding its own. Closes the multi-entry coexistence trap: a recipient who had a stale bare `tailor` entry (written by web-Claude during a failed v6.9.x install) would end up with two MCP servers after `tour --force`, leaking `biosensor_setup_help` into the working-demo state. Symmetric with v6.9.2's prefix-match cleanup in `cmd_uninstall` — uninstall cleans on teardown, tour cleans on setup.
 - `_register_with_claude_desktop` return type changed from `Path | None` to `tuple[Path | None, list[str]]`; `tour_main` prints cleaned entries when non-empty.
 - +2 regression tests: `test_cleans_stale_biosensor_entries_before_writing`, `test_no_op_when_only_target_entry_already_present`.
 - Structural lesson: the tour-write site must be symmetric with uninstall in its handling of `biosensor-*` siblings. Same shape as v6.9.2's prefix-match-uninstall loop closure.
 
 ## Shipped in v6.10.2 (2026-05-06)
 
-- `SetupHelpLayer` — new framework-tier layer (parallel to `LocalLLMLayer` per ADR 0022 shape) registered conditionally when `_demo_blocks_absent()` detects no `csv_dir` blocks in `user_config.json`. Surfaces a single diagnostic tool (`setup_help_get_status`) that routes an external Claude to `biosensor-mcp tour`; invisible on configured deployments (SH7 wire-test confirms). `_redact_home()` strips HIPAA Safe Harbor §164.514(b)(2)(i)(R) address components before surfacing on the wire. 16 unit tests (trigger predicate, layer surface, redaction, dispatch, audit-row provenance). 7 new subprocess wire-tests SH1-SH7 added by mcp-protocol-auditor.
-- `RECIPIENT_README.md` bundled in the wheel (`pyproject.toml` `*.md` glob added to package-data). An external Claude inspecting the .whl now discovers `biosensor-mcp tour` as the recovery path without source-code archaeology — the structural lesson from dad's transcript.
+- `SetupHelpLayer` — new framework-tier layer (parallel to `LocalLLMLayer` per ADR 0022 shape) registered conditionally when `_demo_blocks_absent()` detects no `csv_dir` blocks in `user_config.json`. Surfaces a single diagnostic tool (`setup_help_get_status`) that routes an external Claude to `tailor tour`; invisible on configured deployments (SH7 wire-test confirms). `_redact_home()` strips HIPAA Safe Harbor §164.514(b)(2)(i)(R) address components before surfacing on the wire. 16 unit tests (trigger predicate, layer surface, redaction, dispatch, audit-row provenance). 7 new subprocess wire-tests SH1-SH7 added by mcp-protocol-auditor.
+- `RECIPIENT_README.md` bundled in the wheel (`pyproject.toml` `*.md` glob added to package-data). An external Claude inspecting the .whl now discovers `tailor tour` as the recovery path without source-code archaeology — the structural lesson from dad's transcript.
 - ADR 0012 amended: Decision section extended to all three framework-tier PHI-scrubber bypass sites (vault + local_llm + setup_help) with per-layer invariants and reversal conditions. Closes phi-irb-risk-reviewer Lens 4 finding.
 - CUE_CARD.md recovery row added for the "tool list shows only ask_local_oracle + strava_list_runs" symptom.
 - Tool surface: 50 when degraded (setup_help visible), 49 when scaffolded (baseline unchanged). Patch bump.
-- Structural lesson: an external Claude inspecting the wheel must be able to discover `biosensor-mcp tour` without source-code archaeology. `SetupHelpLayer` is the in-chat fallback when wheel-inspection fails.
+- Structural lesson: an external Claude inspecting the wheel must be able to discover `tailor tour` without source-code archaeology. `SetupHelpLayer` is the in-chat fallback when wheel-inspection fails.
 
 ## Shipped in v6.10.1 (2026-05-06)
 
-- Fixed four Windows recipient demo blockers found during direct `biosensor-mcp tour` testing on Windows 11 PowerShell cp1252: Bug 1 (`→` → `->` in `cmd_status`), Bug 2 (OperationalError guard around Strava-tier SELECT on fresh tour install), Bug 3 (`←` → `<-` in `pilot.py`), Bug 5 (unicode glyphs `❌`/`✅` → `[X]`/`[OK]` in `wizard.py`).
+- Fixed four Windows recipient demo blockers found during direct `tailor tour` testing on Windows 11 PowerShell cp1252: Bug 1 (`→` → `->` in `cmd_status`), Bug 2 (OperationalError guard around Strava-tier SELECT on fresh tour install), Bug 3 (`←` → `<-` in `pilot.py`), Bug 5 (unicode glyphs `❌`/`✅` → `[X]`/`[OK]` in `wizard.py`).
 - New private `_make_cli_stdout_resilient()` in `__main__.py`: reconfigures sys.stdout/sys.stderr with `errors='replace'` so future non-cp1252 glyphs degrade to `?` rather than crashing. 3-layer defense: static glyph removal + runtime reconfigure + static guard test suite.
 - +17 regression tests (851 total): 10 in `test_cli_windows_resilience.py` (5 parametrized static-guard, 3 stdout-helper, 2 fresh-tour-install); +8 subprocess tour-path MCP wire tests in `test_serve_mcp_protocol.py` covering previously-untested force_csv + emg_csv wire surface.
 - Bug 4 (`_extract_timestamps` paired-iteration refactor) deferred to v6.11.0: red-team-reviewer HIGH OBJECTION — minimal fix produced 40% systematic error in `time_to_50pct_drop_s` on mixed-defect CSVs via silent index-misalignment. ADR 0010 adversarial pairing demonstrably caught this. No API changes; patch bump.
@@ -116,7 +116,7 @@ not engineering elegance.
 
 ## Shipped in v6.9.2 (2026-05-06)
 
-- Hardened `cmd_uninstall` to prefix-match `biosensor-` so `biosensor-tour-<variant>` orphan Claude Desktop entries are cleaned alongside `biosensor-mcp`; extracted `_clean_claude_desktop_biosensor_entries()` helper (7 new tests in `test_uninstall_cleanup.py`).
+- Hardened `cmd_uninstall` to prefix-match `biosensor-` so `biosensor-tour-<variant>` orphan Claude Desktop entries are cleaned alongside `tailor`; extracted `_clean_claude_desktop_biosensor_entries()` helper (7 new tests in `test_uninstall_cleanup.py`).
 - Switched all CSV-open and JSON-sidecar reads in `force_csv` (3 sites), `emg_csv` (3 sites), and `csv_dir` (6 sites) from `utf-8` to `utf-8-sig` for transparent BOM stripping — Excel- / PowerShell-saved data would otherwise silently corrupt first-column header lookups and sidecar filename matches (`TestBomTransparency` in each shape suite, +4 tests).
 - Fixed `tour --force` to `rmtree` the target dir before scaffolding so a broken scaffold can be recovered as `WINDOWS_QUICKSTART` documents (+1 test in `test_tour_subcommand.py`).
 - +12 regression tests total; 834 pass. Bug fixes only; patch bump.
@@ -130,11 +130,11 @@ not engineering elegance.
 
 ## Shipped in v6.9.0 (2026-05-04)
 
-- Wheel-distributed `biosensor-mcp tour` CLI subcommand ([ADR 0024](docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md)). Scaffolds the HIP Lab realistic demo from bundled wheel fixtures into `~/.biosensor-mcp/demos/hip-lab/`; copies 48 CSVs + 3 metadata sidecars + 1 seed vault moment via `importlib.resources`; writes `user_config.json` with absolute paths; merges Claude Desktop config — recipient never types an env var. Flags: `--variant`, `--target`, `--no-claude-desktop`, `--force`. Inherits `pilot.py`'s atomic-write + BOM round-trip + deep-merge hardenings.
-- HIP Lab realistic fixtures bundled into the wheel. Migrated from `examples/hip_lab_demo/realistic/` to `src/biosensor_mcp/_fixtures/hip_lab_demo_realistic/`; `pyproject.toml` package-data globs extended. Distribution: pre-built wheel via Drive/email; no PyPI publish; wheel size 1.26 MB (budget 10 MB).
+- Wheel-distributed `tailor tour` CLI subcommand ([ADR 0024](docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md)). Scaffolds the HIP Lab realistic demo from bundled wheel fixtures into `~/.tailor/demos/hip-lab/`; copies 48 CSVs + 3 metadata sidecars + 1 seed vault moment via `importlib.resources`; writes `user_config.json` with absolute paths; merges Claude Desktop config — recipient never types an env var. Flags: `--variant`, `--target`, `--no-claude-desktop`, `--force`. Inherits `pilot.py`'s atomic-write + BOM round-trip + deep-merge hardenings.
+- HIP Lab realistic fixtures bundled into the wheel. Migrated from `examples/hip_lab_demo/realistic/` to `src/tailor/_fixtures/hip_lab_demo_realistic/`; `pyproject.toml` package-data globs extended. Distribution: pre-built wheel via Drive/email; no PyPI publish; wheel size 1.26 MB (budget 10 MB).
 - ADR 0024 codifies synthetic-by-construction precondition — bundling permitted only for bytes that are synthetic by construction; real or de-identified cohort data require a superseding ADR.
 - `examples/hip_lab_demo/realistic/setup.py` preserved as thin shim delegating to `tour_main()`; `rehearse.py` rewritten to rehearse the recipient code path against a temp dir; `WINDOWS_QUICKSTART.md` becomes a fully wheel-driven recipient guide.
-- Deferred (named in ROADMAP): legacy `biosensor-mcp demo` → `verify` rename (subsequently *killed* in v6.10.5 per [ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md) — `demo` is now a researcher first-look, not operator self-verification, so the `verify` rename became the wrong move); PyPI publish path when recipient set crosses ~10.
+- Deferred (named in ROADMAP): legacy `tailor demo` → `verify` rename (subsequently *killed* in v6.10.5 per [ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md) — `demo` is now a researcher first-look, not operator self-verification, so the `verify` rename became the wrong move); PyPI publish path when recipient set crosses ~10.
 - 23 new tests (20 `test_tour_subcommand.py` + 3 subprocess `test_serve_mcp_protocol.py`); 818/818 passed. 7-agent release pass clean.
 
 ## Shipped in v6.8.1 (2026-05-03)
@@ -235,7 +235,7 @@ widens from 5 to 7 tools.
   `Server.run(read, write)` was missing the third
   `initialization_options` argument required by mcp 1.27.0. Fix is
   one line (`server.create_initialization_options()`). New
-  `tests/test_serve_startup_smoke.py` runs `biosensor-mcp serve` as
+  `tests/test_serve_startup_smoke.py` runs `tailor serve` as
   a subprocess with closed stdin and asserts no traceback — closes
   the gate-evasion class for upstream-mcp-SDK signature drift. The
   CLI `--help` smoke test does not exercise stdio_server, so this
@@ -372,7 +372,7 @@ non-technical PIs by collapsing the seven-step multi-subject pilot
 quickstart into two terminal commands and three prompts. No router,
 security-pipeline, child, or vault-layer architecture changes.
 
-- **`biosensor-mcp pilot` CLI subcommand** (`src/biosensor_mcp/pilot.py`) —
+- **`tailor pilot` CLI subcommand** (`src/tailor/pilot.py`) —
   three-prompt wizard: auto-detects CSV schema across all files in the
   directory, writes `user_config.json` atomically, optionally registers
   with Claude Desktop on Win/macOS (skipped on Linux), runs an end-to-end
@@ -390,10 +390,10 @@ security-pipeline, child, or vault-layer architecture changes.
   pCloud, Nextcloud, and MEGA.
 - **Synthetic CSV fixtures moved into package** — P001/P002/P003 moved
   from `examples/multi_subject_pilot/csv/` to
-  `src/biosensor_mcp/_fixtures/multi_subject_pilot/csv/`. pyproject.toml
+  `src/tailor/_fixtures/multi_subject_pilot/csv/`. pyproject.toml
   `package-data` globs `_fixtures/**/*.csv`. Wheel install and source-tree
   work identically.
-- **`docs/guides/multi-subject-pilot.md` rewritten** — `biosensor-mcp pilot`
+- **`docs/guides/multi-subject-pilot.md` rewritten** — `tailor pilot`
   is now the primary path; manual setup demoted to advanced fallback.
   Install command updated to `uv tool install git+...`.
 - **9 new tests** in `tests/test_pilot_wizard.py`; full suite 496/496 green.
@@ -569,7 +569,7 @@ group that doesn't want to start from scratch:
 - **ECG child** against MIT-BIH — rhythm classification, HRV windows,
   QT intervals, beat-level anomaly flagging.
 - ~~**Generic CSV directory child**~~ **Shipped** — see
-  `src/biosensor_mcp/children/csv_dir/`. Given a directory of
+  `src/tailor/children/csv_dir/`. Given a directory of
   per-subject CSVs with a declared timestamp column and value schema,
   exposes 7 tiered analytical tools (v6.5.0 added `csv_cohort_summary` +
   `csv_force_decline` per ADR 0015). Opt-in via `csv_dir` key in
@@ -583,7 +583,7 @@ group that doesn't want to start from scratch:
 **Shipped**: a minimal `children/template/` skeleton — three Tier-1
 tools, one Tier-2, one Tier-3, with every abstract method stubbed
 out, param schemas illustrated, and `subject_id` wired throughout.
-New children fork from `src/biosensor_mcp/children/template/` rather
+New children fork from `src/tailor/children/template/` rather
 than reading the running child end-to-end. Shape-contract tests at
 `tests/children/template/test_template_shape.py` are copyable as a
 starting point for the new child's own tests.
@@ -676,8 +676,8 @@ agnostic governance" claim measurable.
 ## CLI UX: rename `setup` → `setup-strava`
 
 After v6.2.1, the framework ships two wizard subcommands under
-generic English verbs: `biosensor-mcp setup` (Strava OAuth, the
-worked-example child) and `biosensor-mcp pilot` (the multi-subject
+generic English verbs: `tailor setup` (Strava OAuth, the
+worked-example child) and `tailor pilot` (the multi-subject
 CSV setup, the v6.2 flagship use case). Disambiguation today lives
 in `--help` text only; the cleaner long-term answer is to rename
 `setup` → `setup-strava` so each verb names what it actually
@@ -690,7 +690,7 @@ references stabilise or when a third wizard joins the lineup.
 ## CLI UX: ~~rename legacy `demo` → `verify`~~ — KILLED in v6.10.5 per ADR 0027
 
 The deferred rename is no longer the right move. v6.10.5 reframed
-`biosensor-mcp demo` from operator-self-verification (synthetic
+`tailor demo` from operator-self-verification (synthetic
 running-data sample) to **researcher first-look** (bundled HIP Lab
 cohort fixtures driven through `CSVDirectoryChild.execute()`) per
 [ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md). A
@@ -705,7 +705,7 @@ and writes nothing.
 ## Pre-existing csv_dir HIGH-region coverage debt (v6.5.1)
 
 The v6.5.0 release pass identified 34 lines of pre-existing HIGH-region
-test debt in [`csv_dir/child.py`](src/biosensor_mcp/children/csv_dir/child.py)
+test debt in [`csv_dir/child.py`](src/tailor/children/csv_dir/child.py)
 across init, config-load, consent-property, and pre-v6.5 handler error
 paths (lines 105, 137, 140-142, 151, 154, 164-165, 167, 198, 209, 228,
 428, 464, 492, 501, 519-520, 542, 558-559, 583, 615, 640, 644-645, 659).

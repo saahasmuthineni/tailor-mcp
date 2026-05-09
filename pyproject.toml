@@ -3,21 +3,23 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "biosensor-mcp"
-version = "6.13.0"
-description = "MCP middleware framework for piping high-frequency biosensor data into LLM context windows — server-side analytics, consent gates, cost gates, audit log"
+name = "tailor-mcp"
+version = "7.0.0"
+description = "Tailor: a local-first MCP framework that lets any MCP-speaking AI work with your own data — your Wardrobe stays on your machine, with server-side analytics, consent gates, cost gates, and a durable audit log."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
 authors = [{name = "Saahas Muthineni"}]
-keywords = ["mcp", "biosensor", "strava", "llm", "claude", "biometrics"]
+keywords = ["mcp", "ai", "personal-data", "local-first", "claude", "llm", "audit", "consent"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
+    "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Information Analysis",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
 ]
 dependencies = [
@@ -42,7 +44,7 @@ dev = [
 ]
 
 [project.scripts]
-biosensor-mcp = "biosensor_mcp.__main__:main"
+tailor = "tailor.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -54,18 +56,18 @@ where = ["src"]
 # JSON fixtures: ADR 0015 metadata.json sidecars on each modality dir.
 # MD fixtures: pre-seeded vault moments (e.g. the 2026-04-20 S004
 #   cross-session-memory seed for the HIP-Lab tour wow moment).
-biosensor_mcp = [
+tailor = [
     "py.typed",
     "_fixtures/**/*.csv",
     "_fixtures/**/*.json",
     "_fixtures/**/*.md",
     # Top-level recipient docs shipped at the root of the package so an
     # external Claude session inspecting the wheel zip listing can
-    # discover `biosensor-mcp tour` without parsing source code (closes
+    # discover `tailor tour` without parsing source code (closes
     # the v6.10.2 web-Claude-mediated-debugging discoverability gap).
     "*.md",
     # Demo persona schema shipped with the package so
-    # `biosensor-mcp demo --audience=public --save-shareable` can render
+    # `tailor demo --audience=public --save-shareable` can render
     # per-persona panels on the recipient's machine (per ADR 0030).
     "demo/_personas.json",
 ]
@@ -86,7 +88,7 @@ timeout = 30
 timeout_method = "thread"
 
 [tool.coverage.run]
-source = ["biosensor_mcp"]
+source = ["tailor"]
 # Excluded paths are intentionally undertested today — keeping them in the
 # coverage denominator forces an artificially low floor that hides real
 # regressions in the framework/children code that IS tested.
@@ -95,10 +97,10 @@ source = ["biosensor_mcp"]
 #   demo/*       — synthetic-data demo runner, exercised manually
 #   strava_api.py — network I/O against the live Strava API
 omit = [
-    "*/biosensor_mcp/__main__.py",
-    "*/biosensor_mcp/wizard.py",
-    "*/biosensor_mcp/demo/*",
-    "*/biosensor_mcp/children/running/strava_api.py",
+    "*/tailor/__main__.py",
+    "*/tailor/wizard.py",
+    "*/tailor/demo/*",
+    "*/tailor/children/running/strava_api.py",
 ]
 
 [tool.coverage.report]
@@ -118,7 +120,7 @@ python_version = "3.10"
 ignore_missing_imports = true
 check_untyped_defs = false
 # Don't type-check tests for now — too much fixture-heavy Any.
-exclude = ["tests/", "src/biosensor_mcp/demo/"]
+exclude = ["tests/", "src/tailor/demo/"]
 
 [tool.ruff]
 line-length = 100

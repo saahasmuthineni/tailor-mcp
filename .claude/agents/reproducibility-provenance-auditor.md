@@ -19,7 +19,7 @@ The caller gives you any one of:
 - **A specific diff range** (e.g. `main..HEAD`, `abc123..def456`).
 - **A PR number** — `gh pr checkout <PR>` then audit.
 
-If the diff has zero touched files in `src/biosensor_mcp/framework/` or `src/biosensor_mcp/children/*/processing.py`, refuse — there are no invariants to audit. The caller should know this is a no-op for diffs outside those paths.
+If the diff has zero touched files in `src/tailor/framework/` or `src/tailor/children/*/processing.py`, refuse — there are no invariants to audit. The caller should know this is a no-op for diffs outside those paths.
 
 ## Pre-flight
 
@@ -37,7 +37,7 @@ If the diff has zero touched files in `src/biosensor_mcp/framework/` or `src/bio
 
    Reading these at fire-time means the invariant list updates when the ADRs do; the prompt cannot drift from the source of truth.
 
-3. **Read the touched files.** For each file in the diff under `src/biosensor_mcp/framework/` or `src/biosensor_mcp/children/*/processing.py`, read both the new version and ±20 lines of context around each changed hunk.
+3. **Read the touched files.** For each file in the diff under `src/tailor/framework/` or `src/tailor/children/*/processing.py`, read both the new version and ±20 lines of context around each changed hunk.
 
 ## The invariants (re-derive from the ADRs at fire-time)
 
@@ -99,19 +99,19 @@ For each applicable invariant, do a `grep` or read against the new file content.
 
 ```bash
 # A.1 — no PRNG calls in processing
-grep -nE 'random\.|secrets\.|numpy\.random' src/biosensor_mcp/children/running/processing.py
+grep -nE 'random\.|secrets\.|numpy\.random' src/tailor/children/running/processing.py
 
 # A.2 — no clock reads
-grep -nE 'datetime\.now|datetime\.utcnow|time\.time\(' src/biosensor_mcp/children/running/processing.py
+grep -nE 'datetime\.now|datetime\.utcnow|time\.time\(' src/tailor/children/running/processing.py
 
 # A.5 — every method is @staticmethod
-grep -B1 -E '^    def [a-z_]' src/biosensor_mcp/children/running/processing.py | grep -v staticmethod
+grep -B1 -E '^    def [a-z_]' src/tailor/children/running/processing.py | grep -v staticmethod
 
 # B.1 — subject_id parameter present in every audit.record call
-grep -A3 'audit\.record\|AuditLog\.\|self\._audit\.record' src/biosensor_mcp/framework/router.py | grep subject_id
+grep -A3 'audit\.record\|AuditLog\.\|self\._audit\.record' src/tailor/framework/router.py | grep subject_id
 
 # C.1 — _meta block fields
-grep -B2 -A6 '_meta' src/biosensor_mcp/framework/router.py | grep -E 'package_version|tool_name|called_at'
+grep -B2 -A6 '_meta' src/tailor/framework/router.py | grep -E 'package_version|tool_name|called_at'
 ```
 
 For each probe, capture file:line evidence. A probe that returns the expected pattern = invariant HOLDS. A probe that returns an unexpected pattern (PRNG call in processing, missing field in `_meta`) = BROKEN.
@@ -134,17 +134,17 @@ ADRs read at fire-time: 0001, 0002, 0003, 0008 (and any others your audit ground
 
 --- PER-FILE STATUS ---
 
-[HOLDS] src/biosensor_mcp/children/running/processing.py
+[HOLDS] src/tailor/children/running/processing.py
   Invariants checked: A.1 A.2 A.3 A.4 A.5
   Evidence: {one-line probe summary per invariant}
 
-[BROKEN] src/biosensor_mcp/framework/router.py
+[BROKEN] src/tailor/framework/router.py
   Invariant violated: B.1 (subject_id parameter missing from audit.record call)
   Citation: ADR 0002 § Decision
   File:line: framework/router.py:412
   Evidence: "audit.record(domain='strava', tool=...)" — subject_id parameter not present
 
-[NEEDS REVIEW] src/biosensor_mcp/framework/vault/layer.py
+[NEEDS REVIEW] src/tailor/framework/vault/layer.py
   Invariants in scope: D.2 (subject_id propagation in vault dispatch)
   Why review: change touches a code path that may or may not preserve match-or-NULL filtering;
               probe inconclusive without reading the calling test.

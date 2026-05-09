@@ -1,9 +1,9 @@
 """
-Thin shim — delegates to ``biosensor-mcp tour``.
+Thin shim — delegates to ``tailor tour``.
 
 Pre-v6.9.0 this script was the in-repo scaffolder for the HIP Lab
 realistic demo. v6.9.0 ([ADR 0024](../../../docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md))
-moved scaffolding into ``biosensor_mcp.tour`` so non-technical
+moved scaffolding into ``tailor.tour`` so non-technical
 recipients can run the demo from a pre-built wheel without GitHub
 access. This file remains as a dev-convenience entry point so:
 
@@ -15,9 +15,9 @@ access. This file remains as a dev-convenience entry point so:
   CLAUDE.md release banners) stay valid.
 
 It is *not* the canonical end-user path — recipients of the wheel
-run ``biosensor-mcp tour`` directly. If you are reading this in
+run ``tailor tour`` directly. If you are reading this in
 the source tree, ``python examples/hip_lab_demo/realistic/setup.py``
-and ``biosensor-mcp tour --variant=hip-lab --no-claude-desktop``
+and ``tailor tour --variant=hip-lab --no-claude-desktop``
 are equivalent.
 """
 
@@ -26,5 +26,5 @@ from __future__ import annotations
 import sys
 
 if __name__ == "__main__":
-    from biosensor_mcp.tour import main as tour_main
+    from tailor.tour import main as tour_main
     sys.exit(tour_main(["--variant=hip-lab", "--no-claude-desktop"]))

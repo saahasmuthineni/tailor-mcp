@@ -52,7 +52,7 @@ archive.
 ## Decision
 
 The vault layer gains seven governance features, all implemented
-inside `biosensor_mcp.framework.vault` and surfaced as Tier-1 tools
+inside `tailor.framework.vault` and surfaced as Tier-1 tools
 that skip the biosensor-tier gates (consent, cost, circuit breaker,
 PHI-scrub).  Only parameter validation and audit apply — identical to
 every other vault tool.

@@ -1,7 +1,7 @@
 """
 End-to-end MCP-protocol subprocess audit.
 
-These tests drive ``python -m biosensor_mcp serve`` as a real
+These tests drive ``python -m tailor serve`` as a real
 subprocess speaking JSON-RPC over stdio, with a fully-seeded
 config (vault + csv_dir + running) so all 44+ tools register.
 
@@ -76,7 +76,7 @@ def test_csv_list_files_round_trip() -> None:
         meta = body["_meta"]
         assert meta["tool_name"] == "csv_list_files"
         assert meta["domain"] == "csv_dir"
-        from biosensor_mcp import __version__
+        from tailor import __version__
         assert meta["package_version"] == __version__
         # called_at must be ISO-8601 parseable, NOT a Python repr.
         from datetime import datetime
@@ -324,7 +324,7 @@ def test_wire_default_handles_known_types_no_repr() -> None:
     from decimal import Decimal
     from pathlib import PurePosixPath
 
-    from biosensor_mcp.framework.audit import _dumps
+    from tailor.framework.audit import _dumps
 
     payload = {
         "ts_aware": datetime(2026, 4, 30, 12, 0, 0, tzinfo=timezone.utc),
@@ -363,7 +363,7 @@ def test_wire_default_handles_known_types_no_repr() -> None:
 
 def test_wire_default_raises_on_unknown_type() -> None:
     """Unknown types must raise loudly, not silently coerce via repr."""
-    from biosensor_mcp.framework.audit import _dumps
+    from tailor.framework.audit import _dumps
 
     class _Mystery:
         pass
@@ -397,9 +397,9 @@ def test_every_vaultable_tool_has_renderer() -> None:
     from pathlib import Path
     from tempfile import TemporaryDirectory
 
-    from biosensor_mcp.children.csv_dir import CSVDirectoryChild
-    from biosensor_mcp.children.running import RunningChild
-    from biosensor_mcp.framework.vault.writer import VaultWriter
+    from tailor.children.csv_dir import CSVDirectoryChild
+    from tailor.children.running import RunningChild
+    from tailor.framework.vault.writer import VaultWriter
 
     with TemporaryDirectory() as tmp:
         config_dir = Path(tmp) / "config"
@@ -463,8 +463,8 @@ def test_post_execute_hook_failure_surfaces_in_meta() -> None:
     from pathlib import Path
     from tempfile import TemporaryDirectory
 
-    from biosensor_mcp.children.running import RunningChild
-    from biosensor_mcp.framework.router import RouterMCP
+    from tailor.children.running import RunningChild
+    from tailor.framework.router import RouterMCP
 
     async def _run():
         with TemporaryDirectory() as tmp:
@@ -519,7 +519,7 @@ def test_audit_dumps_no_repr_with_stdlib_fallback(monkeypatch) -> None:
     """
     monkeypatch.setitem(sys.modules, "orjson", None)
     audit = importlib.reload(
-        importlib.import_module("biosensor_mcp.framework.audit"),
+        importlib.import_module("tailor.framework.audit"),
     )
     try:
         from datetime import datetime, timezone
@@ -531,7 +531,7 @@ def test_audit_dumps_no_repr_with_stdlib_fallback(monkeypatch) -> None:
         # Restore the real module for downstream tests.
         sys.modules.pop("orjson", None)
         importlib.reload(
-            importlib.import_module("biosensor_mcp.framework.audit"),
+            importlib.import_module("tailor.framework.audit"),
         )
 
 
@@ -604,7 +604,7 @@ def test_ask_local_oracle_tools_call_happy_path() -> None:
     """
     from datetime import datetime
 
-    from biosensor_mcp import __version__
+    from tailor import __version__
 
     with spawn_server() as (client, _paths):
         client.initialize()
@@ -777,7 +777,7 @@ def test_ask_local_oracle_audit_db_oracle_columns() -> None:
         import subprocess
 
         proc = subprocess.Popen(
-            [sys.executable, "-m", "biosensor_mcp", "serve"],
+            [sys.executable, "-m", "tailor", "serve"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -857,7 +857,7 @@ def test_ask_local_oracle_audit_db_oracle_columns() -> None:
             )
 
         # Idempotency: second AuditLog on same db must not error
-        from biosensor_mcp.framework.audit import AuditLog
+        from tailor.framework.audit import AuditLog
         audit2 = AuditLog(audit_db)
         try:
             cols2 = {
@@ -1060,7 +1060,7 @@ def test_oracle_substrate_count_audit_column_present_and_correct() -> None:
         }
 
         proc = subprocess.Popen(
-            [sys.executable, "-m", "biosensor_mcp", "serve"],
+            [sys.executable, "-m", "tailor", "serve"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -1114,7 +1114,7 @@ def test_oracle_substrate_count_audit_column_present_and_correct() -> None:
             )
 
         # Idempotency: second AuditLog init on same file must not crash
-        from biosensor_mcp.framework.audit import AuditLog
+        from tailor.framework.audit import AuditLog
         audit2 = AuditLog(audit_db)
         try:
             cols2 = {
@@ -1145,7 +1145,7 @@ def test_vault_writer_storage_property_accessible() -> None:
     from pathlib import Path
     from tempfile import TemporaryDirectory
 
-    from biosensor_mcp.framework.vault.writer import VaultWriter
+    from tailor.framework.vault.writer import VaultWriter
 
     with TemporaryDirectory() as tmp:
         vault_path = Path(tmp) / "vault"
@@ -1367,8 +1367,8 @@ def test_gap_reasoning_fields_wire_serialization_no_repr() -> None:
     non-empty lists and then _dumps them, mirroring exactly what the
     router's dispatch path does when an OllamaBackend returns results.
     """
-    from biosensor_mcp.framework.audit import _dumps
-    from biosensor_mcp.framework.local_llm.oracle import (
+    from tailor.framework.audit import _dumps
+    from tailor.framework.local_llm.oracle import (
         OracleMeta,
         OracleResponse,
     )
@@ -1489,7 +1489,7 @@ def test_tools_list_no_json_rpc_error_after_description_expansion() -> None:
 
 
 def test_v690_tour_subcommand_not_exposed_as_mcp_tool() -> None:
-    """V690-T1: the new ``biosensor-mcp tour`` CLI subcommand must not
+    """V690-T1: the new ``tailor tour`` CLI subcommand must not
     appear as an MCP tool in tools/list.
 
     Adjacent risk: the v6.9.0 dispatch-table addition in ``__main__.py``
@@ -1559,7 +1559,7 @@ def test_v690_serve_startup_meta_version_stamp() -> None:
     every version bump. v6.9.1 found a hardcoded ``"6.9.0"`` literal
     here that silently broke release-shipper's post-bump merge gate.
     """
-    from biosensor_mcp import __version__
+    from tailor import __version__
 
     with spawn_server() as (client, _paths):
         client.initialize()
@@ -1581,7 +1581,7 @@ def test_v690_serve_startup_meta_version_stamp() -> None:
 # wire surfaces (T1–T6, added this audit run)
 #
 # The existing ``spawn_server`` fixture wires running + csv_dir + vault.
-# The tour path (``biosensor-mcp tour``) wires force_csv + emg_csv +
+# The tour path (``tailor tour``) wires force_csv + emg_csv +
 # csv_dir (MRS) + vault, which means 9 + 8 = 17 new tools that had
 # ZERO subprocess coverage before this audit run. All tests here use
 # ``spawn_tour_server`` which scaffolds the bundled wheel fixtures.
@@ -1641,7 +1641,7 @@ def test_tour_force_csv_tier1_round_trip() -> None:
     """
     from datetime import datetime
 
-    from biosensor_mcp import __version__
+    from tailor import __version__
 
     with spawn_tour_server() as (client, _paths):
         client.initialize()
@@ -1723,7 +1723,7 @@ def test_tour_emg_csv_tier1_round_trip() -> None:
     """
     from datetime import datetime
 
-    from biosensor_mcp import __version__
+    from tailor import __version__
 
     with spawn_tour_server() as (client, _paths):
         client.initialize()
@@ -1839,11 +1839,11 @@ def test_tour_vaultable_tools_all_have_renderers() -> None:
     from pathlib import Path
     from tempfile import TemporaryDirectory
 
-    from biosensor_mcp.children.csv_dir import CSVDirectoryChild
-    from biosensor_mcp.children.emg_csv import EmgCsvChild
-    from biosensor_mcp.children.force_csv import ForceCsvChild
-    from biosensor_mcp.children.running import RunningChild
-    from biosensor_mcp.framework.vault.writer import VaultWriter
+    from tailor.children.csv_dir import CSVDirectoryChild
+    from tailor.children.emg_csv import EmgCsvChild
+    from tailor.children.force_csv import ForceCsvChild
+    from tailor.children.running import RunningChild
+    from tailor.framework.vault.writer import VaultWriter
 
     with TemporaryDirectory() as tmp:
         config_dir = Path(tmp) / "config"
@@ -1951,7 +1951,7 @@ def _spawn_empty_config_server():
             }
             import subprocess
             proc = subprocess.Popen(
-                [sys.executable, "-m", "biosensor_mcp", "serve"],
+                [sys.executable, "-m", "tailor", "serve"],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -2021,7 +2021,7 @@ def test_sh2_biosensor_setup_help_call_returns_correct_envelope() -> None:
     """
     from datetime import datetime
 
-    from biosensor_mcp import __version__
+    from tailor import __version__
 
     with _spawn_empty_config_server() as (client, _cfg, _data):
         client.initialize()
@@ -2049,8 +2049,8 @@ def test_sh2_biosensor_setup_help_call_returns_correct_envelope() -> None:
             "recipient_steps must contain only strings"
         )
         # The canonical tour command must be present
-        assert any("biosensor-mcp tour" in s for s in steps), (
-            "recipient_steps does not mention 'biosensor-mcp tour' — "
+        assert any("tailor tour" in s for s in steps), (
+            "recipient_steps does not mention 'tailor tour' — "
             "the canonical scaffolding command is absent from the wire payload"
         )
 
@@ -2200,7 +2200,7 @@ def test_sh5_setup_help_audit_row_provenance() -> None:
             "BIOSENSOR_DATA_DIR": str(data_dir),
         }
         proc = subprocess.Popen(
-            [sys.executable, "-m", "biosensor_mcp", "serve"],
+            [sys.executable, "-m", "tailor", "serve"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -2341,7 +2341,7 @@ def test_sh7_biosensor_setup_help_absent_when_force_csv_configured() -> None:
         }
         import subprocess
         proc = subprocess.Popen(
-            [sys.executable, "-m", "biosensor_mcp", "serve"],
+            [sys.executable, "-m", "tailor", "serve"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

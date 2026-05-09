@@ -11,14 +11,14 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
-from biosensor_mcp.framework.audit import _loads
-from biosensor_mcp.framework.interfaces import (
+from tailor.framework.audit import _loads
+from tailor.framework.interfaces import (
     ChildMCP,
     CostEstimate,
     ToolDefinition,
     ValidationSchema,
 )
-from biosensor_mcp.framework.router import RouterMCP
+from tailor.framework.router import RouterMCP
 
 # ── Mock Child ──
 
@@ -166,8 +166,8 @@ class TestTier1Dispatch:
             # Provenance stamps: package version, tool name, UTC timestamp.
             # These let any downstream consumer (a vault note, a paper
             # appendix) trace a result back to the exact code version.
-            import biosensor_mcp
-            assert meta["package_version"] == biosensor_mcp.__version__
+            import tailor
+            assert meta["package_version"] == tailor.__version__
             assert meta["tool_name"] == "alpha_free_tool"
             assert meta["called_at"].endswith("+00:00")
             router.close()
@@ -303,7 +303,7 @@ class TestVaultLayerIntegration:
 
     def _setup(self, tmpdir, backfill_config=None):
         """Register a router + one child + a vault layer pointing at tmp dirs."""
-        from biosensor_mcp.framework.vault import VaultLayer, VaultWriter
+        from tailor.framework.vault import VaultLayer, VaultWriter
         root = Path(tmpdir)
         vault_path = root / "vault"
         vault_path.mkdir()
@@ -365,8 +365,8 @@ class TestVaultLayerIntegration:
             meta = data["_meta"]
             assert meta["domain"] == "vault"
             # Provenance stamps apply to vault dispatch too.
-            import biosensor_mcp
-            assert meta["package_version"] == biosensor_mcp.__version__
+            import tailor
+            assert meta["package_version"] == tailor.__version__
             assert meta["tool_name"] == "vault_list_notes"
             assert "called_at" in meta
             router.close()
@@ -408,7 +408,7 @@ class TestVaultCaptureSessionIntegration:
     """
 
     def _setup(self, tmpdir):
-        from biosensor_mcp.framework.vault import VaultLayer, VaultWriter
+        from tailor.framework.vault import VaultLayer, VaultWriter
         root = Path(tmpdir)
         vault_path = root / "vault"
         vault_path.mkdir()
@@ -473,7 +473,7 @@ class TestVaultCaptureSessionIntegration:
     def test_fresh_session_surfaces_previous_moment(self):
         """Capture moment → close router → reopen → fitness summary sees it."""
         with TemporaryDirectory() as tmpdir:
-            from biosensor_mcp.framework.vault import VaultLayer, VaultWriter
+            from tailor.framework.vault import VaultLayer, VaultWriter
             root = Path(tmpdir)
             vault_path = root / "vault"
             vault_path.mkdir()
@@ -654,7 +654,7 @@ class TestPHIScrubberSeam:
             router.close()
 
     def test_subclass_scrubber_mutates_response(self):
-        from biosensor_mcp.framework.security import PHIScrubber
+        from tailor.framework.security import PHIScrubber
 
         class DropParamsScrubber(PHIScrubber):
             def scrub(self, result: dict) -> dict:
@@ -709,7 +709,7 @@ class TestPHIScrubberAuditStamp:
                 router.close()
 
     def test_subclass_scrubber_stamps_class_name(self):
-        from biosensor_mcp.framework.security import PHIScrubber
+        from tailor.framework.security import PHIScrubber
 
         class HIPAASafeHarborScrubber(PHIScrubber):
             def scrub(self, result: dict) -> dict:
@@ -761,8 +761,8 @@ class TestDispatchInternalProvenance:
                 ))
                 assert "_meta" in result
                 meta = result["_meta"]
-                import biosensor_mcp
-                assert meta["package_version"] == biosensor_mcp.__version__
+                import tailor
+                assert meta["package_version"] == tailor.__version__
                 assert meta["tool_name"] == "alpha_free_tool"
                 assert meta["source"] == "INTERNAL"
             finally:
@@ -783,7 +783,7 @@ class TestDispatchInternalProvenance:
         """Vault tools are LLM-facing; calling them via internal dispatch
         would bypass the documented vault-dispatch path and ADR 0012's
         invariants."""
-        from biosensor_mcp.framework.vault import VaultLayer, VaultWriter
+        from tailor.framework.vault import VaultLayer, VaultWriter
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             vault_root = root / "vault"
@@ -1004,7 +1004,7 @@ class TestDispatchInternalProvenance:
         """Internal cross-child calls (vault backfill) must traverse the
         same PHI-scrub seam as Claude-facing calls. Otherwise vault notes
         written by backfill would carry an un-scrubbed view."""
-        from biosensor_mcp.framework.security import PHIScrubber
+        from tailor.framework.security import PHIScrubber
 
         class StripIdScrubber(PHIScrubber):
             def scrub(self, result):
@@ -1050,8 +1050,8 @@ class TestRunningChildEndToEnd:
         """Build a router with a RunningChild pre-seeded with one synthetic run."""
         import json
 
-        from biosensor_mcp.children.running import RunningChild
-        from biosensor_mcp.demo.sample_data import (
+        from tailor.children.running import RunningChild
+        from tailor.demo.sample_data import (
             SAMPLE_ACTIVITY_ID,
             generate_sample_activity,
             generate_sample_streams,
@@ -1222,7 +1222,7 @@ class TestNoopScrubberWarningSurfacedInMeta:
                 router.close()
 
     def test_subclass_scrubber_omits_warning_from_meta(self):
-        from biosensor_mcp.framework.security import PHIScrubber
+        from tailor.framework.security import PHIScrubber
 
         class HIPAASafeHarborScrubber(PHIScrubber):
             def scrub(self, result: dict) -> dict:
@@ -1244,7 +1244,7 @@ class TestNoopScrubberWarningSurfacedInMeta:
     def test_vault_dispatch_meta_carries_warning_under_default(self):
         """Vault path uses dict-merge syntax for the conditional add;
         prove it lands in the ``_meta`` block too."""
-        from biosensor_mcp.framework.vault import VaultLayer, VaultWriter
+        from tailor.framework.vault import VaultLayer, VaultWriter
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             vault_root = root / "vault"
@@ -1476,7 +1476,7 @@ class TestRunningChildPurgeBiometricCache:
     """
 
     def test_purge_deletes_streams_and_activities_preserves_labels(self):
-        from biosensor_mcp.children.running.child import RunningStorage
+        from tailor.children.running.child import RunningStorage
         with TemporaryDirectory() as tmpdir:
             storage = RunningStorage(Path(tmpdir) / "activities.db")
             try:
@@ -1583,12 +1583,12 @@ class TestOrjsonStdlibFallback:
         import sys
         # Save the real module so we can restore it cleanly.
         real_orjson = sys.modules.get("orjson")
-        real_audit = sys.modules.get("biosensor_mcp.framework.audit")
+        real_audit = sys.modules.get("tailor.framework.audit")
         try:
             # Force ImportError on next `import orjson`.
             sys.modules["orjson"] = None
             # Reload the audit module under the no-orjson regime.
-            import biosensor_mcp.framework.audit as audit_mod
+            import tailor.framework.audit as audit_mod
             reloaded = importlib.reload(audit_mod)
             assert reloaded.JSON_BACKEND == "json (orjson not installed)", (
                 "stdlib fallback must declare itself in JSON_BACKEND so "
@@ -1619,7 +1619,7 @@ class TestVaultWriterAtomicWriteCleanup:
     def test_atomic_write_cleans_up_tmp_on_write_failure(self, monkeypatch):
         """Path 2: fd transferred to fdopen successfully, then write()
         raises mid-stream. Triggers the `fd_transferred=True` branch."""
-        from biosensor_mcp.framework.vault.writer import VaultWriter
+        from tailor.framework.vault.writer import VaultWriter
         with TemporaryDirectory() as tmpdir:
             vault_path = Path(tmpdir) / "vault"
             vault_path.mkdir()
@@ -1666,7 +1666,7 @@ class TestVaultWriterAtomicWriteCleanup:
         explicitly via the ``not fd_transferred`` branch (writer.py:
         1043-1046). Red-team v6.4.1 finding: the previous test only
         covered Path 2."""
-        from biosensor_mcp.framework.vault.writer import VaultWriter
+        from tailor.framework.vault.writer import VaultWriter
         with TemporaryDirectory() as tmpdir:
             vault_path = Path(tmpdir) / "vault"
             vault_path.mkdir()
@@ -1711,7 +1711,7 @@ class TestVaultSearchNotesKindFilter:
     """
 
     def test_search_notes_tool_definition_surfaces_kind_parameter(self):
-        from biosensor_mcp.framework.vault import VaultLayer, VaultWriter
+        from tailor.framework.vault import VaultLayer, VaultWriter
         with TemporaryDirectory() as tmpdir:
             vault_path = Path(tmpdir) / "vault"
             vault_path.mkdir()

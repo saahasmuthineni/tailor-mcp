@@ -82,7 +82,7 @@ Pay special attention to deleted tests in:
 
 Run:
 ```
-git diff <base>...HEAD -- 'src/biosensor_mcp/**/*.py' | grep -E '^-\s*(def |class )' | grep -v '^-\s*def _'
+git diff <base>...HEAD -- 'src/tailor/**/*.py' | grep -E '^-\s*(def |class )' | grep -v '^-\s*def _'
 ```
 
 Public functions/classes (no leading `_`) being removed is a soft-API-break for any downstream consumer. For each:
@@ -93,7 +93,7 @@ Public functions/classes (no leading `_`) being removed is a soft-API-break for 
 
 This is the slipperiest category — code that still exists but does something different. Sample by:
 ```
-git diff <base>...HEAD -- 'src/biosensor_mcp/**/*.py' | grep -E '^[-+]\s*(if |raise |return |except )' | head -200
+git diff <base>...HEAD -- 'src/tailor/**/*.py' | grep -E '^[-+]\s*(if |raise |return |except )' | head -200
 ```
 
 Look for:
@@ -124,32 +124,32 @@ Lowered version pins, removed `extras_require`, removed CLI entry points — fla
 
 ### 7. Schema drift (only when `--invariant=schema-drift` is passed)
 
-This category fires only when the caller passes `--invariant=schema-drift`. It adds PR-time validation of new ChildMCP schemas — the cheapest gap-fill for a low-frequency / moderate-severity invariant per ADR 0011. Run when the diff touches `src/biosensor_mcp/children/*/child.py`, `src/biosensor_mcp/children/*/__init__.py`, or `src/biosensor_mcp/framework/interfaces.py`.
+This category fires only when the caller passes `--invariant=schema-drift`. It adds PR-time validation of new ChildMCP schemas — the cheapest gap-fill for a low-frequency / moderate-severity invariant per ADR 0011. Run when the diff touches `src/tailor/children/*/child.py`, `src/tailor/children/*/__init__.py`, or `src/tailor/framework/interfaces.py`.
 
 Probes:
 
 - **`subject_id` declaration on every new tool.** ADR 0002 requires every tool's `param_schemas` to declare a `subject_id` parameter referencing the shared schema. Probe:
   ```
-  git diff <base>...HEAD -- 'src/biosensor_mcp/children/**/child.py' | grep -E '^\+.*"subject_id"'
+  git diff <base>...HEAD -- 'src/tailor/children/**/child.py' | grep -E '^\+.*"subject_id"'
   ```
   For each new tool added in the diff (look for new `ToolDefinition(...)` entries or new keys in `param_schemas`), verify a `subject_id` schema entry references `framework.interfaces.SUBJECT_ID_SCHEMA` rather than duplicating the regex inline. A new tool without `subject_id` is **Suspicious**; a new tool with an inlined regex is **Needs review**.
 
 - **`domain` uniqueness.** Each ChildMCP must have a `domain` property unique across the registered roster. Probe:
   ```
-  grep -rE 'def domain\(self\) -> str:' src/biosensor_mcp/children/
+  grep -rE 'def domain\(self\) -> str:' src/tailor/children/
   ```
   Verify no collision with existing children. A new child with a colliding `domain` is **Suspicious** — the router rejects this at registration but the rejection is a runtime error, not a PR-time signal.
 
 - **Tier numbers in {1, 2, 3}.** Each tool's `tier` field falls in the three-tier model (CLAUDE.md § "Three-Tier Access Model"). Probe:
   ```
-  git diff <base>...HEAD -- 'src/biosensor_mcp/children/**/child.py' | grep -E '^\+.*ToolDefinition\('
+  git diff <base>...HEAD -- 'src/tailor/children/**/child.py' | grep -E '^\+.*ToolDefinition\('
   ```
   Read each match and confirm the tier number. Anything outside {1, 2, 3} is **Suspicious**.
 
 - **Schema validation against `SUBJECT_ID_SCHEMA`.** The shared schema lives in `framework.interfaces`. Probe:
   ```
-  grep -nE 'SUBJECT_ID_SCHEMA' src/biosensor_mcp/framework/interfaces.py
-  grep -rnE 'SUBJECT_ID_SCHEMA' src/biosensor_mcp/children/
+  grep -nE 'SUBJECT_ID_SCHEMA' src/tailor/framework/interfaces.py
+  grep -rnE 'SUBJECT_ID_SCHEMA' src/tailor/children/
   ```
   Verify each child references the shared constant rather than duplicating the regex. Duplicate regex = **Suspicious** (was a bug fixed in v6.2.0 — see CLAUDE.md banner).
 

@@ -69,7 +69,7 @@ HERE = Path(__file__).parent
 # vendor in. Re-running this script overwrites the bundled tree.
 PACKAGE_FIXTURES = (
     HERE.parents[2]
-    / "src" / "biosensor_mcp" / "_fixtures" / "hip_lab_demo_realistic"
+    / "src" / "tailor" / "_fixtures" / "hip_lab_demo_realistic"
 )
 FORCE_DIR = PACKAGE_FIXTURES / "force"
 EMG_DIR = PACKAGE_FIXTURES / "emg"
@@ -334,7 +334,7 @@ def main():
     print(f"    emg/    -> {EMG_DIR}")
     print(f"    mrs/    -> {MRS_DIR}")
     print()
-    print("Re-running 'biosensor-mcp tour' (or rehearse.py) will pick up")
+    print("Re-running 'tailor tour' (or rehearse.py) will pick up")
     print("the regenerated fixtures from this location.")
 
 

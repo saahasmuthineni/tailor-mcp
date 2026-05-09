@@ -17,7 +17,7 @@
 - [ ] `pytest -v` passes locally
 - [ ] `python tests/security_probe.py` passes locally
 - [ ] `ruff check src tests` passes
-- [ ] `biosensor-mcp --help` works
+- [ ] `tailor --help` works
 - [ ] (if relevant) tested against a real Strava account / Claude Desktop
 
 ## Security / privacy checklist

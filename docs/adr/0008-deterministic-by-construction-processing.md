@@ -23,15 +23,15 @@ brought under a seed regime.
 
 A drift audit on 2026-04-29 showed the assumption was wrong. The
 analytical layer has no PRNG on its hot path. Every method on
-`RunningProcessing` ([`children/running/processing.py`](../../src/biosensor_mcp/children/running/processing.py)),
-`CSVProcessing` ([`children/csv_dir/processing.py`](../../src/biosensor_mcp/children/csv_dir/processing.py)),
-and `TemplateProcessing` ([`children/template/processing.py`](../../src/biosensor_mcp/children/template/processing.py))
+`RunningProcessing` ([`children/running/processing.py`](../../src/tailor/children/running/processing.py)),
+`CSVProcessing` ([`children/csv_dir/processing.py`](../../src/tailor/children/csv_dir/processing.py)),
+and `TemplateProcessing` ([`children/template/processing.py`](../../src/tailor/children/template/processing.py))
 is a `@staticmethod` pure function over its arguments. None of them
 import `random`, `numpy`, `secrets`, or any time-dependent function.
 The PRNGs that exist in the repository are all seeded, sit off the
-analytical dispatch path, and are not loaded by `biosensor-mcp serve`:
+analytical dispatch path, and are not loaded by `tailor serve`:
 `_RNG = random.Random(42)` at
-[`demo/sample_data.py:21`](../../src/biosensor_mcp/demo/sample_data.py)
+[`demo/sample_data.py:21`](../../src/tailor/demo/sample_data.py)
 (installed in the wheel but excluded from coverage alongside the rest
 of `demo/*`), and the synthetic-fixture generators under
 `examples/**/generate.py` (not installed in the wheel at all;
@@ -61,8 +61,8 @@ Concretely:
 - Every method on a `*Processing` class is a `@staticmethod` pure
   function: output depends only on declared arguments. No instance
   state, no module-level mutable state, no I/O.
-- No module under `src/biosensor_mcp/framework/` or
-  `src/biosensor_mcp/children/*/processing.py` may import `random`,
+- No module under `src/tailor/framework/` or
+  `src/tailor/children/*/processing.py` may import `random`,
   `numpy.random`, `secrets`, or any other PRNG, nor call
   `time.time()`, `datetime.now()`, or other clock-dependent
   functions on the analytical path. Time and clock calls in
@@ -84,16 +84,16 @@ Concretely:
   [ADR 0022](0022-local-llm-guardian.md) shipped, per its
   reproducibility-provenance-auditor pass at PR time.
 - Permitted exceptions:
-  - `src/biosensor_mcp/demo/sample_data.py`, which uses
+  - `src/tailor/demo/sample_data.py`, which uses
     `random.Random(42)` to synthesize the reproducible fixture
-    streams the `biosensor-mcp demo` command runs against. Seeded,
+    streams the `tailor demo` command runs against. Seeded,
     off the dispatch path, excluded from coverage.
   - `examples/**/generate.py`, the synthetic-fixture generators that
     produce per-subject CSVs for the demo walkthroughs. Each must
     use a seeded PRNG (`random.Random(<integer-literal-seed>)`) so
     the fixtures are reproducible from the file's source; the seed
     is part of the contract. Not installed in the wheel, never
-    loaded by `biosensor-mcp serve`, reachable only by a developer
+    loaded by `tailor serve`, reachable only by a developer
     running them manually. Currently:
     [`examples/multi_subject_pilot/generate.py`](../../examples/multi_subject_pilot/generate.py)
     (v6.2.0+, `random.Random(42)`),
@@ -165,7 +165,7 @@ provenance-hashing item.
 
 **Neutral.**
 
-- The PRNGs in `src/biosensor_mcp/demo/sample_data.py` and under
+- The PRNGs in `src/tailor/demo/sample_data.py` and under
   `examples/**/generate.py` are part of the contract, not
   oversights. Removing or re-seeding any of them would break demo
   reproducibility. Future contributors should leave them alone.

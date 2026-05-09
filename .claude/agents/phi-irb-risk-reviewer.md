@@ -110,16 +110,16 @@ For each applicable lens, do `grep` or read the new file content. Examples:
 
 ```bash
 # Lens 3 — audit-log completeness
-git diff <base>...HEAD -- src/biosensor_mcp/framework/router.py | grep -E '^\+.*except'
-git diff <base>...HEAD -- src/biosensor_mcp/framework/audit.py | grep -E '^-.*record\(|^\+.*record\('
+git diff <base>...HEAD -- src/tailor/framework/router.py | grep -E '^\+.*except'
+git diff <base>...HEAD -- src/tailor/framework/audit.py | grep -E '^-.*record\(|^\+.*record\('
 
 # Lens 5 — subject_id integrity
-git diff <base>...HEAD -- src/biosensor_mcp/framework/vault/layer.py | grep -E 'subject_id'
-grep -nE 'reassign|reassignment|update.*subject_id' src/biosensor_mcp/framework/vault/
+git diff <base>...HEAD -- src/tailor/framework/vault/layer.py | grep -E 'subject_id'
+grep -nE 'reassign|reassignment|update.*subject_id' src/tailor/framework/vault/
 
 # Lens 6 — retention
 git diff <base>...HEAD -- pyproject.toml | grep -E 'TTL|retention|cache_days'
-git diff <base>...HEAD -- src/biosensor_mcp/framework/storage.py | grep -E 'CREATE TABLE|DELETE'
+git diff <base>...HEAD -- src/tailor/framework/storage.py | grep -E 'CREATE TABLE|DELETE'
 ```
 
 ### Step 3 — Rate severity per finding

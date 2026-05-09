@@ -71,7 +71,7 @@ Keep this PowerShell window open for the next step.
 In the PowerShell window, type:
 
 ```powershell
-pip install $env:USERPROFILE\Downloads\biosensor_mcp-6.9.0-py3-none-any.whl
+pip install $env:USERPROFILE\Downloads\tailor_mcp-6.9.0-py3-none-any.whl
 ```
 
 (If I gave you a slightly different filename or version number,
@@ -85,7 +85,7 @@ install is done.
 **Check it worked.** Type:
 
 ```
-biosensor-mcp --help
+tailor --help
 ```
 
 You should see a help screen listing subcommands like `serve`,
@@ -99,7 +99,7 @@ open a fresh one, then try again.
 Type:
 
 ```
-biosensor-mcp tour
+tailor tour
 ```
 
 This one command does everything:
@@ -193,10 +193,10 @@ That's the demo.
 | `python --version` says "not recognized" | Re-run the Python installer; make sure **"Add python.exe to PATH"** is checked on the first screen. |
 | `pip install` fails with a permissions error | Close PowerShell, then re-open it as Administrator (right-click PowerShell in the Start menu → **Run as Administrator**) and try again. |
 | `pip install` says "no such file" | Check the path matches where the `.whl` file actually lives. Try `dir $env:USERPROFILE\Downloads\biosensor*` to find it. |
-| `biosensor-mcp --help` is "not recognized" | Open a new PowerShell window so it picks up the new install. If still failing, use `python -m biosensor_mcp --help`. |
-| Claude Desktop doesn't list any biosensor tools | Fully quit Claude Desktop via the system tray (right-click → Quit), then re-open. If still missing, run `biosensor-mcp tour --force` to re-write the Claude Desktop config and restart again. |
-| Claude says "the tool errored" on Prompt 2 | Run `biosensor-mcp tour --force` to re-scaffold the demo data. |
-| Vault search (Prompt 5) returns nothing | Same fix — `biosensor-mcp tour --force`. |
+| `tailor --help` is "not recognized" | Open a new PowerShell window so it picks up the new install. If still failing, use `python -m tailor --help`. |
+| Claude Desktop doesn't list any biosensor tools | Fully quit Claude Desktop via the system tray (right-click → Quit), then re-open. If still missing, run `tailor tour --force` to re-write the Claude Desktop config and restart again. |
+| Claude says "the tool errored" on Prompt 2 | Run `tailor tour --force` to re-scaffold the demo data. |
+| Vault search (Prompt 5) returns nothing | Same fix — `tailor tour --force`. |
 | Anything else | Take a screenshot of the PowerShell window or Claude chat and send it to me. |
 
 ---
@@ -206,12 +206,12 @@ That's the demo.
 Nothing runs in the background after you close Claude Desktop —
 there's no service to stop. To remove everything later:
 
-1. Delete the folder at `%USERPROFILE%\.biosensor-mcp\demos\hip-lab\`
+1. Delete the folder at `%USERPROFILE%\.tailor\demos\hip-lab\`
    (paste that path into File Explorer's address bar to find it).
 2. Open `%APPDATA%\Claude\claude_desktop_config.json` in Notepad and
    delete the `"biosensor-tour-hip-lab": { ... }` block (and the
    comma before it, if any).
-3. Optionally: `pip uninstall biosensor-mcp` and uninstall Python
+3. Optionally: `pip uninstall tailor` and uninstall Python
    from **Settings → Apps**.
 
 ---

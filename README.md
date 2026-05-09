@@ -95,7 +95,7 @@ Claude: [calls strava_run_report — Tier 1, no consent required]
 
 Tool:   {"summary": "6.2 mi · 48:12 · avg HR 152",
          "drift_pct": 3.2, "efficiency_factor": 1.71,
-         "_meta": {"package_version":   "6.5.0",
+         "_meta": {"package_version":   "7.0.0",
                    "tool_name":         "strava_run_report",
                    "called_at":         "2026-04-13T15:42:11Z",
                    "scrubber_id":       "noop",
@@ -191,7 +191,7 @@ Every successful result carries a `_meta` provenance stamp:
 ```json
 {
   "_meta": {
-    "package_version":  "6.5.0",
+    "package_version":  "7.0.0",
     "tool_name":        "strava_run_report",
     "called_at":        "2026-04-13T15:42:11.345Z",
     "scrubber_id":      "noop",
@@ -318,6 +318,7 @@ interpreter.
 | `tailor demo` | Researcher first-look — runs cohort tools on bundled HIP Lab fixtures (ADR 0027) |
 | `tailor setup` | Strava OAuth wizard (for the worked example) |
 | `tailor status` | Diagnostic check: tokens, DB state, vault config |
+| `tailor migrate` | One-time copy of `~/.biosensor-mcp/` → `~/.tailor/` for v6 → v7 upgrades. Pass `--move` to remove the legacy directory after copying (ADR 0031). |
 | `tailor uninstall` | Clean removal |
 
 ### Worked example: the running child

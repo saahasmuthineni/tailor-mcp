@@ -244,7 +244,7 @@ guide Claude to use the pattern.
   "confidence": 0.7,
   "_meta": {
     "domain": "local_llm",
-    "package_version": "6.5.0",
+    "package_version": "7.0.0",
     "tool_name": "ask_local_oracle",
     "called_at": "2026-05-01T12:00:00+00:00",
     "tokens_this_call": 412,

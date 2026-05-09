@@ -20,12 +20,12 @@ subprocess and asserts wire-level correctness on every release.
 That patch closed the SDK-boundary instance of the class. The class
 itself is wider than the SDK boundary. The same shape lives at
 internal seams the framework owns end-to-end. The post-execute hook
-contract at [`framework/router.py:554-565`](../../src/biosensor_mcp/framework/router.py)
+contract at [`framework/router.py:554-565`](../../src/tailor/framework/router.py)
 calls each registered hook as `hook(domain, tool_name, result)` —
 three positional arguments, no type annotation on the contract beyond
 `Callable`, no Protocol declaration anywhere. `VaultWriter` registers
 itself as a hook from
-[`framework/vault/writer.py`](../../src/biosensor_mcp/framework/vault/writer.py)
+[`framework/vault/writer.py`](../../src/tailor/framework/vault/writer.py)
 via `__main__.py`'s `router.register_post_execute_hook(vault_writer)`.
 The framework wraps every hook invocation in `try / except Exception`
 and now (post-v6.5.0) appends the failure to `_meta.hook_warnings` so
@@ -91,23 +91,23 @@ priced in. The right scope is the seams the project has already
 identified as load-bearing through its ADR set:
 
 - **Router → post-execute-hook** — the seam at
-  [`framework/router.py:554-565`](../../src/biosensor_mcp/framework/router.py)
+  [`framework/router.py:554-565`](../../src/tailor/framework/router.py)
   whose silent try/except is the failure mode this ADR exists to
   close. Currently typed as `Callable`.
 - **Audit row schema** — the contract between
-  [`framework/audit.py`](../../src/biosensor_mcp/framework/audit.py)'s
+  [`framework/audit.py`](../../src/tailor/framework/audit.py)'s
   `AuditLog.record()` and every caller. Partially codified in
   [ADR 0001](0001-audit-log-as-backbone.md) as a column list; the
   Protocol declares the field set as a `TypedDict`-shaped contract
   binding caller and writer.
 - **`_meta` block fields** — the dictionary stamped onto every
   successful tool result at
-  [`framework/router.py:570-587`](../../src/biosensor_mcp/framework/router.py).
+  [`framework/router.py:570-587`](../../src/tailor/framework/router.py).
   Partial codifications across v6.3.1 (`scrubber_warning`) and
   v6.5.0 (`hook_warnings`) live in code and a few tests. The
   Protocol names the required and optional keys.
 - **`ChildMCP` abstract surface** — already an ABC at
-  [`framework/interfaces.py`](../../src/biosensor_mcp/framework/interfaces.py).
+  [`framework/interfaces.py`](../../src/tailor/framework/interfaces.py).
   The Protocol companion narrows the structural typing on `execute`,
   `estimate_cost`, `purge_cache`, and the property accessors so an
   external child shipping a wrong return shape fails type-check
@@ -306,7 +306,7 @@ Type-check time is the right address.
 status quo is the failure mode this ADR exists to address. The
 post-execute hook's signature is documented in the
 `register_post_execute_hook` docstring at
-[`framework/router.py:146-153`](../../src/biosensor_mcp/framework/router.py)
+[`framework/router.py:146-153`](../../src/tailor/framework/router.py)
 ("Signature: hook(domain: str, tool_name: str, result: dict) ->
 None") and a future SDK-style add to the framework's own contract —
 e.g. passing a fourth `subject_id` argument to hooks for ADR 0009

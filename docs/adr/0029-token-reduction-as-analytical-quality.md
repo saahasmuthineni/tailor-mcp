@@ -8,12 +8,12 @@
 ## Context
 
 [ADR 0027](0027-demo-as-researcher-first-look.md) reshaped
-`biosensor-mcp demo` from synthetic-Strava operator self-verification
+`tailor demo` from synthetic-Strava operator self-verification
 into a researcher first-look against the bundled HIP Lab realistic
 cohort fixtures. The reframe was correct on its central claim — the
 cohort-comparison thesis is the canonical use case CLAUDE.md names —
 and it shipped in v6.10.5 with the implementation now at
-[`demo/runner.py`](../../src/biosensor_mcp/demo/runner.py). The demo's
+[`demo/runner.py`](../../src/tailor/demo/runner.py). The demo's
 output is two `csv_cohort_summary` calls and one `csv_force_decline`
 call against `S001_force.csv`, framed by closing prose that names
 ADR 0001 / 0003 / 0004 / 0005 as *"what this demo does NOT exercise."*
@@ -28,8 +28,8 @@ access model, the vault layer, and the local-LLM guardian
 [0005](0005-cost-pre-estimation.md) /
 [0022](0022-local-llm-guardian.md) /
 [0023](0023-local-llm-cooperation-loop.md)) are visible only by
-running `biosensor-mcp tour` and exercising tool inputs through Claude
-Desktop. A PI or RSE running `biosensor-mcp demo` cold sees the cohort
+running `tailor tour` and exercising tool inputs through Claude
+Desktop. A PI or RSE running `tailor demo` cold sees the cohort
 thesis but does not see the architectural depth that makes the cohort
 thesis trustworthy in a research-software context.
 
@@ -46,7 +46,7 @@ That reading sells the architecture short. Token reduction has
 1. **Pre-computed numbers eliminate a class of LLM hallucination.**
    When `csv_cohort_summary` returns means and standard deviations
    grouped by sex, the numbers come from
-   [`CSVProcessing.cohort_stats`](../../src/biosensor_mcp/children/csv_dir/processing.py)
+   [`CSVProcessing.cohort_stats`](../../src/tailor/children/csv_dir/processing.py)
    — a `@staticmethod` pure function under the
    [ADR 0008](0008-deterministic-by-construction-processing.md)
    determinism invariant. They are correct by construction. An LLM
@@ -83,10 +83,10 @@ That reading sells the architecture short. Token reduction has
 5. **The cost gate's `has_cheaper_alternative` is analytical
    guidance, not just billing.** ADR 0005's pre-estimation contract
    carries a `has_cheaper_alternative` field
-   ([`framework/interfaces.py:50`](../../src/biosensor_mcp/framework/interfaces.py))
+   ([`framework/interfaces.py:50`](../../src/tailor/framework/interfaces.py))
    populated by every Tier-3 child estimator with descriptions like
    *"csv_downsampled (every 5th row) — preserves trends, ~80% cheaper"*
-   ([`children/csv_dir/child.py:466-469`](../../src/biosensor_mcp/children/csv_dir/child.py)).
+   ([`children/csv_dir/child.py:466-469`](../../src/tailor/children/csv_dir/child.py)).
    That string is **the framework teaching the LLM what resolution
    actually answers what question.** Drift detection does not need
    per-second resolution. The cost gate is a
@@ -96,19 +96,19 @@ That reading sells the architecture short. Token reduction has
 A demo whose output demonstrates only consequence (3) — and only the
 deterministic-numerics half of (3) — leaves the other four invisible
 at first look. The first impression a recipient forms about *what
-this framework is for* is shaped by what `biosensor-mcp demo` shows.
+this framework is for* is shaped by what `tailor demo` shows.
 Per ADR 0027 itself: *"the first impression a recipient forms about
 what this tool does is load-bearing."*
 
 The question this ADR answers: *given that token reduction is the
 load-bearing claim and the demo is the recipient's first-look surface,
-what reshapes `biosensor-mcp demo` to demonstrate the architecture
+what reshapes `tailor demo` to demonstrate the architecture
 without losing ADR 0027's correct insistence that the cohort thesis
 leads?*
 
 ## Decision
 
-`biosensor-mcp demo` is reshaped to demonstrate the framework's
+`tailor demo` is reshaped to demonstrate the framework's
 load-bearing claims via five structured sections, all against the
 bundled HIP Lab realistic fixtures. Section 1 (the cohort thesis) is
 the canonical lead-in; Sections 2 through 5 demonstrate, in order, the
@@ -157,7 +157,7 @@ Concrete mechanism:
   and the printed output is the `LLMInstruction` envelope per
   [ADR 0004](0004-structured-llm-instruction.md), including the
   `has_cheaper_alternative` cheaper-alternative description from
-  [`children/csv_dir/child.py:466-469`](../../src/biosensor_mcp/children/csv_dir/child.py).
+  [`children/csv_dir/child.py:466-469`](../../src/tailor/children/csv_dir/child.py).
   Framing prose names the load-bearing observation: *"the cost gate
   is the framework telling the LLM what resolution actually answers
   this question. Drift detection does not need per-second resolution."*
@@ -197,7 +197,7 @@ proposal-mode audit and would otherwise erode on next refactor.
 
 - **Cost gate threshold tuning.** The demo's `RouterMCP` instance is
   constructed with `cost_threshold=15_000`. Production at
-  [`__main__.py:58`](../../src/biosensor_mcp/__main__.py) uses
+  [`__main__.py:58`](../../src/tailor/__main__.py) uses
   35,000 per ADR 0005. S001's raw stream estimates at ~24,000 tokens
   — at the production threshold it falls through silently; at the
   demo threshold it trips the gate cleanly so the recipient sees the
@@ -211,7 +211,7 @@ proposal-mode audit and would otherwise erode on next refactor.
   load-bearing for the recipient's mental model.
 - **`subject_id` threading.** All Section 4 and Section 5 calls
   thread `subject_id="S001"` so
-  [`LocalLLMLayer._scan_related_substrate`](../../src/biosensor_mcp/framework/local_llm/layer.py)
+  [`LocalLLMLayer._scan_related_substrate`](../../src/tailor/framework/local_llm/layer.py)
   finds the moment captured in Section 4 via the SQLite query under
   ADR 0009's IS-NULL-or-match filter. Without this, NullBackend
   returns `related_substrate=[]` and the headline beat in Section 5
@@ -244,7 +244,7 @@ If recipient-feedback evidence shows the longer demo plants *"this is
 a complicated framework"* instead of *"this has a clear analytical
 thesis with deep architectural support,"* the demo reshapes back
 toward Section-1-only with Sections 2–5 moved to a separate
-`biosensor-mcp showcase` subcommand. ADR 0027 § Alternatives rejected
+`tailor showcase` subcommand. ADR 0027 § Alternatives rejected
 the two-demo-subcommand split on *"which is canonical?"* grounds; that
 rejection holds *unless* the unified demo demonstrably damages
 first-impression formation. The reversal condition is the named
@@ -269,7 +269,7 @@ pending that evidence.
 - **Token reduction is realised by feature, not by argument.** The
   case for the three-tier model becomes load-bearing in the running
   demo rather than only in CLAUDE.md and ADR 0005. A recipient
-  running `biosensor-mcp demo` sees the cost gate doing structural
+  running `tailor demo` sees the cost gate doing structural
   work (resolution-appropriateness guidance) before they read a
   single ADR.
 - **The architecture's depth is visible at first look without
@@ -368,13 +368,13 @@ pending that evidence.
   § Alternatives explicitly rejected removing the synthetic-Strava
   PRNG; ADR 0027 preserved the module under that rejection; this
   ADR inherits the preservation. The module remains importable
-  from `biosensor_mcp.demo.sample_data` for the test at
+  from `tailor.demo.sample_data` for the test at
   [`tests/framework/test_router.py:1054`](../../tests/framework/test_router.py)
   and the worked-example notebook.
 - **The recipient-install-validator's in-guest assertion list
   updates in the same patch.** Per
   [ADR 0028](0028-recipient-install-validation-as-release-gate.md)
-  § Decision the validator's Step 6 exercises `biosensor-mcp demo`;
+  § Decision the validator's Step 6 exercises `tailor demo`;
   the assertion list extends to cover the five-section output
   shape. The agent's boss-authorization clause for assertion-list
   updates ([`recipient-install-validator.md:22 / :111 / :174`](../../.claude/agents/recipient-install-validator.md))
@@ -390,8 +390,8 @@ pending that evidence.
 
 ## Alternatives considered
 
-**Keep `biosensor-mcp demo` Section-1-only; add a separate
-`biosensor-mcp showcase` subcommand for Sections 2–5.** Considered
+**Keep `tailor demo` Section-1-only; add a separate
+`tailor showcase` subcommand for Sections 2–5.** Considered
 seriously. Two subcommands let each surface optimise for one job —
 demo for cohort first-look, showcase for architectural depth — and
 preserves ADR 0027's framing exactly. Rejected on the same grounds
@@ -408,7 +408,7 @@ escape hatch if recipient-feedback evidence flips the trade.
 `--show-router`, `--show-vault`).** Considered. Flag-driven surface
 preserves the v6.10.5 default exactly while admitting the deeper
 demonstration for recipients who want it. Rejected on
-discoverability grounds: a recipient running `biosensor-mcp demo`
+discoverability grounds: a recipient running `tailor demo`
 cold for the first time does not know which flags exist or that the
 deeper architecture is available. The first-look surface is by
 definition the surface a recipient sees without flag knowledge; if
@@ -417,7 +417,7 @@ flag-driven shape is the wrong mechanism for a load-bearing
 demonstration.
 
 **Keep the v6.10.5 demo as-is and add the architectural
-demonstrations to `biosensor-mcp tour` instead.** Considered. Tour
+demonstrations to `tailor tour` instead.** Considered. Tour
 already scaffolds durable state and registers with Claude Desktop;
 extending it to print router envelopes and oracle responses inline
 would put the architecture demonstration on the durable-install path.

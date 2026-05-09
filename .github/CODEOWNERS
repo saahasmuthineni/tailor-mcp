@@ -11,15 +11,15 @@
 # Framework pipeline — the load-bearing security/governance code.
 # Any change here should be reviewed with the security pipeline and
 # audit-log invariants in mind.
-/src/biosensor_mcp/framework/                       @saahasmuthineni
-/src/biosensor_mcp/framework/security.py            @saahasmuthineni
-/src/biosensor_mcp/framework/cost.py                @saahasmuthineni
-/src/biosensor_mcp/framework/audit.py               @saahasmuthineni
-/src/biosensor_mcp/framework/router.py              @saahasmuthineni
+/src/tailor/framework/                       @saahasmuthineni
+/src/tailor/framework/security.py            @saahasmuthineni
+/src/tailor/framework/cost.py                @saahasmuthineni
+/src/tailor/framework/audit.py               @saahasmuthineni
+/src/tailor/framework/router.py              @saahasmuthineni
 
 # Vault — the durable cross-session analytical memory. Writes here
 # affect reproducibility of prior analyses, not just the current run.
-/src/biosensor_mcp/framework/vault/                 @saahasmuthineni
+/src/tailor/framework/vault/                 @saahasmuthineni
 
 # Architecture Decision Records — changes to ADRs should be deliberate
 # and reviewed even when the surrounding prose looks like routine

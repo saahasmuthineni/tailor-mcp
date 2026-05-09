@@ -1,24 +1,30 @@
 """
-Regression tests for v6.9.2 bug #1 — uninstall orphans the tour entry —
-generalised in v6.10.4 to operate per-path across every detected
-Claude Desktop config (Classic + Microsoft Store sandboxes per ADR
-0026).
+Regression tests for v6.9.2 bug #1 (uninstall orphans the tour entry),
+generalised in v6.10.4 to operate per-path across every detected Claude
+Desktop config (Classic + Microsoft Store sandboxes per ADR 0026), and
+extended in v7.0.0 (per ADR 0031) to clean BOTH legacy ``biosensor-*``
+keys (v6.x era) and current ``tailor`` / ``tailor-*`` keys (v7.0+) so
+the v6 → v7 upgrade leaves no orphan entries pointing at a removed
+binary.
 
 Before v6.9.2, ``cmd_uninstall`` deleted only the literal key
-``mcpServers['biosensor-mcp']``. The ``tour`` subcommand registers
-under ``biosensor-tour-<variant>``, so a clean uninstall left the
-tour entry pointing at a removed binary, producing a red MCP
-indicator in Claude Desktop after the operator did everything right.
-The fix swaps the literal-key match for a ``biosensor-`` prefix
-match, captured in ``_clean_claude_desktop_biosensor_entries``.
+``mcpServers['tailor']`` (was ``biosensor-mcp`` pre-v7.0). The ``tour``
+subcommand registers under ``tailor-tour-<variant>`` (v7.0+) or
+``biosensor-tour-<variant>`` (v6.x), so a clean uninstall left orphan
+tour entries pointing at a removed binary, producing a red MCP indicator
+in Claude Desktop after the operator did everything right.
 
-v6.10.4 widens the surface: the cleanup iterates every Claude
-Desktop config path the framework can confirm on this machine, not
-only the classic one. Tests here monkey-patch
-``_claude_desktop_config_paths`` to point at a single tmp file so
-the behaviour against one config is unchanged from the v6.9.2
-contract; ``test_iterates_every_detected_config`` asserts the
-v6.10.4 multi-path behaviour explicitly.
+The fix swaps the literal-key match for a prefix match. v7.0.0 widens
+the match to both prefixes via ``_is_orphan_entry_key``, captured in
+``_clean_claude_desktop_orphan_entries``.
+
+v6.10.4 + v7.0.0 widen the surface again: the cleanup iterates every
+Claude Desktop config path the framework can confirm on this machine,
+not only the classic one. Tests here monkey-patch
+``_claude_desktop_config_paths`` to point at a single tmp file so the
+behaviour against one config is unchanged from the v6.9.2 contract;
+``test_iterates_every_detected_config`` asserts the v6.10.4 multi-path
+behaviour explicitly.
 """
 
 from __future__ import annotations
@@ -28,13 +34,16 @@ from pathlib import Path
 
 import pytest
 
-from biosensor_mcp.__main__ import _clean_claude_desktop_biosensor_entries
+from tailor.__main__ import (
+    _clean_claude_desktop_orphan_entries,
+    _is_orphan_entry_key,
+)
 
 
 def _patch_paths(monkeypatch: pytest.MonkeyPatch, paths: list[Path]) -> None:
     """Point the detection helper at a fixed list of tmp paths."""
     monkeypatch.setattr(
-        "biosensor_mcp.pilot._claude_desktop_config_paths",
+        "tailor.pilot._claude_desktop_config_paths",
         lambda: paths,
     )
 
@@ -42,6 +51,26 @@ def _patch_paths(monkeypatch: pytest.MonkeyPatch, paths: list[Path]) -> None:
 def test_removes_pilot_wizard_entry(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """v7.0+ pilot wizard / manual install registers under bare 'tailor'."""
+    cfg = tmp_path / "claude_desktop_config.json"
+    cfg.write_text(json.dumps({
+        "mcpServers": {
+            "tailor": {"command": "x"},
+        },
+    }))
+    _patch_paths(monkeypatch, [cfg])
+    result = _clean_claude_desktop_orphan_entries()
+    assert result == {cfg: ["tailor"]}
+    after = json.loads(cfg.read_text())
+    assert "tailor" not in after["mcpServers"]
+
+
+def test_removes_legacy_biosensor_mcp_entry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """v6.x main MCP server registered under 'biosensor-mcp'; v7.0
+    cleanup must still remove it on upgrade so the legacy entry doesn't
+    point at a removed binary (per ADR 0031 § Migration story)."""
     cfg = tmp_path / "claude_desktop_config.json"
     cfg.write_text(json.dumps({
         "mcpServers": {
@@ -49,15 +78,34 @@ def test_removes_pilot_wizard_entry(
         },
     }))
     _patch_paths(monkeypatch, [cfg])
-    result = _clean_claude_desktop_biosensor_entries()
+    result = _clean_claude_desktop_orphan_entries()
     assert result == {cfg: ["biosensor-mcp"]}
     after = json.loads(cfg.read_text())
     assert "biosensor-mcp" not in after["mcpServers"]
 
 
-def test_removes_tour_entry(
+def test_removes_v7_tour_entry(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """v7.0+ tour subcommand registers under 'tailor-tour-<variant>'."""
+    cfg = tmp_path / "claude_desktop_config.json"
+    cfg.write_text(json.dumps({
+        "mcpServers": {
+            "tailor-tour-hip-lab": {"command": "x"},
+        },
+    }))
+    _patch_paths(monkeypatch, [cfg])
+    result = _clean_claude_desktop_orphan_entries()
+    assert result == {cfg: ["tailor-tour-hip-lab"]}
+    after = json.loads(cfg.read_text())
+    assert "tailor-tour-hip-lab" not in after["mcpServers"]
+
+
+def test_removes_legacy_v6_tour_entry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """v6.x tour subcommand registered under 'biosensor-tour-<variant>';
+    v7.0 cleanup must remove it (migration scenario per ADR 0031)."""
     cfg = tmp_path / "claude_desktop_config.json"
     cfg.write_text(json.dumps({
         "mcpServers": {
@@ -65,7 +113,7 @@ def test_removes_tour_entry(
         },
     }))
     _patch_paths(monkeypatch, [cfg])
-    result = _clean_claude_desktop_biosensor_entries()
+    result = _clean_claude_desktop_orphan_entries()
     assert result == {cfg: ["biosensor-tour-hip-lab"]}
     after = json.loads(cfg.read_text())
     assert "biosensor-tour-hip-lab" not in after["mcpServers"]
@@ -74,18 +122,25 @@ def test_removes_tour_entry(
 def test_removes_both_pilot_and_tour_entries(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Realistic post-upgrade state: v6 'biosensor-mcp' + v6
+    'biosensor-tour-*' entries coexist with v7 'tailor' + v7
+    'tailor-tour-*' entries. All must be cleaned together."""
     cfg = tmp_path / "claude_desktop_config.json"
     cfg.write_text(json.dumps({
         "mcpServers": {
-            "biosensor-mcp": {"command": "x"},
-            "biosensor-tour-hip-lab": {"command": "y"},
-            "biosensor-tour-sleep": {"command": "z"},
+            "tailor": {"command": "x"},
+            "tailor-tour-hip-lab": {"command": "y"},
+            "biosensor-mcp": {"command": "z"},
+            "biosensor-tour-old-variant": {"command": "w"},
         },
     }))
     _patch_paths(monkeypatch, [cfg])
-    result = _clean_claude_desktop_biosensor_entries()
+    result = _clean_claude_desktop_orphan_entries()
     assert set(result[cfg]) == {
-        "biosensor-mcp", "biosensor-tour-hip-lab", "biosensor-tour-sleep",
+        "tailor",
+        "tailor-tour-hip-lab",
+        "biosensor-mcp",
+        "biosensor-tour-old-variant",
     }
     after = json.loads(cfg.read_text())
     assert after["mcpServers"] == {}
@@ -98,22 +153,22 @@ def test_preserves_sibling_mcp_servers(
     cfg = tmp_path / "claude_desktop_config.json"
     cfg.write_text(json.dumps({
         "mcpServers": {
-            "biosensor-mcp": {"command": "x"},
-            "biosensor-tour-hip-lab": {"command": "y"},
+            "tailor": {"command": "x"},
+            "biosensor-tour-hip-lab": {"command": "y"},  # legacy v6 entry
             "obsidian": {"command": "node", "args": ["obsidian.js"]},
             "strava-coaching": {"command": "python"},
         },
     }))
     _patch_paths(monkeypatch, [cfg])
-    result = _clean_claude_desktop_biosensor_entries()
+    result = _clean_claude_desktop_orphan_entries()
     after = json.loads(cfg.read_text())
     assert "obsidian" in after["mcpServers"]
     assert "strava-coaching" in after["mcpServers"]
     assert after["mcpServers"]["obsidian"]["command"] == "node"
-    assert set(result[cfg]) == {"biosensor-mcp", "biosensor-tour-hip-lab"}
+    assert set(result[cfg]) == {"tailor", "biosensor-tour-hip-lab"}
 
 
-def test_no_op_when_no_biosensor_entries_present(
+def test_no_op_when_no_orphan_entries_present(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cfg = tmp_path / "claude_desktop_config.json"
@@ -121,7 +176,7 @@ def test_no_op_when_no_biosensor_entries_present(
         "mcpServers": {"obsidian": {"command": "node"}},
     }))
     _patch_paths(monkeypatch, [cfg])
-    result = _clean_claude_desktop_biosensor_entries()
+    result = _clean_claude_desktop_orphan_entries()
     assert result == {cfg: []}
     after = json.loads(cfg.read_text())
     assert "obsidian" in after["mcpServers"]
@@ -132,7 +187,7 @@ def test_no_op_when_config_missing(
 ) -> None:
     cfg = tmp_path / "does_not_exist.json"
     _patch_paths(monkeypatch, [cfg])
-    result = _clean_claude_desktop_biosensor_entries()
+    result = _clean_claude_desktop_orphan_entries()
     assert result == {cfg: []}
 
 
@@ -145,27 +200,31 @@ def test_handles_utf8_bom_prefix_round_trip(
     """
     cfg = tmp_path / "claude_desktop_config.json"
     body = json.dumps({
-        "mcpServers": {"biosensor-mcp": {"command": "x"}},
+        "mcpServers": {"tailor": {"command": "x"}},
     })
     cfg.write_bytes(b"\xef\xbb\xbf" + body.encode("utf-8"))
     _patch_paths(monkeypatch, [cfg])
-    result = _clean_claude_desktop_biosensor_entries()
-    assert result == {cfg: ["biosensor-mcp"]}
+    result = _clean_claude_desktop_orphan_entries()
+    assert result == {cfg: ["tailor"]}
 
 
 def test_iterates_every_detected_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """v6.10.4 / ADR 0026: cleanup must run on every detected config
-    path so the v6.10.3 invariant ("exactly one biosensor-* entry per
+    path so the v6.10.3 invariant ("exactly one orphan-prefix entry per
     mcpServers") generalises across both Classic and Microsoft Store
     sandbox configs.
+
+    v7.0.0 / ADR 0031: invariant updated to dual-prefix —
+    "exactly one ``biosensor-*`` OR ``tailor`` / ``tailor-*`` entry per
+    mcpServers, on each detected path."
     """
     classic = tmp_path / "classic" / "claude_desktop_config.json"
     classic.parent.mkdir()
     classic.write_text(json.dumps({
         "mcpServers": {
-            "biosensor-mcp": {"command": "x"},
+            "tailor": {"command": "x"},
             "obsidian": {"command": "node"},
         },
     }))
@@ -173,19 +232,51 @@ def test_iterates_every_detected_config(
     sandbox.parent.mkdir()
     sandbox.write_text(json.dumps({
         "mcpServers": {
-            "biosensor-tour-hip-lab": {"command": "y"},
+            "biosensor-tour-hip-lab": {"command": "y"},  # legacy v6 entry
             "raycast": {"command": "raycast"},
         },
     }))
     _patch_paths(monkeypatch, [classic, sandbox])
 
-    result = _clean_claude_desktop_biosensor_entries()
+    result = _clean_claude_desktop_orphan_entries()
 
-    assert result[classic] == ["biosensor-mcp"]
+    assert result[classic] == ["tailor"]
     assert result[sandbox] == ["biosensor-tour-hip-lab"]
     after_classic = json.loads(classic.read_text())
     after_sandbox = json.loads(sandbox.read_text())
-    assert "biosensor-mcp" not in after_classic["mcpServers"]
+    assert "tailor" not in after_classic["mcpServers"]
     assert "obsidian" in after_classic["mcpServers"]
     assert "biosensor-tour-hip-lab" not in after_sandbox["mcpServers"]
     assert "raycast" in after_sandbox["mcpServers"]
+
+
+# v7.0.0 / ADR 0031: explicit tests for the orphan-key matcher itself
+# so the migration semantics are guaranteed by contract, not just by
+# integration tests.
+
+class TestOrphanEntryKeyMatcher:
+    """``_is_orphan_entry_key`` is the single source of truth for which
+    Claude Desktop ``mcpServers`` keys the framework will clean. It
+    must match every key the framework has ever written across v6.x and
+    v7.0+, and must NOT match unrelated user-added keys."""
+
+    def test_matches_v7_bare_tailor(self) -> None:
+        assert _is_orphan_entry_key("tailor") is True
+
+    def test_matches_v7_tour_variant(self) -> None:
+        assert _is_orphan_entry_key("tailor-tour-hip-lab") is True
+        assert _is_orphan_entry_key("tailor-tour-sleep") is True
+
+    def test_matches_legacy_v6_biosensor_mcp(self) -> None:
+        assert _is_orphan_entry_key("biosensor-mcp") is True
+
+    def test_matches_legacy_v6_tour_variant(self) -> None:
+        assert _is_orphan_entry_key("biosensor-tour-hip-lab") is True
+        assert _is_orphan_entry_key("biosensor-tour-old-variant") is True
+
+    def test_does_not_match_unrelated_keys(self) -> None:
+        assert _is_orphan_entry_key("obsidian") is False
+        assert _is_orphan_entry_key("strava-coaching") is False
+        assert _is_orphan_entry_key("raycast") is False
+        assert _is_orphan_entry_key("memory") is False
+        assert _is_orphan_entry_key("biosensor") is False  # bare 'biosensor' is unrelated

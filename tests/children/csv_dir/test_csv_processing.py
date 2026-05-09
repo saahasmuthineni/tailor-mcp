@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from biosensor_mcp.children.csv_dir.processing import COHORT_METRICS, CSVProcessing
+from tailor.children.csv_dir.processing import COHORT_METRICS, CSVProcessing
 
 # ═══════════════════════════════════════════════════════════════
 # summarize_column

@@ -28,8 +28,8 @@ def _setup() -> tuple:
 
     Caller is responsible for cleanup via the returned _cleanup() callback.
     """
-    from biosensor_mcp.framework.vault.layer import VaultLayer
-    from biosensor_mcp.framework.vault.writer import VaultWriter
+    from tailor.framework.vault.layer import VaultLayer
+    from tailor.framework.vault.writer import VaultWriter
 
     td = TemporaryDirectory()
     root = Path(td.name)

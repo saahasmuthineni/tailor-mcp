@@ -1,7 +1,7 @@
 """
 Shared subprocess MCP-client helpers for protocol-audit tests.
 
-These helpers spawn ``python -m biosensor_mcp serve`` as a real
+These helpers spawn ``python -m tailor serve`` as a real
 subprocess, speak JSON-RPC over stdio, and return parsed responses.
 They are the substrate for ``tests/test_serve_*`` tests; the helpers
 themselves intentionally do nothing protocol-validating — that's the
@@ -109,7 +109,7 @@ def seed_tour_config(root: Path) -> dict[str, Path]:
     Seed a tour-path config under ``root`` using the bundled wheel
     fixtures (force_csv + emg_csv + csv_dir/MRS + vault).
 
-    This is the config a recipient gets after ``biosensor-mcp tour``.
+    This is the config a recipient gets after ``tailor tour``.
     It registers 70 tools total: 9 force_csv + 8 emg_csv + 7 csv_dir
     + 25 vault + 12 running + 1 ask_local_oracle + 4 consent tools +
     4 consent-revoke tools. force_csv and emg_csv are the surfaces
@@ -117,12 +117,12 @@ def seed_tour_config(root: Path) -> dict[str, Path]:
     the tour demo path that ``spawn_server`` does not reach.
 
     Returns the scaffolded ``target_dir`` and ``data_dir`` paths.
-    The ``BIOSENSOR_CONFIG_DIR`` and ``BIOSENSOR_DATA_DIR`` env vars
+    The ``TAILOR_CONFIG_DIR`` and ``TAILOR_DATA_DIR`` env vars
     are both set to the same directory (``target_dir``/``target_dir/data``)
     matching the shape ``tour._register_with_claude_desktop`` bakes in.
     """
     target_dir = root / "tour"
-    from biosensor_mcp.tour import _scaffold_fixtures, _write_user_config
+    from tailor.tour import _scaffold_fixtures, _write_user_config
     _scaffold_fixtures("hip-lab", target_dir)
     _write_user_config("hip-lab", target_dir)
     data_dir = target_dir / "data"
@@ -146,12 +146,12 @@ def spawn_tour_server(
         paths = seed_tour_config(Path(tmp))
         env = {
             **os.environ,
-            "BIOSENSOR_CONFIG_DIR": str(paths["target_dir"]),
-            "BIOSENSOR_DATA_DIR": str(paths["data_dir"]),
+            "TAILOR_CONFIG_DIR": str(paths["target_dir"]),
+            "TAILOR_DATA_DIR": str(paths["data_dir"]),
             **(env_overrides or {}),
         }
         proc = subprocess.Popen(
-            [sys.executable, "-m", "biosensor_mcp", "serve"],
+            [sys.executable, "-m", "tailor", "serve"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -179,7 +179,7 @@ def spawn_tour_server(
 
 class MCPClient:
     """
-    Thin JSON-RPC stdio driver around the ``biosensor-mcp serve``
+    Thin JSON-RPC stdio driver around the ``tailor serve``
     subprocess. Newline-delimited per-message JSON. The mcp 1.27 SDK
     emits responses one-per-line on stdout; logs go to stderr.
     """
@@ -301,12 +301,12 @@ def spawn_server(env_overrides: dict[str, str] | None = None,
         paths = seed_full_config(Path(tmp))
         env = {
             **os.environ,
-            "BIOSENSOR_CONFIG_DIR": str(paths["config_dir"]),
-            "BIOSENSOR_DATA_DIR": str(paths["data_dir"]),
+            "TAILOR_CONFIG_DIR": str(paths["config_dir"]),
+            "TAILOR_DATA_DIR": str(paths["data_dir"]),
             **(env_overrides or {}),
         }
         proc = subprocess.Popen(
-            [sys.executable, "-m", "biosensor_mcp", "serve"],
+            [sys.executable, "-m", "tailor", "serve"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

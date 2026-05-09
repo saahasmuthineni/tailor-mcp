@@ -1,6 +1,6 @@
 # External code review — primer for the reviewer
 
-You've been asked to review **Biosensor MCP**, a local-first MCP server
+You've been asked to review **Tailor**, a local-first MCP server
 for LLM-assisted analysis of biometric data in health research. This
 document gets you oriented and tells you specifically what we want
 skeptical eyes on.
@@ -82,20 +82,20 @@ worried about.*
 
 Add to the above:
 
-- [`src/biosensor_mcp/framework/router.py`](../src/biosensor_mcp/framework/router.py) —
+- [`src/tailor/framework/router.py`](../src/tailor/framework/router.py) —
   the security pipeline (`validate → circuit break → consent → cost →
   execute → scrub → audit`).
-- [`src/biosensor_mcp/framework/security.py`](../src/biosensor_mcp/framework/security.py) —
+- [`src/tailor/framework/security.py`](../src/tailor/framework/security.py) —
   gate primitives (`ParamValidator`, `CircuitBreaker`, `ConsentGate`,
   `PHIScrubber`).
-- [`src/biosensor_mcp/framework/audit.py`](../src/biosensor_mcp/framework/audit.py) —
+- [`src/tailor/framework/audit.py`](../src/tailor/framework/audit.py) —
   the audit-log shape, JSON serialization seam.
 - [ADR 0009 — subject_id integrity](adr/0009-vault-subject-keying.md),
   [ADR 0010 — adversarial pairing](adr/0010-adversarial-pairing.md),
   [ADR 0012 — vault PHI bypass](adr/0012-vault-phi-scrubber-bypass.md),
   [ADR 0013 — cache purge on consent revocation](adr/0013-cache-only-purge-on-consent-revocation.md).
 - One ChildMCP implementation —
-  [`src/biosensor_mcp/children/csv_dir/child.py`](../src/biosensor_mcp/children/csv_dir/child.py)
+  [`src/tailor/children/csv_dir/child.py`](../src/tailor/children/csv_dir/child.py)
   is the most representative.
 
 This is where the highest concentration of decision-shaped logic lives,
@@ -105,9 +105,9 @@ and where dissent has the highest expected value.
 
 Add:
 
-- [`src/biosensor_mcp/framework/vault/`](../src/biosensor_mcp/framework/vault/) —
+- [`src/tailor/framework/vault/`](../src/tailor/framework/vault/) —
   durable analytical memory (writer, layer, renderer, parser).
-- [`src/biosensor_mcp/framework/local_llm/`](../src/biosensor_mcp/framework/local_llm/) —
+- [`src/tailor/framework/local_llm/`](../src/tailor/framework/local_llm/) —
   opt-in local-LLM guardian. See
   [ADR 0022](adr/0022-local-llm-guardian.md) and
   [ADR 0023](adr/0023-local-llm-cooperation-loop.md).

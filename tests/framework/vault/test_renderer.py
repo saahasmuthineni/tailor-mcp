@@ -4,7 +4,7 @@ Tests for vault/renderer.py — pure functions, no I/O.
 
 import pytest
 
-from biosensor_mcp.framework.vault.renderer import (
+from tailor.framework.vault.renderer import (
     _aerobic_grade,
     _iso_week,
     _pace_from_velocity,
@@ -539,12 +539,12 @@ class TestRenderFailureModeNote:
         return fm
 
     def test_filename_under_failure_modes(self):
-        from biosensor_mcp.framework.vault.renderer import render_failure_mode_note
+        from tailor.framework.vault.renderer import render_failure_mode_note
         filename, _ = render_failure_mode_note(self._minimal())
         assert filename == "failure-modes/hr-spike-misread.md"
 
     def test_required_fields_validated(self):
-        from biosensor_mcp.framework.vault.renderer import render_failure_mode_note
+        from tailor.framework.vault.renderer import render_failure_mode_note
         with pytest.raises(ValueError, match="symptom"):
             render_failure_mode_note(self._minimal(symptom=""))
         with pytest.raises(ValueError, match="diagnosis"):
@@ -555,12 +555,12 @@ class TestRenderFailureModeNote:
             render_failure_mode_note(self._minimal(slug=""))
 
     def test_status_must_be_in_allowed_set(self):
-        from biosensor_mcp.framework.vault.renderer import render_failure_mode_note
+        from tailor.framework.vault.renderer import render_failure_mode_note
         with pytest.raises(ValueError, match="status"):
             render_failure_mode_note(self._minimal(status="bogus"))
 
     def test_body_contains_all_sections(self):
-        from biosensor_mcp.framework.vault.renderer import render_failure_mode_note
+        from tailor.framework.vault.renderer import render_failure_mode_note
         _, content = render_failure_mode_note(self._minimal())
         assert "## Symptom" in content
         assert "## Diagnosis" in content
@@ -568,7 +568,7 @@ class TestRenderFailureModeNote:
         assert "## Evidence" in content
 
     def test_related_section_only_when_linked(self):
-        from biosensor_mcp.framework.vault.renderer import render_failure_mode_note
+        from tailor.framework.vault.renderer import render_failure_mode_note
         _, plain = render_failure_mode_note(self._minimal())
         assert "## Related" not in plain
         _, with_rel = render_failure_mode_note(
@@ -579,13 +579,13 @@ class TestRenderFailureModeNote:
         assert "S001" in with_rel
 
     def test_failure_mode_tag_always_present(self):
-        from biosensor_mcp.framework.vault.renderer import render_failure_mode_note
+        from tailor.framework.vault.renderer import render_failure_mode_note
         _, content = render_failure_mode_note(self._minimal(tags=["alpha"]))
         assert "  - failure_mode" in content
         assert "  - alpha" in content
 
     def test_initial_evidence_replaces_placeholder(self):
-        from biosensor_mcp.framework.vault.renderer import render_failure_mode_note
+        from tailor.framework.vault.renderer import render_failure_mode_note
         _, with_ev = render_failure_mode_note(
             self._minimal(evidence="Specific observation from 2026-04-10.")
         )
@@ -593,7 +593,7 @@ class TestRenderFailureModeNote:
         assert "*(No evidence recorded yet.)*" not in with_ev
 
     def test_no_evidence_shows_placeholder(self):
-        from biosensor_mcp.framework.vault.renderer import render_failure_mode_note
+        from tailor.framework.vault.renderer import render_failure_mode_note
         _, content = render_failure_mode_note(self._minimal())
         assert "*(No evidence recorded yet.)*" in content
 
@@ -605,7 +605,7 @@ class TestRenderFailureModeNote:
 
 class TestRenderDashboardNote:
     def test_filename_under_dashboards(self):
-        from biosensor_mcp.framework.vault.renderer import render_dashboard_note
+        from tailor.framework.vault.renderer import render_dashboard_note
         filename, _ = render_dashboard_note(
             name="open-themes",
             title="Open themes",
@@ -616,7 +616,7 @@ class TestRenderDashboardNote:
         assert filename == "dashboards/open-themes.md"
 
     def test_snapshot_table_always_present(self):
-        from biosensor_mcp.framework.vault.renderer import render_dashboard_note
+        from tailor.framework.vault.renderer import render_dashboard_note
         _, content = render_dashboard_note(
             name="open-themes",
             title="Open themes",
@@ -629,7 +629,7 @@ class TestRenderDashboardNote:
         assert "| Theme | Confidence |" in content
 
     def test_dataview_block_optional(self):
-        from biosensor_mcp.framework.vault.renderer import render_dashboard_note
+        from tailor.framework.vault.renderer import render_dashboard_note
         _, plain = render_dashboard_note(
             name="x", title="X", description="d",
             columns=["A"], rows=[["1"]],
@@ -645,7 +645,7 @@ class TestRenderDashboardNote:
         assert "## Snapshot" in with_dv
 
     def test_empty_rows_renders_placeholder(self):
-        from biosensor_mcp.framework.vault.renderer import render_dashboard_note
+        from tailor.framework.vault.renderer import render_dashboard_note
         _, content = render_dashboard_note(
             name="x", title="X", description="d",
             columns=["A"], rows=[],
@@ -653,7 +653,7 @@ class TestRenderDashboardNote:
         assert "*(No rows.)*" in content
 
     def test_blank_name_rejected(self):
-        from biosensor_mcp.framework.vault.renderer import render_dashboard_note
+        from tailor.framework.vault.renderer import render_dashboard_note
         with pytest.raises(ValueError, match="name"):
             render_dashboard_note(
                 name="", title="X", description="d",
@@ -661,7 +661,7 @@ class TestRenderDashboardNote:
             )
 
     def test_none_cell_renders_em_dash(self):
-        from biosensor_mcp.framework.vault.renderer import render_dashboard_note
+        from tailor.framework.vault.renderer import render_dashboard_note
         _, content = render_dashboard_note(
             name="x", title="X", description="d",
             columns=["A", "B"], rows=[["v1", None]],

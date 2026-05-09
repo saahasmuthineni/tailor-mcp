@@ -31,17 +31,17 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
-from biosensor_mcp.children.template import TemplateChild
-from biosensor_mcp.children.template.child import (
+from tailor.children.template import TemplateChild
+from tailor.children.template.child import (
     ALL_STREAM_TYPES,
     SUBJECT_ID_SCHEMA,
 )
-from biosensor_mcp.framework.interfaces import (
+from tailor.framework.interfaces import (
     CostEstimate,
     ToolDefinition,
     ValidationSchema,
 )
-from biosensor_mcp.framework.router import RouterMCP
+from tailor.framework.router import RouterMCP
 
 SUBJECT_ID_PATTERN = r"^[A-Za-z0-9_\-]{1,64}$"
 

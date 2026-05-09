@@ -28,19 +28,19 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
-from biosensor_mcp.children.force_csv import ForceCsvChild
-from biosensor_mcp.children.force_csv.child import (
+from tailor.children.force_csv import ForceCsvChild
+from tailor.children.force_csv.child import (
     ALL_STREAM_TYPES,
     MAX_WINDOW_SECONDS,
     PROTOCOL_EVENT_TYPES,
 )
-from biosensor_mcp.framework.interfaces import (
+from tailor.framework.interfaces import (
     SUBJECT_ID_SCHEMA,
     CostEstimate,
     ToolDefinition,
     ValidationSchema,
 )
-from biosensor_mcp.framework.router import RouterMCP
+from tailor.framework.router import RouterMCP
 
 SUBJECT_ID_PATTERN = r"^[A-Za-z0-9_\-]{1,64}$"
 

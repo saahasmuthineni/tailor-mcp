@@ -47,7 +47,7 @@ jobs:
       # addressed (tracked on the roadmap).
       - name: mypy (informational)
         continue-on-error: true
-        run: mypy src/biosensor_mcp
+        run: mypy src/tailor
 
   test:
     name: Test (${{ matrix.os }} · py${{ matrix.python-version }})
@@ -83,7 +83,7 @@ jobs:
       #    in pyproject.toml so this number reflects the framework code
       #    we expect to keep tested.
       - name: Run tests
-        run: pytest -v --cov=biosensor_mcp --cov-report=term-missing --cov-report=xml --cov-fail-under=80
+        run: pytest -v --cov=tailor --cov-report=term-missing --cov-report=xml --cov-fail-under=80
 
       # 5. Run standalone security probe
       - name: Security probe
@@ -91,7 +91,7 @@ jobs:
 
       # 6. Verify the CLI entry point works
       - name: Smoke test CLI
-        run: biosensor-mcp --help
+        run: tailor --help
 
       # 7. Upload coverage as a build artifact (one per matrix cell)
       - name: Upload coverage artifact

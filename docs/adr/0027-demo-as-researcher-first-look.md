@@ -1,4 +1,4 @@
-# ADR 0027: `biosensor-mcp demo` is a researcher first-look, not operator self-verification
+# ADR 0027: `tailor demo` is a researcher first-look, not operator self-verification
 
 - **Status:** Accepted
 - **Date:** 2026-05-06
@@ -7,13 +7,13 @@
 
 ## Context
 
-Through v6.10.4, `biosensor-mcp demo` was framed as **operator
+Through v6.10.4, `tailor demo` was framed as **operator
 self-verification** — *"Run analytics on synthetic data (operator
 self-verification)"* per the inline help text at
-[`__main__.py:10`](../../src/biosensor_mcp/__main__.py). The
+[`__main__.py:10`](../../src/tailor/__main__.py). The
 implementation reflected that framing: synthetic Strava-shaped
 streams generated on the fly via
-[`demo/sample_data.py`](../../src/biosensor_mcp/demo/sample_data.py),
+[`demo/sample_data.py`](../../src/tailor/demo/sample_data.py),
 fed through the running child's `RunningChild.execute()` path,
 printing `strava_run_report` / `strava_hr_analysis` /
 `strava_pace_analysis` outputs. The implicit recipient of the demo
@@ -34,12 +34,12 @@ this ADR makes the correction explicit. Three structural reasons:
    retained for teaching value; it is not the canonical use case."*
    A demo whose entire surface demonstrates the worked example
    silently positions it as canonical to every recipient who runs
-   `biosensor-mcp demo` for the first time.
+   `tailor demo` for the first time.
 3. **The first impression a recipient forms about what this tool
    does is load-bearing.** A PI or RSE running the demo to figure
    out "what does this do?" forms a mental model from the output
    they see. The Strava-output-shaped demo plants the model
-   "biosensor-mcp is a Strava analyzer" — the opposite of where the
+   "tailor is a Strava analyzer" — the opposite of where the
    v6.5.0 cohort-surface release explicitly positioned the project.
 
 The boss surfaced the framing tension in a 2026-05-06 session:
@@ -58,7 +58,7 @@ ADR 0024 is amended in the same patch to forward-cite this ADR.
 
 ## Decision
 
-`biosensor-mcp demo` is reframed as a **researcher first-look** —
+`tailor demo` is reframed as a **researcher first-look** —
 *"what does this framework do for the cohort-comparison thesis the
 project is built around?"* — and the implementation is reshaped to
 match.
@@ -66,7 +66,7 @@ match.
 Concrete mechanism:
 
 - **The demo loads the bundled HIP Lab realistic fixtures**
-  (`src/biosensor_mcp/_fixtures/hip_lab_demo_realistic/force/`,
+  (`src/tailor/_fixtures/hip_lab_demo_realistic/force/`,
   same fixtures `tour` scaffolds per ADR 0024). 16 synthetic
   subjects, 8 BU (bilateral) / 8 OE (one-extremity), an isometric
   task to volitional failure with a `metadata.json` sidecar.
@@ -86,7 +86,7 @@ Concrete mechanism:
   explicitly considered and rejected removing the synthetic-Strava
   PRNG ("the synthetic-Strava data has teaching value and is
   exempted from the no-PRNG processing rule"). The module remains
-  importable from `biosensor_mcp.demo.sample_data` for the test at
+  importable from `tailor.demo.sample_data` for the test at
   [`tests/framework/test_router.py:1054`](../../tests/framework/test_router.py)
   and the
   [`docs/guides/worked-example.ipynb`](../../docs/guides/worked-example.ipynb)
@@ -103,7 +103,7 @@ Concrete mechanism:
   reproducibility-check note grounded in ADR 0008 (re-run, expect
   bit-identical numbers).
 
-The rule, plain English: when a researcher runs `biosensor-mcp
+The rule, plain English: when a researcher runs `tailor
 demo` cold, the framework gets one chance to demonstrate what it
 is for. That's the cohort-comparison thesis the project's stated
 use case is built around — not the worked example whose framing
@@ -114,7 +114,7 @@ warns against treating it as canonical.
 ### Positive
 
 - **Recipient first-impression realigns with the project's stated
-  framing.** A PI or RSE running `biosensor-mcp demo` for the first
+  framing.** A PI or RSE running `tailor demo` for the first
   time forms a correct mental model — "this is a cohort-research
   framework with deterministic processing and audit-log
   provenance" — instead of the prior model — "this is a Strava
@@ -146,8 +146,8 @@ warns against treating it as canonical.
   the v6.9.0 wheel-fixture-bundling regression suite per ADR 0024.
 - **The Strava-shaped demo path is no longer a CLI surface.** A
   recipient who specifically wants to see the running child's
-  output has to run `biosensor-mcp setup` (Strava OAuth) or
-  manually invoke `from biosensor_mcp.demo.sample_data import ...`.
+  output has to run `tailor setup` (Strava OAuth) or
+  manually invoke `from tailor.demo.sample_data import ...`.
   Acceptable — the running child is "worked example" not canonical;
   CLAUDE.md and `children/running/__init__.py` both name it as
   such; a recipient who specifically wants to study it can still
@@ -161,7 +161,7 @@ warns against treating it as canonical.
   the sidecar dependency explicitly.
 - **One asset was stale and unreferenced — resolved in v6.12.x cleanup.**
   `docs/assets/demo.svg` was a hand-rolled illustration showing
-  "biosensor-mcp demo · synthetic 60-min run" framing — it depicted
+  "tailor demo · synthetic 60-min run" framing — it depicted
   the Strava-shaped pre-v6.10.5 demo. As of v6.10.5 it was not
   embedded in `README.md` (which embeds only `vault-insights.svg`
   and `footprint.svg`) and was not referenced by any docs guide.
@@ -172,7 +172,7 @@ warns against treating it as canonical.
   cohort visualization remains an open creative item; the orphan
   itself is gone. The `vhs` tape at `docs/guides/demo.tape` that
   produces `docs/assets/demo.gif` was unaffected — it runs
-  `biosensor-mcp demo` directly and is forward-compatible with the
+  `tailor demo` directly and is forward-compatible with the
   reshaped v6.12.0 demo's output.
 - **The demo bypasses `RouterMCP` by design.** Calls go directly
   to `CSVDirectoryChild.execute()`, so the printed result envelopes
@@ -185,7 +185,7 @@ warns against treating it as canonical.
   walkthrough." The IRB-relevant properties the framework offers
   (audit-log per ADR 0001, scrubber seam per ADR 0003, consent /
   cost gates per ADRs 0004 / 0005) are visible by running
-  `biosensor-mcp tour` and exercising the same tool inputs through
+  `tailor tour` and exercising the same tool inputs through
   Claude Desktop. The demo's closing prose is scoped to claim only
   what the demo's output demonstrates (server-side computation
   visible in the envelope shape, deterministic reproducibility

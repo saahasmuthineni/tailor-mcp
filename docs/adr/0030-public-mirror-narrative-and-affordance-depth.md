@@ -21,7 +21,7 @@ reversal conditions guard the carve-out: source repo stays private,
 bundled bytes stay synthetic by construction, recipient set stays
 handful-sized.
 
-v6.12.0 shipped two days later: `biosensor-mcp demo` reshaped from a
+v6.12.0 shipped two days later: `tailor demo` reshaped from a
 three-call cohort first-look into the five-section architectural
 showcase per [ADR 0029](0029-token-reduction-as-analytical-quality.md),
 and `--save-shareable [PATH]` added as the CLI seam that produces the

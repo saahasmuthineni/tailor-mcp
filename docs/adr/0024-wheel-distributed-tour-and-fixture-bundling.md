@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-05-04
 - **Amended:** 2026-05-07 — § 3.1 added (public release-only mirror as a friend-shareable carve-out alongside the existing Drive/email distribution); see § 3.1 for the carve-out's invariants and reversal conditions. Cites [ADR 0029 (Token reduction is analytical quality)](0029-token-reduction-as-analytical-quality.md).
+- **Amended:** 2026-05-08 — references updated for the v7.0.0 rename (`biosensor-mcp` → `tailor` CLI; `biosensor_mcp` → `tailor` Python import; PyPI distribution `biosensor-mcp` → `tailor-mcp`). Wheel distribution shape is unchanged structurally. See [ADR 0031 (Project rename to Tailor + Wardrobe)](0031-rename-to-tailor-and-wardrobe.md) for the full rename story and the v6 → v7 migration path.
 - **Related:** [ADR 0008 (Deterministic by construction)](0008-deterministic-by-construction-processing.md), [ADR 0014 (Coverage criticality is an invariant)](0014-coverage-criticality-invariant.md), [ADR 0015 (Tier-1 cohort surface + metadata sidecar)](0015-tier-1-cohort-surface-and-metadata-sidecar.md), [ADR 0029 (Token reduction is analytical quality)](0029-token-reduction-as-analytical-quality.md), [CLAUDE.md § Workflow: manager mode](../../CLAUDE.md#workflow-manager-mode), [CLAUDE.md § Boss-architect protocols (Tier 1)](../../CLAUDE.md#boss-architect-protocols-tier-1--main-session-discipline)
 
 ## Context
@@ -13,7 +14,7 @@ designed for live recipients — Dr. Senefeld at the next HIP Lab
 meeting, the boss-architect's family member as a non-technical first
 audience, future PIs evaluating the framework. The demo is the
 project's primary live-audience surface; everything before it
-(`biosensor-mcp demo`, the synthetic-running-data analytics dump) is
+(`tailor demo`, the synthetic-running-data analytics dump) is
 operator self-verification, not an audience walkthrough.
 
 Until v6.9.0 the demo could only be run from a source clone of the
@@ -24,7 +25,7 @@ repo. The recipient had to:
 3. Run `python examples/hip_lab_demo/realistic/setup.py` to scaffold
    the demo.
 4. Hand-edit `claude_desktop_config.json` to add a server entry with
-   the right `BIOSENSOR_CONFIG_DIR` env var pointing at the cloned
+   the right `TAILOR_CONFIG_DIR` env var pointing at the cloned
    repo's `examples/` subdirectory.
 5. Restart Claude Desktop.
 
@@ -32,14 +33,14 @@ This works for in-repo developers but collapses for the demo's actual
 target audience. The repo is private (and will stay private — see
 § Alternatives). Non-technical recipients do not have GitHub access,
 do not write JSON by hand, and will not type
-`BIOSENSOR_CONFIG_DIR=/long/absolute/path biosensor-mcp serve` in a
+`TAILOR_CONFIG_DIR=/long/absolute/path tailor serve` in a
 PowerShell window. Each step in the prior flow is a place where the
 recipient can silently fail with no breadcrumb back to the cause.
 
 The structural question this ADR answers is: *what artifacts ship
 inside the wheel, and what stays in `examples/`?* The convention
 since v6.2.1 (when the multi-subject pilot's three CSV fixtures
-moved into `src/biosensor_mcp/_fixtures/multi_subject_pilot/csv/`)
+moved into `src/tailor/_fixtures/multi_subject_pilot/csv/`)
 has been *"the wheel ships only enough fixtures to make `pilot`'s
 end-to-end smoke check work; everything else lives in `examples/`
 for in-repo dev only."* That convention is too narrow now: the demo
@@ -65,7 +66,7 @@ subcommand, governed by four sub-decisions:
 The 48 force/EMG/MRS CSVs, three `metadata.json` sidecars, and the
 S004 cross-session-memory seed vault moment migrate from
 `examples/hip_lab_demo/realistic/{force,emg,mrs,vault}/` to
-`src/biosensor_mcp/_fixtures/hip_lab_demo_realistic/{force,emg,mrs,vault}/`.
+`src/tailor/_fixtures/hip_lab_demo_realistic/{force,emg,mrs,vault}/`.
 `pyproject.toml` `[tool.setuptools.package-data]` extends to glob
 `_fixtures/**/*.csv`, `_fixtures/**/*.json`, and `_fixtures/**/*.md`
 so the entire bundled tree ships in the wheel.
@@ -74,7 +75,7 @@ so the entire bundled tree ships in the wheel.
 that produced those fixtures, stays out of the wheel by way of the
 `[tool.setuptools.packages.find] where = ["src"]` rule, and writes
 its outputs *into the bundled tree* — `generate.py`'s output path
-becomes `src/biosensor_mcp/_fixtures/hip_lab_demo_realistic/`, not
+becomes `src/tailor/_fixtures/hip_lab_demo_realistic/`, not
 the in-repo example dir. Re-running `generate.py` is the way to
 refresh the bundled fixtures; the next wheel build picks up the new
 bytes automatically.
@@ -90,16 +91,16 @@ bytes are committed.
 
 ### 2. The `tour` CLI subcommand is the live-audience surface
 
-`biosensor-mcp tour` lands as a new public CLI subcommand at
-[`src/biosensor_mcp/tour.py`](../../src/biosensor_mcp/tour.py).
-Default invocation (`biosensor-mcp tour`) scaffolds the hip-lab
-realistic variant into `~/.biosensor-mcp/demos/hip-lab/`, copies
+`tailor tour` lands as a new public CLI subcommand at
+[`src/tailor/tour.py`](../../src/tailor/tour.py).
+Default invocation (`tailor tour`) scaffolds the hip-lab
+realistic variant into `~/.tailor/demos/hip-lab/`, copies
 bundled fixtures via `importlib.resources`, writes `user_config.json`
 with absolute paths resolved against the target dir, indexes the
 seed vault moment into `data/vault.db`, and writes (or merges with)
 the recipient's Claude Desktop config to register an
 `mcpServers["biosensor-tour-hip-lab"]` entry whose `env` block
-**bakes in `BIOSENSOR_CONFIG_DIR` and `BIOSENSOR_DATA_DIR` pointing
+**bakes in `TAILOR_CONFIG_DIR` and `TAILOR_DATA_DIR` pointing
 at the scaffolded target dir**. The recipient never types an env
 var by hand; Claude Desktop spawns the server with the right
 environment automatically.
@@ -111,7 +112,7 @@ Desktop merge for headless / CI use), `--force` (overwrite a
 non-tour target dir).
 
 The Claude Desktop merge code is **explicitly inherited** from
-[`src/biosensor_mcp/pilot.py`](../../src/biosensor_mcp/pilot.py)'s
+[`src/tailor/pilot.py`](../../src/tailor/pilot.py)'s
 v6.2.1 hardenings — atomic write via `os.replace`, BOM round-trip,
 deep-merge into existing `mcpServers` so sibling MCP servers
 survive. `tour.py` imports the path-resolution helper plus
@@ -172,11 +173,11 @@ The carve-out's mechanism: the boss creates one public GitHub repo
 GitHub Pages-rendered shareable demo transcript and (b) versioned
 wheel files as release assets. Each `release-shipper` run uploads
 the new wheel to this mirror and regenerates `index.md` from the
-output of `biosensor-mcp demo --save-shareable`. The boss then has
+output of `tailor demo --save-shareable`. The boss then has
 a permanent URL (e.g.
 `https://saahasmuthineni.github.io/biosensormcpdemo/`) to share
 through any channel; the friend's one-line `uvx --from <wheel-url>
-biosensor-mcp demo` runs the same demo on their machine without any
+tailor demo` runs the same demo on their machine without any
 account, clone, or env-setup ritual.
 
 **Invariants the carve-out preserves:**
@@ -184,7 +185,7 @@ account, clone, or env-setup ritual.
 1. **Source repo stays private.** The mirror is release-artifact-only.
    No source code, no ADRs, no design docs, no CLAUDE.md propagate to
    the public mirror. The mirror's `README` says only *"this is the
-   release distribution channel for the (private) Biosensor MCP
+   release distribution channel for the (private) Tailor
    project; the demo URL is …"* with a contact-the-author breadcrumb.
 2. **Synthetic-by-construction precondition holds.** § 4 below is
    load-bearing for this carve-out — the wheel is shareable publicly
@@ -270,8 +271,8 @@ public surface declares its criticality class so
 
 | File | Criticality | Rationale |
 |---|---|---|
-| `src/biosensor_mcp/tour.py` | **HIGH** | CLI public surface that writes the recipient's Claude Desktop config and scaffolds runtime SQLite state. A regression in `_register_with_claude_desktop` could clobber sibling MCP servers (the v6.2.1 hardening this ADR inherits); a regression in `_write_user_config` could write paths that point at the operator's real config dir instead of the scaffold. Both failure modes are silent and recipient-visible. |
-| `src/biosensor_mcp/_fixtures/hip_lab_demo_realistic/**` | LOW | Bundled data; coverage doesn't apply to non-code artifacts. |
+| `src/tailor/tour.py` | **HIGH** | CLI public surface that writes the recipient's Claude Desktop config and scaffolds runtime SQLite state. A regression in `_register_with_claude_desktop` could clobber sibling MCP servers (the v6.2.1 hardening this ADR inherits); a regression in `_write_user_config` could write paths that point at the operator's real config dir instead of the scaffold. Both failure modes are silent and recipient-visible. |
+| `src/tailor/_fixtures/hip_lab_demo_realistic/**` | LOW | Bundled data; coverage doesn't apply to non-code artifacts. |
 | `examples/hip_lab_demo/realistic/generate.py` | LOW | Deterministic generator off the analytical path; output is verified by `rehearse.py` end-to-end (which is itself in the dev tree). |
 | `examples/hip_lab_demo/realistic/rehearse.py` | MEDIUM | Pre-meeting smoke check; failure is loud and pre-ship, but a regression that flatten the S004 amplitude bridge silently undermines the demo's wow moment if `rehearse.py` itself drifts in lockstep. Step 4b's cohort-relativity assertion is the structural backstop. |
 
@@ -287,7 +288,7 @@ sibling-MCP-server preservation on merge.
 ### Positive
 
 - **Recipient install collapses from 5 manual steps to 2:** receive
-  the `.whl`, `pip install <path>` + `biosensor-mcp tour`. The
+  the `.whl`, `pip install <path>` + `tailor tour`. The
   Claude Desktop wiring is automatic. No GitHub, no env vars, no
   JSON edits.
 - **The wheel is a self-contained demo carrier.** A reviewer who
@@ -323,7 +324,7 @@ sibling-MCP-server preservation on merge.
 - **`examples/hip_lab_demo/realistic/setup.py` is removed.** Any
   external doc, slack message, or memory referencing the prior
   `python setup.py` invocation is now stale. The replacement
-  command is `biosensor-mcp tour`; the doc churn is contained to
+  command is `tailor tour`; the doc churn is contained to
   the realistic directory's own README, CUE_CARD, and
   WINDOWS_QUICKSTART, all updated in this PR.
 - **`generate.py`'s output path is now coupled to the package
@@ -331,12 +332,12 @@ sibling-MCP-server preservation on merge.
   `generate.py`'s `PACKAGE_FIXTURES` constant. The coupling is
   documented inline.
 - **The default scaffold target dir
-  `~/.biosensor-mcp/demos/hip-lab/` lives under the operator's
-  biosensor-mcp config root.** A future user running both a real
+  `~/.tailor/demos/hip-lab/` lives under the operator's
+  tailor config root.** A future user running both a real
   pilot and the tour will see them as siblings under
-  `~/.biosensor-mcp/`; an `rm -rf ~/.biosensor-mcp/` would nuke
+  `~/.tailor/`; an `rm -rf ~/.tailor/` would nuke
   both. Mitigation: the `demos/` subdir scope makes a more
-  targeted cleanup easy (`rm -rf ~/.biosensor-mcp/demos/`); for
+  targeted cleanup easy (`rm -rf ~/.tailor/demos/`); for
   single-recipient deployments (mom, Senefeld) there is no real
   pilot config to collide with.
 - **`pip install <path-to-wheel>` does not pull dependencies from
@@ -352,7 +353,7 @@ sibling-MCP-server preservation on merge.
   in-repo. Only the *generated artifacts* relocated.
 - **`pilot` is unchanged.** Existing v6.2.1 behaviour holds.
 - **The `demo` subcommand is unchanged in v6.9.0.** Operator
-  self-verification still runs `python -m biosensor_mcp.demo` via
+  self-verification still runs `python -m tailor.demo` via
   the same dispatch entry as of this ADR's landing. Subsequently
   reframed in v6.10.5 per [ADR 0027](0027-demo-as-researcher-first-look.md):
   the `demo` subcommand is now a researcher first-look that runs
@@ -374,7 +375,7 @@ sibling-MCP-server preservation on merge.
 ### Alternative 1 — Publish to PyPI
 
 Push the package to PyPI under the same name. `pip install
-biosensor-mcp` + `biosensor-mcp tour` works for any Python user
+tailor` + `tailor tour` works for any Python user
 with internet access; no manual wheel transfer.
 
 **Why rejected today, retained as future option.** The repo is
@@ -411,14 +412,14 @@ package via `pip install -e .` against the extracted source tree.
 The Claude Desktop wiring step is still manual JSON editing. The
 zip path duplicates state every time a new wheel ships, and the
 dev's `examples/` directory becomes the recipient's runtime
-directory — `BIOSENSOR_CONFIG_DIR=/path/to/extracted/zip/...
-biosensor-mcp serve` is exactly the env var the boss-architect's
+directory — `TAILOR_CONFIG_DIR=/path/to/extracted/zip/...
+tailor serve` is exactly the env var the boss-architect's
 non-technical recipient won't type. The zip does not solve the
 real friction; it just moves it.
 
-### Alternative 4 — Separate `biosensor-mcp-tour` package
+### Alternative 4 — Separate `tailor-tour` package
 
-Publish a second package on PyPI that depends on `biosensor-mcp`
+Publish a second package on PyPI that depends on `tailor`
 and ships only the tour module + fixtures.
 
 **Rejected.** Two packages mean two version cycles, two release
@@ -430,7 +431,7 @@ the-main-wheel path costs ~3 MB and zero process overhead.
 ### Alternative 5 — Run the tour from a Docker container
 
 Ship a Docker image with the package and fixtures pre-installed.
-Recipient runs `docker run biosensor-mcp:tour`.
+Recipient runs `docker run tailor:tour`.
 
 **Rejected.** Docker adds an entire new dependency for the
 recipient (Docker Desktop install on Windows is heavier than

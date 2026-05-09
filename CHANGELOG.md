@@ -5,6 +5,115 @@ All notable changes to this project are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims at [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.0.0] — 2026-05-08
+
+Project rename: `Biosensor MCP` → **Tailor** (per [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md)).
+The first major version bump in the project's history. Every prior
+release shipped under the old name; v7.0.0 establishes the new identity
+and provides a non-destructive migration path.
+
+### Changed (breaking)
+
+- **PyPI distribution name**: `biosensor-mcp` → `tailor-mcp` (the bare
+  `tailor` is taken on PyPI; `tailor-mcp` matches the historical
+  pattern and is available).
+- **Python import name**: `biosensor_mcp` → `tailor`.
+  `from biosensor_mcp import ...` → `from tailor import ...`.
+- **CLI command**: `biosensor-mcp` → `tailor`. `biosensor-mcp serve` →
+  `tailor serve`; same shape for `pilot`, `tour`, `setup`, `status`,
+  `demo`, `uninstall`.
+- **Config + data directories**: `~/.biosensor-mcp/` → `~/.tailor/`.
+- **Environment variables**: `BIOSENSOR_CONFIG_DIR` →
+  `TAILOR_CONFIG_DIR`; `BIOSENSOR_DATA_DIR` → `TAILOR_DATA_DIR`;
+  `BIOSENSOR_DEMO_INSTALL_URL_BASE` → `TAILOR_DEMO_INSTALL_URL_BASE`.
+- **Claude Desktop registration keys**: `biosensor-mcp` → `tailor`;
+  `biosensor-tour-<variant>` → `tailor-tour-<variant>`.
+- **Diagnostic tool name**: `biosensor_setup_help` →
+  `tailor_setup_help` (user-visible to AIs via tools/list).
+- **Display name throughout docs and code**: `Biosensor MCP` → `Tailor`.
+
+### Added
+
+- **`tailor migrate` subcommand** for non-destructive v6 → v7
+  filesystem upgrade. Copies `~/.biosensor-mcp/` to `~/.tailor/` by
+  default; `--move` to remove the legacy directory after copying.
+  Refuses to overwrite a non-empty destination.
+- **Startup migration warning**: `tailor` emits a single stderr line
+  when `~/.biosensor-mcp/` exists and `~/.tailor/` is absent or empty,
+  pointing the user at `tailor migrate`. Non-blocking; auto-prompts
+  would silently park during `tailor serve` (Claude Desktop subprocess).
+- **Wardrobe** as the user-facing engine word for what the framework
+  holds on the user's behalf — themes, moments, evidence, failure
+  modes, audit history, source data. Replaces the working term
+  *"substrate"* used in design conversations. Internal architectural
+  identifiers (`vault/`, `framework/`, `audit.db`) are unchanged;
+  *Wardrobe* is the user-facing aggregate term.
+- **Counter-programming invariant** per ADR 0031 — visual language
+  stays non-fashion, onboarding copy actively redirects the literal-
+  clothing read, content shown in any "your Wardrobe" view is
+  visibly diverse from first impression. PRs adding fashion-domain
+  language are in conflict with ADR 0031.
+- **Dual-prefix Claude Desktop cleanup**: `_clean_claude_desktop_orphan_entries`
+  + `_is_orphan_entry_key` helper match BOTH legacy `biosensor-*` and
+  current `tailor` / `tailor-*` keys so v6 → v7 upgrades don't leave
+  orphan entries pointing at a removed binary. Generalises the v6.9.2
+  prefix-match contract to handle future prefix changes.
+- **+13 tests** verifying the migration matcher contract directly:
+  `TestOrphanEntryKeyMatcher` class (5 tests) + four legacy / current
+  cleanup-scenario tests in `tests/test_uninstall_cleanup.py`.
+
+### Migration
+
+A v6 user upgrades by:
+
+1. `pip install --upgrade tailor-mcp` (or re-running the
+   `uv tool install` command from the GitHub URL).
+2. `tailor migrate` to copy `~/.biosensor-mcp/` to `~/.tailor/`.
+3. `tailor tour --force` (or `tailor pilot`) to re-register with
+   Claude Desktop under the new key. The dual-prefix cleanup removes
+   any stale `biosensor-*` entries automatically.
+4. Update any shell rc files / CI workflows / Claude Desktop config
+   `env` blocks that set `BIOSENSOR_CONFIG_DIR` /
+   `BIOSENSOR_DATA_DIR` to the new `TAILOR_*` names.
+
+The startup warning fires on every `tailor` invocation while step 2
+is pending, so the migration is hard to miss.
+
+### Historical preservation
+
+- `CHANGELOG.md` (this file's pre-v7.0.0 entries), the dated session
+  reports under `docs/reports/*-2026-05-01.md`, and the 2026-05-05
+  vault moment file retain the legacy `biosensor-mcp` /
+  `Biosensor MCP` references — they describe past state under the
+  old name, and rewriting them would falsify the historical record.
+
+### Architecture preserved (intentionally NOT changed)
+
+- Internal architectural identifiers — `framework/`, `vault/`,
+  `local_llm/`, `children/`, `RouterMCP`, `VaultLayer`, `ChildMCP`,
+  `RunningChild`, `audit.db`, `vault.db` — describe the architecture,
+  not the project's identity.
+- Domain-term language — *"biosensor children"*, *"biosensor-tier
+  gates"*, *"biosensor data"* — describes the kind of data those
+  components handle (biological sensor data), which the framework
+  still does. The framework continues to ship with the running
+  child (Strava) and four CSV-based biosensor children (csv_dir,
+  force_csv, emg_csv, template).
+- The first deployment recipe (HIP Lab researcher first-look) is
+  unchanged in content; it carries the new naming.
+
+### Verification
+
+- pytest: 930 passed (917 prior + 13 net new for the migration matcher)
+- ruff: clean
+- security probe: 76/76 passed
+- CLI smoke (`tailor --help`): clean
+- mcp-protocol-auditor: NOT TRIGGERED (no router/security/vault
+  behavioural paths touched — only import names changed)
+- recipient-install-validator: SKIPPED per the v6.11.x silent-park
+  falsification documented in project memory; operator hand-validation
+  is the v7.0.0 backstop until ADR 0028's v2 escalation lands
+
 ## [Unreleased]
 
 ### Fixed

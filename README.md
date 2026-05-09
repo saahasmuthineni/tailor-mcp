@@ -1,13 +1,31 @@
-# Biosensor MCP — LLM-Assisted Analysis for Health Research
+# Tailor — your AI works with your data, on your machine
 
 [![CI](https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector/actions/workflows/ci.yml/badge.svg)](https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector/actions/workflows/ci.yml)
 [![Python 3.10 | 3.11 | 3.12](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/downloads/)
 [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows-lightgrey)](.github/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 
-Local-first infrastructure for LLM-assisted analysis of high-frequency
-biometric data — built for health research workflows where data
-governance, audit trails, and reproducibility matter.
+**Tailor** is a local-first MCP framework that lets any MCP-speaking AI
+(Claude Desktop, Cline, Cursor, local models via Ollama) work with your
+own data — without that data ever leaving your machine, with every
+action recorded in a durable audit log, and with results stamped for
+reproducibility.
+
+Your **Wardrobe** is what your AI knows about you: the structured
+collection of your data and prior analytical work that lives entirely
+on your machine. *Not clothes — your stuff.* Your Wardrobe accumulates
+themes (questions you keep returning to), moments (observations worth
+remembering), evidence (data that grounds your themes), audit history
+(every action your AI took on your behalf), and the source data
+itself. Tailor curates your Wardrobe — adds to it, retrieves from it,
+governs how the AI reaches into it — and never sends any of it to a
+service you didn't choose.
+
+The current worked example is a health-research workflow on
+high-frequency biometric data — built for cohorts, audit trails,
+reproducibility, and IRB-grade data governance. The framework
+generalises beyond that domain; the research recipe is the first one
+shipped end-to-end, not the platform's identity.
 
 ## 30-second quickstart
 
@@ -15,7 +33,7 @@ For a PI or analyst running a multi-subject CSV pilot:
 
 ```bash
 uv tool install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
-biosensor-mcp pilot          # three prompts, end-to-end smoke check
+tailor pilot          # three prompts, end-to-end smoke check
 ```
 
 For a developer exploring the framework:
@@ -24,8 +42,8 @@ For a developer exploring the framework:
 git clone https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
 cd Biosensor-to-LLM-Connector
 pip install -e ".[dev]"
-biosensor-mcp demo           # researcher first-look: HIP Lab cohort tools on bundled fixtures
-biosensor-mcp --help         # see all commands
+tailor demo           # researcher first-look: HIP Lab cohort tools on bundled fixtures
+tailor --help         # see all commands
 ```
 
 Then open [**docs/guides/worked-example.ipynb**](docs/guides/worked-example.ipynb) for a 10-minute end-to-end walkthrough: the router pipeline, a Tier-1 call, an audit row, the analyst-side consent gate firing, and a vault theme round-tripping to Obsidian-compatible markdown — all on synthetic data, no credentials required.
@@ -106,7 +124,7 @@ when they use LLMs as analytical assistants:
 | **Reproducibility** — analyses in chat windows don't replay six months later. No log of which tool saw which data, no hook for a replication package. | Audit log (every call in SQLite with optional `subject_id`) + `_meta` provenance stamps on every result. |
 | **Longitudinal memory** — observations get dropped at session end. The note an analyst made about a participant in April is exactly what the analyst in September needs. | Vault layer: themes, moments, evidence logs — append-only, Obsidian-backed, queryable across sessions. |
 
-Biosensor MCP is a local MCP server that sits between any MCP-speaking
+Tailor is a local MCP server that sits between any MCP-speaking
 client and your data sources, owning the cross-cutting concerns — gating,
 scrubbing, audit, provenance, durable memory — that each problem needs.
 
@@ -114,7 +132,7 @@ scrubbing, audit, provenance, durable memory — that each problem needs.
 
 Hosted Memory is a chat-convenience feature: cross-session continuity
 inside one vendor's product, opaque to the user, mutable, and
-conversation-scoped. Biosensor MCP's vault is governance
+conversation-scoped. Tailor's vault is governance
 infrastructure: append-only markdown that survives the LLM client,
 human-readable in Obsidian or any text editor, supersession-tracked
 via [`vault_correct_evidence`](CLAUDE.md#vaultlayer--25-tools-v61),
@@ -122,12 +140,12 @@ study-scoped via `subject_id`, and inspectable down to the SQLite
 index. Same word, different artifact category. For a chat assistant
 remembering your name across conversations, Hosted Memory is the right
 tool. For an analytical record an IRB or PI can attach to a protocol
-amendment six months later, it is not. Biosensor MCP's vault layer
+amendment six months later, it is not. Tailor's vault layer
 exists for the second case.
 
 For the related question of *"can I use Anthropic Managed Agents on
-top of Biosensor MCP?"* — yes, the framework supports a network-MCP
-deployment where a hosted agent calls Biosensor MCP as a governed
+top of Tailor?"* — yes, the framework supports a network-MCP
+deployment where a hosted agent calls Tailor as a governed
 data boundary. See [docs/design/managed-agents-compat.md](docs/design/managed-agents-compat.md)
 for which threat models that path addresses and which it doesn't.
 
@@ -263,7 +281,7 @@ pip install -e ".[dev]"
 ### Verify
 
 ```bash
-biosensor-mcp --help
+tailor --help
 pytest -v
 python tests/security_probe.py
 ```
@@ -275,32 +293,32 @@ Add to your Claude Desktop config (`claude_desktop_config.json`):
 ```json
 {
   "mcpServers": {
-    "biosensor-mcp": {
-      "command": "~/.biosensor-mcp/venv/bin/python",
-      "args": ["-m", "biosensor_mcp", "serve"],
+    "tailor": {
+      "command": "~/.tailor/venv/bin/python",
+      "args": ["-m", "tailor", "serve"],
       "env": {
-        "BIOSENSOR_CONFIG_DIR": "~/.biosensor-mcp",
-        "BIOSENSOR_DATA_DIR": "~/.biosensor-mcp/data"
+        "TAILOR_CONFIG_DIR": "~/.tailor",
+        "TAILOR_DATA_DIR": "~/.tailor/data"
       }
     }
   }
 }
 ```
 
-Replace `~/.biosensor-mcp/venv/bin/python` with the path to your Python
+Replace `~/.tailor/venv/bin/python` with the path to your Python
 interpreter.
 
 ### Commands
 
 | Command | Description |
 |---|---|
-| `biosensor-mcp pilot` | Multi-subject CSV pilot wizard (v6.2.1) — three prompts, end-to-end smoke check |
-| `biosensor-mcp tour` | Live-audience walkthrough — scaffolds bundled HIP Lab fixtures + registers with Claude Desktop (ADR 0024) |
-| `biosensor-mcp serve` | Start the MCP server (invoked by the LLM client) |
-| `biosensor-mcp demo` | Researcher first-look — runs cohort tools on bundled HIP Lab fixtures (ADR 0027) |
-| `biosensor-mcp setup` | Strava OAuth wizard (for the worked example) |
-| `biosensor-mcp status` | Diagnostic check: tokens, DB state, vault config |
-| `biosensor-mcp uninstall` | Clean removal |
+| `tailor pilot` | Multi-subject CSV pilot wizard (v6.2.1) — three prompts, end-to-end smoke check |
+| `tailor tour` | Live-audience walkthrough — scaffolds bundled HIP Lab fixtures + registers with Claude Desktop (ADR 0024) |
+| `tailor serve` | Start the MCP server (invoked by the LLM client) |
+| `tailor demo` | Researcher first-look — runs cohort tools on bundled HIP Lab fixtures (ADR 0027) |
+| `tailor setup` | Strava OAuth wizard (for the worked example) |
+| `tailor status` | Diagnostic check: tokens, DB state, vault config |
+| `tailor uninstall` | Clean removal |
 
 ### Worked example: the running child
 
@@ -311,7 +329,7 @@ To run against live Strava data:
 1. Create a Strava API app at
    [strava.com/settings/api](https://www.strava.com/settings/api)
    (set callback to `localhost`).
-2. Run `biosensor-mcp setup` to complete OAuth.
+2. Run `tailor setup` to complete OAuth.
 3. Restart your MCP client and query — *"summarize my last run"*,
    *"how has my HR drift changed?"* — to see the full pipeline in action.
 
@@ -361,7 +379,7 @@ or issue before writing code — several have real design questions
 ## Architecture
 
 <p align="center">
-  <img src="docs/assets/footprint.svg" alt="Biosensor MCP system footprint — router, child, vault layer" width="760">
+  <img src="docs/assets/footprint.svg" alt="Tailor system footprint — router, child, vault layer" width="760">
 </p>
 
 ```mermaid
@@ -394,7 +412,7 @@ Detailed notes in [CLAUDE.md](CLAUDE.md).
 | OAuth "address already in use" on port 8189 | Another process is bound to that port. Kill it or wait for it to release. |
 | `rate_limit.json` corruption warning | Delete the file — it will be rebuilt on next API call. |
 | `subject_id` not appearing in audit rows | Pass `subject_id` as a parameter in the tool call, not as a header. |
-| Vault disabled silently | Check `~/.biosensor-mcp/logs/` for a `user_config.json` parse warning. |
+| Vault disabled silently | Check `~/.tailor/logs/` for a `user_config.json` parse warning. |
 
 ---
 

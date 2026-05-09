@@ -1,4 +1,4 @@
-# Biosensor MCP — one-page reference for HIP Lab
+# Tailor — one-page reference for HIP Lab
 
 > Companion to the live walkthrough and the 5-minute video.
 > Written so an IRB coordinator or a non-engineer PI can read
@@ -161,8 +161,8 @@ using it weekly without prompting."
   questions**: Saahas. The repo also has
   `docs/design/research-framing.md` written for this audience.
 - **Try the demo yourself**: clone the repo, run
-  `BIOSENSOR_CONFIG_DIR=examples/hip_lab_demo/beta
-  biosensor-mcp serve`, then point any MCP client at it. The
+  `TAILOR_CONFIG_DIR=examples/hip_lab_demo/beta
+  tailor serve`, then point any MCP client at it. The
   `README.md` in the demo directory has the five honest
   caveats up front.
 - **The five-minute video**: `video-script.md` in this

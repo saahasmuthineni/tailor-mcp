@@ -10,7 +10,7 @@ import pytest
 
 
 def _make_writer(vault_path: Path, data_dir: Path, running_storage=None):
-    from biosensor_mcp.framework.vault.writer import VaultWriter
+    from tailor.framework.vault.writer import VaultWriter
     mock_storage = running_storage or MagicMock()
     mock_storage.get_activity = MagicMock(return_value={
         "id": 12345678,
@@ -648,7 +648,7 @@ class TestCorrectionPropagation:
                 writer.close()
 
     def test_already_propagated_helper(self):
-        from biosensor_mcp.framework.vault.writer import VaultWriter
+        from tailor.framework.vault.writer import VaultWriter
         # Same window — should detect.
         co_occur = (
             "Some text\n"
@@ -671,7 +671,7 @@ class TestCorrectionPropagation:
         )
 
     def test_append_corrections_callout_creates_section_at_eof(self):
-        from biosensor_mcp.framework.vault.writer import VaultWriter
+        from tailor.framework.vault.writer import VaultWriter
         original = "# Note\n\nSome body content.\n"
         callout = "> [!warning] x\n> y\n"
         result = VaultWriter._append_corrections_callout(original, callout)
@@ -681,7 +681,7 @@ class TestCorrectionPropagation:
         assert "Some body content." in result
 
     def test_append_corrections_callout_extends_existing_section(self):
-        from biosensor_mcp.framework.vault.writer import VaultWriter
+        from tailor.framework.vault.writer import VaultWriter
         original = "# Note\n\n## Corrections\n\n> [!warning] earlier\n> first\n"
         callout = "> [!warning] new\n> second\n"
         result = VaultWriter._append_corrections_callout(original, callout)

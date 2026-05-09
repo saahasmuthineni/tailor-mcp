@@ -13,12 +13,12 @@ the current absolute paths, regenerates the CSVs deterministically,
 and rewrites the seed moment file. Useful when the directory has
 been moved or renamed.
 
-The framework reads user_config.json from $BIOSENSOR_CONFIG_DIR
-(default: ~/.biosensor-mcp). The demo isolates by setting
-BIOSENSOR_CONFIG_DIR to this directory at runtime — no clobber to
+The framework reads user_config.json from $TAILOR_CONFIG_DIR
+(default: ~/.tailor). The demo isolates by setting
+TAILOR_CONFIG_DIR to this directory at runtime — no clobber to
 the operator's real config:
 
-    BIOSENSOR_CONFIG_DIR=examples/hip_lab_demo/beta biosensor-mcp serve
+    TAILOR_CONFIG_DIR=examples/hip_lab_demo/beta tailor serve
 
 Usage:
     python examples/hip_lab_demo/beta/setup.py
@@ -155,8 +155,8 @@ def _index_vault() -> None:
     inside the running server. Calling rescan_vault here closes that
     gap so the demo's Wow 2 prompt finds the seed on first run.
     """
-    from biosensor_mcp.framework.vault.rescan import rescan_vault
-    from biosensor_mcp.framework.vault.storage import VaultStorage
+    from tailor.framework.vault.rescan import rescan_vault
+    from tailor.framework.vault.storage import VaultStorage
 
     data_dir = HERE / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -193,7 +193,7 @@ def main() -> None:
     print()
     print("Done. Next:")
     print()
-    print(f"  BIOSENSOR_CONFIG_DIR={HERE} biosensor-mcp serve")
+    print(f"  TAILOR_CONFIG_DIR={HERE} tailor serve")
     print()
     print(
         "Or register the demo with Claude Desktop using the snippet in "

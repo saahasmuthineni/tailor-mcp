@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
-from biosensor_mcp.framework.audit import JSON_BACKEND, AuditLog, _dumps, _loads
+from tailor.framework.audit import JSON_BACKEND, AuditLog, _dumps, _loads
 
 
 class TestAuditLogSubjectId:

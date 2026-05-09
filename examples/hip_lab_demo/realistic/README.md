@@ -14,7 +14,7 @@ ChildMCP; framework infrastructure already composes them.*
 
 As of v6.9.0 (per [ADR 0024](../../../docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md))
 the demo's fixtures live in the package's bundled-fixtures tree
-(`src/biosensor_mcp/_fixtures/hip_lab_demo_realistic/`) and ship
+(`src/tailor/_fixtures/hip_lab_demo_realistic/`) and ship
 inside the wheel.  A non-technical recipient (PI, family member,
 collaborator at another institution) can run the entire walkthrough
 from a pre-built wheel sent via Drive or email — no GitHub access,
@@ -32,7 +32,7 @@ no source clone, no env-var-by-hand.  See
 python examples/hip_lab_demo/realistic/rehearse.py
 
 # Live demo path: scaffold + register with Claude Desktop in one shot.
-biosensor-mcp tour
+tailor tour
 ```
 
 Then walk Senefeld through the
@@ -48,7 +48,7 @@ python examples/hip_lab_demo/realistic/generate.py
 
 `generate.py` writes directly into the package's
 `_fixtures/hip_lab_demo_realistic/` tree, so the next
-`biosensor-mcp tour` (or `pip install`-built wheel) picks up the
+`tailor tour` (or `pip install`-built wheel) picks up the
 regenerated fixtures with no further plumbing.
 
 ---
@@ -73,22 +73,22 @@ rehearsal-ready; non-zero = at least one number drifted from
 failure before the meeting rather than during.
 
 Rehearse scaffolds its own temp tour and tears it down on exit, so
-your `~/.biosensor-mcp/` directory stays untouched. Re-run any time
+your `~/.tailor/` directory stays untouched. Re-run any time
 `generate.py`, the seed moment, or the tour module changes.
 
 ### 2. Scaffold the live tour and register with Claude Desktop
 
 ```bash
-biosensor-mcp tour
+tailor tour
 ```
 
 This one command:
 
-- Copies bundled fixtures into `~/.biosensor-mcp/demos/hip-lab/`
+- Copies bundled fixtures into `~/.tailor/demos/hip-lab/`
 - Writes `user_config.json` with absolute paths
 - Indexes the seed vault moment into `data/vault.db`
 - **Writes a Claude Desktop entry that bakes
-  `BIOSENSOR_CONFIG_DIR` and `BIOSENSOR_DATA_DIR` into the
+  `TAILOR_CONFIG_DIR` and `TAILOR_DATA_DIR` into the
   `env` block** — the recipient never types an env var by hand
 
 Output ends with a "Tour scaffolded successfully" banner naming
@@ -107,13 +107,13 @@ re-open. The new MCP server appears under the entry name above.
 
 In a fresh Claude Desktop chat, type:
 
-> *"List the available biosensor MCP tools."*
+> *"List the available Tailor tools."*
 
 You should see ~55 tools across `force_csv`, `emg_csv`, `vault_*`,
 `strava_*` (Strava is the worked-example child; loads but errors
 without OAuth — ignore for this demo), and `ask_local_oracle`.
 
-If `force_csv` or `emg_csv` is missing, run `biosensor-mcp tour
+If `force_csv` or `emg_csv` is missing, run `tailor tour
 --force` to rewrite the user_config and restart Claude Desktop.
 
 ---
@@ -243,7 +243,7 @@ Claude can answer from its session memory or via a status-style
 inspection.  Or open the audit DB directly:
 
 ```bash
-sqlite3 ~/.biosensor-mcp/demos/hip-lab/data/audit.db \
+sqlite3 ~/.tailor/demos/hip-lab/data/audit.db \
   "SELECT tool_name, subject_id, called_at FROM audit_log ORDER BY id DESC LIMIT 10;"
 ```
 
@@ -280,9 +280,9 @@ their data was used for."*
 
 | What breaks | What to do |
 |---|---|
-| Claude Desktop doesn't see the tools | Restart Claude Desktop fully (system-tray Quit, then re-open). If still missing, run `biosensor-mcp tour --force` and restart again. |
-| `force_csv` returns "directory not found" | Re-run `biosensor-mcp tour --force` — re-writes user_config.json with current absolute paths. |
-| Vault search returns nothing | The vault.db wasn't indexed — `biosensor-mcp tour --force` re-runs the indexing step. The seed moment file lives at `~/.biosensor-mcp/demos/hip-lab/vault/moments/2026-04-20-s004-emg-force-decoupling-suspected.md` if you want to confirm it exists. |
+| Claude Desktop doesn't see the tools | Restart Claude Desktop fully (system-tray Quit, then re-open). If still missing, run `tailor tour --force` and restart again. |
+| `force_csv` returns "directory not found" | Re-run `tailor tour --force` — re-writes user_config.json with current absolute paths. |
+| Vault search returns nothing | The vault.db wasn't indexed — `tailor tour --force` re-runs the indexing step. The seed moment file lives at `~/.tailor/demos/hip-lab/vault/moments/2026-04-20-s004-emg-force-decoupling-suspected.md` if you want to confirm it exists. |
 | `force_summary.decline_pct` returns null | Known limitation — use `peak` and `mvc_window_mean_250ms` instead.  Don't acknowledge this gap proactively; if Senefeld asks, see [Pre-armed answers](#pre-armed-answers-if-senefeld-asks) below. |
 | You can't remember what to say | Read the **Walkthrough script** above straight off the page — every step has a "what to point out" line. |
 
@@ -414,7 +414,7 @@ literal string, so this breaks the wow moment.
 
 This is an operator action, not a Claude prompt — `vault.db`
 wasn't indexed when the tour scaffolded.  Exit the chat, run
-`biosensor-mcp tour --force`, restart the demo from step 1.
+`tailor tour --force`, restart the demo from step 1.
 
 ---
 
@@ -433,7 +433,7 @@ examples/hip_lab_demo/realistic/        # Dev-side scaffolding
   WINDOWS_QUICKSTART.md   Standalone Windows quickstart for non-technical
                           recipients (mom, Senefeld) — wheel-install path
 
-src/biosensor_mcp/_fixtures/hip_lab_demo_realistic/   # Bundled fixtures
+src/tailor/_fixtures/hip_lab_demo_realistic/   # Bundled fixtures
                                                        # (ship in the wheel
                                                        # per ADR 0024)
   force/                  Load-cell force traces, 100 Hz × 60 s

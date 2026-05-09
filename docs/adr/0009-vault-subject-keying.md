@@ -44,7 +44,7 @@ The constraint shape:
    carbohydrate timing affect HR drift across the cohort?"). Forcing
    every theme to claim a single subject is the wrong default.
 3. The router already extracts `subject_id` from arguments and threads
-   it to audit ([`router.py:572-630`](../../src/biosensor_mcp/framework/router.py)).
+   it to audit ([`router.py:572-630`](../../src/tailor/framework/router.py)).
    All 25 vault tools now declare `subject_id` in their `param_schemas`
    (Phase B of v6.2). The renderer and the SQLite index are the layers
    that have not yet been taught.
@@ -91,7 +91,7 @@ Concretely:
 - **`vault_notes` gains a nullable `subject_id` column.** Migration
   on open via `ALTER TABLE` if the column is absent — the same
   pattern `audit_log` used for `subject_id` and `scrubber_id`
-  ([`audit.py:107-118`](../../src/biosensor_mcp/framework/audit.py)).
+  ([`audit.py:107-118`](../../src/tailor/framework/audit.py)).
   Backfill happens lazily on the next `vault_rescan`, which already
   parses frontmatter on every note it touches.
 - **Search and list filter on subject when one is provided.**

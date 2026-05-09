@@ -118,20 +118,20 @@ to them with sex / age / training-volume / baseline MVC per subject,
 absolute paths of `csv/` and `vault/`, and (4) lays down the S004
 EMG/force-decoupling seed moment at `vault/moments/2026-04-16-...md`.
 
-To start the server isolated from your normal `~/.biosensor-mcp/`
+To start the server isolated from your normal `~/.tailor/`
 config:
 
 ```bash
-BIOSENSOR_CONFIG_DIR=$(pwd)/examples/hip_lab_demo/beta biosensor-mcp serve
+TAILOR_CONFIG_DIR=$(pwd)/examples/hip_lab_demo/beta tailor serve
 ```
 
-This sets `BIOSENSOR_CONFIG_DIR` to this demo directory, which the
-framework reads for `user_config.json`. `BIOSENSOR_DATA_DIR` defaults
-to `$BIOSENSOR_CONFIG_DIR/data` — so `audit.db` and `vault.db` are
+This sets `TAILOR_CONFIG_DIR` to this demo directory, which the
+framework reads for `user_config.json`. `TAILOR_DATA_DIR` defaults
+to `$TAILOR_CONFIG_DIR/data` — so `audit.db` and `vault.db` are
 also isolated to `examples/hip_lab_demo/beta/data/`.
 
-**This avoids the `biosensor-mcp pilot` wizard path on purpose** —
-the wizard writes to `~/.biosensor-mcp/user_config.json`, which
+**This avoids the `tailor pilot` wizard path on purpose** —
+the wizard writes to `~/.tailor/user_config.json`, which
 would clobber your real CSV setup. The env-var-based invocation
 keeps everything inside this directory.
 
@@ -143,19 +143,19 @@ If running the demo through Claude Desktop, add to
 ```json
 {
   "mcpServers": {
-    "biosensor-mcp-hip-demo": {
+    "tailor-hip-demo": {
       "command": "/path/to/your/python",
-      "args": ["-m", "biosensor_mcp", "serve"],
+      "args": ["-m", "tailor", "serve"],
       "env": {
-        "BIOSENSOR_CONFIG_DIR": "/path/to/Biosensor-to-LLM-Connector/examples/hip_lab_demo/beta"
+        "TAILOR_CONFIG_DIR": "/path/to/Biosensor-to-LLM-Connector/examples/hip_lab_demo/beta"
       }
     }
   }
 }
 ```
 
-Restart Claude Desktop. The demo registers as `biosensor-mcp-hip-demo`
-so any sibling biosensor-mcp registration (e.g. your real pilot
+Restart Claude Desktop. The demo registers as `tailor-hip-demo`
+so any sibling tailor registration (e.g. your real pilot
 setup) keeps working in parallel.
 
 ### Walk this in a fresh chat
@@ -227,14 +227,14 @@ No `csv_downsampled` calls, no `csv_raw_stream` calls.
 
 ### Wow 2 — the vault surfaces a prior session's moment
 
-> **Prompt:** *"Search the biosensor-mcp vault for any prior notes
+> **Prompt:** *"Search the tailor vault for any prior notes
 > on subject S004 and tell me how those observations relate to her
 > data in this protocol."*
 
 **A note on prompt phrasing.** The earlier draft of this prompt
 read *"What do you know about S004 from prior sessions"* — which
 real-world LLMs interpret as "search your conversation memory,"
-not "search the biosensor-mcp vault." The vault is a separate
+not "search the tailor vault." The vault is a separate
 durable store the LLM accesses through tools, so the prompt has
 to point at it explicitly. This is the kind of friction a research
 team would discover the first time they ran the demo; we surfaced

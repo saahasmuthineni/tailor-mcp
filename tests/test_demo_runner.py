@@ -1,5 +1,5 @@
 """
-Regression tests for ``biosensor-mcp demo``.
+Regression tests for ``tailor demo``.
 
 Two waves of design intent govern this test file:
 
@@ -57,7 +57,7 @@ def demo_output() -> str:
     Most tests just need to grep the output; sharing the run avoids
     redundant ~5-10 second demo runs across the file.
     """
-    from biosensor_mcp.demo import run_demo
+    from tailor.demo import run_demo
 
     buf = io.StringIO()
     with redirect_stdout(buf):
@@ -81,14 +81,14 @@ def test_run_demo_executes_end_to_end_without_raising() -> None:
     close before TemporaryDirectory teardown or this raises
     PermissionError.
     """
-    from biosensor_mcp.demo import run_demo
+    from tailor.demo import run_demo
 
     buf = io.StringIO()
     with redirect_stdout(buf):
         run_demo()
 
     output = buf.getvalue()
-    assert "Biosensor MCP" in output
+    assert "Tailor" in output
     assert "Demo complete." in output
 
 
@@ -149,7 +149,7 @@ def test_section_1_cohort_numbers_are_bit_identical_across_reruns() -> None:
     locks the bit-identity claim to Section 1's cohort numbers
     specifically.
     """
-    from biosensor_mcp.demo import run_demo
+    from tailor.demo import run_demo
 
     out1 = io.StringIO()
     with redirect_stdout(out1):
@@ -299,7 +299,7 @@ def test_section_5_oracle_meta_carries_processing_calls() -> None:
     requires this for IRB-grade provenance (a future reviewer
     reconstructing what the hosted LLM saw on an oracle call queries
     counts from audit.db)."""
-    from biosensor_mcp.demo import run_demo
+    from tailor.demo import run_demo
 
     buf = io.StringIO()
     with redirect_stdout(buf):
@@ -322,7 +322,7 @@ def test_save_shareable_writes_self_contained_markdown(tmp_path: Path) -> None:
     footer. ADR 0024 § 3.1 (the public release-only mirror amendment)
     depends on this file format being suitable for hosting at a
     permanent URL."""
-    from biosensor_mcp.demo import run_demo
+    from tailor.demo import run_demo
 
     out_path = tmp_path / "shareable.md"
 
@@ -334,7 +334,7 @@ def test_save_shareable_writes_self_contained_markdown(tmp_path: Path) -> None:
     content = out_path.read_text(encoding="utf-8")
 
     # Header / title
-    assert "# Biosensor MCP - demo" in content
+    assert "# Tailor - demo" in content
     # Install command section with both uvx and pipx
     assert "uvx --from" in content
     assert "pipx run --spec" in content
@@ -353,8 +353,8 @@ def test_save_shareable_install_url_includes_current_version(
     current package version. On each release, the URL pattern
     automatically updates to the new wheel filename so the friend's
     one-line install command stays correct."""
-    from biosensor_mcp import __version__
-    from biosensor_mcp.demo import run_demo
+    from tailor import __version__
+    from tailor.demo import run_demo
 
     out_path = tmp_path / "shareable.md"
     buf = io.StringIO()
@@ -362,15 +362,15 @@ def test_save_shareable_install_url_includes_current_version(
         run_demo(save_shareable_path=out_path)
 
     content = out_path.read_text(encoding="utf-8")
-    expected_filename = f"biosensor_mcp-{__version__}-py3-none-any.whl"
+    expected_filename = f"tailor-{__version__}-py3-none-any.whl"
     assert expected_filename in content
 
 
 def test_save_shareable_default_install_url_base_is_public_mirror() -> None:
     """The default install URL base (when
-    ``BIOSENSOR_DEMO_INSTALL_URL_BASE`` env var is unset) must point at
+    ``TAILOR_DEMO_INSTALL_URL_BASE`` env var is unset) must point at
     the public mirror repo per ADR 0024 § 3.1."""
-    from biosensor_mcp.demo import run_demo
+    from tailor.demo import run_demo
 
     out_path = Path("/tmp") / "_test_share_default.md"
     if out_path.exists():
@@ -410,7 +410,7 @@ def test_sample_data_module_remains_importable() -> None:
     data source" to "library-shaped synthetic-Strava generator" but
     preserves the module's importability for the worked-example
     notebook and the router smoke test."""
-    from biosensor_mcp.demo.sample_data import (
+    from tailor.demo.sample_data import (
         SAMPLE_ACTIVITY_ID,
         generate_sample_activity,
         generate_sample_streams,
@@ -430,7 +430,7 @@ def test_bundled_force_fixtures_are_loadable_via_importlib_resources() -> None:
     recipient hits the demo's loading path."""
     from importlib.resources import files
 
-    pkg_root = files("biosensor_mcp._fixtures.hip_lab_demo_realistic.force")
+    pkg_root = files("tailor._fixtures.hip_lab_demo_realistic.force")
     csv_count = sum(
         1 for child in pkg_root.iterdir()
         if child.is_file() and child.name.endswith(".csv")
@@ -467,7 +467,7 @@ def test_personas_schema_ships_in_wheel() -> None:
     from importlib.resources import files
 
     data = (
-        files("biosensor_mcp.demo")
+        files("tailor.demo")
         .joinpath("_personas.json")
         .read_text(encoding="utf-8")
     )
@@ -492,7 +492,7 @@ def test_audience_invalid_value_raises_in_run_demo(tmp_path: Path) -> None:
     with a clear ValueError. Closes the integration-auditor F4 finding —
     the developer-vs-public distinction is checked at the entrypoint,
     not silently coerced."""
-    from biosensor_mcp.demo import run_demo
+    from tailor.demo import run_demo
 
     with pytest.raises(ValueError, match="audience must be"):
         run_demo(
@@ -505,7 +505,7 @@ def test_audience_invalid_value_raises_in_generate_shareable() -> None:
     """``_generate_shareable_markdown`` independently validates the
     audience param so any caller (not just the run_demo entrypoint) gets
     the same hard-fail."""
-    from biosensor_mcp.demo.runner import _generate_shareable_markdown
+    from tailor.demo.runner import _generate_shareable_markdown
 
     with pytest.raises(ValueError, match="audience must be"):
         _generate_shareable_markdown(
@@ -523,7 +523,7 @@ def test_developer_mode_is_default_and_preserves_adr_breadcrumbs(
     saved markdown carries the 'Where to read next' ADR breadcrumb
     section (existing v6.12.0 shape; co-developer reading transcript
     can resolve the references)."""
-    from biosensor_mcp.demo import run_demo
+    from tailor.demo import run_demo
 
     out_path = tmp_path / "shareable.md"
     buf = io.StringIO()
@@ -544,7 +544,7 @@ def test_public_mode_emits_persona_panels_for_every_section(
     Closes integration-auditor F5 (panels render in friend-facing voice
     — the agent file's evaluation register is transformed by the schema-
     driven render, not verbatim-spliced)."""
-    from biosensor_mcp.demo import run_demo
+    from tailor.demo import run_demo
 
     out_path = tmp_path / "shareable.md"
     buf = io.StringIO()
@@ -571,7 +571,7 @@ def test_public_mode_attribution_footer_present_no_contact_mechanisms(
     the ADR 0030 zero-outbound-affordances invariant on the rendered
     output (the test mirrors what a friend opening the public mirror
     page would see)."""
-    from biosensor_mcp.demo import run_demo
+    from tailor.demo import run_demo
 
     out_path = tmp_path / "shareable.md"
     buf = io.StringIO()
@@ -600,7 +600,7 @@ def test_public_mode_url_allowlist_hard_fails_on_mailto() -> None:
     URL — the structural enforcement of ADR 0030's
     zero-outbound-affordances invariant. Tests the helper directly so
     the failure shape is exercised even without running the full demo."""
-    from biosensor_mcp.demo.runner import _enforce_public_url_allowlist
+    from tailor.demo.runner import _enforce_public_url_allowlist
 
     bad = "Reach me at mailto:contact@example.com please."
     with pytest.raises(ValueError, match="banned scheme"):
@@ -612,9 +612,9 @@ def test_public_mode_url_allowlist_hard_fails_on_disallowed_https() -> None:
     allowlist. Future contributor adds a Discord/Substack/contact-form
     link "to be helpful" → CI failure rather than a silently-shipped
     public page."""
-    from biosensor_mcp.demo.runner import _enforce_public_url_allowlist
+    from tailor.demo.runner import _enforce_public_url_allowlist
 
-    bad = "Join the discussion at https://discord.gg/biosensor-mcp."
+    bad = "Join the discussion at https://discord.gg/tailor."
     with pytest.raises(ValueError, match="disallowed outbound URL"):
         _enforce_public_url_allowlist(bad)
 
@@ -623,12 +623,12 @@ def test_public_mode_url_allowlist_passes_on_wheel_release_asset() -> None:
     """The wheel-release-asset URL pattern is the one outbound URL
     permitted on the public page (the install command needs it).
     Confirms the allowlist isn't accidentally too strict."""
-    from biosensor_mcp.demo.runner import _enforce_public_url_allowlist
+    from tailor.demo.runner import _enforce_public_url_allowlist
 
     good = (
         "Run with `uvx --from "
-        "https://github.com/saahasmuthineni/biosensormcpdemo/releases/download/v6.13.0/biosensor_mcp-6.13.0-py3-none-any.whl "
-        "biosensor-mcp demo`."
+        "https://github.com/saahasmuthineni/biosensormcpdemo/releases/download/v6.13.0/tailor_mcp-6.13.0-py3-none-any.whl "
+        "tailor demo`."
     )
     # Should NOT raise.
     _enforce_public_url_allowlist(good)
@@ -639,7 +639,7 @@ def test_splice_panels_returns_single_fence_when_no_section_headers() -> None:
     wraps in a single code fence rather than crashing. This protects
     against silent rendering failures if the demo's section-emission
     code structure changes in a way the regex doesn't catch."""
-    from biosensor_mcp.demo.runner import (
+    from tailor.demo.runner import (
         _load_personas,
         _splice_panels_into_transcript,
     )
@@ -656,7 +656,7 @@ def test_render_persona_panel_uses_friend_facing_voice() -> None:
     written into _personas.json, NOT the agent file's evaluation
     register ('Should this framework be approved...'). This locks the
     F5 mitigation from the integration-auditor pass."""
-    from biosensor_mcp.demo.runner import _load_personas, _render_persona_panel
+    from tailor.demo.runner import _load_personas, _render_persona_panel
 
     personas_data = _load_personas()
     panel = _render_persona_panel("section_1", personas_data)
@@ -682,7 +682,7 @@ def test_public_mode_has_only_wheel_release_asset_outbound_urls(
     too lax)."""
     import re
 
-    from biosensor_mcp.demo import run_demo
+    from tailor.demo import run_demo
 
     out_path = tmp_path / "shareable.md"
     buf = io.StringIO()
@@ -702,11 +702,11 @@ def test_public_mode_strips_developer_terminal_breadcrumbs(
     tmp_path: Path,
 ) -> None:
     """In public mode the captured transcript itself must not contain
-    the developer-tier 'biosensor-mcp pilot' / 'biosensor-mcp tour'
+    the developer-tier 'tailor pilot' / 'tailor tour'
     suggestion block — those reference recipient-facing CLI surfaces
     that scaffold private-repo files; not appropriate for a public
     page."""
-    from biosensor_mcp.demo import run_demo
+    from tailor.demo import run_demo
 
     out_path = tmp_path / "shareable.md"
     buf = io.StringIO()
@@ -715,8 +715,8 @@ def test_public_mode_strips_developer_terminal_breadcrumbs(
 
     content = out_path.read_text(encoding="utf-8")
     assert "If you want to use this with your own data" not in content
-    assert "biosensor-mcp pilot" not in content
-    assert "biosensor-mcp tour" not in content
+    assert "tailor pilot" not in content
+    assert "tailor tour" not in content
 
 
 def test_save_shareable_suppresses_redundant_tip_block(
@@ -727,7 +727,7 @@ def test_save_shareable_suppresses_redundant_tip_block(
     BOTH the user's terminal AND the captured transcript. Closes the
     integration-auditor BORDER finding about the three breadcrumb
     surfaces converging on the same affordance shape."""
-    from biosensor_mcp.demo import run_demo
+    from tailor.demo import run_demo
 
     out_path = tmp_path / "shareable.md"
     buf = io.StringIO()

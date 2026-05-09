@@ -1,14 +1,14 @@
-# Biosensor MCP and Anthropic Managed Agents — compatibility positioning
+# Tailor and Anthropic Managed Agents — compatibility positioning
 
 > Audience: research-software engineers and PIs evaluating whether
-> Biosensor MCP plays nicely with Anthropic's Managed Agents (or
+> Tailor plays nicely with Anthropic's Managed Agents (or
 > any hosted-orchestration layer over MCP). Companion to
 > [research-framing.md](research-framing.md), which covers the
 > threat models the project addresses.
 
 ## TL;DR
 
-- **Biosensor MCP is local-first by design.** The default deployment
+- **Tailor is local-first by design.** The default deployment
   shape is "the server runs next to the data; the LLM client talks
   to it; only server-computed summaries leave the machine." Call
   this **Path A**.
@@ -42,10 +42,10 @@ The two deployment paths emphasise these threat models differently.
 
 ## Path A — local-first orchestration (default)
 
-**What it is.** Biosensor MCP runs on a workstation next to the
+**What it is.** Tailor runs on a workstation next to the
 data. The analyst opens an MCP-speaking client (Claude Desktop,
 Claude Code, or any other MCP client) on the same workstation.
-The client calls into Biosensor MCP over local MCP. VaultLayer
+The client calls into Tailor over local MCP. VaultLayer
 holds analytical memory across sessions. No call leaves the
 machine except (a) the LLM client's own communication with the
 model, and (b) any explicit external API calls a child makes to
@@ -69,13 +69,13 @@ which means the analyst is driving turn by turn. Async overnight
 analysis, scheduled runs, and multi-step exploration that doesn't
 need a human in the loop are not naturally part of this path.
 
-## Path B — Managed Agent calls Biosensor MCP over network MCP
+## Path B — Managed Agent calls Tailor over network MCP
 
 **What it is.** Anthropic Managed Agents (or any equivalent hosted
-orchestration platform) connects to a Biosensor MCP instance over
+orchestration platform) connects to a Tailor instance over
 network MCP. The agent does the orchestration — looping, multi-
 step planning, scheduled execution, hosted memory. Each tool call
-the agent makes still goes through the local Biosensor MCP
+the agent makes still goes through the local Tailor
 router, which still validates parameters, gates by tier, gates by
 consent, gates by cost, scrubs PHI per the deployed scrubber, and
 audits the call locally.
@@ -153,7 +153,7 @@ router.
 The project also does not document how to set up Anthropic
 Managed Agents themselves — that's Anthropic's documentation
 domain. What this doc commits to is: *if you set them up to call
-into a Biosensor MCP instance over network MCP, the governance
+into a Tailor instance over network MCP, the governance
 properties listed under "What governance survives" above will
 hold, and the audit log on the local machine will be the canonical
 record of what the agent did.*

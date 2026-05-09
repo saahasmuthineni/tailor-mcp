@@ -14,7 +14,7 @@ health researchers — academic medical centers, mHealth labs,
 sleep / CGM / cardiology groups — and the running child is one worked
 example used to dogfood the `ChildMCP` extension pattern. That framing
 already lives in [CLAUDE.md § What This Project Is](../../CLAUDE.md#what-this-project-is)
-and in [`children/__init__.py`](../../src/biosensor_mcp/children/__init__.py)'s
+and in [`children/__init__.py`](../../src/tailor/children/__init__.py)'s
 "children are the extension point" docstring.
 
 The code does not honor that framing. The framework's vault layer,
@@ -26,18 +26,18 @@ and five silent regressions if shipped without prep work. The coupling
 sites are concrete and locatable:
 
 - The vault writer's renderer dispatch table at
-  [`framework/vault/writer.py`](../../src/biosensor_mcp/framework/vault/writer.py)
+  [`framework/vault/writer.py`](../../src/tailor/framework/vault/writer.py)
   (the `self._renderers` dict in `VaultWriter.__init__`) seeds three
   hardcoded `strava_*` keys (`strava_run_report`, `strava_trend_report`,
   `strava_compare_runs`) — the framework's main rendering surface
   is named after the worked example.
 - Three `strava_`-specific renderer functions in
-  [`framework/vault/renderer.py`](../../src/biosensor_mcp/framework/vault/renderer.py)
+  [`framework/vault/renderer.py`](../../src/tailor/framework/vault/renderer.py)
   — `render_run_note`, `render_trend_note`, `render_compare_note`,
   plus the activity-detail glue around them — live in framework code
   rather than in the running child's package.
 - Hardcoded `domain="running"` queries in
-  [`framework/vault/layer.py`](../../src/biosensor_mcp/framework/vault/layer.py)
+  [`framework/vault/layer.py`](../../src/tailor/framework/vault/layer.py)
   at three call sites (lines 1100, 1731, 2125), plus the
   `_handle_fitness_summary` handler at line 1052 which is the
   vault's only running-specific orientation tool, plus
@@ -46,7 +46,7 @@ sites are concrete and locatable:
   is the canonical domain and "running" is its store.
 - Filesystem-layout running inference plus a `strava_id` frontmatter
   fallback in
-  [`framework/vault/rescan.py`](../../src/biosensor_mcp/framework/vault/rescan.py)
+  [`framework/vault/rescan.py`](../../src/tailor/framework/vault/rescan.py)
   (around line 162 for the domain inference, line 164 for the
   `strava_id` legacy-key fallback). The framework's index revalidator
   carries domain knowledge of one specific child.
@@ -229,8 +229,8 @@ prevent.
   marketing the cycle as researcher utility.
 - v8.0.0's `git mv` is a load-bearing breaking change for any
   external repo that imports
-  `biosensor_mcp.children.running` directly. The path becomes
-  `biosensor_mcp.examples.running` (or equivalent). The cycle's
+  `tailor.children.running` directly. The path becomes
+  `tailor.examples.running` (or equivalent). The cycle's
   release notes carry the migration path, and the project commits
   no compatibility shim — the rename is the load-bearing signal
   that running is an example, and a shim would re-create the
@@ -312,7 +312,7 @@ under the new layout), `vault_backfill` no-ops silently (its
 `backfill_config` contract assumes the running tool names are
 registered), `vault_get_snapshot`'s weekly summary block goes
 blank, the running child's contract tests `ImportError` from their
-old import paths, and the `biosensor-mcp demo` subcommand
+old import paths, and the `tailor demo` subcommand
 `ImportError`s the same way. Rejected as architecturally dishonest
 — it pretends the coupling does not exist, ships five silent
 regressions to users to make a point about framing, and forces the

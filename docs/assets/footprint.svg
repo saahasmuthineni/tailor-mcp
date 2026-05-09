@@ -67,7 +67,7 @@
 
   <!-- Stage 2: MCP Server -->
   <rect fill="#eff6ff" x="270" y="270" width="180" height="52" rx="8" ry="8"/>
-  <text fill="#1a1a1a" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" font-weight="600" x="360" y="291" text-anchor="middle">biosensor-mcp serve</text>
+  <text fill="#1a1a1a" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" font-weight="600" x="360" y="291" text-anchor="middle">tailor serve</text>
   <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="360" y="307" text-anchor="middle">local Python process, ~60 MB RAM</text>
 
   <!-- Arrow -->

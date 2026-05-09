@@ -18,8 +18,8 @@ pip install -e ".[dev]"
 ```bash
 pytest -v                          # run tests (~250+ tests)
 python tests/security_probe.py     # standalone security-gate probe
-biosensor-mcp --help               # CLI smoke test
-biosensor-mcp demo                 # researcher first-look on bundled HIP Lab fixtures (ADR 0027)
+tailor --help               # CLI smoke test
+tailor demo                 # researcher first-look on bundled HIP Lab fixtures (ADR 0027)
 ```
 
 ### Lint & format
@@ -52,9 +52,9 @@ the wrong port.
 
 Children are the extension point of the framework. See `CLAUDE.md § Adding a New Biosensor Child` for the contract. Minimum viable child:
 
-1. Subclass `biosensor_mcp.framework.ChildMCP`.
+1. Subclass `tailor.framework.ChildMCP`.
 2. Implement `domain`, `display_name`, `consent_info`, `tool_definitions`, `param_schemas`, `execute`, `estimate_cost`.
-3. Register it in `src/biosensor_mcp/__main__.py::cmd_serve()` with `router.register_child(...)`.
+3. Register it in `src/tailor/__main__.py::cmd_serve()` with `router.register_child(...)`.
 4. Add tests next to the existing ones in `tests/`.
 
 The router automatically generates `approve_consent_<domain>` and `revoke_consent_<domain>` tools — the child does not need to.
@@ -76,7 +76,7 @@ Open an issue using the bug-report template. Include:
 - Your OS and Python version
 - Steps to reproduce
 - Expected vs actual behavior
-- Logs from `~/.biosensor-mcp/logs/server.log` if relevant (redact anything personal)
+- Logs from `~/.tailor/logs/server.log` if relevant (redact anything personal)
 
 ## License
 

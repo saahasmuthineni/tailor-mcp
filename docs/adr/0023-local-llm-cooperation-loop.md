@@ -107,13 +107,13 @@ responsibility:
   vault content without any LLM in the loop.
 
 The `LocalLLMLayer` constructor at
-[`framework/local_llm/layer.py:50`](../../src/biosensor_mcp/framework/local_llm/layer.py)
+[`framework/local_llm/layer.py:50`](../../src/tailor/framework/local_llm/layer.py)
 gains an optional `vault_storage` parameter. When `None`, the
 substrate scan is a defensive no-op returning `[]`; existing tests
 that construct the layer without vault wiring continue to pass.
 Wiring at `__main__.py` injects `vault_writer.storage` (a new public
 property on `VaultWriter` exposing the `_storage` field currently
-private at [`framework/vault/writer.py:96`](../../src/biosensor_mcp/framework/vault/writer.py)).
+private at [`framework/vault/writer.py:96`](../../src/tailor/framework/vault/writer.py)).
 
 The substrate scan inherits the IS-NULL-or-match filter semantics
 [ADR 0009](0009-vault-subject-keying.md) defines for vault queries:
@@ -172,7 +172,7 @@ Two consequences a deployment should weigh:
 Three new `INTEGER` columns land on `audit_log`, matching the
 migration shape ADR 0022 already uses for the `oracle_latency_ms`
 column at
-[`framework/audit.py:192-198`](../../src/biosensor_mcp/framework/audit.py).
+[`framework/audit.py:192-198`](../../src/tailor/framework/audit.py).
 PR1 lands `oracle_substrate_count`; PR2 lands
 `oracle_next_best_calls_count` and `oracle_unresolved_intent_count`.
 Each column records, per oracle call, the count of items surfaced
@@ -206,7 +206,7 @@ This ADR governs two PRs, each independently revertible.
   `unresolved_intent` via prompt extension on `OllamaBackend`, with
   defensive list-coercion matching the `ambiguity_axes` parser
   pattern at
-  [`framework/local_llm/backends/ollama.py:173-185`](../../src/biosensor_mcp/framework/local_llm/backends/ollama.py).
+  [`framework/local_llm/backends/ollama.py:173-185`](../../src/tailor/framework/local_llm/backends/ollama.py).
   Adds the `oracle_next_best_calls_count` and
   `oracle_unresolved_intent_count` audit columns by symmetry with
   PR1's `oracle_substrate_count`. Verifiable only in judgment

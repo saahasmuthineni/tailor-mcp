@@ -30,7 +30,7 @@ HERE = Path(__file__).parent
 # and `importlib.resources` can find them in any install shape (source,
 # pip, uv tool, PyInstaller). See ADR forthcoming or pyproject.toml.
 REPO_ROOT = HERE.parent.parent
-OUT = REPO_ROOT / "src" / "biosensor_mcp" / "_fixtures" / "multi_subject_pilot" / "csv"
+OUT = REPO_ROOT / "src" / "tailor" / "_fixtures" / "multi_subject_pilot" / "csv"
 
 
 # ── Per-participant baselines ──
@@ -132,13 +132,13 @@ def main() -> None:
         print(f"wrote {len(rows)} rows -> {path.relative_to(REPO_ROOT)}")
 
     # Also emit a portable user_config.example.json with a placeholder
-    # path. The recommended path is `biosensor-mcp pilot`, which writes
+    # path. The recommended path is `tailor pilot`, which writes
     # this file for the user; this artifact remains as a manual fallback.
     cfg_path = HERE / "user_config.example.json"
     cfg = (
         "{\n"
         '  "csv_dir": {\n'
-        '    "path": "<REPO_ROOT>/src/biosensor_mcp/_fixtures/multi_subject_pilot/csv",\n'
+        '    "path": "<REPO_ROOT>/src/tailor/_fixtures/multi_subject_pilot/csv",\n'
         '    "timestamp_column": "timestamp",\n'
         '    "timestamp_format": "%Y-%m-%dT%H:%M:%S",\n'
         '    "value_columns": {\n'

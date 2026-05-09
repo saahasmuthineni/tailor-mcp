@@ -4,7 +4,7 @@ config-path resolution under UWP sandboxing.
 
 Closes the recipient-onboarding failure mode named in the v6.10.4
 banner: a recipient with the Microsoft Store version of Claude
-Desktop runs ``biosensor-mcp tour``, sees a "successfully registered"
+Desktop runs ``tailor tour``, sees a "successfully registered"
 message, restarts the app, and finds no biosensor tools because the
 registration was written to the unredirected ``%APPDATA%\\Claude\\``
 path while their Store-installed Claude Desktop reads from a UWP
@@ -43,7 +43,7 @@ class TestConfigPathsHelper:
     ) -> None:
         """Scenario (vii). Linux has no Claude Desktop; the helper
         returns an empty list so the registration loop is a no-op."""
-        from biosensor_mcp.pilot import _claude_desktop_config_paths
+        from tailor.pilot import _claude_desktop_config_paths
 
         monkeypatch.setattr(sys, "platform", "linux")
         assert _claude_desktop_config_paths() == []
@@ -51,7 +51,7 @@ class TestConfigPathsHelper:
     def test_macos_returns_single_canonical_path(
         self, monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        from biosensor_mcp.pilot import _claude_desktop_config_paths
+        from tailor.pilot import _claude_desktop_config_paths
 
         monkeypatch.setattr(sys, "platform", "darwin")
         result = _claude_desktop_config_paths()
@@ -66,7 +66,7 @@ class TestConfigPathsHelper:
         """Scenario (ii). Recipient has the classic Anthropic installer;
         the Store ``Packages\\Claude_*\\`` glob returns no matches; the
         helper returns the single classic path."""
-        from biosensor_mcp.pilot import _claude_desktop_config_paths
+        from tailor.pilot import _claude_desktop_config_paths
 
         monkeypatch.setattr(sys, "platform", "win32")
         appdata = tmp_path / "Roaming"
@@ -88,7 +88,7 @@ class TestConfigPathsHelper:
         ``Packages\\Claude_<suffix>\\`` exists; the helper still includes
         the classic path (created lazily on first write) AND the Store
         sandbox path. Classic-fallback contract per ADR 0026."""
-        from biosensor_mcp.pilot import _claude_desktop_config_paths
+        from tailor.pilot import _claude_desktop_config_paths
 
         monkeypatch.setattr(sys, "platform", "win32")
         appdata = tmp_path / "Roaming"
@@ -116,7 +116,7 @@ class TestConfigPathsHelper:
     ) -> None:
         """Scenario (iii). Recipient has both variants installed
         simultaneously — both detected paths returned."""
-        from biosensor_mcp.pilot import _claude_desktop_config_paths
+        from tailor.pilot import _claude_desktop_config_paths
 
         monkeypatch.setattr(sys, "platform", "win32")
         appdata = tmp_path / "Roaming"
@@ -137,7 +137,7 @@ class TestConfigPathsHelper:
         of any kind — Packages\\ may not even exist. The classic path
         is still always returned (parent created lazily on first
         write)."""
-        from biosensor_mcp.pilot import _claude_desktop_config_paths
+        from tailor.pilot import _claude_desktop_config_paths
 
         monkeypatch.setattr(sys, "platform", "win32")
         appdata = tmp_path / "Roaming"  # does not exist on disk
@@ -156,7 +156,7 @@ class TestConfigPathsHelper:
         ``Claude_*`` — survives Anthropic re-signing the package with a
         different publisher-hash suffix. Test asserts a hypothetical
         future suffix is matched."""
-        from biosensor_mcp.pilot import _claude_desktop_config_paths
+        from tailor.pilot import _claude_desktop_config_paths
 
         monkeypatch.setattr(sys, "platform", "win32")
         appdata = tmp_path / "Roaming"
@@ -182,15 +182,15 @@ class TestPerPathRegistration:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Scenario (iii). Both Classic and Store configs detected;
-        the same biosensor-tour-hip-lab entry must appear in both."""
-        from biosensor_mcp.tour import main
+        the same tailor-tour-hip-lab entry must appear in both."""
+        from tailor.tour import main
 
         classic = tmp_path / "classic" / "claude_desktop_config.json"
         classic.parent.mkdir()
         sandbox = tmp_path / "sandbox" / "claude_desktop_config.json"
         sandbox.parent.mkdir()
         monkeypatch.setattr(
-            "biosensor_mcp.tour._claude_desktop_config_paths",
+            "tailor.tour._claude_desktop_config_paths",
             lambda: [classic, sandbox],
         )
 
@@ -201,8 +201,8 @@ class TestPerPathRegistration:
         assert sandbox.exists()
         c = json.loads(classic.read_text(encoding="utf-8"))
         s = json.loads(sandbox.read_text(encoding="utf-8"))
-        assert c["mcpServers"]["biosensor-tour-hip-lab"] == \
-               s["mcpServers"]["biosensor-tour-hip-lab"]
+        assert c["mcpServers"]["tailor-tour-hip-lab"] == \
+               s["mcpServers"]["tailor-tour-hip-lab"]
 
     def test_per_path_permission_error_does_not_abort_others(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
@@ -210,21 +210,21 @@ class TestPerPathRegistration:
         """Scenario (iv). PermissionError on one path must not abort
         writes to the others. Per ADR 0026 § Per-path atomic semantics.
         """
-        from biosensor_mcp.tour import main
+        from tailor.tour import main
 
         classic = tmp_path / "classic" / "claude_desktop_config.json"
         classic.parent.mkdir()
         sandbox = tmp_path / "sandbox" / "claude_desktop_config.json"
         sandbox.parent.mkdir()
         monkeypatch.setattr(
-            "biosensor_mcp.tour._claude_desktop_config_paths",
+            "tailor.tour._claude_desktop_config_paths",
             lambda: [classic, sandbox],
         )
 
         # Make the sandbox-path write blow up by replacing
         # _write_claude_config with a side-effecting wrapper that
         # raises for the sandbox path only.
-        from biosensor_mcp import pilot as pilot_mod
+        from tailor import pilot as pilot_mod
         original = pilot_mod._write_claude_config
 
         def _raise_for_sandbox(path: Path, data: dict, *, with_bom: bool) -> None:
@@ -243,7 +243,7 @@ class TestPerPathRegistration:
         # Classic was written despite the sandbox failure.
         assert classic.exists()
         c = json.loads(classic.read_text(encoding="utf-8"))
-        assert "biosensor-tour-hip-lab" in c["mcpServers"]
+        assert "tailor-tour-hip-lab" in c["mcpServers"]
         # Sandbox was NOT written.
         assert not sandbox.exists()
 
@@ -251,15 +251,15 @@ class TestPerPathRegistration:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Per ADR 0026: exit code is 1 if every detected path failed."""
-        from biosensor_mcp import pilot as pilot_mod
-        from biosensor_mcp.tour import main
+        from tailor import pilot as pilot_mod
+        from tailor.tour import main
 
         classic = tmp_path / "classic" / "claude_desktop_config.json"
         classic.parent.mkdir()
         sandbox = tmp_path / "sandbox" / "claude_desktop_config.json"
         sandbox.parent.mkdir()
         monkeypatch.setattr(
-            "biosensor_mcp.tour._claude_desktop_config_paths",
+            "tailor.tour._claude_desktop_config_paths",
             lambda: [classic, sandbox],
         )
 
@@ -279,16 +279,16 @@ class TestPerPathRegistration:
     ) -> None:
         """Scenario (v). The v6.10.3 sibling-cleanup invariant
         ("exactly one biosensor-* entry exists") must hold per-path.
-        Both configs start with stale ``biosensor-mcp`` entries; both
-        must end with only the new ``biosensor-tour-hip-lab`` entry.
+        Both configs start with stale ``tailor`` entries; both
+        must end with only the new ``tailor-tour-hip-lab`` entry.
         """
-        from biosensor_mcp.tour import main
+        from tailor.tour import main
 
         classic = tmp_path / "classic" / "claude_desktop_config.json"
         classic.parent.mkdir()
         classic.write_text(json.dumps({
             "mcpServers": {
-                "biosensor-mcp": {"command": "stale-classic"},
+                "tailor": {"command": "stale-classic"},
                 "obsidian": {"command": "node"},
             },
         }))
@@ -296,13 +296,13 @@ class TestPerPathRegistration:
         sandbox.parent.mkdir()
         sandbox.write_text(json.dumps({
             "mcpServers": {
-                "biosensor-mcp": {"command": "stale-sandbox"},
+                "tailor": {"command": "stale-sandbox"},
                 "biosensor-tour-old": {"command": "stale-tour"},
                 "raycast": {"command": "raycast"},
             },
         }))
         monkeypatch.setattr(
-            "biosensor_mcp.tour._claude_desktop_config_paths",
+            "tailor.tour._claude_desktop_config_paths",
             lambda: [classic, sandbox],
         )
 
@@ -311,12 +311,16 @@ class TestPerPathRegistration:
         assert rc == 0
         c = json.loads(classic.read_text(encoding="utf-8"))
         s = json.loads(sandbox.read_text(encoding="utf-8"))
-        # Both configs: exactly one biosensor-* entry left, the new one.
-        c_bio = [k for k in c["mcpServers"] if k.startswith("biosensor-")]
-        s_bio = [k for k in s["mcpServers"] if k.startswith("biosensor-")]
-        assert c_bio == ["biosensor-tour-hip-lab"]
-        assert s_bio == ["biosensor-tour-hip-lab"]
-        # Non-biosensor siblings on both paths preserved.
+        # Both configs: exactly one framework-owned entry left, the new one.
+        # v7.0.0 / ADR 0031: framework-owned keys match the dual-prefix
+        # ``_is_orphan_entry_key`` matcher (legacy biosensor-* + current
+        # tailor / tailor-*), not just the legacy ``biosensor-*`` prefix.
+        from tailor.__main__ import _is_orphan_entry_key
+        c_owned = [k for k in c["mcpServers"] if _is_orphan_entry_key(k)]
+        s_owned = [k for k in s["mcpServers"] if _is_orphan_entry_key(k)]
+        assert c_owned == ["tailor-tour-hip-lab"]
+        assert s_owned == ["tailor-tour-hip-lab"]
+        # Unrelated siblings on both paths preserved.
         assert "obsidian" in c["mcpServers"]
         assert "raycast" in s["mcpServers"]
 
@@ -325,38 +329,39 @@ class TestPerPathRegistration:
     ) -> None:
         """Scenario (viii). v6.10.3 closed the trap on a single config;
         v6.10.4 closes it across both configs. A recipient who has a
-        bare ``biosensor-mcp`` (no env block) entry in BOTH the classic
+        bare ``tailor`` (no env block) entry in BOTH the classic
         and the sandbox configs — the v6.9.x web-Claude-debugging shape
         reproduced across both — must end up with only the new
-        ``biosensor-tour-hip-lab`` entry in both, no stale leftovers."""
-        from biosensor_mcp.tour import main
+        ``tailor-tour-hip-lab`` entry in both, no stale leftovers."""
+        from tailor.tour import main
 
-        bare_entry = {"command": "biosensor-mcp", "args": ["serve"]}
+        bare_entry = {"command": "tailor", "args": ["serve"]}
         classic = tmp_path / "classic" / "claude_desktop_config.json"
         classic.parent.mkdir()
         classic.write_text(json.dumps({
-            "mcpServers": {"biosensor-mcp": bare_entry},
+            "mcpServers": {"tailor": bare_entry},
         }))
         sandbox = tmp_path / "sandbox" / "claude_desktop_config.json"
         sandbox.parent.mkdir()
         sandbox.write_text(json.dumps({
-            "mcpServers": {"biosensor-mcp": bare_entry},
+            "mcpServers": {"tailor": bare_entry},
         }))
         monkeypatch.setattr(
-            "biosensor_mcp.tour._claude_desktop_config_paths",
+            "tailor.tour._claude_desktop_config_paths",
             lambda: [classic, sandbox],
         )
 
         target = tmp_path / "tour"
         rc = main(["--variant=hip-lab", "--target", str(target)])
         assert rc == 0
+        from tailor.__main__ import _is_orphan_entry_key
         for cfg_path in (classic, sandbox):
             data = json.loads(cfg_path.read_text(encoding="utf-8"))
             keys = list(data["mcpServers"])
-            bio_keys = [k for k in keys if k.startswith("biosensor-")]
-            assert bio_keys == ["biosensor-tour-hip-lab"], (
-                f"{cfg_path.name} should have exactly one biosensor-* "
-                f"entry but has {bio_keys}"
+            owned_keys = [k for k in keys if _is_orphan_entry_key(k)]
+            assert owned_keys == ["tailor-tour-hip-lab"], (
+                f"{cfg_path.name} should have exactly one framework-owned "
+                f"entry but has {owned_keys}"
             )
 
     def test_per_path_tmp_artifact_cleaned_on_failure(
@@ -365,13 +370,13 @@ class TestPerPathRegistration:
         """ADR 0026 § Per-path atomic semantics: on a per-path write
         failure, the ``.tmp`` artifact left by ``_write_claude_config``
         is unlinked to avoid clutter across debugging loops."""
-        from biosensor_mcp import pilot as pilot_mod
-        from biosensor_mcp.tour import main
+        from tailor import pilot as pilot_mod
+        from tailor.tour import main
 
         sandbox = tmp_path / "sandbox" / "claude_desktop_config.json"
         sandbox.parent.mkdir()
         monkeypatch.setattr(
-            "biosensor_mcp.tour._claude_desktop_config_paths",
+            "tailor.tour._claude_desktop_config_paths",
             lambda: [sandbox],
         )
 

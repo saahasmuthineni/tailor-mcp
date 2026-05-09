@@ -11,7 +11,7 @@ was the entire revocation path through v6.3. A participant withdrawing
 consent — or an analyst calling `revoke_consent_running` after the
 end of a session — saw consent state change to "revoked" while every
 cached row of their biometric data sat untouched in `activities.db`
-under `~/.biosensor-mcp/data/`. The Strava stream cache continued to
+under `~/.tailor/data/`. The Strava stream cache continued to
 hold the per-second HR, pace, and GPS rows that originated from the
 participant's wearable; the CSV-directory child held no derivative
 cache, but the framework had no contract that distinguished one case
@@ -60,7 +60,7 @@ if purge fails, consent stays approved.*
 
 - **Mandatory abstract method.** `ChildMCP` declares
   `purge_cache(*, force: bool = False) -> dict` as
-  [`abstractmethod`](../../src/biosensor_mcp/framework/interfaces.py).
+  [`abstractmethod`](../../src/tailor/framework/interfaces.py).
   Every child must implement it. There is no default no-op.
   ADR 0003's PHI-scrubber pattern (default no-op + warning) is
   deliberately *not* reused here: the asymmetry is that PHI
@@ -73,7 +73,7 @@ if purge fails, consent stays approved.*
 - **Synchronous execution.** The router calls
   `child.purge_cache(force=force_revoke)` inside
   `_handle_consent_revocation` at
-  [`router.py:889-891`](../../src/biosensor_mcp/framework/router.py),
+  [`router.py:889-891`](../../src/tailor/framework/router.py),
   not on a background thread. An asynchronous purge would open a
   window in which `consent.is_approved(domain)` returns `False`
   while the cache still holds rows from the just-revoked subject —

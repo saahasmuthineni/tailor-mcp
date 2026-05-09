@@ -27,7 +27,7 @@ and shipped a Step 2 cohort prompt that returned 16 silent
 tool. The boss surfaced the failure on the demo run by reading the
 prompt aloud to Claude exactly as written. Two patch releases in one
 week (v6.9.1 fixing the alias-resolution path at
-[`force_csv/child.py:1083-1098`](../../src/biosensor_mcp/children/force_csv/child.py),
+[`force_csv/child.py:1083-1098`](../../src/tailor/children/force_csv/child.py),
 v6.9.2 hardening the BOM and uninstall paths) closed the immediate
 bugs. The class of bug remains live: any future cue-card prompt that
 names a column, tool, or filter the schema does not literally accept
@@ -159,7 +159,7 @@ description* — so the schema's `value_column` prose is identical
 between v6.9.0 and v6.10.0:
 
 - Against v6.9.0's pre-resolver codebase (before
-  [`force_csv/child.py:1083-1098`](../../src/biosensor_mcp/children/force_csv/child.py)),
+  [`force_csv/child.py:1083-1098`](../../src/tailor/children/force_csv/child.py)),
   the prompt's plausible inference (`value_column="force"`) fails
   end-to-end with 16 `column not found` load_errors — the agent must
   return `WRONG-PARAMS`.

@@ -1,5 +1,5 @@
 """
-Tests for the ``biosensor-mcp tour`` subcommand.
+Tests for the ``tailor tour`` subcommand.
 
 Per ADR 0024 the tour scaffolds a live-audience walkthrough from
 bundled fixtures. The load-bearing claims this suite enforces:
@@ -14,8 +14,8 @@ bundled fixtures. The load-bearing claims this suite enforces:
   cross-session-memory wow moment depends on it).
 - Re-running is idempotent (recipients re-run after Claude Desktop
   drift; this must not fail).
-- The Claude Desktop entry bakes ``BIOSENSOR_CONFIG_DIR`` and
-  ``BIOSENSOR_DATA_DIR`` into the ``env`` block — this closes
+- The Claude Desktop entry bakes ``TAILOR_CONFIG_DIR`` and
+  ``TAILOR_DATA_DIR`` into the ``env`` block — this closes
   audit blocker #1 from the ADR 0024 pre-implementation pass
   (recipients never type an env var by hand).
 - Pre-existing sibling MCP servers in Claude Desktop's config
@@ -30,7 +30,7 @@ from pathlib import Path
 
 import pytest
 
-from biosensor_mcp.tour import (
+from tailor.tour import (
     DEFAULT_VARIANT,
     VARIANTS,
     _resolve_target,
@@ -47,7 +47,7 @@ class TestBundledFixtures:
 
     def test_force_csvs_present(self):
         from importlib.resources import files
-        pkg = files("biosensor_mcp._fixtures").joinpath(
+        pkg = files("tailor._fixtures").joinpath(
             "hip_lab_demo_realistic", "force",
         )
         names = sorted(c.name for c in pkg.iterdir() if c.name.endswith(".csv"))
@@ -58,7 +58,7 @@ class TestBundledFixtures:
 
     def test_emg_csvs_present(self):
         from importlib.resources import files
-        pkg = files("biosensor_mcp._fixtures").joinpath(
+        pkg = files("tailor._fixtures").joinpath(
             "hip_lab_demo_realistic", "emg",
         )
         names = sorted(c.name for c in pkg.iterdir() if c.name.endswith(".csv"))
@@ -66,7 +66,7 @@ class TestBundledFixtures:
 
     def test_mrs_csvs_present(self):
         from importlib.resources import files
-        pkg = files("biosensor_mcp._fixtures").joinpath(
+        pkg = files("tailor._fixtures").joinpath(
             "hip_lab_demo_realistic", "mrs",
         )
         names = sorted(c.name for c in pkg.iterdir() if c.name.endswith(".csv"))
@@ -75,7 +75,7 @@ class TestBundledFixtures:
     def test_metadata_json_sidecars_present(self):
         from importlib.resources import files
         for sub in ("force", "emg", "mrs"):
-            pkg = files("biosensor_mcp._fixtures").joinpath(
+            pkg = files("tailor._fixtures").joinpath(
                 "hip_lab_demo_realistic", sub,
             )
             mj = pkg.joinpath("metadata.json")
@@ -83,7 +83,7 @@ class TestBundledFixtures:
 
     def test_seed_vault_moment_present(self):
         from importlib.resources import files
-        moment = files("biosensor_mcp._fixtures").joinpath(
+        moment = files("tailor._fixtures").joinpath(
             "hip_lab_demo_realistic", "vault", "moments",
             "2026-04-20-s004-emg-force-decoupling-suspected.md",
         )
@@ -162,7 +162,7 @@ class TestScaffold:
             "--variant=hip-lab", "--no-claude-desktop",
             "--target", str(target),
         ])
-        from biosensor_mcp.framework.vault.storage import VaultStorage
+        from tailor.framework.vault.storage import VaultStorage
         storage = VaultStorage(target / "data" / "vault.db")
         try:
             notes = storage.list_notes(subject_id="S004")
@@ -265,14 +265,14 @@ class TestClaudeDesktopRegistration:
     def test_writes_entry_with_baked_env_vars(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     ):
-        """The Claude Desktop entry must carry BIOSENSOR_CONFIG_DIR and
-        BIOSENSOR_DATA_DIR in the env block — this is the entire reason
+        """The Claude Desktop entry must carry TAILOR_CONFIG_DIR and
+        TAILOR_DATA_DIR in the env block — this is the entire reason
         the recipient never types an env var by hand. If this regresses,
-        ``biosensor-mcp serve`` reads the operator's real config (or
+        ``tailor serve`` reads the operator's real config (or
         none) instead of the demo, and the recipient sees no tools."""
         fake_config = tmp_path / "claude_desktop_config.json"
         monkeypatch.setattr(
-            "biosensor_mcp.tour._claude_desktop_config_paths",
+            "tailor.tour._claude_desktop_config_paths",
             lambda: [fake_config],
         )
         target = tmp_path / "tour"
@@ -280,11 +280,11 @@ class TestClaudeDesktopRegistration:
         assert rc == 0
         assert fake_config.exists()
         cfg = json.loads(fake_config.read_text(encoding="utf-8"))
-        entry = cfg["mcpServers"]["biosensor-tour-hip-lab"]
+        entry = cfg["mcpServers"]["tailor-tour-hip-lab"]
         resolved = target.expanduser().resolve()
-        assert entry["env"]["BIOSENSOR_CONFIG_DIR"] == str(resolved)
-        assert entry["env"]["BIOSENSOR_DATA_DIR"] == str(resolved / "data")
-        assert entry["args"] == ["-m", "biosensor_mcp", "serve"]
+        assert entry["env"]["TAILOR_CONFIG_DIR"] == str(resolved)
+        assert entry["env"]["TAILOR_DATA_DIR"] == str(resolved / "data")
+        assert entry["args"] == ["-m", "tailor", "serve"]
 
     def test_preserves_sibling_mcp_servers_on_merge(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
@@ -298,14 +298,14 @@ class TestClaudeDesktopRegistration:
             },
         }), encoding="utf-8")
         monkeypatch.setattr(
-            "biosensor_mcp.tour._claude_desktop_config_paths",
+            "tailor.tour._claude_desktop_config_paths",
             lambda: [fake_config],
         )
         target = tmp_path / "tour"
         main(["--variant=hip-lab", "--target", str(target)])
         cfg = json.loads(fake_config.read_text(encoding="utf-8"))
         assert "some-other-server" in cfg["mcpServers"]
-        assert "biosensor-tour-hip-lab" in cfg["mcpServers"]
+        assert "tailor-tour-hip-lab" in cfg["mcpServers"]
 
     def test_cleans_stale_biosensor_entries_before_writing(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
@@ -313,9 +313,9 @@ class TestClaudeDesktopRegistration:
         """v6.10.3 — closes the dad-2026-05-06 multi-entry trap.
 
         Recipient debugged via web-Claude on a v6.9.x failed-tour
-        install, ending up with a bare ``biosensor-mcp`` entry
+        install, ending up with a bare ``tailor`` entry
         (no env block) added to claude_desktop_config.json. A
-        subsequent ``biosensor-mcp tour --force`` previously left
+        subsequent ``tailor tour --force`` previously left
         that bare entry in place; Claude Desktop would then launch
         two MCP servers, the bare one's SetupHelpLayer leaking into
         the working-demo tool surface. Tour must clean every
@@ -324,19 +324,19 @@ class TestClaudeDesktopRegistration:
         fake_config = tmp_path / "claude_desktop_config.json"
         fake_config.write_text(json.dumps({
             "mcpServers": {
-                "biosensor-mcp": {
-                    "command": "biosensor-mcp",
+                "tailor": {
+                    "command": "tailor",
                     "args": ["serve"],
                 },
                 "biosensor-tour-old-variant": {
                     "command": "python",
-                    "args": ["-m", "biosensor_mcp", "serve"],
+                    "args": ["-m", "tailor", "serve"],
                 },
                 "some-other-server": {"command": "foo", "args": []},
             },
         }), encoding="utf-8")
         monkeypatch.setattr(
-            "biosensor_mcp.tour._claude_desktop_config_paths",
+            "tailor.tour._claude_desktop_config_paths",
             lambda: [fake_config],
         )
         target = tmp_path / "tour"
@@ -345,10 +345,10 @@ class TestClaudeDesktopRegistration:
         cfg = json.loads(fake_config.read_text(encoding="utf-8"))
         servers = cfg["mcpServers"]
         # Stale biosensor-* entries are gone.
-        assert "biosensor-mcp" not in servers
+        assert "tailor" not in servers
         assert "biosensor-tour-old-variant" not in servers
         # Fresh tour entry is present.
-        assert "biosensor-tour-hip-lab" in servers
+        assert "tailor-tour-hip-lab" in servers
         # Non-biosensor sibling MCP servers are preserved.
         assert "some-other-server" in servers
         assert servers["some-other-server"] == {
@@ -365,15 +365,15 @@ class TestClaudeDesktopRegistration:
         fake_config = tmp_path / "claude_desktop_config.json"
         fake_config.write_text(json.dumps({
             "mcpServers": {
-                "biosensor-tour-hip-lab": {
+                "tailor-tour-hip-lab": {
                     "command": "python",
-                    "args": ["-m", "biosensor_mcp", "serve"],
-                    "env": {"BIOSENSOR_CONFIG_DIR": "/old/path"},
+                    "args": ["-m", "tailor", "serve"],
+                    "env": {"TAILOR_CONFIG_DIR": "/old/path"},
                 },
             },
         }), encoding="utf-8")
         monkeypatch.setattr(
-            "biosensor_mcp.tour._claude_desktop_config_paths",
+            "tailor.tour._claude_desktop_config_paths",
             lambda: [fake_config],
         )
         target = tmp_path / "tour"
@@ -383,17 +383,17 @@ class TestClaudeDesktopRegistration:
         assert rc == 0
         cfg = json.loads(fake_config.read_text(encoding="utf-8"))
         # Entry survives; env was overwritten with the new target.
-        assert "biosensor-tour-hip-lab" in cfg["mcpServers"]
-        entry = cfg["mcpServers"]["biosensor-tour-hip-lab"]
+        assert "tailor-tour-hip-lab" in cfg["mcpServers"]
+        entry = cfg["mcpServers"]["tailor-tour-hip-lab"]
         resolved = target.expanduser().resolve()
-        assert entry["env"]["BIOSENSOR_CONFIG_DIR"] == str(resolved)
+        assert entry["env"]["TAILOR_CONFIG_DIR"] == str(resolved)
 
     def test_no_claude_desktop_flag_skips_write(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     ):
         fake_config = tmp_path / "claude_desktop_config.json"
         monkeypatch.setattr(
-            "biosensor_mcp.tour._claude_desktop_config_paths",
+            "tailor.tour._claude_desktop_config_paths",
             lambda: [fake_config],
         )
         target = tmp_path / "tour"
@@ -409,7 +409,7 @@ class TestClaudeDesktopRegistration:
         """On Linux ``_claude_desktop_config_paths`` returns an empty list —
         the scaffolder must complete cleanly without raising."""
         monkeypatch.setattr(
-            "biosensor_mcp.tour._claude_desktop_config_paths",
+            "tailor.tour._claude_desktop_config_paths",
             lambda: [],
         )
         target = tmp_path / "tour"
@@ -436,7 +436,7 @@ class TestVariantTable:
         path = _resolve_target("hip-lab", None)
         assert path.name == "hip-lab"
         assert path.parent.name == "demos"
-        assert ".biosensor-mcp" in str(path)
+        assert ".tailor" in str(path)
 
     def test_resolve_target_honors_override(self, tmp_path: Path):
         path = _resolve_target("hip-lab", str(tmp_path / "custom"))
@@ -448,6 +448,6 @@ class TestVariantTable:
         ``user_config`` builder branch. The argparse layer keeps real
         users from triggering this (``choices=VARIANTS``); the guard
         catches programmatic callers."""
-        from biosensor_mcp.tour import _write_user_config
+        from tailor.tour import _write_user_config
         with pytest.raises(ValueError, match="unknown variant"):
             _write_user_config("nonexistent-variant", tmp_path)

@@ -15,9 +15,9 @@ metadata, not participant biometric data. That sentence is correct,
 but it lives inside the parent ADR as a one-line aside. The actual
 codebase carries a stronger asymmetry: `_dispatch()` calls
 `self._phi_scrubber.scrub(result)` at
-[`router.py:519-520`](../../src/biosensor_mcp/framework/router.py),
+[`router.py:519-520`](../../src/tailor/framework/router.py),
 and `_dispatch_vault()` deliberately does not, with a docstring
-comment at [`router.py:582-592`](../../src/biosensor_mcp/framework/router.py)
+comment at [`router.py:582-592`](../../src/tailor/framework/router.py)
 listing four things skipped "by design" — circuit breaker, consent
 gate, cost gate, post-execute hooks — but not naming the
 PHI-scrubber bypass at all.
@@ -60,7 +60,7 @@ exactly as long as the invariant holds.
   `VaultLayer.param_schemas`, and (c) summaries derived from prior
   biosensor-tier tool results that have already passed through the
   scrubber via `_dispatch()` at
-  [`router.py:519-520`](../../src/biosensor_mcp/framework/router.py).
+  [`router.py:519-520`](../../src/tailor/framework/router.py).
 - **Why the bypass is correct under the invariant.** PHI scrubbing
   is a content-shape concern — the scrubber exists to sanitise raw
   participant data on its way out of a child. Analyst notes are not
@@ -72,15 +72,15 @@ exactly as long as the invariant holds.
 - **Audit visibility is preserved.** The vault-dispatch path still
   records `scrubber_id` on every audit row and stamps it into the
   `_meta` block of every successful result
-  ([`router.py:619`](../../src/biosensor_mcp/framework/router.py),
-  [`router.py:631`](../../src/biosensor_mcp/framework/router.py)).
+  ([`router.py:619`](../../src/tailor/framework/router.py),
+  [`router.py:631`](../../src/tailor/framework/router.py)).
   A reviewer reading the audit log can distinguish a vault row from
   a child row, and can confirm that the scrubber configuration on
   the deployment was the same one in effect for the biosensor calls
   that produced the evidence the vault stores.
 - **The bypass is documented in code at the dispatch site.** The
   `_dispatch_vault()` docstring at
-  [`router.py:581-592`](../../src/biosensor_mcp/framework/router.py)
+  [`router.py:581-592`](../../src/tailor/framework/router.py)
   is amended to name the PHI-scrubber bypass alongside the four
   existing named skips, with a one-line link to this ADR. Future
   contributors reading the dispatch path see the asymmetry called
@@ -225,7 +225,7 @@ ground the bypass on those paths under the same shape:
   amendment grounds the scrubber bypass on the same invariant.
 - **SetupHelpLayer invariant.** The setup-help layer accepts no
   parameters (the param schema is empty by construction, enforced at
-  [`framework/setup_help/__init__.py`](../../src/biosensor_mcp/framework/setup_help/__init__.py))
+  [`framework/setup_help/__init__.py`](../../src/tailor/framework/setup_help/__init__.py))
   and returns only static recipient instructions plus server-state
   diagnostics. No biosensor stream content ever enters or exits the
   layer. Filesystem paths surfaced in the diagnostic block are

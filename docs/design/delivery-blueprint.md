@@ -1,4 +1,4 @@
-# Biosensor MCP — Delivery Blueprint
+# Tailor — Delivery Blueprint
 
 > **Status**: Working plan as of 2026-05-03. Revised from a v1
 > "GitHub repo → research-ready deliverable" framing after grounding
@@ -88,7 +88,7 @@ audit-log reconstructed from `_meta` provenance stamps) were
 verified end-to-end. Before the next demo touch:
 
 - **C3 peak-tie systematic bias fix** — `_last_peak_index`
-  helper added to [csv_dir/processing.py](../../src/biosensor_mcp/children/csv_dir/processing.py),
+  helper added to [csv_dir/processing.py](../../src/tailor/children/csv_dir/processing.py),
   applied to both `aggregate_metric` and `force_decline_summary`.
   Three regression tests added. Demo β data has no peak ties so
   numerical output is unchanged on this dataset, but the fix
@@ -170,7 +170,7 @@ runs isometric handgrip / force / EMG protocols (Hunter & Senefeld
 
 Branch on what the lab actually exports:
 
-- **CSV exports** — [csv_dir child](../../src/biosensor_mcp/children/csv_dir/)
+- **CSV exports** — [csv_dir child](../../src/tailor/children/csv_dir/)
   handles this with metadata sidecar configuration. Effort: 2–3
   days, mostly schema mapping. The synthetic demo β already
   validates this path on the 1 Hz envelope shape; real data will
@@ -178,7 +178,7 @@ Branch on what the lab actually exports:
   token budgets (likely require pre-aggregation or downsampling
   in the child's ingest path).
 - **`.mat` files** — new child from
-  [`children/template/`](../../src/biosensor_mcp/children/template/),
+  [`children/template/`](../../src/tailor/children/template/),
   using `scipy.io.loadmat`. Effort: 3–4 days with Claude
   assistance, including shape-contract tests.
 - **`.acq` files** — same pattern, using `bioread` or `wfdb`.
@@ -187,7 +187,7 @@ Branch on what the lab actually exports:
 Mandatory regardless of branch: real `purge_cache()`
 implementation (no template no-op stub), shape-contract tests
 adapted from `tests/children/template/`, and registration in
-[__main__.py](../../src/biosensor_mcp/__main__.py) with
+[__main__.py](../../src/tailor/__main__.py) with
 cloud-sync warning surface.
 
 Gates: `ci-gate-runner` SHIPPABLE +
@@ -271,7 +271,7 @@ without asking the developer. Tested against an actual person.
 
 Conditional on Phases 2 and 3 only — independent of Phase 4.
 
-Builds a `biosensor-mcp freeze` CLI subcommand (or `vault_freeze`
+Builds a `tailor freeze` CLI subcommand (or `vault_freeze`
 tool) producing a `.zip` containing:
 
 - Vault markdown files plus frontmatter (verbatim copy);

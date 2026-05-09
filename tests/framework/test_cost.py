@@ -5,7 +5,7 @@ CostGate (pre-execution gate), TokenLedger (per-session
 accumulator), ``estimate_tokens`` (the rough char-count fallback).
 """
 
-from biosensor_mcp.framework.cost import CostGate, TokenLedger, estimate_tokens
+from tailor.framework.cost import CostGate, TokenLedger, estimate_tokens
 
 
 class TestCostGate:

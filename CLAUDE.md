@@ -1,7 +1,62 @@
-# CLAUDE.md — Biosensor MCP
+# CLAUDE.md — Tailor
+
+> **v7.0.0 (2026-05-08)** — Project rename: `Biosensor MCP` → **Tailor**.
+> The PyPI distribution is `tailor-mcp` (the bare `tailor` was taken on
+> PyPI); the Python import name is `tailor` (`from tailor import ...`),
+> the CLI command is `tailor` (e.g. `tailor serve`, `tailor tour`,
+> `tailor demo`). Configuration paths move from `~/.biosensor-mcp/` to
+> `~/.tailor/`; environment variables move from `BIOSENSOR_*` to
+> `TAILOR_*`. A new `tailor migrate` subcommand handles the v6 → v7
+> filesystem upgrade non-destructively (copies by default, `--move` to
+> remove the legacy directory after copying). Claude Desktop cleanup
+> logic (`_clean_claude_desktop_orphan_entries` + the new
+> `_is_orphan_entry_key` matcher) cleans BOTH legacy `biosensor-*` keys
+> AND current `tailor` / `tailor-*` keys so v6 → v7 upgrades don't leave
+> orphan entries pointing at a removed binary.
+>
+> Engine word: **Wardrobe** (replaces the working term "substrate" used
+> in design conversations). Wardrobe is the user-facing term for what
+> the framework holds on the user's behalf — themes, moments, evidence,
+> audit history, source data — the structured personal collection that
+> lives entirely on the user's machine. Wardrobe pairs with Tailor as
+> place-shape + character-shape (your Tailor curates your Wardrobe).
+> Counter-programming commitment per ADR 0031: visual language stays
+> non-fashion (no fabric / garment imagery, no haute-couture aesthetic)
+> and onboarding copy actively redirects the literal-clothing read
+> ("not clothes — your stuff"). Future contributors who drift toward
+> fashion-domain language are in conflict with ADR 0031.
+>
+> Historical preservation: `CHANGELOG.md`, the 2026-05-05 vault moment
+> file, and `docs/reports/*-2026-05-01.md` retain the legacy
+> `biosensor-mcp` / `Biosensor MCP` references — they describe past
+> state under the old name, and rewriting them would falsify the
+> historical record. New release notes (this banner, ADR 0031, future
+> changelog entries) use the new name.
+>
+> Structural changes: package directory renamed (`src/biosensor_mcp/`
+> → `src/tailor/` via `git mv`, history preserved); 1,400+ string
+> occurrences across ~120 files updated mechanically; 6 cleanup tests
+> migrated to dual-prefix semantics; +13 net new tests verifying the
+> migration matcher contract directly. Major version bump because
+> package import name, CLI command, env vars, default paths, and
+> Claude Desktop registration keys all changed — every existing v6
+> install needs the new install command + a one-time migration. ADR
+> 0031 codifies the rename, the Wardrobe naming decision, the
+> counter-programming invariant, and the migration story.
+>
+> Gates: ci-gate-runner PASS (930/930 pytest, ruff clean, 76/76 probe,
+> CLI smoke clean). mcp-protocol-auditor NOT TRIGGERED (no
+> framework/router/security/vault behavioural paths touched — only
+> import names changed). cue-card-rehearsal-auditor NOT TRIGGERED
+> (CUE_CARD.md got the mechanical rename pass but no schema changes).
+> recipient-install-validator SKIPPED (opt-in heavyweight; rename
+> directly affects the recipient-install path so it would normally
+> fire, but per v6.11.x falsification documented in project memory
+> the validator silently parks; ADR 0031 documents the operator
+> hand-validation path until ADR 0028's v2 escalation lands). Major bump.
 
 > **v6.13.0 (2026-05-08)** — ADR 0030 (Public-mirror narrative + zero-outbound-affordances)
-> lands with the `--audience=public` rendering shape for `biosensor-mcp demo`. Per-persona
+> lands with the `--audience=public` rendering shape for `tailor demo`. Per-persona
 > panels (PI / analyst / IRB) are spliced after each of the 5 demo sections, attribution-only
 > footer replaces dead-link breadcrumbs, and a render-time URL-allowlist hard-fail enforces
 > the new zero-outbound-affordances invariant — a future contributor adding a Discord link
@@ -16,7 +71,7 @@
 > framing rather than raising the threshold. Both findings are in the ADR 0030 decision
 > record.
 >
-> Structural artifact: `src/biosensor_mcp/demo/_personas.json` — a new single-source
+> Structural artifact: `src/tailor/demo/_personas.json` — a new single-source
 > canonical schema for PI/analyst/IRB persona definitions + per-section panels for the 5
 > demo sections (closes integration-auditor F1: personas were previously split across the
 > researcher-utility-reviewer agent and inline runner logic). Shipped in the wheel via a
@@ -33,7 +88,7 @@
 > new `--audience` CLI flag, new `audience` kwarg on `run_demo`, new `_personas.json`
 > resource. No router/security/child/vault/CLI architecture changes. Minor bump.
 
-> **v6.12.0 (2026-05-08)** — `biosensor-mcp demo` reshaped from a 3-call cohort
+> **v6.12.0 (2026-05-08)** — `tailor demo` reshaped from a 3-call cohort
 > first-look into a 5-section architectural showcase per
 > [ADR 0029](docs/adr/0029-token-reduction-as-analytical-quality.md) (NEW, Proposed
 > → Accepted on this ship): *"Token reduction is analytical quality, not just cost
@@ -89,7 +144,7 @@
 > crashes, degraded Claude Desktop configs, stale MCP server entries, dual config-path
 > misses. The new specialist (`recipient-install-validator`, opus model) provisions a clean
 > Windows 11 VM via VirtualBox + Vagrant, installs the freshly-built wheel via the
-> documented recipient command, runs `biosensor-mcp tour`, and verifies the install
+> documented recipient command, runs `tailor tour`, and verifies the install
 > end-to-end against the wheel-installed package on a foreign machine — host-side gates
 > running against the dev tree cannot see these failures. Gate is mandatory +
 > file-touched-gated: fires when any of `tour.py`, `pilot.py`, `__main__.py`, `wizard.py`,
@@ -105,7 +160,7 @@
 > Includes pending governance edits per ADR 0028 (agent table row + ADR file). 898/898
 > pytest, ruff clean, 76/76 probe, CLI smoke PASS. Minor bump.
 >
-> **v6.10.5 (2026-05-07)** — `biosensor-mcp demo` reframed from
+> **v6.10.5 (2026-05-07)** — `tailor demo` reframed from
 > synthetic-Strava operator self-verification to bundled HIP Lab cohort
 > fixtures researcher first-look per [ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md).
 > The pre-v6.10.5 demo ran `run_demo` against synthetic Strava running
@@ -113,7 +168,7 @@
 > for the entire v6.x cycle — a structural contradiction with CLAUDE.md's
 > explicit framing that "Strava is a worked example… retained for teaching
 > value; not the canonical use case." Boss surfaced the drift 2026-05-06.
-> `src/biosensor_mcp/demo/runner.py` rewritten: copies bundled
+> `src/tailor/demo/runner.py` rewritten: copies bundled
 > `_fixtures/hip_lab_demo_realistic/force/` (16 synthetic subjects +
 > `metadata.json` sidecar) into a tempdir, instantiates
 > `CSVDirectoryChild`, exercises `csv_cohort_summary` (by sex, by group)
@@ -121,7 +176,7 @@
 > Printed output is the real result envelope shape; closing prose names
 > what the demo exercises (server-side computation, deterministic
 > reproducibility per ADR 0008) and what it does not (router pipeline /
-> audit / consent gates — pointer to `biosensor-mcp tour` for the full
+> audit / consent gates — pointer to `tailor tour` for the full
 > router-mediated path). `demo/sample_data.py` preserved untouched per
 > ADR 0008 § Alternatives explicit-rejection-of-removal clause.
 > Deferred `demo` → `verify` rename KILLED: under the researcher-first-
@@ -181,11 +236,11 @@
 > **v6.10.3 (2026-05-06)** — Tour cleans sibling biosensor-* entries
 > before adding its own. Closes the multi-entry coexistence trap surfaced
 > by dad's 2026-05-06 post-v6.10.2 debrief: a recipient who had a bare
-> `biosensor-mcp` entry (no env block, no demo tools — written by
+> `tailor` entry (no env block, no demo tools — written by
 > web-Claude-mediated debugging during a failed v6.9.x install) would end
 > up with TWO MCP servers after `tour --force`: the stale bare entry plus
 > the new `biosensor-tour-<variant>` entry. With two servers both
-> registered, `biosensor_setup_help` leaked into the working-demo state,
+> registered, `tailor_setup_help` leaked into the working-demo state,
 > breaking the "invisible on a working demo" invariant the v6.10.2
 > cue-card-rehearsal audit blessed. Fix: `_register_with_claude_desktop`
 > strips every `biosensor-*` key from `mcpServers` (except the entry being
@@ -198,7 +253,7 @@
 > public API changes. Patch bump.
 >
 > **v6.10.2 (2026-05-06)** — Recipient-failure structural patch.
-> Closes the v6.9.x failure loop where a `biosensor-mcp tour` crash
+> Closes the v6.9.x failure loop where a `tailor tour` crash
 > routed the recipient via web-Claude into a degraded `serve` state with
 > no demo tools surfaced (dad's transcript: tour crash → web-Claude
 > inspect → manual `serve` config → ask_local_oracle + strava_list_runs
@@ -208,12 +263,12 @@
 > `_demo_blocks_absent()` detects no `csv_dir` blocks in
 > `user_config.json`. Surfaces a single diagnostic tool
 > (`setup_help_get_status`) that tells an external Claude "run
-> `biosensor-mcp tour`", invisible on configured deployments. Home
+> `tailor tour`", invisible on configured deployments. Home
 > lat/lng redacted via `_redact_home()` (HIPAA Safe Harbor
 > §164.514(b)(2)(i)(R)) before surfacing on the wire. (2)
 > `RECIPIENT_README.md` bundled in the wheel (`pyproject.toml` `*.md`
 > glob added to package-data) so an external Claude inspecting the .whl
-> discovers `biosensor-mcp tour` without source-code archaeology. ADR
+> discovers `tailor tour` without source-code archaeology. ADR
 > 0012 amended: Decision section extended to cover all three
 > framework-tier PHI-scrubber bypass sites (vault + local_llm +
 > setup_help) with per-layer invariants and reversal conditions; closes
@@ -231,7 +286,7 @@
 >
 > **v6.10.1 (2026-05-06)** — Windows recipient resilience patch.
 > Hardens four cp1252 / fresh-tour-install blockers caught during direct
-> recipient testing of `biosensor-mcp tour` on Windows 11 PowerShell
+> recipient testing of `tailor tour` on Windows 11 PowerShell
 > cp1252: Bug 1 (`→` → `->` in `cmd_status`), Bug 2 (try/except
 > sqlite3.OperationalError around the activities/streams SELECT — fresh
 > tour install has no Strava-tier tables), Bug 3 (`←` → `<-` in
@@ -279,7 +334,7 @@
 > "non-blocking" to load-bearing on the first real recipient debugging
 > path. (1) `cmd_uninstall` now prefix-matches `biosensor-` so
 > `biosensor-tour-<variant>` orphan entries are cleaned alongside
-> `biosensor-mcp` (red MCP indicator after clean uninstall). (2) All
+> `tailor` (red MCP indicator after clean uninstall). (2) All
 > CSV-open and JSON-sidecar reads in `force_csv` (3 sites), `emg_csv`
 > (3 sites), and `csv_dir` (6 sites) switched from `utf-8` to
 > `utf-8-sig` for transparent BOM stripping — Excel- / PowerShell-saved
@@ -315,9 +370,9 @@
 >
 > **v6.9.0 (2026-05-04)** — Wheel-distributed `tour` subcommand + bundled
 > HIP Lab realistic fixtures per [ADR 0024](docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md).
-> New `biosensor-mcp tour` CLI subcommand at `src/biosensor_mcp/tour.py`
+> New `tailor tour` CLI subcommand at `src/tailor/tour.py`
 > scaffolds the HIP Lab realistic demo from bundled wheel fixtures into
-> `~/.biosensor-mcp/demos/hip-lab/`, copies bundled fixtures via
+> `~/.tailor/demos/hip-lab/`, copies bundled fixtures via
 > `importlib.resources`, writes `user_config.json` with absolute paths,
 > indexes the seed vault moment, and writes (or merges with) the
 > recipient's Claude Desktop config — recipient never types an env var.
@@ -326,7 +381,7 @@
 > deep-merge hardenings explicitly. Bundled fixtures: the HIP Lab
 > realistic demo's 48 CSVs + 3 `metadata.json` sidecars + 1 seed vault
 > moment migrate from `examples/hip_lab_demo/realistic/` to
-> `src/biosensor_mcp/_fixtures/hip_lab_demo_realistic/`; `pyproject.toml`
+> `src/tailor/_fixtures/hip_lab_demo_realistic/`; `pyproject.toml`
 > package-data globs extend to `_fixtures/**/*.csv`,
 > `_fixtures/**/*.json`, `_fixtures/**/*.md`. Distribution model:
 > pre-built wheel via Drive/email; no PyPI publish; repo stays private.
@@ -584,9 +639,9 @@
 > data-shape concessions openly (1 Hz EMG envelope is
 > post-rectification — real surface EMG is 1–2 kHz raw; "real
 > version would ingest from the rectification/envelope stage").
-> Demo runs via `BIOSENSOR_CONFIG_DIR=examples/hip_lab_demo/beta
-> biosensor-mcp serve` — isolated from the operator's
-> `~/.biosensor-mcp/user_config.json`, no pilot-wizard clobber risk.
+> Demo runs via `TAILOR_CONFIG_DIR=examples/hip_lab_demo/beta
+> tailor serve` — isolated from the operator's
+> `~/.tailor/user_config.json`, no pilot-wizard clobber risk.
 > Public API additions only — no breaking changes; SemVer minor
 > bump. CSV directory child surface widens from 5 to 7 tools. Total
 > framework tool surface 25 (vault) + 12 (running) + 7 (csv_dir) +
@@ -603,7 +658,7 @@
 > CLI `--help` smoke) was green because none of them actually start
 > the stdio server. Fix: pass `server.create_initialization_options()`
 > as the third arg. New `tests/test_serve_startup_smoke.py` regression-
-> tests this by spawning `biosensor-mcp serve` as a subprocess with
+> tests this by spawning `tailor serve` as a subprocess with
 > `stdin=DEVNULL` and asserting no Python traceback in stderr; closes
 > the gate-evasion class for upstream-mcp-SDK signature drift. Total
 > regression tests on this release: 47 (46 cohort + 1 serve smoke).
@@ -768,8 +823,8 @@
 >
 > **v6.2.1 (2026-04-29)** — pilot-wizard release. Collapses the
 > seven-step multi-subject pilot quickstart into two terminal commands
-> and three prompts via the new `biosensor-mcp pilot` CLI subcommand
-> (`src/biosensor_mcp/pilot.py`). The wizard auto-detects CSV schema
+> and three prompts via the new `tailor pilot` CLI subcommand
+> (`src/tailor/pilot.py`). The wizard auto-detects CSV schema
 > across all files in the directory, writes `user_config.json`
 > atomically, optionally registers with Claude Desktop on Win/macOS,
 > and runs an end-to-end smoke check. Ships three audit-driven
@@ -782,9 +837,9 @@
 > `vault_path` warning (OneDrive, iCloud, Dropbox, Box, Google Drive,
 > pCloud, Nextcloud, MEGA). Synthetic CSV fixtures (P001/P002/P003)
 > moved from `examples/` into the package at
-> `src/biosensor_mcp/_fixtures/` so they ship in the wheel — wheel
+> `src/tailor/_fixtures/` so they ship in the wheel — wheel
 > install and source-tree work identically. `docs/guides/multi-subject-pilot.md`
-> rewritten to lead with `biosensor-mcp pilot` as the primary path.
+> rewritten to lead with `tailor pilot` as the primary path.
 > 9 new tests in `tests/test_pilot_wizard.py`; full suite 496/496.
 > New `ROADMAP.md` deferred entry: `setup` → `setup-strava` rename
 > (disambiguation handled in `--help` text for now; re-evaluate when
@@ -851,9 +906,26 @@
 
 ## What This Project Is
 
-**Local-first infrastructure for LLM-assisted analysis of high-frequency biometric data — built for health research workflows where data governance, audit trails, and reproducibility matter.**
+**Tailor is a local-first MCP framework that lets any MCP-speaking AI work with your own data — without that data ever leaving your machine, with every action recorded in a durable audit log, and with results stamped for reproducibility.**
 
-The intended users are health researchers (academic medical centers, mHealth labs, sleep/CGM/cardiology groups) and the research-software engineers who support them. The deliverables are a router that owns cross-cutting concerns, a ChildMCP extension point for new data sources, and a vault layer for durable cross-session analytical memory.
+The first deployment recipe shipped end-to-end is a health-research workflow: high-frequency biometric data, cohort analysis, IRB-grade audit trails, and the worked example of a Strava-API child. The intended users for this first recipe are health researchers (academic medical centers, mHealth labs, sleep/CGM/cardiology groups) and the research-software engineers who support them. The deliverables are a router that owns cross-cutting concerns, a ChildMCP extension point for new data sources, and a vault layer for durable cross-session analytical memory.
+
+The framework generalises beyond health research — the architecture (router + ChildMCP plurality + Wardrobe + audit + consent + cost gates) is data-agnostic and use-case-agnostic. Future deployment recipes (knowledge work, clinical workflows, household / family contexts, creative archives) compose on the same engine. The research recipe is the first one shipped end-to-end, not the platform's identity.
+
+### Your Wardrobe
+
+Your **Wardrobe** is what your AI knows about you: the structured collection of your data and prior analytical work that lives entirely on your machine. *Not clothes — your stuff.* The Wardrobe accumulates:
+
+- **Themes** — persistent questions / hypotheses you keep returning to (research questions for a PI; recurring threads for a writer; case formulations for a clinician)
+- **Moments** — observations worth remembering across sessions (an aha; a captured mid-analysis insight; a clinical impression)
+- **Evidence** — data that grounds a theme (a specific time-window, a specific cohort comparison, a specific trace)
+- **Failure modes** — documented dead-ends so the AI doesn't suggest them again
+- **Audit history** — every action your AI took on your behalf, with timestamps, parameters, outcomes
+- **Source data** — the biometric streams, CSVs, vault notes the AI reasons over
+
+Tailor curates your Wardrobe — adds to it, retrieves from it, governs how the AI reaches into it — and never sends any of it to a service you didn't choose. Internally the framework still has component names like `vault/` (the markdown storage layer), `framework/` (the security pipeline), `audit.db` (the SQLite audit log); user-facing language uses **Wardrobe** as the term for what those components hold collectively.
+
+Counter-programming invariant per [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md): visual language stays non-fashion; onboarding copy actively redirects the literal-clothing read; content shown in any "your Wardrobe" view is visibly diverse (not just one data type) from first impression. The clothing metaphor is internal-coherence (Tailor + Wardrobe is a thematic pairing); the brand identity is *personal data substrate*, not fashion.
 
 The running child (Strava data) is one **worked example** of the ChildMCP pattern — a complete, copyable template for wrapping a streaming biometric source. It is retained for teaching value; it is not the canonical use case.
 
@@ -877,10 +949,10 @@ Manager mode is the default working style on this repo. The general conventions 
 | [`coverage-criticality-mapper`](.claude/agents/coverage-criticality-mapper.md) | Classifies uncovered code by criticality (CRITICAL / HIGH / MEDIUM / LOW) anchored on ADR-cited regions; flags newly-uncovered CRITICAL/HIGH lines as `COVERAGE REGRESSION` regardless of overall percentage | After every `ci-gate-runner` PASS on non-trivial work; spawnable from `red-team-reviewer` when its dissent target is a CI PASS |
 | [`reproducibility-provenance-auditor`](.claude/agents/reproducibility-provenance-auditor.md) | Audits a diff against the reproducibility/provenance invariants codified in ADRs 0001 / 0002 / 0008 / 0003 — no PRNG in processing, audit-log completeness, `_meta` stamping, `subject_id` propagation. Per-file HOLDS / BROKEN / NEEDS REVIEW with file:line + ADR citations | After any non-trivial diff that touches `framework/` or `children/*/processing.py`. Closes the ADR 0008 "enforced by review at PR time" gap |
 | [`phi-irb-risk-reviewer`](.claude/agents/phi-irb-risk-reviewer.md) | Hostile-IRB-committee lens on code changes — six threat-model lenses (HIPAA Safe Harbor, consent scope, audit-log completeness, ADR 0003 scrubber asymmetry, ADR 0009 subject_id integrity, retention). Returns NO RISK / WATCH / VIOLATION with IRB / HIPAA / ADR citations | After any change touching `framework/security.py`, `framework/audit.py`, `framework/router.py`, `framework/vault/`, or any child's `execute()` path; before any release involving consent or data flow |
-| [`mcp-protocol-auditor`](.claude/agents/mcp-protocol-auditor.md) | End-to-end subprocess MCP-protocol audit — drives `python -m biosensor_mcp serve` as a real subprocess speaking JSON-RPC over stdio, asserts wire-level correctness on `initialize` / `tools/list` / `tools/call` / consent gate / cost gate / error envelopes / `_dumps` serialization seam. Catches the gate-evasion class no other specialist owns: upstream-mcp-SDK signature drift, missing schema keys, silent type coercion, markdown round-trip lossiness, post-execute hook silent failures | After any change touching `framework/router.py`, `framework/audit.py`, `framework/security.py`, `framework/vault/{layer,writer}.py`, or any child's `execute()` path; mandatory before every release. Promoted v6.5.0 after 5 protocol-adapter ship-blocker bugs surfaced in 90 minutes that 8 existing gates missed |
+| [`mcp-protocol-auditor`](.claude/agents/mcp-protocol-auditor.md) | End-to-end subprocess MCP-protocol audit — drives `python -m tailor serve` as a real subprocess speaking JSON-RPC over stdio, asserts wire-level correctness on `initialize` / `tools/list` / `tools/call` / consent gate / cost gate / error envelopes / `_dumps` serialization seam. Catches the gate-evasion class no other specialist owns: upstream-mcp-SDK signature drift, missing schema keys, silent type coercion, markdown round-trip lossiness, post-execute hook silent failures | After any change touching `framework/router.py`, `framework/audit.py`, `framework/security.py`, `framework/vault/{layer,writer}.py`, or any child's `execute()` path; mandatory before every release. Promoted v6.5.0 after 5 protocol-adapter ship-blocker bugs surfaced in 90 minutes that 8 existing gates missed |
 | [`cue-card-rehearsal-auditor`](.claude/agents/cue-card-rehearsal-auditor.md) | Read-only cue-card audit — maps each cue-card prompt against the registered ToolDefinition schemas and emits per-prompt verdicts (PASS / WRONG-TOOL / WRONG-PARAMS / AMBIGUOUS) with file:line citations. Catches the schema-under-specification class of failure: schemas that pass structural gates but silently fail when Claude infers parameters from operator prose | Before every release that ships or revises a cue card (`--cue-card=<path>` arg); whenever `CUE_CARD.md` or any `ToolDefinition` schema changes. Promoted v6.10.0 per [ADR 0025](docs/adr/0025-cue-card-rehearsal-as-release-gate.md) after v6.9.1 + v6.9.2 closed the same structural gap twice in one week |
 | [`adr-weigher`](.claude/agents/adr-weigher.md) | Weighs a candidate ADR concept against five criteria (decision-shaped, reversal-changes-code, WHY-non-obvious, cites-prior-ADRs, severity) and returns `PASS / REJECT-NOT-ADR-WORTHY / DEFER-NEEDS-BOSS-INPUT / INSUFFICIENT-INPUT`. Read-only — produces a verdict, not an ADR | Before `adr-drafter` is invoked during autonomous overnight sessions — gates premature-ADR drift the same way [ADR 0011](docs/adr/0011-promotion-policy.md) gates premature-specialist drift. Per [ADR 0017](docs/adr/0017-adr-weigher-and-autonomous-session-cap.md), the autonomous-session ADR cap is six per session with `adr-weigher` as the binding quality constraint |
-| [`recipient-install-validator`](.claude/agents/recipient-install-validator.md) | End-to-end recipient-install validation — provisions a clean Windows 11 base box via VirtualBox + Vagrant, installs the freshly-built wheel via the documented recipient command, runs `biosensor-mcp tour`, validates per-path Claude Desktop config (per ADR 0026), exercises `biosensor-mcp demo` (per ADR 0027), and runs wheel-install-dependent pytest in-guest. Catches the failure class that produced the v6.10.1–v6.10.4 patch quartet — bugs that exist between the wheel artifact and a stranger's machine, invisible to host-side gates that test against the dev tree | Mandatory + file-touched-gated. Fires when any of `tour.py`, `pilot.py`, `__main__.py`, `wizard.py`, `pyproject.toml` package-data globs, or `_fixtures/**` are modified in a release branch. Promoted v6.11.0 per [ADR 0028](docs/adr/0028-recipient-install-validation-as-release-gate.md) — the gate composes at `release-shipper` with `ci-gate-runner` (host: dev-tree pytest) and `recipient-install-validator` (guest: wheel-installed package) |
+| [`recipient-install-validator`](.claude/agents/recipient-install-validator.md) | End-to-end recipient-install validation — provisions a clean Windows 11 base box via VirtualBox + Vagrant, installs the freshly-built wheel via the documented recipient command, runs `tailor tour`, validates per-path Claude Desktop config (per ADR 0026), exercises `tailor demo` (per ADR 0027), and runs wheel-install-dependent pytest in-guest. Catches the failure class that produced the v6.10.1–v6.10.4 patch quartet — bugs that exist between the wheel artifact and a stranger's machine, invisible to host-side gates that test against the dev tree | Mandatory + file-touched-gated. Fires when any of `tour.py`, `pilot.py`, `__main__.py`, `wizard.py`, `pyproject.toml` package-data globs, or `_fixtures/**` are modified in a release branch. Promoted v6.11.0 per [ADR 0028](docs/adr/0028-recipient-install-validation-as-release-gate.md) — the gate composes at `release-shipper` with `ci-gate-runner` (host: dev-tree pytest) and `recipient-install-validator` (guest: wheel-installed package) |
 
 The agents are checked into the repo so the team is reproducible across machines. Per `.gitignore`: `.claude/*` ignores per-machine settings; `!.claude/agents/` re-includes the roster. New specialists land via [ADR 0011 — promotion-policy](docs/adr/0011-promotion-policy.md): structural argument + severity + per-agent maintenance estimate, with frequency-based 3+-uses as the fallback signal in the absence of a structural argument. The deferred roster (parked candidates with named promotion triggers) lives in [docs/design/operating-model.md § Deferred roster](docs/design/operating-model.md).
 
@@ -998,7 +1070,7 @@ Markdown files in the Obsidian vault are the **source of truth** for analytical 
 ## File Structure
 
 ```
-src/biosensor_mcp/
+src/tailor/
   __init__.py              # Package metadata
   __main__.py              # CLI: serve | pilot | setup | status | demo | uninstall | --help
   pilot.py                 # Multi-subject CSV pilot wizard (v6.2.1)
@@ -1156,7 +1228,7 @@ pipx) against the GitHub URL — no Python install, no venv ritual:
 
 ```bash
 uv tool install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
-biosensor-mcp pilot     # Three-prompt wizard for the multi-subject CSV pilot
+tailor pilot     # Three-prompt wizard for the multi-subject CSV pilot
 ```
 
 For development on the framework itself:
@@ -1169,15 +1241,15 @@ pip install -e ".[dev]"
 pytest -v
 
 # CLI smoke test
-biosensor-mcp --help
+tailor --help
 
 # Subcommands
-biosensor-mcp pilot      # Multi-subject CSV pilot setup wizard (v6.2.1+)
-biosensor-mcp tour       # Live-audience walkthrough (HIP Lab realistic; ADR 0024)
-biosensor-mcp setup      # Strava OAuth wizard for the worked-example child
-biosensor-mcp demo       # Researcher first-look — runs cohort tools on bundled HIP Lab fixtures (ADR 0027)
-biosensor-mcp serve      # Start MCP server (Claude Desktop calls this)
-biosensor-mcp status     # Diagnostic check
+tailor pilot      # Multi-subject CSV pilot setup wizard (v6.2.1+)
+tailor tour       # Live-audience walkthrough (HIP Lab realistic; ADR 0024)
+tailor setup      # Strava OAuth wizard for the worked-example child
+tailor demo       # Researcher first-look — runs cohort tools on bundled HIP Lab fixtures (ADR 0027)
+tailor serve      # Start MCP server (Claude Desktop calls this)
+tailor status     # Diagnostic check
 ```
 
 ## Key Design Decisions
@@ -1214,11 +1286,11 @@ architectural decisions in the ADR sense:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `BIOSENSOR_CONFIG_DIR` | `~/.biosensor-mcp` | Token, user config, rate limit files |
-| `BIOSENSOR_DATA_DIR` | `~/.biosensor-mcp/data` | SQLite databases |
+| `TAILOR_CONFIG_DIR` | `~/.tailor` | Token, user config, rate limit files |
+| `TAILOR_DATA_DIR` | `~/.tailor/data` | SQLite databases |
 | `STRAVA_STREAM_CACHE_TTL_DAYS` | `7` | Stream cache eviction |
 
-User config at `~/.biosensor-mcp/user_config.json`:
+User config at `~/.tailor/user_config.json`:
 ```json
 {
   "max_hr": 185, "resting_hr": 55,
@@ -1240,12 +1312,12 @@ User config at `~/.biosensor-mcp/user_config.json`:
 ```json
 {
   "mcpServers": {
-    "biosensor-mcp": {
-      "command": "~/.biosensor-mcp/venv/bin/python",
-      "args": ["-m", "biosensor_mcp", "serve"],
+    "tailor": {
+      "command": "~/.tailor/venv/bin/python",
+      "args": ["-m", "tailor", "serve"],
       "env": {
-        "BIOSENSOR_CONFIG_DIR": "~/.biosensor-mcp",
-        "BIOSENSOR_DATA_DIR": "~/.biosensor-mcp/data"
+        "TAILOR_CONFIG_DIR": "~/.tailor",
+        "TAILOR_DATA_DIR": "~/.tailor/data"
       }
     }
   }
@@ -1259,7 +1331,7 @@ Children are the framework's extension point. Each one wraps one data source (CS
 Implement 4 abstract items and register:
 
 ```python
-from biosensor_mcp.framework import ChildMCP, ToolDefinition, CostEstimate, ValidationSchema, ConsentInfo
+from tailor.framework import ChildMCP, ToolDefinition, CostEstimate, ValidationSchema, ConsentInfo
 
 class CGMChild(ChildMCP):
     @property
@@ -1292,7 +1364,7 @@ router.register_child(CGMChild(config_dir, data_dir))
 ```
 
 For a runnable starting point that already passes shape tests, copy
-`src/biosensor_mcp/children/template/` and rename. See its
+`src/tailor/children/template/` and rename. See its
 `__init__.py` for the rename checklist.
 
 ## Framework-Level Infrastructure (Not a ChildMCP)
@@ -1303,7 +1375,7 @@ Components that represent durable cross-session state — not biosensor domains 
 
 ```python
 # In __main__.py cmd_serve():
-from biosensor_mcp.framework.vault import VaultLayer
+from tailor.framework.vault import VaultLayer
 
 router.register_vault_layer(VaultLayer(
     vault_path=vault_path,
@@ -1376,4 +1448,4 @@ Inbox (low-friction capture):
 
 ## CI
 
-`.github/workflows/ci.yml` runs on push/PR to `main` across Ubuntu, Windows, macOS × Python 3.10/3.11/3.12. Steps: install deps → `pytest -v` → `biosensor-mcp --help`.
+`.github/workflows/ci.yml` runs on push/PR to `main` across Ubuntu, Windows, macOS × Python 3.10/3.11/3.12. Steps: install deps → `pytest -v` → `tailor --help`.

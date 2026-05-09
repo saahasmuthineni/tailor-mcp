@@ -1,7 +1,7 @@
 """
 End-to-end MCP-protocol subprocess audit.
 
-These tests drive ``python -m biosensor_mcp serve`` as a real
+These tests drive ``python -m tailor serve`` as a real
 subprocess speaking JSON-RPC over stdio, with a fully-seeded
 config (vault + csv_dir + running) so all 44+ tools register.
 
@@ -76,7 +76,7 @@ def test_csv_list_files_round_trip() -> None:
         meta = body["_meta"]
         assert meta["tool_name"] == "csv_list_files"
         assert meta["domain"] == "csv_dir"
-        from biosensor_mcp import __version__
+        from tailor import __version__
         assert meta["package_version"] == __version__
         # called_at must be ISO-8601 parseable, NOT a Python repr.
         from datetime import datetime
@@ -324,7 +324,7 @@ def test_wire_default_handles_known_types_no_repr() -> None:
     from decimal import Decimal
     from pathlib import PurePosixPath
 
-    from biosensor_mcp.framework.audit import _dumps
+    from tailor.framework.audit import _dumps
 
     payload = {
         "ts_aware": datetime(2026, 4, 30, 12, 0, 0, tzinfo=timezone.utc),
@@ -363,7 +363,7 @@ def test_wire_default_handles_known_types_no_repr() -> None:
 
 def test_wire_default_raises_on_unknown_type() -> None:
     """Unknown types must raise loudly, not silently coerce via repr."""
-    from biosensor_mcp.framework.audit import _dumps
+    from tailor.framework.audit import _dumps
 
     class _Mystery:
         pass
@@ -397,9 +397,9 @@ def test_every_vaultable_tool_has_renderer() -> None:
     from pathlib import Path
     from tempfile import TemporaryDirectory
 
-    from biosensor_mcp.children.csv_dir import CSVDirectoryChild
-    from biosensor_mcp.children.running import RunningChild
-    from biosensor_mcp.framework.vault.writer import VaultWriter
+    from tailor.children.csv_dir import CSVDirectoryChild
+    from tailor.children.running import RunningChild
+    from tailor.framework.vault.writer import VaultWriter
 
     with TemporaryDirectory() as tmp:
         config_dir = Path(tmp) / "config"
@@ -463,8 +463,8 @@ def test_post_execute_hook_failure_surfaces_in_meta() -> None:
     from pathlib import Path
     from tempfile import TemporaryDirectory
 
-    from biosensor_mcp.children.running import RunningChild
-    from biosensor_mcp.framework.router import RouterMCP
+    from tailor.children.running import RunningChild
+    from tailor.framework.router import RouterMCP
 
     async def _run():
         with TemporaryDirectory() as tmp:
@@ -519,7 +519,7 @@ def test_audit_dumps_no_repr_with_stdlib_fallback(monkeypatch) -> None:
     """
     monkeypatch.setitem(sys.modules, "orjson", None)
     audit = importlib.reload(
-        importlib.import_module("biosensor_mcp.framework.audit"),
+        importlib.import_module("tailor.framework.audit"),
     )
     try:
         from datetime import datetime, timezone
@@ -531,7 +531,7 @@ def test_audit_dumps_no_repr_with_stdlib_fallback(monkeypatch) -> None:
         # Restore the real module for downstream tests.
         sys.modules.pop("orjson", None)
         importlib.reload(
-            importlib.import_module("biosensor_mcp.framework.audit"),
+            importlib.import_module("tailor.framework.audit"),
         )
 
 
@@ -604,7 +604,7 @@ def test_ask_local_oracle_tools_call_happy_path() -> None:
     """
     from datetime import datetime
 
-    from biosensor_mcp import __version__
+    from tailor import __version__
 
     with spawn_server() as (client, _paths):
         client.initialize()
@@ -770,14 +770,14 @@ def test_ask_local_oracle_audit_db_oracle_columns() -> None:
         import os
         env = {
             **os.environ,
-            "BIOSENSOR_CONFIG_DIR": str(paths["config_dir"]),
-            "BIOSENSOR_DATA_DIR": str(paths["data_dir"]),
+            "TAILOR_CONFIG_DIR": str(paths["config_dir"]),
+            "TAILOR_DATA_DIR": str(paths["data_dir"]),
         }
 
         import subprocess
 
         proc = subprocess.Popen(
-            [sys.executable, "-m", "biosensor_mcp", "serve"],
+            [sys.executable, "-m", "tailor", "serve"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -857,7 +857,7 @@ def test_ask_local_oracle_audit_db_oracle_columns() -> None:
             )
 
         # Idempotency: second AuditLog on same db must not error
-        from biosensor_mcp.framework.audit import AuditLog
+        from tailor.framework.audit import AuditLog
         audit2 = AuditLog(audit_db)
         try:
             cols2 = {
@@ -1055,12 +1055,12 @@ def test_oracle_substrate_count_audit_column_present_and_correct() -> None:
         paths = seed_full_config(Path(tmp))
         env = {
             **os.environ,
-            "BIOSENSOR_CONFIG_DIR": str(paths["config_dir"]),
-            "BIOSENSOR_DATA_DIR": str(paths["data_dir"]),
+            "TAILOR_CONFIG_DIR": str(paths["config_dir"]),
+            "TAILOR_DATA_DIR": str(paths["data_dir"]),
         }
 
         proc = subprocess.Popen(
-            [sys.executable, "-m", "biosensor_mcp", "serve"],
+            [sys.executable, "-m", "tailor", "serve"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -1114,7 +1114,7 @@ def test_oracle_substrate_count_audit_column_present_and_correct() -> None:
             )
 
         # Idempotency: second AuditLog init on same file must not crash
-        from biosensor_mcp.framework.audit import AuditLog
+        from tailor.framework.audit import AuditLog
         audit2 = AuditLog(audit_db)
         try:
             cols2 = {
@@ -1145,7 +1145,7 @@ def test_vault_writer_storage_property_accessible() -> None:
     from pathlib import Path
     from tempfile import TemporaryDirectory
 
-    from biosensor_mcp.framework.vault.writer import VaultWriter
+    from tailor.framework.vault.writer import VaultWriter
 
     with TemporaryDirectory() as tmp:
         vault_path = Path(tmp) / "vault"
@@ -1367,8 +1367,8 @@ def test_gap_reasoning_fields_wire_serialization_no_repr() -> None:
     non-empty lists and then _dumps them, mirroring exactly what the
     router's dispatch path does when an OllamaBackend returns results.
     """
-    from biosensor_mcp.framework.audit import _dumps
-    from biosensor_mcp.framework.local_llm.oracle import (
+    from tailor.framework.audit import _dumps
+    from tailor.framework.local_llm.oracle import (
         OracleMeta,
         OracleResponse,
     )
@@ -1489,7 +1489,7 @@ def test_tools_list_no_json_rpc_error_after_description_expansion() -> None:
 
 
 def test_v690_tour_subcommand_not_exposed_as_mcp_tool() -> None:
-    """V690-T1: the new ``biosensor-mcp tour`` CLI subcommand must not
+    """V690-T1: the new ``tailor tour`` CLI subcommand must not
     appear as an MCP tool in tools/list.
 
     Adjacent risk: the v6.9.0 dispatch-table addition in ``__main__.py``
@@ -1559,7 +1559,7 @@ def test_v690_serve_startup_meta_version_stamp() -> None:
     every version bump. v6.9.1 found a hardcoded ``"6.9.0"`` literal
     here that silently broke release-shipper's post-bump merge gate.
     """
-    from biosensor_mcp import __version__
+    from tailor import __version__
 
     with spawn_server() as (client, _paths):
         client.initialize()
@@ -1581,7 +1581,7 @@ def test_v690_serve_startup_meta_version_stamp() -> None:
 # wire surfaces (T1–T6, added this audit run)
 #
 # The existing ``spawn_server`` fixture wires running + csv_dir + vault.
-# The tour path (``biosensor-mcp tour``) wires force_csv + emg_csv +
+# The tour path (``tailor tour``) wires force_csv + emg_csv +
 # csv_dir (MRS) + vault, which means 9 + 8 = 17 new tools that had
 # ZERO subprocess coverage before this audit run. All tests here use
 # ``spawn_tour_server`` which scaffolds the bundled wheel fixtures.
@@ -1641,7 +1641,7 @@ def test_tour_force_csv_tier1_round_trip() -> None:
     """
     from datetime import datetime
 
-    from biosensor_mcp import __version__
+    from tailor import __version__
 
     with spawn_tour_server() as (client, _paths):
         client.initialize()
@@ -1723,7 +1723,7 @@ def test_tour_emg_csv_tier1_round_trip() -> None:
     """
     from datetime import datetime
 
-    from biosensor_mcp import __version__
+    from tailor import __version__
 
     with spawn_tour_server() as (client, _paths):
         client.initialize()
@@ -1839,11 +1839,11 @@ def test_tour_vaultable_tools_all_have_renderers() -> None:
     from pathlib import Path
     from tempfile import TemporaryDirectory
 
-    from biosensor_mcp.children.csv_dir import CSVDirectoryChild
-    from biosensor_mcp.children.emg_csv import EmgCsvChild
-    from biosensor_mcp.children.force_csv import ForceCsvChild
-    from biosensor_mcp.children.running import RunningChild
-    from biosensor_mcp.framework.vault.writer import VaultWriter
+    from tailor.children.csv_dir import CSVDirectoryChild
+    from tailor.children.emg_csv import EmgCsvChild
+    from tailor.children.force_csv import ForceCsvChild
+    from tailor.children.running import RunningChild
+    from tailor.framework.vault.writer import VaultWriter
 
     with TemporaryDirectory() as tmp:
         config_dir = Path(tmp) / "config"
@@ -1898,7 +1898,7 @@ def test_tour_vaultable_tools_all_have_renderers() -> None:
 
 
 # ──────────────────────────────────────────────────────────────────
-# v6.10.x — SetupHelpLayer / biosensor_setup_help subprocess surfaces
+# v6.10.x — SetupHelpLayer / tailor_setup_help subprocess surfaces
 # SH1–SH7, added this audit run
 #
 # The SetupHelpLayer is a conditionally-registered framework-level
@@ -1910,7 +1910,7 @@ def test_tour_vaultable_tools_all_have_renderers() -> None:
 #
 # Surfaces under test:
 #   SH1 — tools/list reflects conditional registration (absent config
-#          → biosensor_setup_help present; demo config → absent).
+#          → tailor_setup_help present; demo config → absent).
 #   SH2 — tools/call returns wire-correct envelope with all required keys.
 #   SH3 — _dumps serialization seam: no repr artifacts; round-trips
 #          cleanly through json.loads.
@@ -1925,7 +1925,7 @@ def _spawn_empty_config_server():
     """
     Context manager: spawn the server with an empty user_config.json
     (no demo blocks) so SetupHelpLayer registers and
-    ``biosensor_setup_help`` appears in tools/list.
+    ``tailor_setup_help`` appears in tools/list.
 
     Returns ``(client, config_dir, data_dir)`` inside the context.
     We use ``ignore_cleanup_errors=True`` on the TemporaryDirectory so
@@ -1946,12 +1946,12 @@ def _spawn_empty_config_server():
             )
             env = {
                 **os.environ,
-                "BIOSENSOR_CONFIG_DIR": str(config_dir),
-                "BIOSENSOR_DATA_DIR": str(data_dir),
+                "TAILOR_CONFIG_DIR": str(config_dir),
+                "TAILOR_DATA_DIR": str(data_dir),
             }
             import subprocess
             proc = subprocess.Popen(
-                [sys.executable, "-m", "biosensor_mcp", "serve"],
+                [sys.executable, "-m", "tailor", "serve"],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -1976,9 +1976,9 @@ def _spawn_empty_config_server():
     return _ctx()
 
 
-def test_sh1_tools_list_biosensor_setup_help_present_on_empty_config() -> None:
+def test_sh1_tools_list_tailor_setup_help_present_on_empty_config() -> None:
     """SH1a: tools/list on a server with no demo blocks contains
-    ``biosensor_setup_help``.
+    ``tailor_setup_help``.
 
     The SetupHelpLayer is registered conditionally in ``cmd_serve`` only
     when ``_demo_blocks_absent(user_config)`` is True. An empty
@@ -1997,23 +1997,23 @@ def test_sh1_tools_list_biosensor_setup_help_present_on_empty_config() -> None:
         assert_no_repr_artifacts(raw)
 
         names = {t["name"] for t in resp["result"]["tools"]}
-        assert "biosensor_setup_help" in names, (
-            "biosensor_setup_help is absent from tools/list even though "
+        assert "tailor_setup_help" in names, (
+            "tailor_setup_help is absent from tools/list even though "
             "user_config.json has no demo blocks — SetupHelpLayer "
             "conditional-registration gate did not fire. "
             f"Present tools: {sorted(names)}"
         )
 
 
-def test_sh2_biosensor_setup_help_call_returns_correct_envelope() -> None:
-    """SH2: tools/call of biosensor_setup_help returns a wire-correct
+def test_sh2_tailor_setup_help_call_returns_correct_envelope() -> None:
+    """SH2: tools/call of tailor_setup_help returns a wire-correct
     envelope with all documented top-level keys.
 
     Pins:
     - Top-level keys: diagnosis, recipient_steps, diagnostics, _meta
       (if_tour_keeps_failing is also present but is supplementary).
     - _meta carries: package_version (== __version__), tool_name
-      (== 'biosensor_setup_help'), called_at (ISO-8601 parseable),
+      (== 'tailor_setup_help'), called_at (ISO-8601 parseable),
       domain (== 'setup_help'), tier (== 1), scrubber_id (non-empty).
     - recipient_steps is a non-empty list of strings.
     - diagnostics is a dict.
@@ -2021,11 +2021,11 @@ def test_sh2_biosensor_setup_help_call_returns_correct_envelope() -> None:
     """
     from datetime import datetime
 
-    from biosensor_mcp import __version__
+    from tailor import __version__
 
     with _spawn_empty_config_server() as (client, _cfg, _data):
         client.initialize()
-        resp = client.call_tool("biosensor_setup_help", {})
+        resp = client.call_tool("tailor_setup_help", {})
         assert "error" not in resp, f"tools/call returned error envelope: {resp}"
 
         text = extract_text_result(resp)
@@ -2036,7 +2036,7 @@ def test_sh2_biosensor_setup_help_call_returns_correct_envelope() -> None:
         # Required top-level keys
         for key in ("diagnosis", "recipient_steps", "diagnostics", "_meta"):
             assert key in body, (
-                f"biosensor_setup_help response missing required key {key!r}. "
+                f"tailor_setup_help response missing required key {key!r}. "
                 f"Keys present: {sorted(body.keys())}"
             )
 
@@ -2049,8 +2049,8 @@ def test_sh2_biosensor_setup_help_call_returns_correct_envelope() -> None:
             "recipient_steps must contain only strings"
         )
         # The canonical tour command must be present
-        assert any("biosensor-mcp tour" in s for s in steps), (
-            "recipient_steps does not mention 'biosensor-mcp tour' — "
+        assert any("tailor tour" in s for s in steps), (
+            "recipient_steps does not mention 'tailor tour' — "
             "the canonical scaffolding command is absent from the wire payload"
         )
 
@@ -2065,8 +2065,8 @@ def test_sh2_biosensor_setup_help_call_returns_correct_envelope() -> None:
             f"_meta.package_version {meta['package_version']!r} != "
             f"__version__ {__version__!r}"
         )
-        assert meta["tool_name"] == "biosensor_setup_help", (
-            f"_meta.tool_name {meta['tool_name']!r} != 'biosensor_setup_help'"
+        assert meta["tool_name"] == "tailor_setup_help", (
+            f"_meta.tool_name {meta['tool_name']!r} != 'tailor_setup_help'"
         )
         assert meta["domain"] == "setup_help", (
             f"_meta.domain {meta['domain']!r} != 'setup_help'"
@@ -2082,7 +2082,7 @@ def test_sh2_biosensor_setup_help_call_returns_correct_envelope() -> None:
 
 
 def test_sh3_setup_help_dumps_seam_no_repr_round_trips() -> None:
-    """SH3: _dumps serialization seam on biosensor_setup_help response.
+    """SH3: _dumps serialization seam on tailor_setup_help response.
 
     The diagnostics dict contains string-valued path fields and bool
     flags. Tests:
@@ -2094,7 +2094,7 @@ def test_sh3_setup_help_dumps_seam_no_repr_round_trips() -> None:
     """
     with _spawn_empty_config_server() as (client, _cfg, _data):
         client.initialize()
-        resp = client.call_tool("biosensor_setup_help", {})
+        resp = client.call_tool("tailor_setup_help", {})
 
         text = extract_text_result(resp)
 
@@ -2153,7 +2153,7 @@ def test_sh4_setup_help_path_redaction_on_wire() -> None:
 
     with _spawn_empty_config_server() as (client, _cfg, _data):
         client.initialize()
-        resp = client.call_tool("biosensor_setup_help", {})
+        resp = client.call_tool("tailor_setup_help", {})
 
         text = extract_text_result(resp)
 
@@ -2173,9 +2173,9 @@ def test_sh4_setup_help_path_redaction_on_wire() -> None:
 
 
 def test_sh5_setup_help_audit_row_provenance() -> None:
-    """SH5: After tools/call biosensor_setup_help, audit.db contains a
+    """SH5: After tools/call tailor_setup_help, audit.db contains a
     row with correct provenance: domain='setup_help', outcome='SUCCESS',
-    tool_name='biosensor_setup_help', subject_id=NULL, scrubber_id stamped.
+    tool_name='tailor_setup_help', subject_id=NULL, scrubber_id stamped.
 
     This is the subprocess-level complement to the router-unit test
     ``test_dispatch_setup_help_writes_audit_row`` in
@@ -2196,11 +2196,11 @@ def test_sh5_setup_help_audit_row_provenance() -> None:
         )
         env = {
             **os.environ,
-            "BIOSENSOR_CONFIG_DIR": str(config_dir),
-            "BIOSENSOR_DATA_DIR": str(data_dir),
+            "TAILOR_CONFIG_DIR": str(config_dir),
+            "TAILOR_DATA_DIR": str(data_dir),
         }
         proc = subprocess.Popen(
-            [sys.executable, "-m", "biosensor_mcp", "serve"],
+            [sys.executable, "-m", "tailor", "serve"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -2210,7 +2210,7 @@ def test_sh5_setup_help_audit_row_provenance() -> None:
         client = MCPClient(proc)
         try:
             client.initialize()
-            client.call_tool("biosensor_setup_help", {})
+            client.call_tool("tailor_setup_help", {})
             time.sleep(0.5)  # let WAL flush before process exits
         finally:
             try:
@@ -2226,23 +2226,23 @@ def test_sh5_setup_help_audit_row_provenance() -> None:
         audit_db = data_dir / "audit.db"
         assert audit_db.exists(), (
             f"audit.db was not created at {audit_db} after "
-            "biosensor_setup_help call"
+            "tailor_setup_help call"
         )
         with sqlite3.connect(str(audit_db)) as conn:
             rows = conn.execute(
                 "SELECT domain, tool_name, outcome, subject_id, scrubber_id "
-                "FROM audit_log WHERE tool_name = 'biosensor_setup_help'"
+                "FROM audit_log WHERE tool_name = 'tailor_setup_help'"
             ).fetchall()
 
         assert len(rows) >= 1, (
-            "No audit row for biosensor_setup_help found in audit.db. "
+            "No audit row for tailor_setup_help found in audit.db. "
             "The setup_help dispatch pipeline must write a SUCCESS row."
         )
         domain, tool_name, outcome, subject_id, scrubber_id = rows[0]
         assert domain == "setup_help", (
             f"audit row domain={domain!r} != 'setup_help'"
         )
-        assert tool_name == "biosensor_setup_help", (
+        assert tool_name == "tailor_setup_help", (
             f"audit row tool_name={tool_name!r}"
         )
         assert outcome == "SUCCESS", (
@@ -2259,7 +2259,7 @@ def test_sh5_setup_help_audit_row_provenance() -> None:
 
 
 def test_sh6_setup_help_extra_params_do_not_error() -> None:
-    """SH6: Calling biosensor_setup_help with unexpected extra params
+    """SH6: Calling tailor_setup_help with unexpected extra params
     must still succeed.
 
     The tool's param_schema is ``{}`` (empty). The ParamValidator and
@@ -2274,7 +2274,7 @@ def test_sh6_setup_help_extra_params_do_not_error() -> None:
     with _spawn_empty_config_server() as (client, _cfg, _data):
         client.initialize()
         resp = client.call_tool(
-            "biosensor_setup_help",
+            "tailor_setup_help",
             {"unexpected": "value", "another_key": 42},
         )
 
@@ -2284,20 +2284,20 @@ def test_sh6_setup_help_extra_params_do_not_error() -> None:
         body = json.loads(text)
         # Must NOT return an error envelope
         assert "error" not in body, (
-            f"biosensor_setup_help returned an error when called with extra "
+            f"tailor_setup_help returned an error when called with extra "
             f"params — expected success (empty schema tolerates extras). "
             f"Error: {body.get('error')!r}"
         )
         # Must return the expected diagnostic structure
         assert "diagnosis" in body, (
-            f"biosensor_setup_help with extra params returned unexpected "
+            f"tailor_setup_help with extra params returned unexpected "
             f"body shape: {sorted(body.keys())}"
         )
 
 
-def test_sh7_biosensor_setup_help_absent_when_force_csv_configured() -> None:
+def test_sh7_tailor_setup_help_absent_when_force_csv_configured() -> None:
     """SH7: When user_config.json contains a force_csv block,
-    biosensor_setup_help must NOT appear in tools/list.
+    tailor_setup_help must NOT appear in tools/list.
 
     This is the cue-card-rehearsal-auditor invariant at the wire level:
     the setup-help tool must be invisible when the demo scaffold is
@@ -2307,7 +2307,7 @@ def test_sh7_biosensor_setup_help_absent_when_force_csv_configured() -> None:
 
     The test seeds a minimal force_csv config (path pointing at a temp
     dir with a placeholder CSV) and spawns the server. It then lists
-    tools and asserts biosensor_setup_help is absent and that at least
+    tools and asserts tailor_setup_help is absent and that at least
     one force_* tool is present (confirming the config was actually
     loaded).
     """
@@ -2336,12 +2336,12 @@ def test_sh7_biosensor_setup_help_absent_when_force_csv_configured() -> None:
         )
         env = {
             **os.environ,
-            "BIOSENSOR_CONFIG_DIR": str(config_dir),
-            "BIOSENSOR_DATA_DIR": str(data_dir),
+            "TAILOR_CONFIG_DIR": str(config_dir),
+            "TAILOR_DATA_DIR": str(data_dir),
         }
         import subprocess
         proc = subprocess.Popen(
-            [sys.executable, "-m", "biosensor_mcp", "serve"],
+            [sys.executable, "-m", "tailor", "serve"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -2357,8 +2357,8 @@ def test_sh7_biosensor_setup_help_absent_when_force_csv_configured() -> None:
             names = {t["name"] for t in resp["result"]["tools"]}
 
             # The diagnostic must be absent — demo scaffold is present.
-            assert "biosensor_setup_help" not in names, (
-                "biosensor_setup_help appeared in tools/list even though "
+            assert "tailor_setup_help" not in names, (
+                "tailor_setup_help appeared in tools/list even though "
                 "user_config.json contains a force_csv block — "
                 "SetupHelpLayer conditional-registration gate did not "
                 "suppress registration. "

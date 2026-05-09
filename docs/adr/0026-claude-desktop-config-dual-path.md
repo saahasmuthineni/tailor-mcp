@@ -2,7 +2,8 @@
 
 - **Status:** Accepted
 - **Date:** 2026-05-06
-- **Related:** [ADR 0024 (Wheel-distributed tour and fixture bundling)](0024-wheel-distributed-tour-and-fixture-bundling.md), [ADR 0014 (Coverage criticality is an invariant)](0014-coverage-criticality-invariant.md), [ADR 0010 (Adversarial pairing)](0010-adversarial-pairing.md), [CLAUDE.md § v6.10.2 banner](../../CLAUDE.md), [CLAUDE.md § v6.10.3 banner](../../CLAUDE.md)
+- **Amended:** 2026-05-08 — registration cleanup logic widened from single-prefix `biosensor-*` matching to dual-prefix matching across both legacy `biosensor-*` (v6.x) and current `tailor` / `tailor-*` (v7.0+) keys. The v6.10.4 invariant ("after a successful tour --force, exactly one entry exists in each detected Claude Desktop config") is preserved; the matched prefix set is what changed. Cleanup function renamed to `_clean_claude_desktop_orphan_entries` and a new `_is_orphan_entry_key` helper centralises the match contract. See [ADR 0031 (Project rename to Tailor + Wardrobe)](0031-rename-to-tailor-and-wardrobe.md) § Migration story.
+- **Related:** [ADR 0024 (Wheel-distributed tour and fixture bundling)](0024-wheel-distributed-tour-and-fixture-bundling.md), [ADR 0014 (Coverage criticality is an invariant)](0014-coverage-criticality-invariant.md), [ADR 0010 (Adversarial pairing)](0010-adversarial-pairing.md), [ADR 0031 (Project rename to Tailor + Wardrobe)](0031-rename-to-tailor-and-wardrobe.md), [CLAUDE.md § v6.10.2 banner](../../CLAUDE.md), [CLAUDE.md § v6.10.3 banner](../../CLAUDE.md)
 
 ## Context
 

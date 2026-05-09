@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-05-04
 - **Amended:** 2026-05-07 — § 3.1 added (public release-only mirror as a friend-shareable carve-out alongside the existing Drive/email distribution); see § 3.1 for the carve-out's invariants and reversal conditions. Cites [ADR 0029 (Token reduction is analytical quality)](0029-token-reduction-as-analytical-quality.md).
+- **Amended:** 2026-05-08 — references updated for the v7.0.0 rename (`biosensor-mcp` → `tailor` CLI; `biosensor_mcp` → `tailor` Python import; PyPI distribution `biosensor-mcp` → `tailor-mcp`). Wheel distribution shape is unchanged structurally. See [ADR 0031 (Project rename to Tailor + Wardrobe)](0031-rename-to-tailor-and-wardrobe.md) for the full rename story and the v6 → v7 migration path.
 - **Related:** [ADR 0008 (Deterministic by construction)](0008-deterministic-by-construction-processing.md), [ADR 0014 (Coverage criticality is an invariant)](0014-coverage-criticality-invariant.md), [ADR 0015 (Tier-1 cohort surface + metadata sidecar)](0015-tier-1-cohort-surface-and-metadata-sidecar.md), [ADR 0029 (Token reduction is analytical quality)](0029-token-reduction-as-analytical-quality.md), [CLAUDE.md § Workflow: manager mode](../../CLAUDE.md#workflow-manager-mode), [CLAUDE.md § Boss-architect protocols (Tier 1)](../../CLAUDE.md#boss-architect-protocols-tier-1--main-session-discipline)
 
 ## Context

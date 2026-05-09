@@ -93,7 +93,7 @@ This one command:
 
 Output ends with a "Tour scaffolded successfully" banner naming
 the target dir, the Claude Desktop config path, and the entry
-name (`biosensor-tour-hip-lab`).
+name (`tailor-tour-hip-lab`).
 
 Pass `--force` to refresh after a regen of the bundled fixtures.
 Pass `--no-claude-desktop` for headless / CI use.

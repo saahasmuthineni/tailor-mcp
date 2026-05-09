@@ -99,7 +99,7 @@ bundled fixtures via `importlib.resources`, writes `user_config.json`
 with absolute paths resolved against the target dir, indexes the
 seed vault moment into `data/vault.db`, and writes (or merges with)
 the recipient's Claude Desktop config to register an
-`mcpServers["biosensor-tour-hip-lab"]` entry whose `env` block
+`mcpServers["tailor-tour-hip-lab"]` entry whose `env` block
 **bakes in `TAILOR_CONFIG_DIR` and `TAILOR_DATA_DIR` pointing
 at the scaffolded target dir**. The recipient never types an env
 var by hand; Claude Desktop spawns the server with the right
@@ -135,9 +135,14 @@ Naming: `tour` was selected over `hip-lab` (recipient-name
 lock-in), `hip-lab-demo` (collides with the existing operator
 self-verification `demo` subcommand), and folding into `demo
 --variant=hip-lab` (would breaking-change the existing `demo`
-subcommand's behaviour). The legacy `demo` subcommand will rename
-to `verify` in a future release — bookmarked in
-[ROADMAP.md § "CLI UX: rename legacy demo → verify"](../../ROADMAP.md#cli-ux-rename-legacy-demo--verify).
+subcommand's behaviour). At ADR landing time (v6.9.0), `demo` was
+operator self-verification and a `demo` → `verify` rename was
+bookmarked; that rename was **killed in v6.10.5** per
+[ADR 0027](0027-demo-as-researcher-first-look.md), which reframed
+`demo` as a researcher first-look. The two surfaces now coexist
+intentionally — `tour` is the live-audience walkthrough; `demo` is
+the researcher first-look — and the rename ROADMAP item is marked
+KILLED.
 
 ### 3. Distribution model: pre-built wheel, not PyPI
 

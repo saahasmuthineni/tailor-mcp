@@ -118,7 +118,7 @@ You'll see four progress lines:
   (2/4) write user_config.json
   (3/4) index vault.db
   (4/4) register with Claude Desktop
-        wrote entry 'biosensor-tour-hip-lab' to ...
+        wrote entry 'tailor-tour-hip-lab' to ...
 ```
 
 If anything different prints (especially red error text), copy the
@@ -192,9 +192,9 @@ That's the demo.
 |---|---|
 | `python --version` says "not recognized" | Re-run the Python installer; make sure **"Add python.exe to PATH"** is checked on the first screen. |
 | `pip install` fails with a permissions error | Close PowerShell, then re-open it as Administrator (right-click PowerShell in the Start menu → **Run as Administrator**) and try again. |
-| `pip install` says "no such file" | Check the path matches where the `.whl` file actually lives. Try `dir $env:USERPROFILE\Downloads\biosensor*` to find it. |
+| `pip install` says "no such file" | Check the path matches where the `.whl` file actually lives. Try `dir $env:USERPROFILE\Downloads\tailor*` to find it. |
 | `tailor --help` is "not recognized" | Open a new PowerShell window so it picks up the new install. If still failing, use `python -m tailor --help`. |
-| Claude Desktop doesn't list any biosensor tools | Fully quit Claude Desktop via the system tray (right-click → Quit), then re-open. If still missing, run `tailor tour --force` to re-write the Claude Desktop config and restart again. |
+| Claude Desktop doesn't list any Tailor tools | Fully quit Claude Desktop via the system tray (right-click → Quit), then re-open. If still missing, run `tailor tour --force` to re-write the Claude Desktop config and restart again. |
 | Claude says "the tool errored" on Prompt 2 | Run `tailor tour --force` to re-scaffold the demo data. |
 | Vault search (Prompt 5) returns nothing | Same fix — `tailor tour --force`. |
 | Anything else | Take a screenshot of the PowerShell window or Claude chat and send it to me. |
@@ -209,7 +209,7 @@ there's no service to stop. To remove everything later:
 1. Delete the folder at `%USERPROFILE%\.tailor\demos\hip-lab\`
    (paste that path into File Explorer's address bar to find it).
 2. Open `%APPDATA%\Claude\claude_desktop_config.json` in Notepad and
-   delete the `"biosensor-tour-hip-lab": { ... }` block (and the
+   delete the `"tailor-tour-hip-lab": { ... }` block (and the
    comma before it, if any).
 3. Optionally: `pip uninstall tailor` and uninstall Python
    from **Settings → Apps**.

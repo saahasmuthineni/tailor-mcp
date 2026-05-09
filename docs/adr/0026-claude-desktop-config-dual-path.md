@@ -112,10 +112,12 @@ Concrete mechanism:
   cue-card recovery row added in this PR names the re-run path for
   the Store-only-and-never-launched case.
 - **Per-path atomic semantics.** `_register_with_claude_desktop` and
-  `_clean_claude_desktop_biosensor_entries` iterate over every
+  `_clean_claude_desktop_orphan_entries` iterate over every
   returned path. For each path P, the contract is: read P → clean
-  every `biosensor-*` sibling in P → add the new entry to P → write P
-  atomically via `os.replace`. The read / clean / add / write block
+  every orphan sibling in P (the v7 `_is_orphan_entry_key` matcher
+  matches both v6 `biosensor-*` and v7 `tailor-*` prefixes per
+  [ADR 0031](0031-rename-to-tailor-and-wardrobe.md)) → add the new
+  entry to P → write P atomically via `os.replace`. The read / clean / add / write block
   is wrapped in try/except per path. A `PermissionError` (Claude
   Desktop has the file open because the user did not fully quit
   before running tour), `OSError` (disk full, antivirus quarantine),
@@ -149,11 +151,15 @@ Concrete mechanism:
   partial case. The recipient should not need to learn the UWP
   redirection mechanic to read the status output.
 - **Invariant locked in writing.** After a successful `tour --force`,
-  exactly one `biosensor-*` entry exists in **each detected** Claude
+  exactly one `tailor-*` entry exists in **each detected** Claude
   Desktop config; the entry is identical across configs. The v6.10.3
   invariant ("exactly one biosensor-* entry exists in mcpServers")
-  generalises per-path under this ADR. Regression tests assert it as
-  a contract, not as an implementation accident.
+  generalises per-path under this ADR; per
+  [ADR 0031](0031-rename-to-tailor-and-wardrobe.md) the prefix
+  changed from `biosensor-*` to `tailor-*` at v7.0.0, and the
+  dual-prefix cleanup described in § Per-path atomic semantics is
+  what bridges a v6 → v7 upgrade. Regression tests assert it as a
+  contract, not as an implementation accident.
 
 The rule, plain English: the framework writes to every Claude Desktop
 config the recipient's machine could plausibly be reading, on the

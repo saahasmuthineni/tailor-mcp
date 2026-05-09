@@ -79,37 +79,152 @@ For each step, the friction log captures: **expected outcome**, **actual outcome
 
 ### A. README path (canonical for v7+)
 
-| # | Step | Expected outcome |
-|---|---|---|
-| A1 | Open PowerShell (Win + R, type `powershell`, Enter) | New PowerShell window |
-| A2 | Run `Start-Transcript -Path "$env:USERPROFILE\diagnosis-transcript.txt"` | Transcript started message; will capture every command + output |
-| A3 | Run `python --version` | If Python ≥3.10 is on this user's PATH: version prints. If not: command-not-found is itself a friction event — log it and continue per the README's prerequisites section |
-| A4 | Install `uv` per [official docs](https://docs.astral.sh/uv/getting-started/installation/) — for Windows, the documented command is `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 \| iex"` | uv binary installed under `$env:USERPROFILE\.local\bin`; PATH updated for new shells |
-| A5 | Open a fresh PowerShell so PATH refresh takes effect; rerun `Start-Transcript` with a different filename | Fresh shell |
-| A6 | Run `uv tool install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git` | Resolves dependencies, installs `tailor` command into uv's tool space |
-| A7 | Run `tailor --help` | Help text prints listing subcommands: pilot, tour, serve, demo, setup, status, migrate, uninstall |
-| A8 | Run `tailor tour` | Scaffolds bundled HIP Lab fixtures into `~/.tailor/demos/hip-lab/`, writes user_config.json, registers with Claude Desktop. Should print success messages and end cleanly. |
-| A9 | Run `tailor demo` | Runs the five-section architectural showcase against bundled fixtures. Prints structured output to terminal, ends cleanly. |
-| A10 | Open Claude Desktop (must be installed and signed in for this user separately — log if it isn't) | Claude Desktop opens |
-| A11 | Inside Claude Desktop, ask *"What MCP servers are connected?"* or check the MCP-server settings UI | Tailor server is listed and connected (green indicator) |
-| A12 | Inside Claude Desktop, ask *"List the tools you have available from tailor"* | Returns the framework tool surface (csv_dir tools, vault tools, oracle tool, setup help if degraded, etc.) |
-| A13 | Run `tailor status` in PowerShell | Reports diagnostic state: token files, DB state, Wardrobe config |
-| A14 | Run `Stop-Transcript` | Transcript saved |
+> **Format:** numbered linear list, one heading per step, command in a fenced block. Tables-in-Notepad are unreadable for procedural reading and the markdown-cell escape (`\|`) is preserved as a literal backslash, which broke a real PowerShell parse on attempt 1 (see [attempt-1-triage.md § F1](attempt-1-triage.md#f1--quick-fix-kit-instrument-bug-pipe-escape-in-install-checklist-breaks-powershell)).
+
+#### A1 — Open PowerShell
+
+Win + R, type `powershell`, Enter.
+
+**Expected:** New PowerShell window.
+
+#### A2 — Start the transcript
+
+```powershell
+Start-Transcript -Path "$env:USERPROFILE\diagnosis-transcript-attempt-1.txt"
+```
+
+**Expected:** "Transcript started" message. Will capture commands + most output, but **see capture-protocol § 1 below** — PowerShell 5.1 transcripts have a known gap on uv-shim-built executables; you may need to manually copy terminal contents for `tailor` commands.
+
+#### A3 — Check Python (informational only)
+
+```powershell
+python --version
+```
+
+**Expected:** Version prints if Python ≥3.10 is on this user's PATH. If not, **log it but continue** — `uv tool install` provisions its own Python, so this is informational, not a hard prerequisite. The friction is whether the README/install docs lead a recipient to believe Python on PATH is required when in fact uv handles it.
+
+#### A4 — Install uv
+
+Per [official docs](https://docs.astral.sh/uv/getting-started/installation/). On Windows, the documented command is exactly:
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+**Expected:** uv binary installed under `$env:USERPROFILE\.local\bin`; PATH updated for new shells.
+
+#### A5 — Open a fresh PowerShell
+
+Close the current PowerShell window so PATH refresh takes effect. Open a new one. Restart the transcript with a different filename:
+
+```powershell
+Start-Transcript -Path "$env:USERPROFILE\diagnosis-transcript-attempt-1-part2.txt"
+```
+
+**Expected:** Fresh shell, new transcript.
+
+#### A6 — Install tailor via uv
+
+```powershell
+uv tool install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
+```
+
+**Expected:** Resolves dependencies, installs `tailor` command into uv's tool space.
+
+#### A7 — Verify tailor command
+
+```powershell
+tailor --help
+```
+
+**Expected:** Help text printing subcommands: pilot, tour, serve, demo, setup, status, migrate, uninstall. **Note:** Output may not appear in the PowerShell transcript file (see capture-protocol § 1); copy the terminal contents manually if so.
+
+#### A8 — Scaffold the tour
+
+```powershell
+tailor tour
+```
+
+**Expected:** Scaffolds bundled HIP Lab fixtures into `~/.tailor/demos/hip-lab/`, writes `user_config.json`, registers with Claude Desktop. Should print success messages and end cleanly. **Watch for:** the success message says "registered as 'tailor-tour-hip-lab' in <path>" + "fully quit Claude Desktop, then re-open it" — verify whether this message is honest given the recipient's actual Claude Desktop install state. (Attempt 1 surfaced [F4 — tour declares success when Claude Desktop is not installed](attempt-1-triage.md#f4--architectural-headline-finding-tour-declares-success-when-claude-desktop-is-not-installed); record whether the same misleading-success pattern shows up here.)
+
+#### A9 — Run the architectural demo
+
+```powershell
+tailor demo
+```
+
+**Expected:** Five-section architectural showcase against bundled fixtures. Prints structured output, ends cleanly.
+
+#### A10 — Open Claude Desktop
+
+Claude Desktop must be installed and signed in for this user separately. **Log if it isn't** — A8's "registered" claim is conditional on Claude Desktop existing.
+
+**Expected:** Claude Desktop opens.
+
+#### A11 — Verify MCP server connection
+
+Inside Claude Desktop, either ask *"What MCP servers are connected?"* or check the MCP-server settings UI.
+
+**Expected:** Tailor server is listed and connected (green indicator).
+
+#### A12 — Verify tool surface
+
+Inside Claude Desktop, ask *"List the tools you have available from tailor"*.
+
+**Expected:** Returns the framework tool surface (csv_dir tools, vault tools, oracle tool, setup help if degraded, etc.).
+
+#### A13 — Run tailor status
+
+```powershell
+tailor status
+```
+
+**Expected:** Reports diagnostic state: token files, DB state, Wardrobe config.
+
+#### A14 — Stop the transcript
+
+```powershell
+Stop-Transcript
+```
+
+**Expected:** Transcript saved.
 
 ### B. Historical wheel path (lower priority — only if Path A1-A14 surfaces install-ritual problems traceable to git+URL fetching)
 
 This path matches the older `examples/hip_lab_demo/realistic/WINDOWS_QUICKSTART.md` (still references a v6.9.0 wheel name — itself a friction-log-worthy doc-truth observation). Run only if instructed.
 
-| # | Step | Expected outcome |
-|---|---|---|
-| B1 | Receive a `tailor_mcp-X.Y.Z-py3-none-any.whl` file (you would build this from your daily-driver account: `cd c:\Users\saaha\Biosensor-to-LLM-Connector; python -m build`) | wheel exists in dist/ on daily-driver account |
-| B2 | As `tailor-recipient`, copy the wheel to Downloads | wheel in `C:\Users\tailor-recipient\Downloads\` |
-| B3 | Open PowerShell, run `pip install $env:USERPROFILE\Downloads\tailor_mcp-X.Y.Z-py3-none-any.whl` | Wheel installs; `tailor` command available |
-| B4-B14 | As A4-A14 above (skip A6 since wheel is already installed) | Same expectations |
+#### B1 — Build the wheel
+
+From your daily-driver account:
+
+```powershell
+cd c:\Users\saaha\Biosensor-to-LLM-Connector
+python -m build
+```
+
+**Expected:** Wheel `tailor_mcp-X.Y.Z-py3-none-any.whl` exists in `dist/`.
+
+#### B2 — Copy the wheel to recipient Downloads
+
+As `tailor-recipient`, copy the wheel to `C:\Users\tailor-recipient\Downloads\`.
+
+#### B3 — Install the wheel
+
+```powershell
+pip install $env:USERPROFILE\Downloads\tailor_mcp-X.Y.Z-py3-none-any.whl
+```
+
+**Expected:** Wheel installs; `tailor` command available.
+
+#### B4–B14
+
+Same as A4–A14 above (skip A6 since the wheel is already installed).
 
 ## Friction-log template
 
-Copy this template per attempt. Save as `docs/diagnosis/friction-log-<YYYY-MM-DD>-<attempt-N>.md`. The bullet log + table + final notes are the load-bearing artifact.
+Copy this template per attempt. Save as `docs/diagnosis/friction-log-<YYYY-MM-DD>-<attempt-N>.md`. The numbered per-step list + workarounds section + final notes are the load-bearing artifact.
+
+> **Format change from attempt 1:** the step-by-step section is a numbered list with sub-fields per step rather than a markdown table. Per attempt 1 feedback ("Notepad checklist very ineffective — markdown table was unreadable"). Each step gets its own block; cells become labeled lines.
 
 ```markdown
 # Friction log — Path A attempt N — YYYY-MM-DD
@@ -118,42 +233,156 @@ Copy this template per attempt. Save as `docs/diagnosis/friction-log-<YYYY-MM-DD
 **Path attempted**: A (README path) | B (wheel path)
 **Started**: HH:MM
 **Ended**: HH:MM
-**Outcome at run-end**: completed cleanly | hard-fail at step Ax | partial success with workarounds
+**Outcome at run-end**: completed cleanly | hard-fail at step Ax | partial success with workarounds (delete the two that don't apply)
 
 ## Step-by-step
 
-| Step | Expected | Actual | Workaround used | Friction class | Capture |
-|---|---|---|---|---|---|
-| A1 | New PowerShell | (e.g. exact) | — | None | — |
-| A2 | Transcript started | (e.g. exact) | — | None | transcript.txt |
-| A3 | Python ≥3.10 prints | command-not-found | — | **P0 hard fail** | screenshot-A3.png |
-| ... | | | | | |
+For each step you ran, fill in all five sub-fields. Use `—` for "not applicable" rather than leaving blank, so you can tell at a glance you considered it.
+
+### A1 — Open PowerShell
+
+- **Expected:** New PowerShell window
+- **Actual:**
+- **Workaround used:** —
+- **Friction class:**
+- **Capture:**
+
+### A2 — Start the transcript
+
+- **Expected:** "Transcript started" message
+- **Actual:**
+- **Workaround used:** —
+- **Friction class:**
+- **Capture:**
+
+### A3 — Check Python (informational)
+
+- **Expected:** Version prints OR command-not-found (both acceptable; uv handles its own Python)
+- **Actual:**
+- **Workaround used:** —
+- **Friction class:**
+- **Capture:**
+
+### A4 — Install uv
+
+- **Expected:** uv binary installed under `~/.local/bin`, PATH updated for new shells
+- **Actual:**
+- **Workaround used:** —
+- **Friction class:**
+- **Capture:**
+
+### A5 — Open a fresh PowerShell
+
+- **Expected:** Fresh shell, new transcript
+- **Actual:**
+- **Workaround used:** —
+- **Friction class:**
+- **Capture:**
+
+### A6 — uv tool install tailor
+
+- **Expected:** Resolves dependencies, installs `tailor` command
+- **Actual:**
+- **Workaround used:** —
+- **Friction class:**
+- **Capture:**
+
+### A7 — tailor --help
+
+- **Expected:** Help text prints subcommand list
+- **Actual:**
+- **Workaround used:** —
+- **Friction class:**
+- **Capture:**
+
+### A8 — tailor tour
+
+- **Expected:** Scaffolds + registers, ends cleanly. **Watch:** is the "Claude Desktop registered" message honest given recipient state?
+- **Actual:**
+- **Workaround used:** —
+- **Friction class:**
+- **Capture:**
+
+### A9 — tailor demo
+
+- **Expected:** Five-section showcase prints, ends cleanly
+- **Actual:**
+- **Workaround used:** —
+- **Friction class:**
+- **Capture:**
+
+### A10 — Open Claude Desktop
+
+- **Expected:** Claude Desktop opens (must be installed for this user)
+- **Actual:**
+- **Workaround used:** —
+- **Friction class:**
+- **Capture:**
+
+### A11 — Verify MCP server connection
+
+- **Expected:** Tailor server is listed and connected
+- **Actual:**
+- **Workaround used:** —
+- **Friction class:**
+- **Capture:**
+
+### A12 — Verify tool surface
+
+- **Expected:** Returns framework tool surface
+- **Actual:**
+- **Workaround used:** —
+- **Friction class:**
+- **Capture:**
+
+### A13 — tailor status
+
+- **Expected:** Reports diagnostic state
+- **Actual:**
+- **Workaround used:** —
+- **Friction class:**
+- **Capture:**
+
+### A14 — Stop-Transcript
+
+- **Expected:** Transcript saved
+- **Actual:**
+- **Workaround used:** —
+- **Friction class:**
+- **Capture:**
 
 ## Friction-class legend
 
-- **P0** — Hard fail. Step cannot complete without intervention beyond documented ritual.
+- **P0** — Hard fail. Step cannot complete without intervention beyond documented ritual. **Stop the run here** unless the cause is a missing test prerequisite (e.g. Claude Desktop not installed) — in which case mark it differently and decide whether to continue.
 - **P1** — Confusing. Step completes but the recipient would plausibly stop here, or the output is misleading, or the next step is non-obvious.
 - **P2** — Cosmetic. Step works but the surface is rough (wording, formatting, slight delay).
 - **None** — Step worked exactly as documented.
 
 ## Workarounds I reached for and consciously did not apply
 
-(Critical section. The workarounds you wanted to apply but suppressed.)
+> Critical section. The workarounds you wanted to apply but suppressed. **Also include workarounds you applied** (e.g. retrying a command three times until it parsed). The kit's discipline is to log workarounds, not always suppress them.
+>
+> Format: "At step Ax: <wanted to | applied> <workaround>; <suppressed | applied because the literal command failed>; logged."
 
-- e.g. "Wanted to run `where python` after A3 to find which Python existed on this account; suppressed; logged the friction instead."
-- e.g. "Wanted to manually edit Claude Desktop config when A11 didn't show tailor; suppressed."
+-
+-
+-
 
 ## Notes
 
-(Anything that doesn't fit the table — surprises, ambiguities, doc-truth gaps observed, second-order observations.)
+> Anything that doesn't fit the per-step blocks — surprises, ambiguities, doc-truth gaps observed, second-order observations, kit-instrument feedback.
+
+-
+-
+-
 ```
 
 ## Capture protocol
 
 Per attempt, capture **all** of:
 
-1. **PowerShell transcript**. `Start-Transcript -Path "$env:USERPROFILE\diagnosis-transcript-<attempt>.txt"` at session start; `Stop-Transcript` at end. Captures every command + every visible output line.
-2. **Screenshots**. Win + Shift + S, save to `$env:USERPROFILE\diagnosis-screenshots\`. Take one per friction event (any P0, P1, or unexpected output). Reference the filename in the friction-log table's *Capture* column.
+1. **PowerShell transcript** (with manual-tee fallback). `Start-Transcript -Path "$env:USERPROFILE\diagnosis-transcript-<attempt>.txt"` at session start; `Stop-Transcript` at end. **Known gap (attempt 1):** PowerShell 5.1 transcripts on Windows fail to capture stdout from native exes that write via Win32 console APIs rather than PowerShell's host. uv-shim-built executables (including the `tailor` command after `uv tool install`) appear to do this — `tailor --help`, `tailor tour`, and `tailor demo` produced visible terminal output that the transcript file showed as blank. **Workaround:** if the transcript shows no output between two prompts where you ran a `tailor` command, immediately Select-All in the PowerShell window (right-click title bar → Edit → Select All → Enter to copy), paste into Notepad, and save as `$env:USERPROFILE\diagnosis-terminal-output-<attempt>.txt`. Better fix attempted in attempt 2: each `tailor` invocation can be wrapped as `tailor <subcmd> 2>&1 | Tee-Object -Append "$env:USERPROFILE\diagnosis-tailor-output-<attempt>.txt"` — see [attempt-1-triage.md § F2](attempt-1-triage.md#f2--documentation-kit-gap-powershell-transcripts-dont-capture-tailor-command-output).
+2. **Screenshots**. Win + Shift + S, save to `$env:USERPROFILE\diagnosis-screenshots\`. Take one per friction event (any P0, P1, or unexpected output). Reference the filename in the friction-log per-step *Capture* field.
 3. **`audit.db` after the demo**. Copy `~/.tailor/data/audit.db` to `$env:USERPROFILE\diagnosis-audit-<attempt>.db`. After signing back in as daily-driver, inspect with `sqlite3` — the audit log is the authoritative record of what the framework actually did, useful for cross-checking observed behaviour against logged behaviour.
 4. **Claude Desktop config snapshot**. Both paths if both exist:
     - Classic: `$env:APPDATA\Claude\claude_desktop_config.json`
@@ -162,6 +391,8 @@ Per attempt, capture **all** of:
 5. **The user_config.json that `tailor tour` wrote**. `~/.tailor/user_config.json` — copy to `$env:USERPROFILE\diagnosis-user-config-<attempt>.json`.
 
 After each attempt, before resetting the user account, copy the entire `$env:USERPROFILE\diagnosis-*` set to a USB stick or a daily-driver-accessible location. The reset wipes the recipient profile.
+
+> **Note on artifact recovery:** the daily-driver account cannot read another user's home directory by default (Windows protects each user's profile). Recovering the diagnosis artifacts after sign-out requires either an Admin PowerShell session (which bypasses the per-user ACL) or moving the artifacts to `C:\Users\Public\` before signing out. The kit's repo has a recovery script pattern documented in `attempt-1-triage.md` workflow.
 
 ## Post-diagnosis triage
 

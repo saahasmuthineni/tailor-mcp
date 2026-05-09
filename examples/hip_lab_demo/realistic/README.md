@@ -88,7 +88,7 @@ This one command:
 - Writes `user_config.json` with absolute paths
 - Indexes the seed vault moment into `data/vault.db`
 - **Writes a Claude Desktop entry that bakes
-  `BIOSENSOR_CONFIG_DIR` and `BIOSENSOR_DATA_DIR` into the
+  `TAILOR_CONFIG_DIR` and `TAILOR_DATA_DIR` into the
   `env` block** — the recipient never types an env var by hand
 
 Output ends with a "Tour scaffolded successfully" banner naming

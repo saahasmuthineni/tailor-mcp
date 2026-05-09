@@ -24,7 +24,7 @@ repo. The recipient had to:
 3. Run `python examples/hip_lab_demo/realistic/setup.py` to scaffold
    the demo.
 4. Hand-edit `claude_desktop_config.json` to add a server entry with
-   the right `BIOSENSOR_CONFIG_DIR` env var pointing at the cloned
+   the right `TAILOR_CONFIG_DIR` env var pointing at the cloned
    repo's `examples/` subdirectory.
 5. Restart Claude Desktop.
 
@@ -32,7 +32,7 @@ This works for in-repo developers but collapses for the demo's actual
 target audience. The repo is private (and will stay private — see
 § Alternatives). Non-technical recipients do not have GitHub access,
 do not write JSON by hand, and will not type
-`BIOSENSOR_CONFIG_DIR=/long/absolute/path tailor serve` in a
+`TAILOR_CONFIG_DIR=/long/absolute/path tailor serve` in a
 PowerShell window. Each step in the prior flow is a place where the
 recipient can silently fail with no breadcrumb back to the cause.
 
@@ -99,7 +99,7 @@ with absolute paths resolved against the target dir, indexes the
 seed vault moment into `data/vault.db`, and writes (or merges with)
 the recipient's Claude Desktop config to register an
 `mcpServers["biosensor-tour-hip-lab"]` entry whose `env` block
-**bakes in `BIOSENSOR_CONFIG_DIR` and `BIOSENSOR_DATA_DIR` pointing
+**bakes in `TAILOR_CONFIG_DIR` and `TAILOR_DATA_DIR` pointing
 at the scaffolded target dir**. The recipient never types an env
 var by hand; Claude Desktop spawns the server with the right
 environment automatically.
@@ -411,7 +411,7 @@ package via `pip install -e .` against the extracted source tree.
 The Claude Desktop wiring step is still manual JSON editing. The
 zip path duplicates state every time a new wheel ships, and the
 dev's `examples/` directory becomes the recipient's runtime
-directory — `BIOSENSOR_CONFIG_DIR=/path/to/extracted/zip/...
+directory — `TAILOR_CONFIG_DIR=/path/to/extracted/zip/...
 tailor serve` is exactly the env var the boss-architect's
 non-technical recipient won't type. The zip does not solve the
 real friction; it just moves it.

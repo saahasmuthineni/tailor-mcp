@@ -61,8 +61,8 @@ def test_serve_starts_without_traceback() -> None:
 
         env = {
             **os.environ,
-            "BIOSENSOR_CONFIG_DIR": str(paths["config_dir"]),
-            "BIOSENSOR_DATA_DIR": str(paths["data_dir"]),
+            "TAILOR_CONFIG_DIR": str(paths["config_dir"]),
+            "TAILOR_DATA_DIR": str(paths["data_dir"]),
         }
 
         proc = subprocess.run(

@@ -279,8 +279,8 @@ Add to your Claude Desktop config (`claude_desktop_config.json`):
       "command": "~/.tailor/venv/bin/python",
       "args": ["-m", "tailor", "serve"],
       "env": {
-        "BIOSENSOR_CONFIG_DIR": "~/.tailor",
-        "BIOSENSOR_DATA_DIR": "~/.tailor/data"
+        "TAILOR_CONFIG_DIR": "~/.tailor",
+        "TAILOR_DATA_DIR": "~/.tailor/data"
       }
     }
   }

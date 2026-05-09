@@ -770,8 +770,8 @@ def test_ask_local_oracle_audit_db_oracle_columns() -> None:
         import os
         env = {
             **os.environ,
-            "BIOSENSOR_CONFIG_DIR": str(paths["config_dir"]),
-            "BIOSENSOR_DATA_DIR": str(paths["data_dir"]),
+            "TAILOR_CONFIG_DIR": str(paths["config_dir"]),
+            "TAILOR_DATA_DIR": str(paths["data_dir"]),
         }
 
         import subprocess
@@ -1055,8 +1055,8 @@ def test_oracle_substrate_count_audit_column_present_and_correct() -> None:
         paths = seed_full_config(Path(tmp))
         env = {
             **os.environ,
-            "BIOSENSOR_CONFIG_DIR": str(paths["config_dir"]),
-            "BIOSENSOR_DATA_DIR": str(paths["data_dir"]),
+            "TAILOR_CONFIG_DIR": str(paths["config_dir"]),
+            "TAILOR_DATA_DIR": str(paths["data_dir"]),
         }
 
         proc = subprocess.Popen(
@@ -1946,8 +1946,8 @@ def _spawn_empty_config_server():
             )
             env = {
                 **os.environ,
-                "BIOSENSOR_CONFIG_DIR": str(config_dir),
-                "BIOSENSOR_DATA_DIR": str(data_dir),
+                "TAILOR_CONFIG_DIR": str(config_dir),
+                "TAILOR_DATA_DIR": str(data_dir),
             }
             import subprocess
             proc = subprocess.Popen(
@@ -2196,8 +2196,8 @@ def test_sh5_setup_help_audit_row_provenance() -> None:
         )
         env = {
             **os.environ,
-            "BIOSENSOR_CONFIG_DIR": str(config_dir),
-            "BIOSENSOR_DATA_DIR": str(data_dir),
+            "TAILOR_CONFIG_DIR": str(config_dir),
+            "TAILOR_DATA_DIR": str(data_dir),
         }
         proc = subprocess.Popen(
             [sys.executable, "-m", "tailor", "serve"],
@@ -2336,8 +2336,8 @@ def test_sh7_biosensor_setup_help_absent_when_force_csv_configured() -> None:
         )
         env = {
             **os.environ,
-            "BIOSENSOR_CONFIG_DIR": str(config_dir),
-            "BIOSENSOR_DATA_DIR": str(data_dir),
+            "TAILOR_CONFIG_DIR": str(config_dir),
+            "TAILOR_DATA_DIR": str(data_dir),
         }
         import subprocess
         proc = subprocess.Popen(

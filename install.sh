@@ -114,7 +114,7 @@ config.setdefault('mcpServers', {})
 config['mcpServers']['tailor'] = {
     'command': venv_python,
     'args': ['-m', 'tailor', 'serve'],
-    'env': {'BIOSENSOR_CONFIG_DIR': install_dir, 'BIOSENSOR_DATA_DIR': install_dir + '/data'}
+    'env': {'TAILOR_CONFIG_DIR': install_dir, 'TAILOR_DATA_DIR': install_dir + '/data'}
 }
 with open(config_path, 'w') as f:
     json.dump(config, f, indent=2)
@@ -128,8 +128,8 @@ else
       "command": "$VENV_PYTHON",
       "args": ["-m", "tailor", "serve"],
       "env": {
-        "BIOSENSOR_CONFIG_DIR": "$INSTALL_DIR",
-        "BIOSENSOR_DATA_DIR": "$INSTALL_DIR/data"
+        "TAILOR_CONFIG_DIR": "$INSTALL_DIR",
+        "TAILOR_DATA_DIR": "$INSTALL_DIR/data"
       }
     }
   }

@@ -91,7 +91,7 @@ Probe surfaces:
 The threat model: does the change introduce data that survives consent revocation, or that's stored beyond an institution's retention policy?
 
 Probe surfaces:
-- A new persistent file written outside the standard `BIOSENSOR_DATA_DIR` or vault path (escapes the institution's scrubbing/deletion sweep).
+- A new persistent file written outside the standard `TAILOR_DATA_DIR` or vault path (escapes the institution's scrubbing/deletion sweep).
 - A new SQLite table that doesn't have a deletion path tied to `revoke_consent_*`.
 - Cache files (e.g. stream cache TTL) extending beyond the consent-revocation flow.
 - Any TTL change that lengthens retention.

@@ -13,12 +13,12 @@ the current absolute paths, regenerates the CSVs deterministically,
 and rewrites the seed moment file. Useful when the directory has
 been moved or renamed.
 
-The framework reads user_config.json from $BIOSENSOR_CONFIG_DIR
+The framework reads user_config.json from $TAILOR_CONFIG_DIR
 (default: ~/.tailor). The demo isolates by setting
-BIOSENSOR_CONFIG_DIR to this directory at runtime — no clobber to
+TAILOR_CONFIG_DIR to this directory at runtime — no clobber to
 the operator's real config:
 
-    BIOSENSOR_CONFIG_DIR=examples/hip_lab_demo/beta tailor serve
+    TAILOR_CONFIG_DIR=examples/hip_lab_demo/beta tailor serve
 
 Usage:
     python examples/hip_lab_demo/beta/setup.py
@@ -193,7 +193,7 @@ def main() -> None:
     print()
     print("Done. Next:")
     print()
-    print(f"  BIOSENSOR_CONFIG_DIR={HERE} tailor serve")
+    print(f"  TAILOR_CONFIG_DIR={HERE} tailor serve")
     print()
     print(
         "Or register the demo with Claude Desktop using the snippet in "

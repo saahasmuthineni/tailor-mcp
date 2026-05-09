@@ -161,7 +161,7 @@ using it weekly without prompting."
   questions**: Saahas. The repo also has
   `docs/design/research-framing.md` written for this audience.
 - **Try the demo yourself**: clone the repo, run
-  `BIOSENSOR_CONFIG_DIR=examples/hip_lab_demo/beta
+  `TAILOR_CONFIG_DIR=examples/hip_lab_demo/beta
   tailor serve`, then point any MCP client at it. The
   `README.md` in the demo directory has the five honest
   caveats up front.

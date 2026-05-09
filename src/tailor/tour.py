@@ -181,8 +181,8 @@ def _index_vault(target_dir: Path) -> dict[str, int]:
 
 
 # ──────────────────────────────────────────────────────────────────────
-# Claude Desktop registration — bakes BIOSENSOR_CONFIG_DIR and
-# BIOSENSOR_DATA_DIR into the entry's env block so the recipient
+# Claude Desktop registration — bakes TAILOR_CONFIG_DIR and
+# TAILOR_DATA_DIR into the entry's env block so the recipient
 # never types an env var. Closes auditor blocker 1.
 # ──────────────────────────────────────────────────────────────────────
 
@@ -223,8 +223,8 @@ def _register_with_claude_desktop(
         "command": sys.executable,
         "args": ["-m", "tailor", "serve"],
         "env": {
-            "BIOSENSOR_CONFIG_DIR": str(target_dir),
-            "BIOSENSOR_DATA_DIR": str(target_dir / "data"),
+            "TAILOR_CONFIG_DIR": str(target_dir),
+            "TAILOR_DATA_DIR": str(target_dir / "data"),
         },
     }
     return [
@@ -280,15 +280,15 @@ def _print_next_steps(
 
     if skipped:
         print("  Claude Desktop: not registered (--no-claude-desktop)")
-        print(f"  Manual env vars: BIOSENSOR_CONFIG_DIR={target_dir}")
-        print(f"                   BIOSENSOR_DATA_DIR={target_dir / 'data'}")
+        print(f"  Manual env vars: TAILOR_CONFIG_DIR={target_dir}")
+        print(f"                   TAILOR_DATA_DIR={target_dir / 'data'}")
         print()
         return
 
     if not results:
         print("  Claude Desktop: not registered (Linux, or APPDATA missing)")
-        print(f"  Manual env vars: BIOSENSOR_CONFIG_DIR={target_dir}")
-        print(f"                   BIOSENSOR_DATA_DIR={target_dir / 'data'}")
+        print(f"  Manual env vars: TAILOR_CONFIG_DIR={target_dir}")
+        print(f"                   TAILOR_DATA_DIR={target_dir / 'data'}")
         print()
         return
 

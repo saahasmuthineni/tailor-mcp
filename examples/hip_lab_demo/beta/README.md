@@ -122,12 +122,12 @@ To start the server isolated from your normal `~/.tailor/`
 config:
 
 ```bash
-BIOSENSOR_CONFIG_DIR=$(pwd)/examples/hip_lab_demo/beta tailor serve
+TAILOR_CONFIG_DIR=$(pwd)/examples/hip_lab_demo/beta tailor serve
 ```
 
-This sets `BIOSENSOR_CONFIG_DIR` to this demo directory, which the
-framework reads for `user_config.json`. `BIOSENSOR_DATA_DIR` defaults
-to `$BIOSENSOR_CONFIG_DIR/data` — so `audit.db` and `vault.db` are
+This sets `TAILOR_CONFIG_DIR` to this demo directory, which the
+framework reads for `user_config.json`. `TAILOR_DATA_DIR` defaults
+to `$TAILOR_CONFIG_DIR/data` — so `audit.db` and `vault.db` are
 also isolated to `examples/hip_lab_demo/beta/data/`.
 
 **This avoids the `tailor pilot` wizard path on purpose** —
@@ -147,7 +147,7 @@ If running the demo through Claude Desktop, add to
       "command": "/path/to/your/python",
       "args": ["-m", "tailor", "serve"],
       "env": {
-        "BIOSENSOR_CONFIG_DIR": "/path/to/Biosensor-to-LLM-Connector/examples/hip_lab_demo/beta"
+        "TAILOR_CONFIG_DIR": "/path/to/Biosensor-to-LLM-Connector/examples/hip_lab_demo/beta"
       }
     }
   }

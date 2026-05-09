@@ -113,8 +113,8 @@ $mcpEntry = @{
     command = $venvPython
     args = @("-m", "tailor", "serve")
     env = @{
-        BIOSENSOR_CONFIG_DIR = $INSTALL_DIR
-        BIOSENSOR_DATA_DIR = "$INSTALL_DIR\data"
+        TAILOR_CONFIG_DIR = $INSTALL_DIR
+        TAILOR_DATA_DIR = "$INSTALL_DIR\data"
     }
 }
 

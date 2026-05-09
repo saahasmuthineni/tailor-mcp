@@ -57,7 +57,7 @@ Read `framework/router.py`, `framework/vault/layer.py`, `framework/audit.py`, `f
 
 For each surface in your inventory, write or update a pytest test in `tests/` that:
 
-1. Spawns `python -m tailor serve` via `subprocess.Popen` with `BIOSENSOR_CONFIG_DIR` and `BIOSENSOR_DATA_DIR` set to fresh temp dirs.
+1. Spawns `python -m tailor serve` via `subprocess.Popen` with `TAILOR_CONFIG_DIR` and `TAILOR_DATA_DIR` set to fresh temp dirs.
 2. Seeds a real `user_config.json` covering both `vault_path` AND `csv_dir.path` (with at least 2 seeded CSVs and a `metadata.json` sidecar) so that all 44+ tools register. **An empty config dir is theatre**; reject it on sight.
 3. Speaks the MCP handshake: `initialize` → `notifications/initialized`.
 4. Drives the surface under test (a `tools/call`, an error injection, a consent-gate trigger, etc.).

@@ -182,12 +182,12 @@ class SetupHelpLayer:
                 "default_tour_target_exists": tour_target_exists,
                 "biosensor_config_dir_env": _redact_home(
                     os.environ.get(
-                        "BIOSENSOR_CONFIG_DIR", "(not set)",
+                        "TAILOR_CONFIG_DIR", "(not set)",
                     ),
                 ),
                 "biosensor_data_dir_env": _redact_home(
                     os.environ.get(
-                        "BIOSENSOR_DATA_DIR", "(not set)",
+                        "TAILOR_DATA_DIR", "(not set)",
                     ),
                 ),
                 "python_executable": _redact_home(sys.executable),

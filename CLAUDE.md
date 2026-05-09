@@ -584,7 +584,7 @@
 > data-shape concessions openly (1 Hz EMG envelope is
 > post-rectification — real surface EMG is 1–2 kHz raw; "real
 > version would ingest from the rectification/envelope stage").
-> Demo runs via `BIOSENSOR_CONFIG_DIR=examples/hip_lab_demo/beta
+> Demo runs via `TAILOR_CONFIG_DIR=examples/hip_lab_demo/beta
 > tailor serve` — isolated from the operator's
 > `~/.tailor/user_config.json`, no pilot-wizard clobber risk.
 > Public API additions only — no breaking changes; SemVer minor
@@ -1214,8 +1214,8 @@ architectural decisions in the ADR sense:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `BIOSENSOR_CONFIG_DIR` | `~/.tailor` | Token, user config, rate limit files |
-| `BIOSENSOR_DATA_DIR` | `~/.tailor/data` | SQLite databases |
+| `TAILOR_CONFIG_DIR` | `~/.tailor` | Token, user config, rate limit files |
+| `TAILOR_DATA_DIR` | `~/.tailor/data` | SQLite databases |
 | `STRAVA_STREAM_CACHE_TTL_DAYS` | `7` | Stream cache eviction |
 
 User config at `~/.tailor/user_config.json`:
@@ -1244,8 +1244,8 @@ User config at `~/.tailor/user_config.json`:
       "command": "~/.tailor/venv/bin/python",
       "args": ["-m", "tailor", "serve"],
       "env": {
-        "BIOSENSOR_CONFIG_DIR": "~/.tailor",
-        "BIOSENSOR_DATA_DIR": "~/.tailor/data"
+        "TAILOR_CONFIG_DIR": "~/.tailor",
+        "TAILOR_DATA_DIR": "~/.tailor/data"
       }
     }
   }

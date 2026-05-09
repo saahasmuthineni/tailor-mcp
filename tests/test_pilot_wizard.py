@@ -1,7 +1,7 @@
 """
 Tests for the ``tailor pilot`` wizard.
 
-Each test isolates ``BIOSENSOR_CONFIG_DIR`` and ``BIOSENSOR_DATA_DIR``
+Each test isolates ``TAILOR_CONFIG_DIR`` and ``TAILOR_DATA_DIR``
 to a tmp_path so the real ~/.tailor is never touched. Inputs
 are fed via ``monkeypatch.setattr("builtins.input", ...)`` and
 ``sys.platform`` is patched per-test so the Claude-Desktop branch
@@ -25,8 +25,8 @@ def isolated_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     cfg_dir.mkdir()
     data_dir = cfg_dir / "data"
     data_dir.mkdir()
-    monkeypatch.setenv("BIOSENSOR_CONFIG_DIR", str(cfg_dir))
-    monkeypatch.setenv("BIOSENSOR_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("TAILOR_CONFIG_DIR", str(cfg_dir))
+    monkeypatch.setenv("TAILOR_DATA_DIR", str(data_dir))
     # Force re-import so module-level CONFIG_DIR/CONFIG_PATH pick up
     # the patched env vars.
     import tailor.config as cfg_mod

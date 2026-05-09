@@ -11,7 +11,7 @@
 >    HIP Lab / fatigue topics. The v6.5.0 walkthrough caught the
 >    LLM name-dropping "Chunyu's thesis" from prior chat history,
 >    not from the framework. Fresh chat is the only fix.
-> 2. Activate `BIOSENSOR_CONFIG_DIR=examples/hip_lab_demo/beta`
+> 2. Activate `TAILOR_CONFIG_DIR=examples/hip_lab_demo/beta`
 >    and start `tailor serve`.
 > 3. Have a 1080p screen recorder ready. OBS Studio works
 >    cross-platform; Windows Game Bar (Win+G) works too.

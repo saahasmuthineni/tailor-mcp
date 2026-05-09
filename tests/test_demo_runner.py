@@ -368,7 +368,7 @@ def test_save_shareable_install_url_includes_current_version(
 
 def test_save_shareable_default_install_url_base_is_public_mirror() -> None:
     """The default install URL base (when
-    ``BIOSENSOR_DEMO_INSTALL_URL_BASE`` env var is unset) must point at
+    ``TAILOR_DEMO_INSTALL_URL_BASE`` env var is unset) must point at
     the public mirror repo per ADR 0024 § 3.1."""
     from tailor.demo import run_demo
 

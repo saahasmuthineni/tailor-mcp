@@ -14,8 +14,8 @@ bundled fixtures. The load-bearing claims this suite enforces:
   cross-session-memory wow moment depends on it).
 - Re-running is idempotent (recipients re-run after Claude Desktop
   drift; this must not fail).
-- The Claude Desktop entry bakes ``BIOSENSOR_CONFIG_DIR`` and
-  ``BIOSENSOR_DATA_DIR`` into the ``env`` block — this closes
+- The Claude Desktop entry bakes ``TAILOR_CONFIG_DIR`` and
+  ``TAILOR_DATA_DIR`` into the ``env`` block — this closes
   audit blocker #1 from the ADR 0024 pre-implementation pass
   (recipients never type an env var by hand).
 - Pre-existing sibling MCP servers in Claude Desktop's config
@@ -265,8 +265,8 @@ class TestClaudeDesktopRegistration:
     def test_writes_entry_with_baked_env_vars(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     ):
-        """The Claude Desktop entry must carry BIOSENSOR_CONFIG_DIR and
-        BIOSENSOR_DATA_DIR in the env block — this is the entire reason
+        """The Claude Desktop entry must carry TAILOR_CONFIG_DIR and
+        TAILOR_DATA_DIR in the env block — this is the entire reason
         the recipient never types an env var by hand. If this regresses,
         ``tailor serve`` reads the operator's real config (or
         none) instead of the demo, and the recipient sees no tools."""
@@ -282,8 +282,8 @@ class TestClaudeDesktopRegistration:
         cfg = json.loads(fake_config.read_text(encoding="utf-8"))
         entry = cfg["mcpServers"]["biosensor-tour-hip-lab"]
         resolved = target.expanduser().resolve()
-        assert entry["env"]["BIOSENSOR_CONFIG_DIR"] == str(resolved)
-        assert entry["env"]["BIOSENSOR_DATA_DIR"] == str(resolved / "data")
+        assert entry["env"]["TAILOR_CONFIG_DIR"] == str(resolved)
+        assert entry["env"]["TAILOR_DATA_DIR"] == str(resolved / "data")
         assert entry["args"] == ["-m", "tailor", "serve"]
 
     def test_preserves_sibling_mcp_servers_on_merge(
@@ -368,7 +368,7 @@ class TestClaudeDesktopRegistration:
                 "biosensor-tour-hip-lab": {
                     "command": "python",
                     "args": ["-m", "tailor", "serve"],
-                    "env": {"BIOSENSOR_CONFIG_DIR": "/old/path"},
+                    "env": {"TAILOR_CONFIG_DIR": "/old/path"},
                 },
             },
         }), encoding="utf-8")
@@ -386,7 +386,7 @@ class TestClaudeDesktopRegistration:
         assert "biosensor-tour-hip-lab" in cfg["mcpServers"]
         entry = cfg["mcpServers"]["biosensor-tour-hip-lab"]
         resolved = target.expanduser().resolve()
-        assert entry["env"]["BIOSENSOR_CONFIG_DIR"] == str(resolved)
+        assert entry["env"]["TAILOR_CONFIG_DIR"] == str(resolved)
 
     def test_no_claude_desktop_flag_skips_write(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,

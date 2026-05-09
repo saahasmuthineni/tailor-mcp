@@ -382,7 +382,7 @@ def _generate_shareable_markdown(
             the public mirror repo.
         install_url_base: The GitHub release URL prefix for the public
             mirror repo (default points at saahasmuthineni's mirror;
-            overridable via ``BIOSENSOR_DEMO_INSTALL_URL_BASE``).
+            overridable via ``TAILOR_DEMO_INSTALL_URL_BASE``).
         audience: Either ``"developer"`` (default; existing v6.12.0
             behaviour with ADR breadcrumbs in the footer, transcript
             in a single code fence — suitable for sharing a debug
@@ -1183,7 +1183,7 @@ def run_demo(
         except Exception:
             _pkg_version = "unknown"
         install_url_base = os.environ.get(
-            "BIOSENSOR_DEMO_INSTALL_URL_BASE",
+            "TAILOR_DEMO_INSTALL_URL_BASE",
             "https://github.com/saahasmuthineni/biosensormcpdemo/releases/download",
         )
         markdown = _generate_shareable_markdown(

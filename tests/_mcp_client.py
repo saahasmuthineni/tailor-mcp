@@ -117,7 +117,7 @@ def seed_tour_config(root: Path) -> dict[str, Path]:
     the tour demo path that ``spawn_server`` does not reach.
 
     Returns the scaffolded ``target_dir`` and ``data_dir`` paths.
-    The ``BIOSENSOR_CONFIG_DIR`` and ``BIOSENSOR_DATA_DIR`` env vars
+    The ``TAILOR_CONFIG_DIR`` and ``TAILOR_DATA_DIR`` env vars
     are both set to the same directory (``target_dir``/``target_dir/data``)
     matching the shape ``tour._register_with_claude_desktop`` bakes in.
     """
@@ -146,8 +146,8 @@ def spawn_tour_server(
         paths = seed_tour_config(Path(tmp))
         env = {
             **os.environ,
-            "BIOSENSOR_CONFIG_DIR": str(paths["target_dir"]),
-            "BIOSENSOR_DATA_DIR": str(paths["data_dir"]),
+            "TAILOR_CONFIG_DIR": str(paths["target_dir"]),
+            "TAILOR_DATA_DIR": str(paths["data_dir"]),
             **(env_overrides or {}),
         }
         proc = subprocess.Popen(
@@ -301,8 +301,8 @@ def spawn_server(env_overrides: dict[str, str] | None = None,
         paths = seed_full_config(Path(tmp))
         env = {
             **os.environ,
-            "BIOSENSOR_CONFIG_DIR": str(paths["config_dir"]),
-            "BIOSENSOR_DATA_DIR": str(paths["data_dir"]),
+            "TAILOR_CONFIG_DIR": str(paths["config_dir"]),
+            "TAILOR_DATA_DIR": str(paths["data_dir"]),
             **(env_overrides or {}),
         }
         proc = subprocess.Popen(

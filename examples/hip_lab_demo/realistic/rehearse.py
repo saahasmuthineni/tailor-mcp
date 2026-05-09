@@ -77,8 +77,8 @@ async def _run_checks(target: Path) -> int:
     # Match what the live tour does — set env vars so the children's
     # config.py reads from the temp scaffold rather than the dev's
     # real ~/.tailor/.
-    os.environ["BIOSENSOR_CONFIG_DIR"] = str(target)
-    os.environ["BIOSENSOR_DATA_DIR"] = str(target / "data")
+    os.environ["TAILOR_CONFIG_DIR"] = str(target)
+    os.environ["TAILOR_DATA_DIR"] = str(target / "data")
 
     # Late imports so the tour scaffold (which set up user_config.json)
     # runs before child config-load.

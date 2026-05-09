@@ -8,11 +8,11 @@ implementations all read from here so a future config-store change
 exactly one place.
 
 Variables:
-    BIOSENSOR_CONFIG_DIR — token, user_config.json, rate_limit.json.
+    TAILOR_CONFIG_DIR — token, user_config.json, rate_limit.json.
                            Default: ~/.tailor
-    BIOSENSOR_DATA_DIR   — SQLite databases (audit, vault index,
+    TAILOR_DATA_DIR   — SQLite databases (audit, vault index,
                            per-child caches).
-                           Default: $BIOSENSOR_CONFIG_DIR/data
+                           Default: $TAILOR_CONFIG_DIR/data
 
 Per-child env vars (e.g. STRAVA_STREAM_CACHE_TTL_DAYS) stay in the
 child module that owns them — those are domain-specific tuning
@@ -30,12 +30,12 @@ log = logging.getLogger("tailor.config")
 
 def config_dir() -> Path:
     """The framework's per-user config directory (tokens, user_config.json)."""
-    return Path(os.environ.get("BIOSENSOR_CONFIG_DIR", Path.home() / ".tailor"))
+    return Path(os.environ.get("TAILOR_CONFIG_DIR", Path.home() / ".tailor"))
 
 
 def data_dir() -> Path:
     """The framework's per-user data directory (SQLite databases)."""
-    return Path(os.environ.get("BIOSENSOR_DATA_DIR", config_dir() / "data"))
+    return Path(os.environ.get("TAILOR_DATA_DIR", config_dir() / "data"))
 
 
 def log_dir() -> Path:

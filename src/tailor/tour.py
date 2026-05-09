@@ -47,6 +47,7 @@ from pathlib import Path
 # Desktop config paths. These are private helpers but live in the same
 # package; treat them as package-internal not public API.
 from tailor.pilot import (
+    _CLAUDE_DESKTOP_UWP_PACKAGE_PREFIX,
     _claude_desktop_config_paths,
     _RegistrationResult,
     _write_registration_to_path,
@@ -181,6 +182,61 @@ def _index_vault(target_dir: Path) -> dict[str, int]:
 
 
 # ──────────────────────────────────────────────────────────────────────
+# Claude Desktop presence detection (Phase 0 attempt-1 F4 fix; v7.0.4).
+#
+# Must run BEFORE _register_with_claude_desktop — that helper creates
+# the classic %APPDATA%\Claude\ directory lazily on first write, so
+# checking after registration would always return True via the
+# framework's own side effect. See docs/diagnosis/attempt-1-triage.md
+# § F4 for the failure shape this closes (tour declared "registration
+# success" on a recipient with no Claude Desktop installed; the
+# success message told them to "fully quit Claude Desktop, then
+# re-open it" — structurally impossible).
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _detect_claude_desktop_presence() -> bool:
+    """Return True if Claude Desktop appears installed on this user account.
+
+    Conservative: a positive verdict requires evidence that Claude Desktop
+    has run at least once (its config directory exists) or that its UWP
+    package is registered. A negative verdict means tour will still stage
+    the config (per ADR 0026 § "First-time-install on a Store-only
+    machine") but the success banner is rewritten to be honest about the
+    gap rather than promising a "fully quit, re-open" ritual the recipient
+    cannot perform.
+
+    Per platform:
+    - Windows: classic ``%APPDATA%\\Claude\\`` directory exists, OR any
+      ``%LOCALAPPDATA%\\Packages\\Claude_*\\`` UWP package directory exists.
+    - macOS: ``~/Library/Application Support/Claude/`` exists.
+    - Linux: always False (no Claude Desktop on this platform).
+    """
+    if sys.platform == "darwin":
+        return (
+            Path.home()
+            / "Library"
+            / "Application Support"
+            / "Claude"
+        ).is_dir()
+    if sys.platform == "win32":
+        appdata = os.environ.get("APPDATA")
+        if appdata and (Path(appdata) / "Claude").is_dir():
+            return True
+        local_appdata = os.environ.get("LOCALAPPDATA")
+        if local_appdata:
+            packages_dir = Path(local_appdata) / "Packages"
+            if packages_dir.exists():
+                for pkg in packages_dir.glob(
+                    f"{_CLAUDE_DESKTOP_UWP_PACKAGE_PREFIX}*"
+                ):
+                    if pkg.is_dir():
+                        return True
+        return False
+    return False
+
+
+# ──────────────────────────────────────────────────────────────────────
 # Claude Desktop registration — bakes TAILOR_CONFIG_DIR and
 # TAILOR_DATA_DIR into the entry's env block so the recipient
 # never types an env var. Closes auditor blocker 1.
@@ -253,6 +309,7 @@ def _print_next_steps(
     server_name: str,
     *,
     skipped: bool = False,
+    claude_desktop_present: bool = True,
 ) -> None:
     """Print tour-completion banner with per-path Claude Desktop status.
 
@@ -261,6 +318,13 @@ def _print_next_steps(
     detected path was written. On any partial failure, the banner
     states the partial-success count and lists per-path failures with
     a plain-language remediation.
+
+    Per Phase 0 attempt-1 F4 (v7.0.4): when ``claude_desktop_present``
+    is False, the banner is rewritten to flag that Claude Desktop is
+    not detected on this user account. Tour still stages the config
+    (per ADR 0026 § "First-time-install on a Store-only machine") but
+    the recipient is told the install is incomplete rather than
+    promised a "fully quit, re-open" ritual that has nothing to act on.
     """
     written = [r for r in results if r.written]
     failed = [r for r in results if not r.written]
@@ -268,8 +332,10 @@ def _print_next_steps(
 
     print()
     print("=" * 64)
-    if all_ok:
+    if all_ok and claude_desktop_present:
         print("  Tour scaffolded successfully")
+    elif all_ok and not claude_desktop_present:
+        print("  Tour scaffolded; Claude Desktop NOT DETECTED")
     elif written:
         print(f"  Tour scaffolded with {len(written)} of {len(results)} "
               f"Claude Desktop registrations succeeded")
@@ -296,10 +362,12 @@ def _print_next_steps(
 
     if written:
         if len(written) == 1:
-            print(f"  Claude Desktop: registered as '{server_name}' in")
+            verb = "staged" if not claude_desktop_present else "registered"
+            print(f"  Claude Desktop: {verb} as '{server_name}' in")
             print(f"                  {written[0].path}")
         else:
-            print(f"  Claude Desktop: registered as '{server_name}' in:")
+            verb = "staged" if not claude_desktop_present else "registered"
+            print(f"  Claude Desktop: {verb} as '{server_name}' in:")
             for r in written:
                 print(f"                  {r.path}")
     if failed:
@@ -312,11 +380,27 @@ def _print_next_steps(
         print("  Quit Claude Desktop fully (system tray Quit on Windows,")
         print("  Cmd+Q on macOS) and re-run `tailor tour --force`.")
     print()
-    if written:
+    if written and not claude_desktop_present:
+        print("  Claude Desktop is not installed on this account. Tailor's")
+        print("  config has been staged for a future install — once Claude")
+        print("  Desktop is installed and run for the first time, it will")
+        print("  pick up this config automatically. You cannot use Tailor's")
+        print("  MCP integration until Claude Desktop is installed.")
+        print()
+        print("  Install Claude Desktop:")
+        print("    https://claude.ai/download")
+    elif written:
         print("  Next: fully quit Claude Desktop (system tray Quit on Windows,")
         print("        Cmd+Q on macOS), then re-open it. Try this prompt:")
         print()
         print('    "List the available Tailor tools."')
+        print()
+        print("  Heads-up on Claude Desktop's UI: Tailor will appear as a")
+        print("  'session-scoped server', not a connector card with a green")
+        print("  status indicator. That's normal — Claude Desktop reserves")
+        print("  connector cards for OAuth-based integrations. The full")
+        print("  tool surface is available either way; ask the prompt above")
+        print("  to see it.")
     print()
 
 
@@ -413,6 +497,13 @@ def main(argv: list[str] | None = None) -> int:
     print("  (4/4) register with Claude Desktop")
     results: list[_RegistrationResult] = []
     skipped = bool(args.no_claude_desktop)
+    # Detect BEFORE _register_with_claude_desktop — that helper creates
+    # the classic %APPDATA%\Claude\ directory lazily on first write, so
+    # checking after registration would always return True via the
+    # framework's own side effect. v7.0.4 / Phase 0 F4 fix.
+    claude_desktop_present = (
+        True if skipped else _detect_claude_desktop_presence()
+    )
     if skipped:
         print("        skipped (--no-claude-desktop)")
     else:
@@ -432,8 +523,15 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 print(f"        [error] could not write {r.path}")
                 print(f"                {type(r.error).__name__}: {r.error}")
+        if not claude_desktop_present and results:
+            print("        [warn] Claude Desktop not detected on this account")
+            print("               config staged for future install")
 
-    _print_next_steps(target_dir, results, server_name, skipped=skipped)
+    _print_next_steps(
+        target_dir, results, server_name,
+        skipped=skipped,
+        claude_desktop_present=claude_desktop_present,
+    )
     # Exit non-zero if every detected path failed; succeed if at least
     # one path was written or the user opted out via --no-claude-desktop.
     if results and not any(r.written for r in results):

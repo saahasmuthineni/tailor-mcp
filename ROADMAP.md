@@ -560,6 +560,15 @@ prior roadmap revisions per the same historical-preservation principle
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
 
+### Shipped in v7.0.6 (2026-05-09)
+
+- **[ADR 0032](docs/adr/0032-retire-public-mirror-distribution.md) NEW, Accepted** — retires the public-mirror distribution path from ADR 0030 + ADR 0024 § 3.1; wheel-handoff via personal email supersedes through Phase 1; GitHub Pages on source repo supersedes from Phase 2 PyPI publish onward.
+- **Mirror archived:** `saahasmuthineni/biosensormcpdemo` archived via `gh repo archive` on 2026-05-09; legacy URL resolves with v6.13.0 snapshot for in-flight friend-shares; reversible via GitHub web UI at any time.
+- **ADR 0030 status flip** — Accepted → Superseded by ADR 0032 (in part); zero-outbound-affordances render invariant retained in full (URL allowlist at `src/tailor/demo/runner.py:336-365`, `_personas.json`, `--audience=public` flag, attribution-only footer).
+- **ADR 0024 § 3.1 retirement closeout footer** — distribution carve-out section closed out with retirement note citing ADR 0032.
+- **`docs/guides/share-the-demo.md` rewritten** — wheel-by-email path replaces the public-mirror ritual; per-recipient wheel build + `uv tool install` command documented.
+- Gates: ci-gate-runner SHIPPABLE (940/940 pytest, ruff clean, 76/76 probe, CLI smoke). mcp-protocol-auditor NOT TRIGGERED. cue-card-rehearsal-auditor NOT TRIGGERED. recipient-install-validator SKIPPED (no trigger-glob paths touched; v6.11.x falsification grounds the skip).
+
 ### Shipped in v7.0.5 (2026-05-10)
 
 - GitHub repo renamed `Biosensor-to-LLM-Connector` → `tailor-mcp` (GitHub

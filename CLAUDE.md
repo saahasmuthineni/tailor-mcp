@@ -1,5 +1,33 @@
 # CLAUDE.md — Tailor
 
+> **v7.0.6 (2026-05-09)** — Governance/team-shape patch. ADR 0032 (NEW,
+> Accepted) retires the public-mirror distribution path codified in ADR 0030
+> + ADR 0024 § 3.1. Wheel-handoff via personal email supersedes through Phase 1;
+> GitHub Pages on source repo supersedes from Phase 2 PyPI publish onward. Boss
+> framing: *"the public mirror is unneeded at this point since I can just send a
+> wheel file from the private repo to anyone up until phase 1 when the pages
+> become unnecessary anyways."* Mirror repo `saahasmuthineni/biosensormcpdemo`
+> archived (not deleted) via `gh repo archive` on 2026-05-09 — legacy URL still
+> resolves with the v6.13.0 snapshot for in-flight friend-shares; archive is
+> reversible at any time via GitHub web UI.
+>
+> ADR 0030's zero-outbound-affordances rendering invariant is retained in full:
+> the render-time URL allowlist at `src/tailor/demo/runner.py:336-365`, the
+> per-persona panel schema at `src/tailor/demo/_personas.json`, the
+> `--audience=public` flag, and the attribution-only footer copy all remain
+> unchanged. ADR 0030 was two decisions in one file; ADR 0032 retires the first
+> (distribution shape) and keeps the second (render shape). ADR 0030 status
+> flipped Accepted → Superseded by ADR 0032 (in part). Cascade edits in feature
+> commit `702fd97`: ADR 0030 status flip, ADR 0024 § 3.1 retirement closeout
+> footer, `docs/guides/share-the-demo.md` rewritten as wheel-by-email path.
+>
+> No router/security/child/vault/CLI architecture changes; no `src/` or `tests/`
+> changes; no public API changes. Patch bump. Gates: ci-gate-runner SHIPPABLE
+> (940/940 pytest, ruff clean, 76/76 probe, CLI smoke clean).
+> mcp-protocol-auditor NOT TRIGGERED. cue-card-rehearsal-auditor NOT TRIGGERED.
+> recipient-install-validator SKIPPED (no touched paths match trigger globs;
+> v6.11.x falsification grounds the skip).
+
 > **v7.0.5 (2026-05-10)** — GitHub repo renamed `Biosensor-to-LLM-Connector` →
 > `tailor-mcp` (closes [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md)
 > § Negative consequences known-debt entry). Codebase doc-truth pass updating

@@ -280,7 +280,7 @@ class TestClaudeDesktopRegistration:
         assert rc == 0
         assert fake_config.exists()
         cfg = json.loads(fake_config.read_text(encoding="utf-8"))
-        entry = cfg["mcpServers"]["biosensor-tour-hip-lab"]
+        entry = cfg["mcpServers"]["tailor-tour-hip-lab"]
         resolved = target.expanduser().resolve()
         assert entry["env"]["TAILOR_CONFIG_DIR"] == str(resolved)
         assert entry["env"]["TAILOR_DATA_DIR"] == str(resolved / "data")
@@ -305,7 +305,7 @@ class TestClaudeDesktopRegistration:
         main(["--variant=hip-lab", "--target", str(target)])
         cfg = json.loads(fake_config.read_text(encoding="utf-8"))
         assert "some-other-server" in cfg["mcpServers"]
-        assert "biosensor-tour-hip-lab" in cfg["mcpServers"]
+        assert "tailor-tour-hip-lab" in cfg["mcpServers"]
 
     def test_cleans_stale_biosensor_entries_before_writing(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
@@ -348,7 +348,7 @@ class TestClaudeDesktopRegistration:
         assert "tailor" not in servers
         assert "biosensor-tour-old-variant" not in servers
         # Fresh tour entry is present.
-        assert "biosensor-tour-hip-lab" in servers
+        assert "tailor-tour-hip-lab" in servers
         # Non-biosensor sibling MCP servers are preserved.
         assert "some-other-server" in servers
         assert servers["some-other-server"] == {
@@ -365,7 +365,7 @@ class TestClaudeDesktopRegistration:
         fake_config = tmp_path / "claude_desktop_config.json"
         fake_config.write_text(json.dumps({
             "mcpServers": {
-                "biosensor-tour-hip-lab": {
+                "tailor-tour-hip-lab": {
                     "command": "python",
                     "args": ["-m", "tailor", "serve"],
                     "env": {"TAILOR_CONFIG_DIR": "/old/path"},
@@ -383,8 +383,8 @@ class TestClaudeDesktopRegistration:
         assert rc == 0
         cfg = json.loads(fake_config.read_text(encoding="utf-8"))
         # Entry survives; env was overwritten with the new target.
-        assert "biosensor-tour-hip-lab" in cfg["mcpServers"]
-        entry = cfg["mcpServers"]["biosensor-tour-hip-lab"]
+        assert "tailor-tour-hip-lab" in cfg["mcpServers"]
+        entry = cfg["mcpServers"]["tailor-tour-hip-lab"]
         resolved = target.expanduser().resolve()
         assert entry["env"]["TAILOR_CONFIG_DIR"] == str(resolved)
 

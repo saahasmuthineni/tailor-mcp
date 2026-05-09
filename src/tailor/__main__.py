@@ -1,5 +1,5 @@
 """
-CLI for Biosensor MCP.
+CLI for Tailor.
 
 Usage:
     tailor serve      # Start MCP server (Claude Desktop calls this)
@@ -8,6 +8,7 @@ Usage:
     tailor setup      # Run Strava OAuth setup wizard
     tailor status     # Diagnostic check
     tailor demo       # Five-section walk through the framework's architectural claims on bundled HIP Lab fixtures (ADRs 0027 + 0029); pass --save-shareable for an emailable markdown transcript
+    tailor migrate    # Copy v6.x ~/.biosensor-mcp/ config to ~/.tailor/ (one-time, after upgrading from v6); pass --move to remove the legacy dir after copying
     tailor uninstall  # Clean removal
 """
 
@@ -423,14 +424,16 @@ def cmd_status():
                 raw = cfg_path.read_bytes().lstrip(b"\xef\xbb\xbf").decode("utf-8")
                 config = json.loads(raw)
                 servers = config.get("mcpServers", {})
-                bio_keys = [k for k in servers if k.startswith("biosensor-")]
-                if bio_keys:
+                # Match both legacy biosensor-* and current tailor / tailor-*
+                # so v6 -> v7 upgrade state shows correctly (per ADR 0031).
+                tailor_keys = [k for k in servers if _is_orphan_entry_key(k)]
+                if tailor_keys:
                     registered_paths.append(cfg_path)
-                    print(f"    Registered: Yes ({', '.join(bio_keys)})")
-                    primary = servers.get("tailor") or servers.get(bio_keys[0])
+                    print(f"    Registered: Yes ({', '.join(tailor_keys)})")
+                    primary = servers.get("tailor") or servers.get(tailor_keys[0])
                     print(f"    Command: {primary.get('command', 'N/A')}")
                 else:
-                    print("    Registered: No biosensor-* entries")
+                    print("    Registered: No tailor entries")
             except Exception as exc:
                 print(f"    Error reading: {exc}")
 
@@ -498,7 +501,7 @@ def cmd_demo():
         arg = args[i]
         if arg == "--save-shareable":
             # `--save-shareable <path>` or `--save-shareable` (no path
-            # → default versioned path under CONFIG_DIR).
+            # -> default versioned path under CONFIG_DIR).
             if i + 1 < len(args) and not args[i + 1].startswith("--"):
                 save_shareable = Path(args[i + 1]).expanduser().resolve()
                 i += 2
@@ -541,25 +544,49 @@ def cmd_demo():
     run_demo(save_shareable_path=save_shareable, audience=audience)
 
 
-def _clean_claude_desktop_biosensor_entries() -> dict[Path, list[str]]:
-    """Remove every ``biosensor-*`` entry from every detected Claude
+def _is_orphan_entry_key(key: str) -> bool:
+    """Match any Claude Desktop ``mcpServers`` key that the framework has
+    ever written, across both the legacy ``biosensor-*`` (v6 and earlier)
+    and the current ``tailor`` / ``tailor-*`` (v7+) naming conventions.
+
+    Legacy (v6.x):
+      - ``biosensor-mcp``               (pilot wizard / manual install)
+      - ``biosensor-tour-<variant>``    (tour subcommand, ADR 0024)
+      - any ``biosensor-*``             (defensive — matches v6.9.2 contract)
+
+    Current (v7.0+, per ADR 0031):
+      - ``tailor``                      (pilot wizard / manual install)
+      - ``tailor-tour-<variant>``       (tour subcommand)
+      - any ``tailor-*``                (defensive symmetry with v6.9.2)
+
+    Dual-prefix matching is the migration story: a v6 user upgrading to v7
+    has stale ``biosensor-*`` keys that need to be cleaned alongside the
+    new ``tailor`` keys whenever the framework re-registers or uninstalls.
+    """
+    return (
+        key == "tailor"
+        or key.startswith("tailor-")
+        or key.startswith("biosensor-")
+    )
+
+
+def _clean_claude_desktop_orphan_entries() -> dict[Path, list[str]]:
+    """Remove every framework-written entry from every detected Claude
     Desktop config (Classic + Microsoft Store sandboxes per ADR 0026).
 
-    Match every key the framework registers:
-      - ``tailor``             (pilot wizard / manual install)
-      - ``biosensor-tour-<variant>``  (tour subcommand, ADR 0024)
+    Matches both the legacy ``biosensor-*`` keys (v6.x) and the current
+    ``tailor`` / ``tailor-*`` keys (v7.0+) — see ``_is_orphan_entry_key``
+    for the full match set and ADR 0031 for the migration story.
 
-    Without this prefix match, ``tailor uninstall`` left stale
-    ``biosensor-tour-hip-lab`` entries pointing at a removed binary,
-    so Claude Desktop showed a red MCP indicator after a clean
-    uninstall (v6.9.2 bug 1). v6.10.4 generalises the cleanup to
-    every Claude Desktop config the framework can confirm on this
-    machine — symmetric with the dual-write in `_register_with_claude_desktop`.
+    Without this dual-prefix match, ``tailor uninstall`` would leave stale
+    ``biosensor-tour-hip-lab`` entries from a v6 install pointing at a
+    removed binary, so Claude Desktop would show a red MCP indicator after
+    a clean v7 uninstall (the v6.9.2 bug applied to the v6->v7 transition).
 
-    Returns a mapping ``{path: [removed_keys, ...]}`` for every
-    detected path; the value is an empty list when the config does
-    not exist, has no matching entries, or could not be parsed.
-    Sibling MCP servers are preserved on every path.
+    Returns a mapping ``{path: [removed_keys, ...]}`` for every detected
+    path; the value is an empty list when the config does not exist, has
+    no matching entries, or could not be parsed. Sibling MCP servers
+    (any key not matching ``_is_orphan_entry_key``) are preserved.
     """
     from tailor.pilot import _claude_desktop_config_paths
 
@@ -572,7 +599,7 @@ def _clean_claude_desktop_biosensor_entries() -> dict[Path, list[str]]:
             raw = config_path.read_bytes().lstrip(b"\xef\xbb\xbf").decode("utf-8")
             config = json.loads(raw)
             servers = config.get("mcpServers", {})
-            removed = [k for k in list(servers) if k.startswith("biosensor-")]
+            removed = [k for k in list(servers) if _is_orphan_entry_key(k)]
             for key in removed:
                 del servers[key]
             if removed:
@@ -597,7 +624,7 @@ def cmd_uninstall():
     # Remove from every Claude Desktop config (Classic + Microsoft
     # Store sandboxes per ADR 0026).
     try:
-        per_path = _clean_claude_desktop_biosensor_entries()
+        per_path = _clean_claude_desktop_orphan_entries()
         for cfg_path, removed in per_path.items():
             for key in removed:
                 print(f"Removed '{key}' from {cfg_path}")
@@ -633,8 +660,101 @@ def _make_cli_stdout_resilient() -> None:
             pass
 
 
+def _legacy_config_dir() -> Path:
+    """The v6.x default config directory, regardless of any env-var
+    overrides currently in effect. Used purely for migration detection."""
+    return Path.home() / ".biosensor-mcp"
+
+
+def _emit_legacy_migration_warning_if_applicable() -> None:
+    """One-line warning at startup when the v6.x legacy config dir exists
+    and the v7.0+ config dir is absent. Per ADR 0031 § "Migration story".
+
+    The warning is non-intrusive: a single stderr line, no prompt, no
+    blocking. Users explicitly run ``tailor migrate`` when ready. This
+    sidesteps the "auto-prompt during a Claude Desktop subprocess
+    invocation" failure mode where a recipient's first run is via
+    ``serve`` (stdin is JSON-RPC, not a human) and any prompt would
+    silently park.
+    """
+    legacy = _legacy_config_dir()
+    current = CONFIG_DIR
+    if legacy.exists() and (not current.exists() or not any(current.iterdir())):
+        print(
+            f"  [tailor v7.0] Legacy directory {legacy} detected. "
+            f"Run `tailor migrate` to copy configs/data to {current}.",
+            file=sys.stderr,
+        )
+
+
+def cmd_migrate():
+    """Copy the v6.x legacy config directory to the v7.0 location.
+
+    Detects ``~/.biosensor-mcp/`` and copies it to ``~/.tailor/`` (or
+    whatever ``TAILOR_CONFIG_DIR`` points at). Non-destructive by default
+    — the legacy directory is preserved so a user can roll back if the
+    migration produces unexpected state. Pass ``--move`` to remove the
+    legacy directory after a successful copy.
+
+    Per ADR 0031 § "Filesystem migration".
+    """
+    import shutil
+
+    legacy = _legacy_config_dir()
+    current = CONFIG_DIR
+
+    print("Tailor — Migrate v6.x config to v7.0 location")
+    print(f"  Source:      {legacy}")
+    print(f"  Destination: {current}")
+
+    if not legacy.exists():
+        print()
+        print(f"  No legacy directory found at {legacy}.")
+        print("  Nothing to migrate. (You may already be on v7.0+ from a clean install.)")
+        return
+
+    if current.exists() and any(current.iterdir()):
+        print()
+        print(f"  Destination {current} already exists and is non-empty.")
+        print("  Refusing to overwrite. Either:")
+        print(f"    - Remove {current} manually, then re-run `tailor migrate`, or")
+        print(f"    - Continue using the current {current} (your v6 data stays at {legacy}).")
+        sys.exit(1)
+
+    move = "--move" in sys.argv[2:]
+
+    print()
+    print(f"  Will {'MOVE' if move else 'COPY'} {legacy} -> {current}")
+    if not move:
+        print(f"  ({legacy} will be preserved after copy as a rollback.)")
+    confirm = input("\n  Proceed? [yes/N]: ").strip().lower()
+    if confirm != "yes":
+        print("  Cancelled.")
+        return
+
+    try:
+        if move:
+            shutil.move(str(legacy), str(current))
+            print(f"\n  Moved {legacy} -> {current}")
+        else:
+            shutil.copytree(legacy, current)
+            print(f"\n  Copied {legacy} -> {current}")
+            print(f"  Legacy directory {legacy} preserved — remove manually when ready.")
+    except (OSError, shutil.Error) as exc:
+        print(f"\n  Migration failed: {exc}")
+        print(f"  Your legacy data at {legacy} is unchanged.")
+        sys.exit(1)
+
+    print()
+    print("  Migration complete. Next steps:")
+    print("    1. Run `tailor status` to confirm the new config is recognized.")
+    print("    2. Run `tailor tour` or open Claude Desktop to verify the new MCP entry works.")
+    print("    3. Once verified, you can remove the legacy directory by hand.")
+
+
 def main():
     _make_cli_stdout_resilient()
+    _emit_legacy_migration_warning_if_applicable()
     commands = {
         "serve": cmd_serve,
         "pilot": cmd_pilot,
@@ -642,6 +762,7 @@ def main():
         "setup": cmd_setup,
         "status": cmd_status,
         "demo": cmd_demo,
+        "migrate": cmd_migrate,
         "uninstall": cmd_uninstall,
     }
 

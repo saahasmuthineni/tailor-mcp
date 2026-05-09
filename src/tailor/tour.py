@@ -201,17 +201,19 @@ def _register_with_claude_desktop(
     on a v6.9.x failed-tour install adds a bare ``tailor`` entry
     with no env block to ``claude_desktop_config.json``. A subsequent
     ``tailor tour --force`` previously left that bare entry in
-    place and added a sibling ``biosensor-tour-hip-lab`` — Claude
+    place and added a sibling ``tailor-tour-hip-lab`` — Claude
     Desktop would then launch both, with the bare server's
     SetupHelpLayer (v6.10.2) leaking into the working-demo tool
     surface. Mirrors the v6.9.2 prefix-match cleanup pattern in
     ``cmd_uninstall``: tour cleans on setup, uninstall cleans on
-    teardown.
+    teardown. v7.0.0 (per ADR 0031) widens the cleanup to match
+    both legacy ``biosensor-*`` and current ``tailor`` / ``tailor-*``
+    so v6 → v7 upgrades don't leave orphan entries.
 
-    v6.10.4 invariant: after a successful ``tour --force``, exactly
-    one ``biosensor-*`` entry exists in **each detected** Claude
-    Desktop config; the entry is identical across configs. See ADR
-    0026 § "Per-path atomic semantics".
+    v6.10.4 invariant (carried forward to v7.0.0): after a successful
+    ``tour --force``, exactly one ``tailor-*`` entry exists in **each
+    detected** Claude Desktop config; the entry is identical across
+    configs. See ADR 0026 § "Per-path atomic semantics".
 
     Returns the list of per-path :class:`_RegistrationResult` records.
     Empty list on Linux (no Claude Desktop on this platform).
@@ -361,7 +363,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv if argv is not None else sys.argv[2:])
 
     target_dir = _resolve_target(args.variant, args.target)
-    server_name = f"biosensor-tour-{args.variant}"
+    server_name = f"tailor-tour-{args.variant}"
 
     # ``--force`` means "wipe and start fresh" — without the rmtree,
     # ``_copy_resource_tree`` is file-by-file ``shutil.copy2`` and
@@ -423,7 +425,7 @@ def main(argv: list[str] | None = None) -> int:
             if r.written:
                 if r.cleaned:
                     print(
-                        f"        cleaned stale biosensor-* in {r.path.name}: "
+                        f"        cleaned stale orphan entries in {r.path.name}: "
                         f"{', '.join(r.cleaned)}"
                     )
                 print(f"        wrote entry '{server_name}' to {r.path}")

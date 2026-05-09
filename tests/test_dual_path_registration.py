@@ -182,7 +182,7 @@ class TestPerPathRegistration:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Scenario (iii). Both Classic and Store configs detected;
-        the same biosensor-tour-hip-lab entry must appear in both."""
+        the same tailor-tour-hip-lab entry must appear in both."""
         from tailor.tour import main
 
         classic = tmp_path / "classic" / "claude_desktop_config.json"
@@ -201,8 +201,8 @@ class TestPerPathRegistration:
         assert sandbox.exists()
         c = json.loads(classic.read_text(encoding="utf-8"))
         s = json.loads(sandbox.read_text(encoding="utf-8"))
-        assert c["mcpServers"]["biosensor-tour-hip-lab"] == \
-               s["mcpServers"]["biosensor-tour-hip-lab"]
+        assert c["mcpServers"]["tailor-tour-hip-lab"] == \
+               s["mcpServers"]["tailor-tour-hip-lab"]
 
     def test_per_path_permission_error_does_not_abort_others(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
@@ -243,7 +243,7 @@ class TestPerPathRegistration:
         # Classic was written despite the sandbox failure.
         assert classic.exists()
         c = json.loads(classic.read_text(encoding="utf-8"))
-        assert "biosensor-tour-hip-lab" in c["mcpServers"]
+        assert "tailor-tour-hip-lab" in c["mcpServers"]
         # Sandbox was NOT written.
         assert not sandbox.exists()
 
@@ -280,7 +280,7 @@ class TestPerPathRegistration:
         """Scenario (v). The v6.10.3 sibling-cleanup invariant
         ("exactly one biosensor-* entry exists") must hold per-path.
         Both configs start with stale ``tailor`` entries; both
-        must end with only the new ``biosensor-tour-hip-lab`` entry.
+        must end with only the new ``tailor-tour-hip-lab`` entry.
         """
         from tailor.tour import main
 
@@ -311,12 +311,16 @@ class TestPerPathRegistration:
         assert rc == 0
         c = json.loads(classic.read_text(encoding="utf-8"))
         s = json.loads(sandbox.read_text(encoding="utf-8"))
-        # Both configs: exactly one biosensor-* entry left, the new one.
-        c_bio = [k for k in c["mcpServers"] if k.startswith("biosensor-")]
-        s_bio = [k for k in s["mcpServers"] if k.startswith("biosensor-")]
-        assert c_bio == ["biosensor-tour-hip-lab"]
-        assert s_bio == ["biosensor-tour-hip-lab"]
-        # Non-biosensor siblings on both paths preserved.
+        # Both configs: exactly one framework-owned entry left, the new one.
+        # v7.0.0 / ADR 0031: framework-owned keys match the dual-prefix
+        # ``_is_orphan_entry_key`` matcher (legacy biosensor-* + current
+        # tailor / tailor-*), not just the legacy ``biosensor-*`` prefix.
+        from tailor.__main__ import _is_orphan_entry_key
+        c_owned = [k for k in c["mcpServers"] if _is_orphan_entry_key(k)]
+        s_owned = [k for k in s["mcpServers"] if _is_orphan_entry_key(k)]
+        assert c_owned == ["tailor-tour-hip-lab"]
+        assert s_owned == ["tailor-tour-hip-lab"]
+        # Unrelated siblings on both paths preserved.
         assert "obsidian" in c["mcpServers"]
         assert "raycast" in s["mcpServers"]
 
@@ -328,7 +332,7 @@ class TestPerPathRegistration:
         bare ``tailor`` (no env block) entry in BOTH the classic
         and the sandbox configs — the v6.9.x web-Claude-debugging shape
         reproduced across both — must end up with only the new
-        ``biosensor-tour-hip-lab`` entry in both, no stale leftovers."""
+        ``tailor-tour-hip-lab`` entry in both, no stale leftovers."""
         from tailor.tour import main
 
         bare_entry = {"command": "tailor", "args": ["serve"]}
@@ -350,13 +354,14 @@ class TestPerPathRegistration:
         target = tmp_path / "tour"
         rc = main(["--variant=hip-lab", "--target", str(target)])
         assert rc == 0
+        from tailor.__main__ import _is_orphan_entry_key
         for cfg_path in (classic, sandbox):
             data = json.loads(cfg_path.read_text(encoding="utf-8"))
             keys = list(data["mcpServers"])
-            bio_keys = [k for k in keys if k.startswith("biosensor-")]
-            assert bio_keys == ["biosensor-tour-hip-lab"], (
-                f"{cfg_path.name} should have exactly one biosensor-* "
-                f"entry but has {bio_keys}"
+            owned_keys = [k for k in keys if _is_orphan_entry_key(k)]
+            assert owned_keys == ["tailor-tour-hip-lab"], (
+                f"{cfg_path.name} should have exactly one framework-owned "
+                f"entry but has {owned_keys}"
             )
 
     def test_per_path_tmp_artifact_cleaned_on_failure(

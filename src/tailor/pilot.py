@@ -491,7 +491,15 @@ def _write_claude_config(path: Path, data: dict, *, with_bom: bool) -> None:
 def _write_registration_to_path(
     path: Path, *, server_name: str, entry: dict,
 ) -> _RegistrationResult:
-    """Read → clean ``biosensor-*`` siblings → add entry → atomic write.
+    """Read → clean orphan siblings → add entry → atomic write.
+
+    "Orphan siblings" are any keys the framework has ever written across
+    its v6.x ``biosensor-*`` and v7.0+ ``tailor`` / ``tailor-*`` naming
+    conventions (see ``__main__._is_orphan_entry_key``). Dual-prefix
+    matching is the migration story per ADR 0031: a v6 → v7 upgrade
+    leaves stale ``biosensor-*`` keys that must be cleaned alongside the
+    new ``tailor`` keys; a v7 re-registration must clean stale
+    ``tailor-tour-*`` siblings (the v6.10.3 invariant carried forward).
 
     Per ADR 0026 § "Per-path atomic semantics", the entire block is
     wrapped in try/except. ``PermissionError`` (Claude Desktop has the
@@ -500,12 +508,14 @@ def _write_registration_to_path(
     artifact from ``_write_claude_config`` is unlinked on partial
     failure to avoid clutter across debugging loops.
     """
+    from tailor.__main__ import _is_orphan_entry_key
+
     try:
         config, had_bom = _read_claude_config(path)
         servers = config.setdefault("mcpServers", {})
         cleaned = [
             k for k in list(servers)
-            if k.startswith("biosensor-") and k != server_name
+            if _is_orphan_entry_key(k) and k != server_name
         ]
         for key in cleaned:
             del servers[key]
@@ -583,7 +593,7 @@ def _register_with_claude_desktop(
         if result.written:
             print(f"  Wrote {result.path}")
             if result.cleaned:
-                print(f"    cleaned stale biosensor-*: {', '.join(result.cleaned)}")
+                print(f"    cleaned stale orphan entries: {', '.join(result.cleaned)}")
         else:
             err = result.error
             print(f"  [error] Could not write {result.path}")

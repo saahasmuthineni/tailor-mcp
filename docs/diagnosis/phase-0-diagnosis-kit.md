@@ -133,24 +133,32 @@ uv tool install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connecto
 
 #### A7 — Verify tailor command
 
+> **Per-command capture (Phase 0 attempt-1+2 F2 lesson, v7.0.4):** PowerShell 5.1
+> `Start-Transcript` does NOT reliably capture stdout from uv-shim-built native
+> exes — both attempts of self-diagnosis 2026-05-09 confirmed this. The kit-level
+> mitigation is per-command `Tee-Object`. Wrap every `tailor` invocation from A7
+> through A13 in a tee redirect so each command's stdout lands in a per-command
+> file regardless of transcript behavior. This is a workaround for a PowerShell
+> 5.1 limitation, not a Tailor bug.
+
 ```powershell
-tailor --help
+tailor --help 2>&1 | Tee-Object -Append "$env:USERPROFILE\diagnosis-tailor-output-attempt-1.txt"
 ```
 
-**Expected:** Help text printing subcommands: pilot, tour, serve, demo, setup, status, migrate, uninstall. **Note:** Output may not appear in the PowerShell transcript file (see capture-protocol § 1); copy the terminal contents manually if so.
+**Expected:** Help text printing subcommands: pilot, tour, serve, demo, setup, status, migrate, uninstall. With the `Tee-Object` wrapper above, the same output also lands in the per-command file even if the transcript file shows blank.
 
 #### A8 — Scaffold the tour
 
 ```powershell
-tailor tour
+tailor tour 2>&1 | Tee-Object -Append "$env:USERPROFILE\diagnosis-tailor-output-attempt-1.txt"
 ```
 
-**Expected:** Scaffolds bundled HIP Lab fixtures into `~/.tailor/demos/hip-lab/`, writes `user_config.json`, registers with Claude Desktop. Should print success messages and end cleanly. **Watch for:** the success message says "registered as 'tailor-tour-hip-lab' in <path>" + "fully quit Claude Desktop, then re-open it" — verify whether this message is honest given the recipient's actual Claude Desktop install state. (Attempt 1 surfaced [F4 — tour declares success when Claude Desktop is not installed](attempt-1-triage.md#f4--architectural-headline-finding-tour-declares-success-when-claude-desktop-is-not-installed); record whether the same misleading-success pattern shows up here.)
+**Expected:** Scaffolds bundled HIP Lab fixtures into `~/.tailor/demos/hip-lab/`, writes `user_config.json`, registers with Claude Desktop. Should print success messages and end cleanly. **Watch for:** since v7.0.4, the success banner distinguishes the *Claude-Desktop-installed* case ("registered as 'tailor-tour-hip-lab' in <path>" + "fully quit Claude Desktop, then re-open it") from the *Claude-Desktop-absent* case ("Tour scaffolded; Claude Desktop NOT DETECTED" + "config has been staged for a future install"). Record which message variant the run prints; that is itself the F4-fix's honesty test. (Original finding: [F4 — tour declares success when Claude Desktop is not installed](attempt-1-triage.md#f4--architectural-headline-finding-tour-declares-success-when-claude-desktop-is-not-installed).)
 
 #### A9 — Run the architectural demo
 
 ```powershell
-tailor demo
+tailor demo 2>&1 | Tee-Object -Append "$env:USERPROFILE\diagnosis-tailor-output-attempt-1.txt"
 ```
 
 **Expected:** Five-section architectural showcase against bundled fixtures. Prints structured output, ends cleanly.
@@ -176,7 +184,7 @@ Inside Claude Desktop, ask *"List the tools you have available from tailor"*.
 #### A13 — Run tailor status
 
 ```powershell
-tailor status
+tailor status 2>&1 | Tee-Object -Append "$env:USERPROFILE\diagnosis-tailor-output-attempt-1.txt"
 ```
 
 **Expected:** Reports diagnostic state: token files, DB state, Wardrobe config.

@@ -451,3 +451,214 @@ class TestVariantTable:
         from tailor.tour import _write_user_config
         with pytest.raises(ValueError, match="unknown variant"):
             _write_user_config("nonexistent-variant", tmp_path)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Phase 0 attempt-1 F4 fix (v7.0.4) — Claude Desktop presence detection
+# and the rewritten success banner that flags the absent case honestly.
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestClaudeDesktopPresenceDetection:
+    """The detection function must run BEFORE registration (the writer
+    creates %APPDATA%\\Claude\\ lazily) and must distinguish the
+    Claude-Desktop-installed case from the staged-for-future-install
+    case so the success banner can tell the truth."""
+
+    def test_linux_always_returns_false(
+        self, monkeypatch: pytest.MonkeyPatch,
+    ):
+        from tailor import tour
+        monkeypatch.setattr(tour.sys, "platform", "linux")
+        assert tour._detect_claude_desktop_presence() is False
+
+    def test_windows_classic_dir_exists_returns_true(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    ):
+        from tailor import tour
+        monkeypatch.setattr(tour.sys, "platform", "win32")
+        appdata = tmp_path / "AppData_Roaming"
+        (appdata / "Claude").mkdir(parents=True)
+        monkeypatch.setenv("APPDATA", str(appdata))
+        # Force LOCALAPPDATA to a clean dir so the UWP branch doesn't
+        # accidentally match the host's real Claude UWP package and
+        # mask a regression in the classic-dir branch.
+        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "AppData_Local"))
+        assert tour._detect_claude_desktop_presence() is True
+
+    def test_windows_uwp_package_dir_exists_returns_true(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    ):
+        from tailor import tour
+        monkeypatch.setattr(tour.sys, "platform", "win32")
+        # Force APPDATA to a path where Claude/ does NOT exist so only
+        # the UWP branch can satisfy the detection.
+        appdata = tmp_path / "AppData_Roaming"
+        appdata.mkdir()
+        monkeypatch.setenv("APPDATA", str(appdata))
+        local_appdata = tmp_path / "AppData_Local"
+        pkg_dir = local_appdata / "Packages" / "Claude_pzs8sxrjxfjjc"
+        pkg_dir.mkdir(parents=True)
+        monkeypatch.setenv("LOCALAPPDATA", str(local_appdata))
+        assert tour._detect_claude_desktop_presence() is True
+
+    def test_windows_neither_present_returns_false(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    ):
+        """The case the v7.0.4 fix is built against — recipient on a
+        fresh Windows account with no Claude Desktop installed."""
+        from tailor import tour
+        monkeypatch.setattr(tour.sys, "platform", "win32")
+        appdata = tmp_path / "AppData_Roaming"
+        appdata.mkdir()
+        monkeypatch.setenv("APPDATA", str(appdata))
+        local_appdata = tmp_path / "AppData_Local"
+        (local_appdata / "Packages").mkdir(parents=True)
+        monkeypatch.setenv("LOCALAPPDATA", str(local_appdata))
+        assert tour._detect_claude_desktop_presence() is False
+
+    def test_windows_uwp_package_must_be_directory_not_file(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    ):
+        """A regular file matching the Claude_* glob (unlikely but
+        possible — antivirus scratch file, partial install artifact)
+        must not satisfy detection."""
+        from tailor import tour
+        monkeypatch.setattr(tour.sys, "platform", "win32")
+        appdata = tmp_path / "AppData_Roaming"
+        appdata.mkdir()
+        monkeypatch.setenv("APPDATA", str(appdata))
+        local_appdata = tmp_path / "AppData_Local"
+        pkgs = local_appdata / "Packages"
+        pkgs.mkdir(parents=True)
+        (pkgs / "Claude_artifact").write_text("not a real package")
+        monkeypatch.setenv("LOCALAPPDATA", str(local_appdata))
+        assert tour._detect_claude_desktop_presence() is False
+
+
+class TestSuccessBannerHonestyOnAbsentClaudeDesktop:
+    """The Phase 0 F4 architectural fix: when Claude Desktop is absent,
+    tour must not promise a "fully quit Claude Desktop, then re-open"
+    ritual the recipient cannot perform. The config is still staged
+    (per ADR 0026 § "First-time-install on a Store-only machine") but
+    the recipient is told the install is incomplete."""
+
+    def test_absent_claude_desktop_banner_says_not_detected(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys,
+    ):
+        fake_config = tmp_path / "claude_desktop_config.json"
+        monkeypatch.setattr(
+            "tailor.tour._claude_desktop_config_paths",
+            lambda: [fake_config],
+        )
+        monkeypatch.setattr(
+            "tailor.tour._detect_claude_desktop_presence",
+            lambda: False,
+        )
+        target = tmp_path / "tour"
+        rc = main(["--variant=hip-lab", "--target", str(target)])
+        assert rc == 0
+        out = capsys.readouterr().out
+        # Banner names the gap explicitly.
+        assert "NOT DETECTED" in out
+        assert "Claude Desktop is not installed on this account" in out
+        # No false promise — the "fully quit, re-open" line must NOT
+        # appear when there's nothing to quit.
+        assert "fully quit Claude Desktop" not in out
+        # The config IS still staged (ADR 0026 stage-for-later benefit).
+        assert fake_config.exists()
+        cfg = json.loads(fake_config.read_text(encoding="utf-8"))
+        assert "tailor-tour-hip-lab" in cfg["mcpServers"]
+
+    def test_absent_claude_desktop_uses_staged_verb_not_registered(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys,
+    ):
+        """A small but load-bearing word change: the absent-Claude case
+        says ``staged as 'tailor-tour-hip-lab'`` rather than
+        ``registered as ...`` — registration implies a process picked
+        it up, which is the lie this fix exists to close."""
+        fake_config = tmp_path / "claude_desktop_config.json"
+        monkeypatch.setattr(
+            "tailor.tour._claude_desktop_config_paths",
+            lambda: [fake_config],
+        )
+        monkeypatch.setattr(
+            "tailor.tour._detect_claude_desktop_presence",
+            lambda: False,
+        )
+        target = tmp_path / "tour"
+        main(["--variant=hip-lab", "--target", str(target)])
+        out = capsys.readouterr().out
+        assert "staged as 'tailor-tour-hip-lab'" in out
+
+    def test_present_claude_desktop_keeps_quit_and_reopen_message(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys,
+    ):
+        """Inverse regression: when Claude Desktop IS present, the
+        original quit/re-open message must still appear — this is
+        the working case attempt 2 (2026-05-09) validated end-to-end."""
+        fake_config = tmp_path / "claude_desktop_config.json"
+        monkeypatch.setattr(
+            "tailor.tour._claude_desktop_config_paths",
+            lambda: [fake_config],
+        )
+        monkeypatch.setattr(
+            "tailor.tour._detect_claude_desktop_presence",
+            lambda: True,
+        )
+        target = tmp_path / "tour"
+        rc = main(["--variant=hip-lab", "--target", str(target)])
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Tour scaffolded successfully" in out
+        assert "fully quit Claude Desktop" in out
+        assert "registered as 'tailor-tour-hip-lab'" in out
+        # NOT_DETECTED banner is NOT printed in the present case.
+        assert "NOT DETECTED" not in out
+
+
+class TestConnectorVsServerFraming:
+    """Phase 0 attempt-2 F5 fix (v7.0.4): tour-success message preempts
+    the visual-asymmetry confusion attempt 2 surfaced (Spotify renders
+    as a connector card; tailor renders as a 'session-scoped server'
+    in prose). Tailor cannot change Claude Desktop's UI; it can warn
+    the recipient before they see the asymmetry and stop."""
+
+    def test_present_claude_desktop_explains_session_scoped_server_framing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys,
+    ):
+        fake_config = tmp_path / "claude_desktop_config.json"
+        monkeypatch.setattr(
+            "tailor.tour._claude_desktop_config_paths",
+            lambda: [fake_config],
+        )
+        monkeypatch.setattr(
+            "tailor.tour._detect_claude_desktop_presence",
+            lambda: True,
+        )
+        target = tmp_path / "tour"
+        main(["--variant=hip-lab", "--target", str(target)])
+        out = capsys.readouterr().out
+        assert "session-scoped server" in out
+        assert "connector card" in out
+
+    def test_absent_claude_desktop_does_not_print_framing_note(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys,
+    ):
+        """When Claude Desktop is absent, the connector-vs-server
+        framing is irrelevant noise — the recipient hasn't even opened
+        the UI. The absent-case message stands alone."""
+        fake_config = tmp_path / "claude_desktop_config.json"
+        monkeypatch.setattr(
+            "tailor.tour._claude_desktop_config_paths",
+            lambda: [fake_config],
+        )
+        monkeypatch.setattr(
+            "tailor.tour._detect_claude_desktop_presence",
+            lambda: False,
+        )
+        target = tmp_path / "tour"
+        main(["--variant=hip-lab", "--target", str(target)])
+        out = capsys.readouterr().out
+        assert "session-scoped server" not in out
+        assert "connector card" not in out

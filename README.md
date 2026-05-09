@@ -290,8 +290,14 @@ full statement.
 
 ### Prerequisites
 
-- Python 3.10+
-- An MCP-speaking LLM client (Claude Desktop is the reference).
+| Path | What you need |
+|---|---|
+| **Recipient install** (`uv tool install`) | [`uv`](https://docs.astral.sh/uv/) and [Claude Desktop](https://claude.ai/download). `uv tool install` provisions its own Python interpreter — Python on `PATH` is **not** required. |
+| **Developer install** (editable source) | Python 3.10+, [`uv`](https://docs.astral.sh/uv/) or `pip`, and an MCP-speaking LLM client. |
+
+The recipient install path is what a PI or analyst would use; the
+developer path is for contributors writing code or tests against the
+framework. Most readers want the recipient path.
 
 ### Install
 
@@ -312,6 +318,32 @@ tailor pilot         # multi-subject CSV pilot wizard — three prompts
 
 Both `tailor tour` and `tailor pilot` write (or merge with) the
 recipient's Claude Desktop config; no manual JSON editing required.
+
+> **Install Claude Desktop first.** Tailor's MCP integration runs *inside*
+> Claude Desktop — `tailor tour` registers the server in Claude Desktop's
+> config, but the recipient still needs Claude Desktop installed to talk
+> to it. As of v7.0.4 `tailor tour` detects whether Claude Desktop is
+> installed on the user account and prints a different success banner
+> ("Claude Desktop NOT DETECTED — config staged for future install")
+> when it isn't, rather than the misleading-success message earlier
+> versions printed.
+
+#### What success looks like
+
+After `tailor tour` completes and Claude Desktop is restarted, ask
+Claude Desktop *"What MCP servers are connected?"*.
+
+- **Tailor will appear as a *session-scoped server*, not a connector
+  card with a green status indicator.** That visual is normal — Claude
+  Desktop reserves connector cards for OAuth-based integrations
+  (Spotify, Google Drive, etc.). Local MCP servers like Tailor render
+  in prose. The full tool surface is available either way.
+- To verify the tool surface, ask *"List the tools you have available
+  from tailor"*. You should see vault tools, CSV tools, EMG/force
+  tools, and the local oracle tool grouped by area. If Tailor is
+  listed in the prose answer to "what MCP servers are connected", the
+  install worked even if the visual surface looks asymmetric vs.
+  connector cards.
 
 **Developer / contributor install** — editable source tree:
 

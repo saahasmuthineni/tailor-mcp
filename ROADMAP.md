@@ -560,6 +560,67 @@ prior roadmap revisions per the same historical-preservation principle
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
 
+### Shipped in v7.0.4 (2026-05-10)
+
+Phase 0 deliverable 2 patch (preliminary verdict: PATCH not RESTRUCTURE
+per the 2026-05-09 self-driven diagnosis). Closes the four findings
+the two attempts surfaced against `tailor tour` and the diagnosis kit.
+Single-file framework change, three doc/kit changes, seven new
+regression tests.
+
+- **F4 (architectural — `tour.py`)**: `tailor tour` now detects Claude
+  Desktop presence BEFORE registration. New
+  `_detect_claude_desktop_presence()` checks the classic config dir on
+  Windows + every UWP `Claude_*` package dir + the macOS Application
+  Support dir; Linux always returns False. When absent, the success
+  banner says `Tour scaffolded; Claude Desktop NOT DETECTED` with an
+  install pointer instead of the misleading `"fully quit Claude
+  Desktop, then re-open it"` ritual the recipient cannot perform. Tour
+  still stages the config (per [ADR 0026](docs/adr/0026-dual-path-claude-desktop-config.md)
+  § "First-time-install on a Store-only machine") so a future Claude
+  Desktop install picks it up automatically; the verb in the banner
+  shifts from `registered as ...` to `staged as ...`.
+- **F5 (documentation — `tour.py` + `README.md`)**: tour-success
+  message and a new README "What success looks like" subsection both
+  preempt the visual-asymmetry confusion attempt 2 surfaced — Claude
+  Desktop renders local MCP servers as a "session-scoped server" in
+  prose rather than a green-card connector. Tailor cannot change
+  Claude Desktop's UI; both surfaces now name the rendering as the
+  normal local-MCP shape, not a degraded install.
+- **F2 (kit-instrument — `phase-0-diagnosis-kit.md`)**: per-command
+  `Tee-Object -Append` advice promoted from the deeper-buried capture
+  protocol section into the install-checklist itself, inline at every
+  `tailor` invocation (A7 / A8 / A9 / A13). Closes the PowerShell-5.1
+  transcript-gap workaround that was only discoverable post-hoc on
+  attempts 1 + 2.
+- **F3 (documentation — `README.md`)**: Prerequisites split into
+  recipient-install (uv + Claude Desktop; Python on `PATH` *not*
+  required — uv provisions its own) vs. developer-install (Python
+  3.10+). Closes the attempt-1 friction where `python --version`
+  returning command-not-found read as a hard prerequisite failure
+  even though `uv tool install` succeeded immediately afterward.
+
+Naming-collision fix: the 2026-05-09 vault snapshot referred to the
+deferred `_extract_timestamps` paired-iteration helper bug as "F4",
+colliding with Phase 0's structured F1–F5 finding labels. Renamed the
+legacy item to `_extract_timestamps` paired-iteration helper (the
+v6.10.1 banner already used "Bug 4", not "F4"). Phase 0 F1–F5 stays
+canonical.
+
+Version sync: `__init__.py` was `6.13.0` while `pyproject.toml` was
+`7.0.0` (drift from the v7.0.0 rename's mechanical pass). Both now
+read `7.0.4`.
+
+Gates: pytest +7 new regression tests across
+`TestClaudeDesktopPresenceDetection`,
+`TestSuccessBannerHonestyOnAbsentClaudeDesktop`, and
+`TestConnectorVsServerFraming`. No router/security/child/vault
+architecture changes; no public API changes; patch bump.
+mcp-protocol-auditor NOT TRIGGERED (no framework/router/security/vault
+paths touched). recipient-install-validator SKIPPED — v1 falsified
+per project memory; the 2026-05-09 self-driven diagnosis is the
+empirical substitute on this round.
+
 ### Shipped in v7.0.0 (2026-05-08)
 
 Project rename: `Biosensor MCP` → **Tailor**. The first major version

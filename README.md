@@ -5,29 +5,32 @@
 [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows-lightgrey)](.github/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 
-**Tailor** is a local-first MCP framework that lets any MCP-speaking AI
-(Claude Desktop, Cline, Cursor, local models via Ollama) work with your
-own data — without that data ever leaving your machine, with every
-action recorded in a durable audit log, and with results stamped for
-reproducibility.
+**Tailor is a personal AI server with research-grade trust** — a
+local-first MCP framework that lets any MCP-speaking AI (Claude
+Desktop, Cline, Cursor, local models via Ollama) work with your own
+data, with every action recorded in a durable audit log and every
+result stamped for reproducibility. Today the worked-out recipe is
+health research — *that's the **first recipe shipped end-to-end, not
+the platform's identity***. Future recipes (knowledge work, quantified
+self, household, creative archives) compose on the same engine; see
+[ROADMAP.md](ROADMAP.md) for the phased path from "researcher
+first-look on a hand-delivered wheel" to canonical *personal AI
+server*, including the binding [Phase 0](ROADMAP.md#phase-0--install-path-validation-active-duration-tbd-by-diagnosis)
+install-validation constraint.
 
-Your **Wardrobe** is what your AI knows about you: the structured
-collection of your data and prior analytical work that lives entirely
-on your machine. *Not clothes — your stuff.* Your Wardrobe accumulates
-themes (questions you keep returning to), moments (observations worth
-remembering), evidence (data that grounds your themes), audit history
-(every action your AI took on your behalf), and the source data
-itself. Tailor curates your Wardrobe — adds to it, retrieves from it,
-governs how the AI reaches into it — and never sends any of it to a
-service you didn't choose.
-
-The current worked example is a health-research workflow on
-high-frequency biometric data — built for cohorts, audit trails,
-reproducibility, and IRB-grade data governance. The framework
-generalises beyond that domain; the research recipe is the first one
-shipped end-to-end, not the platform's identity.
+Your **Wardrobe** is what Tailor governs on your behalf: the
+structured collection of your data and prior analytical work that
+lives entirely on your machine. *Not clothes — your stuff.* Your
+Wardrobe accumulates themes (questions you keep returning to), moments
+(observations worth remembering), evidence (data that grounds your
+themes), audit history (every action your AI took on your behalf), and
+the source data itself. Tailor curates your Wardrobe — adds to it,
+retrieves from it, governs how the AI reaches into it — and never
+sends any of it to a service you didn't choose.
 
 ## 30-second quickstart
+
+> *Phase 0 in progress — install reliability is being validated externally. See [Status](#status). If you're trying this cold, please open an issue with any friction points; that diagnostic is the priority work right now.*
 
 For a PI or analyst running a multi-subject CSV pilot:
 
@@ -42,7 +45,7 @@ For a developer exploring the framework:
 git clone https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
 cd Biosensor-to-LLM-Connector
 pip install -e ".[dev]"
-tailor demo           # researcher first-look: HIP Lab cohort tools on bundled fixtures
+tailor demo           # five-section architectural showcase on bundled HIP Lab fixtures (ADRs 0027 + 0029)
 tailor --help         # see all commands
 ```
 
@@ -51,10 +54,12 @@ Then open [**docs/guides/worked-example.ipynb**](docs/guides/worked-example.ipyn
 ### Start here
 
 - **PI evaluating for a study** → [Why this exists](#why-this-exists) · [How data minimization works](#how-data-minimization-works) · [10-minute worked example notebook](docs/guides/worked-example.ipynb) · [Status & retention](#status)
-- **Analyst / research-software engineer wiring this up** → [Install & run](#install--run) · [Running child tools](#running-child-tools) · [Architecture](#architecture)
+- **Analyst / research-software engineer wiring this up** → [Install & run](#install--run) · [Children that ship today](#children-that-ship-today) · [Architecture](#architecture)
 - **IRB reviewer evaluating risk** → [How data minimization works](#how-data-minimization-works) · [Status & retention](#status) · [ADR 0001 — audit log](docs/adr/0001-audit-log-as-backbone.md) · [ADR 0003 — PHI scrubber seam](docs/adr/0003-phi-scrubber-seam.md) · [ADR 0009 — `subject_id` integrity](docs/adr/0009-vault-subject-keying.md) · [ADR 0013 — cache purge on consent revocation](docs/adr/0013-cache-only-purge-on-consent-revocation.md)
+- **Quantified-self / future-recipe explorer** → [Your Wardrobe](#your-wardrobe) · [What This Project Is](CLAUDE.md#what-this-project-is) · [ROADMAP Phase 4 — platform-shape proof](ROADMAP.md#phase-4--platform-shape-proof-direction)
 - **Developer trying the demo** → [Install & run](#install--run)
 - **Architect / integrator** → [Architecture](#architecture) · [Adding a new child data source](CLAUDE.md#adding-a-new-childmcp-new-data-source)
+- **Considering whether to install cold** → [ROADMAP Phase 0 — install-path validation](ROADMAP.md#phase-0--install-path-validation-active-duration-tbd-by-diagnosis) (read this *before* trying)
 - **Curious where this is going** → [What's next](#whats-next) · [full ROADMAP.md](ROADMAP.md)
 
 ---
@@ -67,8 +72,8 @@ VS Code), and you need audit trails and data-minimization controls that
 survive beyond a single chat session.
 
 **Not for you if** you want clinical decision support, you're OK pasting
-streams into a hosted chat, or you need a finished product rather than
-extensible research infrastructure.
+your data into a hosted chat, or you need a polished consumer product
+rather than a platform you can extend.
 
 ---
 
@@ -76,18 +81,20 @@ extensible research infrastructure.
 
 | Capability | What it does |
 |---|---|
-| **Local-first router** | Runs next to the data. Only what the active tier permits crosses the boundary — Tier 1 ships server-computed summaries; Tiers 2 and 3 release stream data behind the analyst-side consent gate. With the optional [local-LLM guardian](docs/guides/local-llm-guardian.md) opted in (per [ADR 0022](docs/adr/0022-local-llm-guardian.md)), biometric streams stay on the analyst's machine at every tier — including from the hosted LLM. |
+| **Local-first router** | Runs next to your data. Only what the active tier permits crosses the boundary; tiers are declared per-tool, per-data-source. With the optional [local-LLM guardian](docs/guides/local-llm-guardian.md) opted in (per [ADR 0022](docs/adr/0022-local-llm-guardian.md)), your data stays on your machine at every tier — including from the hosted LLM. |
 | **Tiered access** | Every tool declares an access tier: 1 returns computed summaries, 2 returns downsampled views behind an analyst-side consent gate, 3 returns raw streams behind that gate plus cost approval. Data minimization, implemented. |
 | **PHI-scrubber seam** | A documented institutional override point. **Default is a no-op** — institutions subclass to wire their IRB-approved policy. The default surfaces a `scrubber_warning` field in every successful `_meta` block so a misconfigured deployment is visible inside the LLM transcript. See [ADR 0003](docs/adr/0003-phi-scrubber-seam.md). |
 | **Durable audit log** | Every call lands in SQLite: timestamp, tool, tier, parameters, outcome, latency, `scrubber_id`, optional `subject_id`. Attachable to a protocol amendment or replication package. |
-| **Provenance stamps** | Every result carries a `_meta` block — package version, tool name, UTC timestamp — so any output in a paper is traceable to the code that produced it. |
-| **Local-LLM guardian** *(opt-in)* | A framework-tier component that runs an LLM on the analyst's machine to compose structured natural-language responses over deterministic processing output. Cited numerical claims come from `processing.py` and stay deterministic; LLM-generated narrative is explicitly labelled non-citable in `_meta`. Four tiers (Scout/Sentinel/Guardian/Titan) span 4 GB laptops to 32 GB workstations. See [ADR 0022](docs/adr/0022-local-llm-guardian.md) and the [setup guide](docs/guides/local-llm-guardian.md). |
-| **Obsidian-backed vault** | Cross-session analytical memory: themes (persistent research questions), moments (observations), evidence logs. Markdown is the source of truth; SQLite makes it queryable. |
+| **Provenance stamps** | Every result carries a `_meta` block — package version, tool name, domain, tier, UTC timestamp, per-call + session token counts, `scrubber_id`, plus `scrubber_warning` when the no-op default is active and `hook_warnings` when a post-execute hook raised. Any output in a paper is traceable to the code that produced it. |
+| **Local-LLM guardian** *(opt-in)* | A framework-tier component that runs an LLM on your machine to compose structured natural-language responses over deterministic processing output. Cited numerical claims come from `processing.py` and stay deterministic; LLM-generated narrative is explicitly labelled non-citable in `_meta`. Four tiers (Scout/Sentinel/Guardian/Titan) span 4 GB laptops to 32 GB workstations. See [ADR 0022](docs/adr/0022-local-llm-guardian.md) and the [setup guide](docs/guides/local-llm-guardian.md). |
+| **Wardrobe** *(Obsidian-readable)* | Cross-session analytical memory: themes (persistent questions), moments (observations), evidence logs, failure modes. Markdown is the source of truth; SQLite makes it queryable. See [Your Wardrobe](#your-wardrobe). |
 | **Extensible child pattern** | Each data source is a ChildMCP. New children inherit the full governance pipeline by implementing a small interface. |
 
 ---
 
 ## Example interaction
+
+This example uses the **running child** because it's the most-worked-out implementation — every tier exercised, every gate fired, every renderer covered. The `_meta` envelope and tier-gating semantics apply to every child; only the tool names and numerical fields change.
 
 ```
 User:   summarize my last run
@@ -106,6 +113,10 @@ Claude: Your last run was 6.2 miles in 48:12 with 3.2 % HR drift and
         The audit log recorded this call; the _meta block stamps
         the code version that produced these numbers.
 ```
+
+<p align="center">
+  <img src="docs/assets/claude-desktop-demo.svg" alt="The same interaction rendered in a Claude Desktop chat window — user prompt, tool call, JSON tool result, Claude's natural-language reply" width="760">
+</p>
 
 The tier model, audit row, and `_meta` stamp all fired without the
 analyst doing anything. That's the point.
@@ -148,6 +159,29 @@ top of Tailor?"* — yes, the framework supports a network-MCP
 deployment where a hosted agent calls Tailor as a governed
 data boundary. See [docs/design/managed-agents-compat.md](docs/design/managed-agents-compat.md)
 for which threat models that path addresses and which it doesn't.
+
+---
+
+## Your Wardrobe
+
+The Wardrobe is what makes Tailor *durable* — the structured local store
+that survives the chat session, the LLM client, and the model upgrade.
+It accumulates:
+
+- **Themes** — persistent questions you keep returning to, with appending evidence logs
+- **Moments** — timestamped observations (the analyst's *aha*, the clinical impression, the writer's note-to-self)
+- **Evidence** — the data blocks that ground a theme, supersession-tracked so a wrong claim can be corrected without rewriting history
+- **Failure modes** — documented dead-ends so your AI doesn't suggest them again
+- **Audit history** — every action your AI took on your behalf, in SQLite, scoped by optional `subject_id`
+- **Source data** — the CSVs, biometric streams, and vault notes the AI reasons over
+
+Wardrobe lives entirely on your machine as **plain markdown files plus a SQLite index**. Markdown is the source of truth; the index makes it queryable. Open the same files in Obsidian, in VS Code, or in `cat` — they're yours, append-only, and inspectable down to the row. That's the difference from Hosted Memory: governance infrastructure, not chat-convenience.
+
+<p align="center">
+  <img src="docs/assets/vault-insights.svg" alt="Themes, moments, and evidence inside the Wardrobe — rendered as plain markdown viewable in Obsidian or any text editor" width="760">
+</p>
+
+The framework ships **25 vault tools** (browse / read / search / upsert themes / capture moments / log failure modes / refresh dashboards / inbox / health check); the full surface lives in [CLAUDE.md](CLAUDE.md#vaultlayer--25-tools-v61).
 
 ---
 
@@ -200,36 +234,24 @@ Every successful result carries a `_meta` provenance stamp:
 }
 ```
 
-The vault layer adds cross-session analytical memory — **themes**
-(persistent research questions with appending evidence logs) and
-**moments** (timestamped observations linkable to participants or runs).
-See [research-framing.md](docs/design/research-framing.md#the-vault-layer--longitudinal-analytical-memory)
-for the full treatment.
-
-<p align="center">
-  <img src="docs/assets/vault-insights.svg" alt="Obsidian-backed vault — themes, moments, evidence logs" width="760">
-</p>
+For the durable-memory side of the picture (themes, moments, evidence — the *Wardrobe*), see [Your Wardrobe](#your-wardrobe) above. For the deeper IRB-targeted treatment, [research-framing.md § the vault layer](docs/design/research-framing.md#the-vault-layer--longitudinal-analytical-memory).
 
 ---
 
 ## Status
 
-- One child ships: a Strava running child exercising all three tiers,
-  OAuth, cached streams, and the vault writer. Treat it as a template,
-  not a dependency.
-- A generic CSV-directory child ships alongside the running child (one
-  OAuth-free, no-vendor-API path for institutional CSV exports). CGM,
-  sleep, ECG, EDF, and FHIR children are roadmap. See [ROADMAP.md](ROADMAP.md).
+- **Install-path validation is Phase 0 active work** ([ROADMAP.md](ROADMAP.md#phase-0--install-path-validation-active-duration-tbd-by-diagnosis)). Empirically, no Tailor install has yet succeeded end-to-end on a machine that wasn't the project author's. If you're trying this cold, please coordinate with the maintainer before attempting; open an issue with friction points — that diagnostic is the priority work right now. Until two consecutive fresh-machine installs by outside parties succeed, the install ritual below is honest about its current shape but provisional.
+- Two children ship today (see [Children that ship today](#children-that-ship-today) below): the **CSV directory** child (no-OAuth, generic — closest match to the platform's general shape) and the **running** child (Strava-OAuth, the most-worked-out template). CGM, sleep, ECG, EDF, and FHIR children are held items in the [ROADMAP](ROADMAP.md).
 - PHI scrubbing ships as a documented no-op seam. Institutions subclass
   once their policy is defined. The default scrubber surfaces a warning
   in every successful result's `_meta` block so a no-op deployment
   cannot silently masquerade as a scrubbed one.
-- Per-subject **audit-log scoping** is first-class on the biosensor
-  tier. `RunningChild` declares `subject_id` on all 12 `strava_*`
-  tools; `csv_dir` declares it on all 7 tools. This is caller-asserted
-  scoping for the audit log; it does **not** filter source data, since
-  one authenticated upstream account may legitimately cover multiple
-  study participants.
+- Per-subject **audit-log scoping** is first-class for every child.
+  `RunningChild` declares `subject_id` on all 12 `strava_*` tools;
+  `csv_dir` declares it on all 7 tools. This is caller-asserted scoping
+  for the audit log; it does **not** filter source data, since one
+  authenticated upstream account may legitimately cover multiple study
+  participants.
 - Per-subject **vault-tier keying** is first-class
   ([ADR 0009](docs/adr/0009-vault-subject-keying.md)). Themes carry
   an optional, set-once `subject_id` (promotion `None → P004`
@@ -240,10 +262,11 @@ for the full treatment.
 
 ### Data retention and withdrawal
 
-Retention is the deployer's responsibility. The audit log, biosensor
-cache, and vault are persistent local stores with no automated rotation
-— [ADR 0001](docs/adr/0001-audit-log-as-backbone.md) names "long-term
-archival is the deployer's responsibility" as a known consequence.
+Retention is the deployer's responsibility. The audit log, per-child
+caches, and Wardrobe are persistent local stores with no automated
+rotation — [ADR 0001](docs/adr/0001-audit-log-as-backbone.md) names
+"long-term archival is the deployer's responsibility" as a known
+consequence.
 
 **Consent revocation triggers cache purge** per
 [ADR 0013](docs/adr/0013-cache-only-purge-on-consent-revocation.md):
@@ -272,11 +295,33 @@ full statement.
 
 ### Install
 
+> *The install ritual below is what the project ships today. It is being
+> reshaped against whatever path survives [ROADMAP Phase 0](ROADMAP.md#phase-0--install-path-validation-active-duration-tbd-by-diagnosis)
+> (single-binary executable, Docker container, or the current `uv tool install` path
+> patched to actually work cold). Until PyPI publishes (Phase 2), `pip install tailor-mcp`
+> is not yet available.*
+
+**Recipient install** — what a PI or analyst would use:
+
+```bash
+uv tool install git+https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
+tailor tour          # walkthrough scaffold — registers with Claude Desktop automatically
+# or:
+tailor pilot         # multi-subject CSV pilot wizard — three prompts
+```
+
+Both `tailor tour` and `tailor pilot` write (or merge with) the
+recipient's Claude Desktop config; no manual JSON editing required.
+
+**Developer / contributor install** — editable source tree:
+
 ```bash
 git clone https://github.com/saahasmuthineni/Biosensor-to-LLM-Connector.git
 cd Biosensor-to-LLM-Connector
 pip install -e ".[dev]"
 ```
+
+This is the path used to run tests, modify source, or write a new ChildMCP. To exercise it via Claude Desktop, see [Connecting an MCP client](#connecting-an-mcp-client) below.
 
 ### Verify
 
@@ -312,84 +357,67 @@ interpreter.
 
 | Command | Description |
 |---|---|
-| `tailor pilot` | Multi-subject CSV pilot wizard (v6.2.1) — three prompts, end-to-end smoke check |
+| `tailor pilot` | Multi-subject CSV pilot wizard — three prompts, end-to-end smoke check |
 | `tailor tour` | Live-audience walkthrough — scaffolds bundled HIP Lab fixtures + registers with Claude Desktop (ADR 0024) |
 | `tailor serve` | Start the MCP server (invoked by the LLM client) |
-| `tailor demo` | Researcher first-look — runs cohort tools on bundled HIP Lab fixtures (ADR 0027) |
-| `tailor setup` | Strava OAuth wizard (for the worked example) |
-| `tailor status` | Diagnostic check: tokens, DB state, vault config |
-| `tailor migrate` | One-time copy of `~/.biosensor-mcp/` → `~/.tailor/` for v6 → v7 upgrades. Pass `--move` to remove the legacy directory after copying (ADR 0031). |
+| `tailor demo` | Five-section architectural showcase on bundled HIP Lab fixtures: cohort thesis, router pipeline + audit row, three-tier resolution-appropriateness walk, vault moment write, local-LLM oracle call. ADRs [0027](docs/adr/0027-demo-as-researcher-first-look.md) (researcher first-look framing) + [0029](docs/adr/0029-token-reduction-as-analytical-quality.md) (architectural showcase reshape). Pass `--save-shareable` for an emailable markdown transcript. |
+| `tailor setup` | Strava OAuth wizard (for the running child only) |
+| `tailor status` | Diagnostic check: tokens, DB state, Wardrobe config |
+| `tailor migrate` | One-time copy of `~/.biosensor-mcp/` → `~/.tailor/` for v6 → v7 upgrades. **Likely to be removed in [Phase 1](ROADMAP.md#phase-1--ship-quality-housekeeping-after-phase-0--2-weeks)** — no successful external v6 install ever happened, so the migrating-from population is empty by construction. |
 | `tailor uninstall` | Clean removal |
 
-### Worked example: the running child
+---
 
-The running child wraps Strava as one example of the ChildMCP pattern — see CLAUDE.md for the framing. To exercise it against live data (separate from `demo`, which now showcases the canonical CSV cohort path):
+## Children that ship today
 
-To run against live Strava data:
+A **child** is one data source. Each child wraps an ingest path (a directory, an API, a file format) and exposes tools at three access tiers, and each child inherits the full governance pipeline (validation, consent, cost, scrubber seam, audit) from the framework. Every README element below this point answers "why is this child in the README at all?" — so it's worth saying explicitly.
 
-1. Create a Strava API app at
-   [strava.com/settings/api](https://www.strava.com/settings/api)
-   (set callback to `localhost`).
+| Child | Tools | Auth | Why it's in the README |
+|---|---|---|---|
+| **CSV directory** ([`csv_dir`](src/tailor/children/csv_dir/)) | 7 across 3 tiers, including cohort tools | None — filesystem read | **Closest match to the platform's general shape.** Any directory of per-subject CSVs (REDCap exports, lab dumps, Frictionless data packages) becomes a Wardrobe-grade analytical surface with no vendor API in the way. This is the first child a new deployment configures. |
+| **Running** (Strava-OAuth) ([`running`](src/tailor/children/running/)) | 12 across 3 tiers | OAuth | **The most-worked-out template of the ChildMCP pattern** — every tier exercised, every gate fired, every renderer covered, OAuth ritual end-to-end. Retained for *teaching value*, not because Tailor is for running. **Not the canonical use case.** |
+| **Template** ([`template`](src/tailor/children/template/)) | Stubbed 3-tier skeleton | n/a | Copy + rename to add a new child. Cuts onboarding for a new domain to filling a small set of named blanks. |
+
+Full tool surfaces (the 7 CSV tools, the 12 Strava tools) and the rename checklist for the template live in [CLAUDE.md](CLAUDE.md#csv-directory-child--7-tools).
+
+To exercise the running child against live Strava data:
+
+1. Create a Strava API app at [strava.com/settings/api](https://www.strava.com/settings/api) (set callback to `localhost`).
 2. Run `tailor setup` to complete OAuth.
-3. Restart your MCP client and query — *"summarize my last run"*,
-   *"how has my HR drift changed?"* — to see the full pipeline in action.
-
-### Running child tools
-
-Twelve tools across three tiers:
-
-| Tool | Tier | Description |
-|---|---|---|
-| `strava_sync` | 1 | Pull recent activities into local cache |
-| `strava_list_runs` | 1 | List recent runs with summary stats |
-| `strava_activity_detail` | 1 | Single-activity overview |
-| `strava_hr_analysis` | 1 | Zone distribution, drift, anomalies |
-| `strava_pace_analysis` | 1 | Mile splits, run/walk classification |
-| `strava_stop_analysis` | 1 | Pause detection with GPS + saved labels |
-| `strava_label_stop` | 1 | Persist stop label to SQLite |
-| `strava_run_report` | 1 | Comprehensive: decoupling, EF, drift, phases, GAP |
-| `strava_trend_report` | 1 | Rolling weekly volume, avg pace, avg HR |
-| `strava_compare_runs` | 1 | Side-by-side comparison of 2–5 runs |
-| `strava_downsampled_streams` | 2 | HR, pace, GPS at 5–30 s intervals |
-| `strava_full_streams` | 3 | Per-second data with precision reduction |
+3. Restart your MCP client and query — *"summarize my last run"*, *"how has my HR drift changed?"* — to see the full pipeline in action.
 
 ---
 
 ## What's next
 
-The framework is deliberately a worked example plus an extension seam,
-not a finished product. The top items on the roadmap — each with a
-reason it matters, not just a title:
+The roadmap is phase-gated. Phases 0–2 are scheduled (concrete deliverables, rough windows because the work is in arm's reach); phases 3–5 are direction-oriented (triggering conditions instead of dates, because committing to schedules past six months out is more cosmetic than honest).
 
-| Next up | Why it matters |
-|---|---|
-| [**New ChildMCPs**](ROADMAP.md#new-childmcps-for-research-relevant-data-sources) (CGM, sleep, ECG, EDF, FHIR) | A generic CSV-directory child has shipped; the next domain-specific children unlock broader adoption. The `children/template/` skeleton cuts onboarding to filling a small set of named blanks. |
-| [**Real PHI-scrubbing implementations**](ROADMAP.md#real-phi-scrubbing-implementations-behind-the-phiscrubber-slot) | The seam is wired and instrumented; a real policy per child is what any deployment touching actual PHI needs. |
-| [**Deterministic mode + provenance hashing**](ROADMAP.md#deterministic-mode-with-seed-control) | Lets a reviewer re-run an analysis and trace every published number to exact code + exact input bytes. |
-| [**"Freeze vault" for manuscript submission**](ROADMAP.md#freeze-vault-operation-for-manuscript-submission) | One-command archive of vault + audit + code version for attaching to a submission. |
-| [**LLM-client evaluation harness**](ROADMAP.md#evaluation-harness-for-llm-client-behavior) | Makes "client-agnostic governance" a measurable claim rather than a design assertion. |
+| Phase | Defining question at exit | Window |
+|---|---|---|
+| [**Phase 0 — Install-path validation**](ROADMAP.md#phase-0--install-path-validation-active-duration-tbd-by-diagnosis) *(active)* | Can two outside recipients on different OSes install Tailor end-to-end without the project author touching their machine? | Diagnosis-bound |
+| [**Phase 1 — Ship-quality housekeeping**](ROADMAP.md#phase-1--ship-quality-housekeeping-after-phase-0--2-weeks) | Do the docs and identity match the install path that actually works? | ~2 weeks after Phase 0 |
+| [**Phase 2 — Public-launch readiness**](ROADMAP.md#phase-2--public-launch-readiness-after-phase-1--3-months) | If a stranger discovers Tailor cold, can they find, install, and start trusting it in under 30 minutes? | ~3 months after Phase 1 |
+| [**Phase 3 — Beachhead proof + public launch**](ROADMAP.md#phase-3--beachhead-proof--public-launch-direction) | Has one real research lab used Tailor on real data, cited it in a paper, and would they recommend it? | Direction |
+| [**Phase 4 — Platform-shape proof**](ROADMAP.md#phase-4--platform-shape-proof-direction) | Can a stranger use Tailor with their notes / calendar / photos and any MCP client of their choice? | Direction |
+| [**Phase 5 — Category formation**](ROADMAP.md#phase-5--category-formation-direction) | Do strangers know what *"personal AI server"* means, and do they think of Tailor when they think of it? | Direction |
 
-Full list with effort/impact triage and design notes: [**ROADMAP.md**](ROADMAP.md).
+Per-phase deliverables, [held items](ROADMAP.md#held-items-revisit-when-the-trigger-fires) (CGM / sleep / ECG / EDF / FHIR children, real PHI-scrubbing, vault-freeze, deterministic mode, eval harness, per-analyst attribution), and [killed items](ROADMAP.md#killed-items-with-rationale): [**ROADMAP.md**](ROADMAP.md).
 
-If any of these is the reason you showed up, open a GitHub discussion
-or issue before writing code — several have real design questions
-(especially `subject_id` → vault keying) worth talking through.
+If a held item is the reason you showed up, open a GitHub issue or
+discussion before writing code — several have real design questions
+worth talking through.
 
 ---
 
 ## Architecture
-
-<p align="center">
-  <img src="docs/assets/footprint.svg" alt="Tailor system footprint — router, child, vault layer" width="760">
-</p>
 
 ```mermaid
 flowchart LR
     Client([LLM client]) --> Router[RouterMCP<br/>validate · gate · scrub · audit]
     Router --> Children[ChildMCPs<br/>one per data source]
     Router --> Vault[VaultLayer]
-    Children -.ephemeral cache.-> SQLite[(SQLite<br/>activities.db)]
-    Vault --> Obsidian[(Obsidian vault<br/>markdown + SQLite index)]
+    Children -.ephemeral cache.-> SQLite[(SQLite<br/>per-child cache)]
+    Vault --> Wardrobe[(Wardrobe<br/>markdown + SQLite index<br/>Obsidian-readable)]
 ```
 
 - The **Router** enforces validation, circuit breaking, the
@@ -421,10 +449,11 @@ Detailed notes in [CLAUDE.md](CLAUDE.md).
 
 | Document | Audience |
 |---|---|
-| [docs/design/research-framing.md](docs/design/research-framing.md) | Health-research reviewers evaluating this for a study |
-| [ROADMAP.md](ROADMAP.md) | Anyone — what's deferred and why, with effort/impact triage |
-| [CLAUDE.md](CLAUDE.md) | Contributors and operators |
-| [docs/adr/](docs/adr/) | Architectural decisions and their rationale |
+| [ROADMAP.md](ROADMAP.md) | Anyone — phase-gated forward plan (Phase 0 → Phase 5), held items, and killed items with rationale |
+| [ADR 0031 — rename to Tailor + Wardrobe](docs/adr/0031-rename-to-tailor-and-wardrobe.md) | Anyone — the v7.0.0 identity decision, the *Wardrobe* user-facing engine word, and the counter-programming invariant against fashion-domain drift |
+| [docs/design/research-framing.md](docs/design/research-framing.md) | Researchers and IRB reviewers evaluating this for a study |
+| [CLAUDE.md](CLAUDE.md) | Contributors and operators — the architecture, the agent roster, the boss-architect protocols |
+| [docs/adr/](docs/adr/) | Architectural decisions and their rationale (31 ADRs as of v7.0.2) |
 | [docs/design/design-context.pdf](docs/design/design-context.pdf) | Historical design rationale |
 
 ## License

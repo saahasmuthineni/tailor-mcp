@@ -30,6 +30,29 @@ end-to-end. They are not the platform's identity. Future deployment
 recipes (knowledge work, clinical, household, creative archives)
 compose on the same engine.
 
+## What the platform automates, end-to-end
+
+The framework's lived experience for the user-as-analyst is a
+four-link automation chain:
+
+| Link | Component | Who built it |
+|---|---|---|
+| 1 | Hardware capture (e.g. Apple Watch records on start/stop) | Consumer-hardware vendor |
+| 2 | Cloud auto-upstream (e.g. watchOS → Strava cloud, automatic) | Vendor + platform |
+| 3 | MCP pull-and-cache (e.g. `strava_sync` → SQLite cache) | The framework |
+| 4 | LLM analysis (router → child → tool → result) | The framework |
+
+Links 1 and 2 are off-the-shelf consumer-hardware automation the
+framework relies on but does not own. Link 3 is the framework's
+last-mile closure (the running child since v3, generalised in
+Phase 4). Link 4 is the router pipeline. **Each link is a potential
+silent failure mode** — the audit log records Link 3 but not Links
+1, 2, or the chain-as-a-whole. A static-only adopter (cohort CSVs in
+a directory) experiences only Links 3 + 4; a live-data adopter
+experiences all four. Phase 4 names both shapes directly and adds
+the missing combination workflow that the platform's actual power
+lives in.
+
 ## At a glance
 
 | Phase | Status | Defining question at exit |
@@ -38,7 +61,7 @@ compose on the same engine.
 | **Phase 1 — Ship-quality housekeeping** | Queued (after Phase 0 → ~2 weeks) | Do the docs and identity match the install path that actually works? |
 | **Phase 2 — Public-launch readiness** | Queued (after Phase 1 → ~3 months) | If a stranger discovers Tailor cold, can they find, install, and start trusting it in under 30 minutes? |
 | **Phase 3 — Beachhead proof + public launch** | Direction | Has one real research lab used Tailor on real data, cited it in a paper, and would they recommend it? |
-| **Phase 4 — Platform-shape proof** | Direction | Can a stranger use Tailor with their notes / calendar / photos and any MCP client of their choice? |
+| **Phase 4 — Platform-shape proof** | Direction | Can a stranger use Tailor with their own data — live or static — and combine the two via any MCP client of their choice? |
 | **Phase 5 — Category formation** | Direction | Do strangers know what *"personal AI server"* means, and do they think of Tailor when they think of it? |
 
 Items not in a phase live in [Held](#held-items-revisit-when-the-trigger-fires) (waiting for a triggering condition), [Killed](#killed-items-with-rationale) (explicitly not doing), or [Shipped](#shipped-chronological) (history).
@@ -174,10 +197,23 @@ publicly — that's the test that the narrative holds).
 
 Phase 4 turns the platform vision into a property. Today, *"any data
 source, any MCP-speaking LLM"* is a claim the architecture supports
-but the shipped recipes do not yet demonstrate. Three directional
-moves close the gap.
+but the shipped recipes do not yet demonstrate. Six directional moves
+close the gap. Direction D — combination workflows — is the
+load-bearing one: it answers *"what is Tailor for?"* in a way the
+other five cannot in isolation.
 
-**Direction A — one non-biometric flagship child.** The smallest move
+**Direction A — generalise the live-ingestion pattern.** The running
+child encodes a five-piece live-platform pattern (OAuth wizard +
+rate-limited API client + SQLite cache + on-demand sync tool +
+three-tier access). That pattern has not been generalised beyond
+Strava since v3. Ship one non-Strava live-biometric child as the
+proof — strongest candidates by adopter pull are Oura Cloud, Dexcom
+Clarity, and Apple Health Cloud / HealthKit. The pick is driven by
+Phase 3 beachhead-tribe demand. The structural lesson: *the
+ingestion-automation pattern is reusable, not Strava-specific* —
+which the codebase has implied since v4 but never demonstrated.
+
+**Direction B — one non-biometric flagship child.** The smallest move
 that makes data-agnostic a property, not a claim. Notes (Apple Notes,
 Obsidian, plaintext), calendar (CalDAV, Google Calendar), email (IMAP,
 Gmail), or photos (vision-indexed) are the natural candidates. The
@@ -187,7 +223,43 @@ if quantified-self users ask, photos. The structural lesson: *"Tailor
 isn't biometric infrastructure"* lands the moment one non-biometric
 child works.
 
-**Direction B — one non-Claude MCP client integration.** The smallest
+**Direction C — first-class ingestion-automation surface.** The
+`ChildMCP` contract today is request/response only — there is no
+slot for *"data arrived; ingest it"* or *"sync this every N
+minutes."* The user-experienced *"press start on the watch, ask
+Claude later"* loop relies on Links 1 and 2 (consumer-hardware
+upstream) being silently always-on; the framework cannot make the
+same claim about Link 3, which only fires when an LLM tool call
+triggers it. New framework-level `IngestionLayer` parallel to
+`VaultLayer` and `LocalLLMLayer`, plus push-mode support on the
+`ChildMCP` contract. Owns scheduled background re-sync (cron /
+launchd / LaunchAgent), webhook reception, file-watcher ingestion,
+and the iOS-Shortcuts → local-endpoint bridge. Architectural
+prerequisite for Direction A's live children to run continuously
+rather than on-demand.
+
+**Direction D — combination workflows: static + live.** *The*
+load-bearing platform-shape claim. Live children supply *current
+state* (your latest run, recovery, glucose trace); static children
+supply *reference distribution* (cohort baselines, published
+datasets, prior analyses). Neither half answers the natural
+analytical question — *"where do I land in the cohort distribution
+on this metric?"* — alone; both halves plus the LLM reasoning
+across them via the router's existing `dispatch_internal()`
+cross-child seam do. The ChildMCP plurality the framework has
+shipped since v4 is half the claim; the realised combination
+workflow is the other half. One reference workflow ships in this
+direction, likely *"compare my morning run to the HIP Lab cohort
+distribution"* — pairs the running child (live) with the bundled
+HIP Lab `csv_dir` cohort fixtures (static) through
+`dispatch_internal()`, exposed as a first-class tool
+(`compare_me_to_cohort` or similar) and as a new section in a
+future demo reshape. The HIP Lab fixtures + Strava are already
+half-built in the codebase; what is missing is the workflow
+surface that names them as a combination, not as two unrelated
+children.
+
+**Direction E — one non-Claude MCP client integration.** The smallest
 move that makes plug-and-play a property, not a claim. Cline (VSCode
 extension, MCP-native) and Goose (Block's open-source MCP client) are
 the strongest candidates because they're MCP-native and active. A
@@ -195,7 +267,7 @@ documented end-to-end run — install Tailor, install Cline, ask a
 question, see the response come from Tailor — closes the *"works with
 any MCP-speaking LLM"* gap.
 
-**Direction C — framework visibility surfaces.** Two interlocking
+**Direction F — framework visibility surfaces.** Two interlocking
 pieces:
 
 - **Web UI dashboard / live inspector** — framework visibility. A
@@ -218,9 +290,13 @@ pieces:
 - [LLM-client evaluation harness](#llm-client-evaluation-harness) — measures the plug-and-play claim; promoted from the previous roadmap because it becomes *the* measurement infrastructure for cross-client governance.
 
 **Direction-level exit criterion**: a stranger could use Tailor with
-their own notes (or calendar, or photos), querying via Cline (or
-Goose, or local Ollama through Open WebUI), and have everything work.
-*Platform-shape* stops being a claim.
+their own live data (run, sleep, glucose, recovery — Direction A) AND
+their own static data (notes, calendar, photos, cohort CSVs —
+Direction B), combine the two through a workflow like
+*compare-me-to-cohort* (Direction D), with ingestion happening in the
+background not just on-demand (Direction C), and ask the question in
+Cline / Goose / a local-Ollama-fronted client (Direction E). When
+that loop works end-to-end, *platform-shape* stops being a claim.
 
 ---
 
@@ -309,6 +385,37 @@ end-to-end.
 **Trigger**: Phase 5 by default; CGM specifically can promote to
 Phase 4 if it doubles as a non-research platform-shape demo (e.g. a
 quantified-self user wants their own glucose data in their Wardrobe).
+
+### Live-platform consumer-biometric children (paired with static counterparts)
+
+The Strava child is the worked example of the OAuth-API +
+rate-limited API client + SQLite-cache + tier-model pattern — the
+project's first shipped child and the first link of code the
+framework owns in the four-link automation chain (see *What the
+platform automates, end-to-end* above). The held items below name
+live consumer-biometric platforms paired with the static children
+they combine with per Phase 4 Direction D. Each live candidate is
+justified by the static counterpart it composes with through
+`dispatch_internal()`, not by live-for-live's-sake.
+
+| Live child | Static counterpart on roadmap | Combination workflow it enables |
+|---|---|---|
+| **Apple Health Cloud / HealthKit** | EDF (sleep), FHIR (vitals), csv_dir (cohort exports) | Personal multi-modal record vs published reference distribution |
+| **Dexcom Clarity / Libre View / Nightscout** | OhioT1DM static CGM child | Live glucose vs published-cohort distribution |
+| **Oura Cloud** | Sleep-EDF (PhysioNet) static sleep child | Live sleep architecture vs cohort norms |
+| **Whoop** (webhook-capable) | — (exercises Direction C push-mode) | Recovery trajectory vs prior personal baseline |
+| **Garmin / Polar / Fitbit** | csv_dir (cohort exports), running-child Strava complement | Multi-platform watch coverage vs lab-collected cohort |
+
+**Trigger**: Phase 4 Directions A and D ship together — each new live
+child is justified by the static counterpart it combines with. Apple
+Health specifically pairs with Direction C shipping (HealthKit
+ingestion is push-mode-shaped via iOS Shortcuts). Promotion order is
+shaped by Phase 3 beachhead-tribe demand; the table is a menu of
+viable picks, not a sequence. A future ADR records the architectural
+commitments (audit-log scope on Link 3 only; combination as
+first-class workflow shape) when the first real combination workflow
+ships or a second live child lands — until then the roadmap holds
+the commitment without codifying it.
 
 ### Per-analyst attribution on vault evidence blocks
 

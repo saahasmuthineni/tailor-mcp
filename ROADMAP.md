@@ -26,6 +26,42 @@ one- or two-sentence pitch plus context; no implementation details.
 Effort: S (days), M (weeks), L (month+). Impact reflects research value,
 not engineering elegance.
 
+## Shipped in v7.0.0 (2026-05-08)
+
+Project rename: `Biosensor MCP` → **Tailor**. The first major version
+bump in the project's history. PyPI `tailor-mcp`; Python import +
+CLI `tailor`; config dir `~/.tailor/`; env vars `TAILOR_*`. New
+user-facing engine word **Wardrobe** for what the framework holds on
+the user's behalf (themes / moments / evidence / failure modes /
+audit history / source data) — replaces the working term *substrate*.
+New `tailor migrate` subcommand for non-destructive v6 → v7
+filesystem upgrade. Dual-prefix Claude Desktop cleanup (`biosensor-*`
++ `tailor` / `tailor-*`) so v6 → v7 doesn't leave orphan entries.
+Counter-programming invariant per [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md):
+visual language stays non-fashion, onboarding copy redirects the
+literal-clothing read, content shown in any "your Wardrobe" view is
+visibly diverse from first impression. Three ADR forward-cites added
+(0024 / 0026 / 0028) to keep the install / registration / migration
+story discoverable from existing ADRs. Internal architectural
+identifiers (`framework/`, `vault/`, `audit.db`, `RouterMCP`,
+`VaultLayer`, `ChildMCP`) preserved — they describe the architecture,
+not the project's identity. Domain-term language ("biosensor children",
+"biosensor-tier gates", "biosensor data") preserved — describes the
+data domain, which the framework still handles. Historical files
+(`CHANGELOG.md` pre-v7.0.0 entries, `docs/reports/*-2026-05-01.md`,
+the 2026-05-05 vault moment) preserved verbatim — they describe past
+state under the old name. Major bump because package import name,
+CLI command, env vars, default paths, and Claude Desktop registration
+keys all changed; every existing v6 install needs the new install
+command + a one-time migration. Gates: 930/930 pytest, ruff clean,
+76/76 probe, CLI smoke clean. mcp-protocol-auditor NOT TRIGGERED (no
+behavioural paths touched, only naming). recipient-install-validator
+SKIPPED per the v6.11.x silent-park falsification documented in
+project memory — operator hand-validation is the v7.0.0 backstop.
+ADR 0031 codifies the rename, the Wardrobe naming decision, the
+counter-programming invariant, the migration story, six alternatives
+considered, and four reversal conditions.
+
 ## Shipped in v6.13.0 (2026-05-08)
 
 - ADR 0030 NEW: *"Public-mirror narrative and zero-outbound-affordances"* — codifies the `--audience=public` rendering contract, the URL allowlist hard-fail seam, and the attribution-only footer pattern. Cites ADRs 0011 / 0024 / 0027 and the researcher-utility-reviewer persona definitions. Status: Proposed → shipped.

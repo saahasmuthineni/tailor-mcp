@@ -57,8 +57,8 @@ lives in.
 
 | Phase | Status | Defining question at exit |
 |---|---|---|
-| **Phase 0 — Install-path validation** | Active (duration TBD by diagnosis) | Can two outside recipients on different OSes install Tailor end-to-end without the project author touching their machine? |
-| **Phase 1 — Ship-quality housekeeping** | Queued (after Phase 0 → ~2 weeks) | Do the docs and identity match the install path that actually works? |
+| **Phase 0 — Install-path validation** | Closed 2026-05-12 (lenient read; macOS install witnessed clean by boss) | Can two outside recipients on different OSes install Tailor end-to-end without the project author touching their machine? |
+| **Phase 1 — Ship-quality housekeeping** | Active (~2 weeks) | Do the docs and identity match the install path that actually works? |
 | **Phase 2 — Public-launch readiness** | Queued (after Phase 1 → ~3 months) | If a stranger discovers Tailor cold, can they find, install, and start trusting it in under 30 minutes? |
 | **Phase 3 — Beachhead proof + public launch** | Direction | Has one real research lab used Tailor on real data, cited it in a paper, and would they recommend it? |
 | **Phase 4 — Platform-shape proof** | Direction | Can a stranger use Tailor with their own data — live or static — and combine the two via any MCP client of their choice? |
@@ -68,7 +68,7 @@ Items not in a phase live in [Held](#held-items-revisit-when-the-trigger-fires) 
 
 ---
 
-## Phase 0 — Install-path validation *(active; duration TBD by diagnosis)*
+## Phase 0 — Install-path validation *(closed 2026-05-12; lenient read on the two-outside-recipients exit criterion — see v7.0.8 § Shipped)*
 
 Empirically, no version of Tailor (or its predecessors under the
 *Biosensor MCP* name) has ever been successfully installed end-to-end
@@ -103,7 +103,7 @@ amplifies the failure rather than the project.
 
 ---
 
-## Phase 1 — Ship-quality housekeeping *(after Phase 0 → ~2 weeks)*
+## Phase 1 — Ship-quality housekeeping *(active; ~2 weeks)*
 
 Once Phase 0 produces a reliably-working install path, the
 housekeeping work that was previously labelled *"ship-quality v7.0.0"*
@@ -559,6 +559,12 @@ prior roadmap revisions per the same historical-preservation principle
 [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) applies to
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
+
+### Shipped in v7.0.8 (2026-05-12)
+
+- **Phase 0 closed** — Install-path validation closes under the lenient read of the exit criterion. 2026-05-09 Windows (self-driven, fresh user account) proved the technical install path on Windows-Store-Claude; 2026-05-12 macOS (first true outside recipient, friend installed, boss watched) proved the recipient-experience path. Exit intent — uninvolved third parties can install Tailor — is satisfied. Boss made the closure call after protocol-4 conflict was surfaced.
+- **Phase 1 unblocked** — Ship-quality housekeeping is now active (~2 weeks). Highest-leverage deliverable: `tailor migrate` removal (scaffolding for a v6 user population that turned out to be zero).
+- **ROADMAP.md Phase 0 / Phase 1 status rows + section headers updated** — at-a-glance table and section headers reflect the phase flip.
 
 ### Shipped in v7.0.7 (2026-05-12)
 

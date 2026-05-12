@@ -137,7 +137,7 @@ strangers at the door.
 |---|---|---|
 | **Publish to PyPI as `tailor-mcp`** | 1 day | The canonical install path named in [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) ("when published"). Closes the hand-delivered-wheel gap. `pip install tailor-mcp` becomes the install command. |
 | **Make the GitHub repo public** | 30 min | Without this, the trust narrative ("look at the audit log; look at the 31 ADRs; look at the determinism invariants") cannot establish itself in OSS culture. The discipline only signals trust if outsiders can read it. |
-| **Promote `counter-programming-invariant-auditor` agent** | 1 day | [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md)'s invariant currently relies on memory. A read-only specialist (parallel shape to `phi-irb-risk-reviewer`) that scans diffs for fashion-domain language, garment imagery, and missing redirects makes the invariant *enforced by review at PR time*. |
+| **Promote `vocabulary-drift-auditor` agent (reshape of retired `counter-programming-invariant-auditor`)** | 1 day | [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md)'s counter-programming invariant was retired by [ADR 0033](docs/adr/0033-complete-tailor-metaphor-workshop-side.md); the narrow-forbid list at [`tailor-vocabulary.md` § Table 5](docs/design/tailor-vocabulary.md) is enforceable by grep, mooting the original specialist's design. The reshape candidate is broader: a `vocabulary-drift-auditor` that audits drift between [`tailor-vocabulary.md`](docs/design/tailor-vocabulary.md), the shipped code, and the ADR set (parallel shape to `code-vs-roadmap-drift-auditor`). Promotion gates on [ADR 0011](docs/adr/0011-promotion-policy.md)'s structural-argument bar. |
 | **First-time-user setup pass** | 1 week | Walk through `tailor pilot` and `tailor demo` cold, in someone else's hands, with attention to the friction points an early adopter would hit. README, error messages, and onboarding copy revised against the friction surfaced. |
 | **Apple Silicon reference deployment recipe** | 1 week | Document the *"Tailor on a Mac mini"* recipe for newcomers — recommended hardware tier (M4 24GB minimum), bundled local LLM (Llama 3.1 8B via MLX), always-on LaunchAgent setup, troubleshooting. Decides what *"AI-optimized computer"* means concretely for v1. |
 | **CONTRIBUTING + community machinery** | 2 days | Issue templates for bug / feature / child contribution; PR template; child contribution guide; code of conduct beyond defaults. Without this, public-launch contributions hit unstructured chaos. |
@@ -559,6 +559,15 @@ prior roadmap revisions per the same historical-preservation principle
 [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) applies to
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
+
+### Shipped in v7.0.7 (2026-05-12)
+
+- **[ADR 0033](docs/adr/0033-complete-tailor-metaphor-workshop-side.md) NEW, Accepted** — completes the Tailor metaphor on the workshop side; retires the counter-programming invariant from ADR 0031 and replaces it with a positive workshop-shaped metaphor identity + narrow-forbid list enforceable by grep.
+- **[ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) amended** — status flipped Accepted → Superseded in part by ADR 0033; naming decisions retained; counter-programming invariant retired.
+- **Wardrobe / Ledger split** — Audit history bullet moved from the Wardrobe list to a new sibling Ledger paragraph in `CLAUDE.md` § Your Wardrobe and `README.md` § Your Wardrobe; directory structure (`framework/audit.db` outside `framework/vault/`) already reflected this split before the terminology did.
+- **New [`docs/design/tailor-vocabulary.md`](docs/design/tailor-vocabulary.md)** — normative reference with six locked vocabulary tables: 7 structural nouns, 12 relational verbs, service hierarchy, audience model, workshop-vs-lifestyle invariant, weak beats.
+- **ROADMAP.md Phase 2 row reshaped** — `counter-programming-invariant-auditor` → `vocabulary-drift-auditor` with explicit ADR 0033 retirement record.
+- Gates: ci-gate-runner SHIPPABLE (940/940 pytest, ruff clean, 76/76 probe, CLI smoke). mcp-protocol-auditor NOT TRIGGERED. cue-card-rehearsal-auditor NOT TRIGGERED. recipient-install-validator SKIPPED (no trigger-glob paths touched; v6.11.x falsification grounds the skip).
 
 ### Shipped in v7.0.6 (2026-05-09)
 

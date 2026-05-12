@@ -1,5 +1,46 @@
 # CLAUDE.md — Tailor
 
+> **v7.0.7 (2026-05-12)** — Governance/team-shape patch. ADR 0033 (NEW,
+> Accepted) completes the Tailor metaphor on the workshop side, closing the
+> deferred half of ADR 0031. The counter-programming invariant (three negative
+> rules about fashion language) retires; a positive workshop-shaped metaphor
+> identity replaces it. ADR 0031 status flipped Accepted → Superseded in part
+> by ADR 0033; naming decisions (Tailor / Wardrobe / `tailor-mcp` / `tailor` /
+> `~/.tailor/`) retained.
+>
+> Load-bearing structural shifts: (1) **Counter-programming invariant retired**;
+> replaced by the workshop-vs-lifestyle narrow-forbid list (6 always-forbidden
+> words: couture, couturier, atelier, boutique, runway, showroom; 9
+> lifestyle-register-only forbidden words) enforceable by grep. (2)
+> **Wardrobe / Ledger split** — Audit history moves out of the Wardrobe (the
+> customer's collection) to a separate Ledger (the tailor's record). The
+> directory structure (`framework/audit.py` outside `framework/vault/`) already
+> reflected this split before the terminology did. (3) **Six locked vocabulary
+> tables** in new [`docs/design/tailor-vocabulary.md`](docs/design/tailor-vocabulary.md):
+> 7 structural nouns (Tailor, Wardrobe, Threads, Fabric, Garment, Seam,
+> Ledger), 12 relational verbs, service hierarchy (User → Tailor → AI/wearer),
+> audience model, workshop-vs-lifestyle invariant, weak beats. (4) **Service
+> hierarchy codified**: User is the principal; Tailor is the craftsperson in
+> service to the user; AI is the wearer (collaborator on the team, outfitted
+> by Tailor to act on the user's behalf). Boss framing: *"the real power of
+> this tool should eventually circle to the human after all."*
+>
+> New artifacts: `docs/adr/0033-complete-tailor-metaphor-workshop-side.md`
+> (~400 lines), `docs/design/tailor-vocabulary.md` (~175 lines). Amended:
+> ADR 0031 (status flip + counter-programming invariant retirement closeout),
+> `CLAUDE.md` § Your Wardrobe (Audit history → Ledger paragraph), `README.md`
+> § Your Wardrobe (parallel split), `ROADMAP.md` (Phase 2 deliverable reshaped
+> from `counter-programming-invariant-auditor` → `vocabulary-drift-auditor`
+> with ADR 0033 retirement record).
+>
+> No `src/` or `tests/` changes; no public API changes; no
+> router/security/child/vault/CLI architecture changes. Patch bump. Gates:
+> ci-gate-runner SHIPPABLE (940/940 pytest, ruff clean, 76/76 probe, CLI smoke
+> clean). mcp-protocol-auditor NOT TRIGGERED (no framework/router/security/
+> vault paths touched). cue-card-rehearsal-auditor NOT TRIGGERED (no CUE_CARD.md
+> or ToolDefinition schema changes). recipient-install-validator SKIPPED (no
+> touched paths match trigger globs; v6.11.x falsification grounds the skip).
+
 > **v7.0.6 (2026-05-09)** — Governance/team-shape patch. ADR 0032 (NEW,
 > Accepted) retires the public-mirror distribution path codified in ADR 0030
 > + ADR 0024 § 3.1. Wheel-handoff via personal email supersedes through Phase 1;
@@ -1038,12 +1079,13 @@ Your **Wardrobe** is what your AI knows about you: the structured collection of 
 - **Moments** — observations worth remembering across sessions (an aha; a captured mid-analysis insight; a clinical impression)
 - **Evidence** — data that grounds a theme (a specific time-window, a specific cohort comparison, a specific trace)
 - **Failure modes** — documented dead-ends so the AI doesn't suggest them again
-- **Audit history** — every action your AI took on your behalf, with timestamps, parameters, outcomes
 - **Source data** — the biometric streams, CSVs, vault notes the AI reasons over
 
-Tailor curates your Wardrobe — adds to it, retrieves from it, governs how the AI reaches into it — and never sends any of it to a service you didn't choose. Internally the framework still has component names like `vault/` (the markdown storage layer), `framework/` (the security pipeline), `audit.db` (the SQLite audit log); user-facing language uses **Wardrobe** as the term for what those components hold collectively.
+Tailor curates your Wardrobe — adds to it, retrieves from it, governs how the AI reaches into it — and never sends any of it to a service you didn't choose. Internally the framework still has component names like `vault/` (the markdown storage layer) and `framework/` (the security pipeline); user-facing language uses **Wardrobe** as the term for what those components hold collectively.
 
-Counter-programming invariant per [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md): visual language stays non-fashion; onboarding copy actively redirects the literal-clothing read; content shown in any "your Wardrobe" view is visibly diverse (not just one data type) from first impression. The clothing metaphor is internal-coherence (Tailor + Wardrobe is a thematic pairing); the brand identity is *personal data substrate*, not fashion.
+Alongside the Wardrobe, Tailor maintains a separate **Ledger** — the audit log. Every action Tailor took on your behalf is recorded in SQLite with timestamps, parameters, outcomes, `scrubber_id`, and optional `subject_id` scoping. The Ledger is the tailor's own record of work; the Wardrobe is yours. Both are local-first and held on your behalf, but they are accounted separately (per [ADR 0033](docs/adr/0033-complete-tailor-metaphor-workshop-side.md)). The audit-log backbone per [ADR 0001](docs/adr/0001-audit-log-as-backbone.md) is what the Ledger names; internally the audit log lives at `audit.db` in `framework/`, not in `framework/vault/`, so the directory structure already reflected the Ledger / Wardrobe split before this terminology did.
+
+Workshop-vs-lifestyle invariant per [ADR 0033](docs/adr/0033-complete-tailor-metaphor-workshop-side.md) (supersedes the counter-programming invariant from [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md)): the project's metaphor identity is **workshop-shaped**, not lifestyle-shaped. Tailor *commissions* fabric from mills (children), *trims* it to the tier the wearer (AI) needs, and *stitches* the seams with institutional implementations. The full vocabulary lives at [`docs/design/tailor-vocabulary.md`](docs/design/tailor-vocabulary.md); the narrow-forbid list (Table 5 — couture / atelier / boutique / runway / showroom / couturier always forbidden; nine more forbidden only in lifestyle-register usage) is enforceable by grep.
 
 The running child (Strava data) is one **worked example** of the ChildMCP pattern — a complete, copyable template for wrapping a streaming biometric source. It is retained for teaching value; it is not the canonical use case.
 

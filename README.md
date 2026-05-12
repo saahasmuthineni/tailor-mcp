@@ -172,10 +172,11 @@ It accumulates:
 - **Moments** — timestamped observations (the analyst's *aha*, the clinical impression, the writer's note-to-self)
 - **Evidence** — the data blocks that ground a theme, supersession-tracked so a wrong claim can be corrected without rewriting history
 - **Failure modes** — documented dead-ends so your AI doesn't suggest them again
-- **Audit history** — every action your AI took on your behalf, in SQLite, scoped by optional `subject_id`
 - **Source data** — the CSVs, biometric streams, and vault notes the AI reasons over
 
 Wardrobe lives entirely on your machine as **plain markdown files plus a SQLite index**. Markdown is the source of truth; the index makes it queryable. Open the same files in Obsidian, in VS Code, or in `cat` — they're yours, append-only, and inspectable down to the row. That's the difference from Hosted Memory: governance infrastructure, not chat-convenience.
+
+Alongside the Wardrobe, Tailor maintains a separate **Ledger** — the audit log. Every action Tailor took on your behalf is recorded in SQLite (timestamp, tool, tier, parameters, outcome, `scrubber_id`, optional `subject_id`). The Ledger is the tailor's own record of work; the Wardrobe is yours. Both live on your machine and accumulate on your behalf, but they are accounted separately per [ADR 0033](docs/adr/0033-complete-tailor-metaphor-workshop-side.md) — the audit-log backbone (per [ADR 0001](docs/adr/0001-audit-log-as-backbone.md)) is what the Ledger names. Attachable to a protocol amendment, an IRB review, or a replication package.
 
 <p align="center">
   <img src="docs/assets/vault-insights.svg" alt="Themes, moments, and evidence inside the Wardrobe — rendered as plain markdown viewable in Obsidian or any text editor" width="760">

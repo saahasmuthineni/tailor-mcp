@@ -1,5 +1,29 @@
 # CLAUDE.md — Tailor
 
+> **v7.0.8 (2026-05-12)** — Governance/team-shape patch. Phase 0 (install-path
+> validation) closes under the lenient read of the [ROADMAP.md](ROADMAP.md)
+> exit criterion at lines 99–100. Strict read requires two consecutive fresh-machine
+> installs by outside recipients on different OSes; the 2026-05-09 Windows attempt
+> was self-driven diagnosis on the boss's own machine (fresh user account, but
+> boss-driven), and the 2026-05-12 macOS attempt was the first true outside recipient
+> (friend installed, boss watched only). Lenient read: 2026-05-09 proved the
+> technical install path on Windows-Store-Claude; 2026-05-12 proved the
+> recipient-experience path on macOS; the EXIT INTENT — uninvolved third parties
+> can install it — is satisfied. Boss made the closure call; protocol-4 conflict
+> was surfaced before ratification.
+>
+> Phase 1 (ship-quality housekeeping) unblocks. The highest-leverage Phase 1
+> deliverable is `tailor migrate` removal per ROADMAP framing — scaffolding for a
+> v6 user population that turned out to be zero (validated by the 2026-05-12
+> project-memory note on the hand-patched migrate path-rewrite gap). No `src/` or
+> `tests/` changes; no schema changes; no public API changes; no
+> router/security/child/vault/CLI architecture changes. Patch bump. ROADMAP.md
+> Phase 0 and Phase 1 status rows + section headers updated. Gates: 940/940
+> pytest, ruff clean, 76/76 probe, CLI smoke clean. mcp-protocol-auditor NOT
+> TRIGGERED. cue-card-rehearsal-auditor NOT TRIGGERED. recipient-install-validator
+> SKIPPED (no touched paths match trigger globs; v6.11.x falsification grounds the
+> skip).
+
 > **v7.0.7 (2026-05-12)** — Governance/team-shape patch. ADR 0033 (NEW,
 > Accepted) completes the Tailor metaphor on the workshop side, closing the
 > deferred half of ADR 0031. The counter-programming invariant (three negative

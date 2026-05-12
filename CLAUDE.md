@@ -1,5 +1,46 @@
 # CLAUDE.md — Tailor
 
+> **v7.0.7 (2026-05-12)** — Governance/team-shape patch. ADR 0033 (NEW,
+> Accepted) completes the Tailor metaphor on the workshop side, closing the
+> deferred half of ADR 0031. The counter-programming invariant (three negative
+> rules about fashion language) retires; a positive workshop-shaped metaphor
+> identity replaces it. ADR 0031 status flipped Accepted → Superseded in part
+> by ADR 0033; naming decisions (Tailor / Wardrobe / `tailor-mcp` / `tailor` /
+> `~/.tailor/`) retained.
+>
+> Load-bearing structural shifts: (1) **Counter-programming invariant retired**;
+> replaced by the workshop-vs-lifestyle narrow-forbid list (6 always-forbidden
+> words: couture, couturier, atelier, boutique, runway, showroom; 9
+> lifestyle-register-only forbidden words) enforceable by grep. (2)
+> **Wardrobe / Ledger split** — Audit history moves out of the Wardrobe (the
+> customer's collection) to a separate Ledger (the tailor's record). The
+> directory structure (`framework/audit.py` outside `framework/vault/`) already
+> reflected this split before the terminology did. (3) **Six locked vocabulary
+> tables** in new [`docs/design/tailor-vocabulary.md`](docs/design/tailor-vocabulary.md):
+> 7 structural nouns (Tailor, Wardrobe, Threads, Fabric, Garment, Seam,
+> Ledger), 12 relational verbs, service hierarchy (User → Tailor → AI/wearer),
+> audience model, workshop-vs-lifestyle invariant, weak beats. (4) **Service
+> hierarchy codified**: User is the principal; Tailor is the craftsperson in
+> service to the user; AI is the wearer (collaborator on the team, outfitted
+> by Tailor to act on the user's behalf). Boss framing: *"the real power of
+> this tool should eventually circle to the human after all."*
+>
+> New artifacts: `docs/adr/0033-complete-tailor-metaphor-workshop-side.md`
+> (~400 lines), `docs/design/tailor-vocabulary.md` (~175 lines). Amended:
+> ADR 0031 (status flip + counter-programming invariant retirement closeout),
+> `CLAUDE.md` § Your Wardrobe (Audit history → Ledger paragraph), `README.md`
+> § Your Wardrobe (parallel split), `ROADMAP.md` (Phase 2 deliverable reshaped
+> from `counter-programming-invariant-auditor` → `vocabulary-drift-auditor`
+> with ADR 0033 retirement record).
+>
+> No `src/` or `tests/` changes; no public API changes; no
+> router/security/child/vault/CLI architecture changes. Patch bump. Gates:
+> ci-gate-runner SHIPPABLE (940/940 pytest, ruff clean, 76/76 probe, CLI smoke
+> clean). mcp-protocol-auditor NOT TRIGGERED (no framework/router/security/
+> vault paths touched). cue-card-rehearsal-auditor NOT TRIGGERED (no CUE_CARD.md
+> or ToolDefinition schema changes). recipient-install-validator SKIPPED (no
+> touched paths match trigger globs; v6.11.x falsification grounds the skip).
+
 > **v7.0.6 (2026-05-09)** — Governance/team-shape patch. ADR 0032 (NEW,
 > Accepted) retires the public-mirror distribution path codified in ADR 0030
 > + ADR 0024 § 3.1. Wheel-handoff via personal email supersedes through Phase 1;

@@ -560,6 +560,15 @@ prior roadmap revisions per the same historical-preservation principle
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
 
+### Shipped in v7.0.7 (2026-05-12)
+
+- **[ADR 0033](docs/adr/0033-complete-tailor-metaphor-workshop-side.md) NEW, Accepted** — completes the Tailor metaphor on the workshop side; retires the counter-programming invariant from ADR 0031 and replaces it with a positive workshop-shaped metaphor identity + narrow-forbid list enforceable by grep.
+- **[ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) amended** — status flipped Accepted → Superseded in part by ADR 0033; naming decisions retained; counter-programming invariant retired.
+- **Wardrobe / Ledger split** — Audit history bullet moved from the Wardrobe list to a new sibling Ledger paragraph in `CLAUDE.md` § Your Wardrobe and `README.md` § Your Wardrobe; directory structure (`framework/audit.db` outside `framework/vault/`) already reflected this split before the terminology did.
+- **New [`docs/design/tailor-vocabulary.md`](docs/design/tailor-vocabulary.md)** — normative reference with six locked vocabulary tables: 7 structural nouns, 12 relational verbs, service hierarchy, audience model, workshop-vs-lifestyle invariant, weak beats.
+- **ROADMAP.md Phase 2 row reshaped** — `counter-programming-invariant-auditor` → `vocabulary-drift-auditor` with explicit ADR 0033 retirement record.
+- Gates: ci-gate-runner SHIPPABLE (940/940 pytest, ruff clean, 76/76 probe, CLI smoke). mcp-protocol-auditor NOT TRIGGERED. cue-card-rehearsal-auditor NOT TRIGGERED. recipient-install-validator SKIPPED (no trigger-glob paths touched; v6.11.x falsification grounds the skip).
+
 ### Shipped in v7.0.6 (2026-05-09)
 
 - **[ADR 0032](docs/adr/0032-retire-public-mirror-distribution.md) NEW, Accepted** — retires the public-mirror distribution path from ADR 0030 + ADR 0024 § 3.1; wheel-handoff via personal email supersedes through Phase 1; GitHub Pages on source repo supersedes from Phase 2 PyPI publish onward.

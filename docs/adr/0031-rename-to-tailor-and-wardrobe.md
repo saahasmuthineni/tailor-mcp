@@ -1,6 +1,6 @@
 # ADR 0031: Project rename to Tailor + introduction of Wardrobe as the user-facing engine word, with a non-fashion counter-programming invariant
 
-- **Status:** Accepted
+- **Status:** Superseded in part by [ADR 0033 (Complete the Tailor metaphor on the workshop side)](0033-complete-tailor-metaphor-workshop-side.md) — counter-programming invariant retired (replaced by positive metaphor identity + narrow-forbid list); naming decisions (Tailor / Wardrobe / `tailor-mcp` / `tailor` / `~/.tailor/`) retained
 - **Date:** 2026-05-08
 - **Related:**
   - [ADR 0024 (Wheel-distributed tour and fixture bundling)](0024-wheel-distributed-tour-and-fixture-bundling.md) — install path adopts the new CLI / package names; ADR 0024 amended with a v7.0.0 forward-cite

@@ -1,5 +1,49 @@
 # CLAUDE.md — Tailor
 
+> **v7.0.11 (2026-05-12)** — Governance/doc-truth patch. AI economics
+> restored as top-billed framing per [ADR 0029](docs/adr/0029-token-reduction-as-analytical-quality.md)
+> (Amended 2026-05-12). The v6.12.0 "Token efficiency is a useful side
+> effect… not the headline" demotion sentence in CLAUDE.md § "Problems
+> this is built against" was a drift downstream of what ADR 0029 actually
+> decided ("token reduction as analytical quality, not JUST cost
+> optimization"). This patch restores the framing under the boss's
+> preferred umbrella name **AI economics** — a label that generalises
+> across deployment recipes and doesn't date with cheaper models.
+>
+> ADR 0029 amended (new `## Amendment 2026-05-12 — AI economics as
+> umbrella claim` section, ~90 lines): names the umbrella + three faces
+> (analytical quality / cognitive amplification / cost-per-question as the
+> same lever), the doc-truth cascade motivating this patch, and a symmetric
+> reversal condition (if two independent published benchmarks show frontier
+> models performing comparably on raw-stream context vs. structured summaries
+> at sub-10k-token loads, retire the AI-economics claim and revert to
+> "useful side effect"). CLAUDE.md § "Problems this is built against" gains
+> a 4th named problem: "AI economics — structured answers instead of raw
+> streams mean the AI's context goes to reasoning over the question, prior
+> work, and audit trail rather than parsing data. The same architectural
+> choice that satisfies the data-governance problem also makes the AI
+> materially better at the question and reduces cost-per-question by 10–100×
+> (ADR 0029, Amended)." Demotion sentence deleted. README hero clause
+> updated: bold lead now ends with "…and turns a $200/month AI bill into a
+> $2/month one while making the AI materially better at your question"; new
+> bold sentence explains the mechanism. demo `runner.py` Section 3 closing
+> prose + closing summary bullet sharpened from "analytical quality, not
+> just billing" / "Tier 1 wins on analytical quality, not just on cost" →
+> "analytical quality AND AI economics (cost-per-question and
+> context-per-question are the same lever)". Prose-only changes inside
+> `print()` calls; no logic changes.
+>
+> No `src/` logic changes; no schema changes; no public API changes; no
+> router/security/child/vault/CLI architecture changes. Patch bump. Gates:
+> 946/946 pytest, ruff clean, 76/76 probe, CLI smoke clean.
+> mcp-protocol-auditor NOT TRIGGERED (no framework/router/security/vault
+> paths touched; runner.py edit is print()-call prose only).
+> cue-card-rehearsal-auditor NOT TRIGGERED (no CUE_CARD.md or ToolDefinition
+> schema changes). recipient-install-validator SKIPPED (runner.py is in
+> ADR 0028 trigger globs but edit is print()-call prose only — no
+> install-path logic touched; v6.11.x falsification grounds the opt-in skip
+> per v6.11.1 policy; v7.0.10 set the precedent for framing-only patches).
+
 > **v7.0.10 (2026-05-12)** — Docs-only patch. README install-path
 > framing + ROADMAP preamble swept to align with Phase 0 lenient-read
 > closure (2026-05-12). The install commands themselves
@@ -1271,8 +1315,7 @@ These four ground the team in the project's stated goal (CLAUDE.md § "What This
 1. **Data governance.** Hosted LLMs are the wrong home for participant biometric data. The tier model and local-first processing are the structural response.
 2. **Reproducibility.** LLM-assisted analyses in chat windows leave no durable trace. The audit log (every call logged to SQLite, scoped by optional `subject_id`) and `_meta` provenance stamps are the response.
 3. **Longitudinal analytical memory.** Observations made in one session disappear when the chat ends. The vault layer (themes, moments, evidence logs, append-only) is the response.
-
-Token efficiency is a useful side effect of computing summaries server-side. It is not the headline.
+4. **AI economics.** Hosted LLMs face a finite context budget per question and a finite cost ceiling per deployment. Tier-1 server-side computation — *return the answer, not the data* — is simultaneously a cost lever (token-per-question collapses by 1–2 orders of magnitude on most analytical questions) and a cognition lever (freed context goes to reasoning over the analyst's prior Wardrobe, the audit log, the current question — not to data shuffling). The win compounds with the AI ecosystem rather than eroding with cheaper models: as AI is deployed against larger substrates, the per-question context-budget problem gets harder, not easier. Per [ADR 0029](docs/adr/0029-token-reduction-as-analytical-quality.md) (Amended 2026-05-12), this property is what makes AI-augmented work sustainable at the scale real substrates demand — and it generalizes across every deployment recipe Tailor will ever ship, not only the health-research worked example.
 
 ## Architecture
 

@@ -1,6 +1,7 @@
 # ADR 0029: Token reduction is analytical quality, not just cost optimization; the demo demonstrates the architecture, not only the cohort thesis
 
 - **Status:** Accepted (flipped from Proposed on 2026-05-08 when v6.12.0 shipped)
+- **Amended:** 2026-05-12 — § AI economics as umbrella claim
 - **Date:** 2026-05-07
 - **Partially supersedes:** [ADR 0027 (Demo as researcher first-look)](0027-demo-as-researcher-first-look.md) — § Negative consequences "the demo bypasses RouterMCP by design" (lines 174-193) and the framing-prose contract that names `_meta` in prose because the demo doesn't exercise the router. ADR 0027's central claim — cohort thesis as canonical first-look, no Strava data — is preserved.
 - **Related:** [ADR 0001 (Audit log is the backbone)](0001-audit-log-as-backbone.md), [ADR 0005 (Cost pre-estimation)](0005-cost-pre-estimation.md), [ADR 0008 (Deterministic-by-construction processing)](0008-deterministic-by-construction-processing.md), [ADR 0015 (Tier-1 cohort surface)](0015-tier-1-cohort-surface-and-metadata-sidecar.md), [ADR 0022 (Local-LLM guardian)](0022-local-llm-guardian.md), [ADR 0023 (Local-LLM cooperation loop)](0023-local-llm-cooperation-loop.md), [ADR 0028 (Recipient-install validation)](0028-recipient-install-validation-as-release-gate.md), [CLAUDE.md § Three-Tier Access Model](../../CLAUDE.md#three-tier-access-model)
@@ -261,6 +262,95 @@ demo output (per the agent's boss-authorization clause for assertion-
 list updates). The reversal condition references recipient-feedback
 evidence that does not yet exist; Proposed is the honest status
 pending that evidence.
+
+## Amendment 2026-05-12 — AI economics as umbrella claim
+
+This ADR's original framing — *token reduction is analytical
+quality, not just cost optimization* — was correct as far as it
+went and structurally incomplete on its own terms. The "not just"
+clause preserved cost optimization as a real co-benefit, but the
+title's emphasis on *analytical quality* alone admitted a downstream
+drift: the CLAUDE.md compression of this ADR into § "Problems this
+is built against" rendered it as *"Token efficiency is a useful
+side effect of computing summaries server-side. It is not the
+headline."* That sentence went further than this ADR did — it
+demoted token efficiency from "a co-benefit alongside analytical
+quality" to "side effect, not headline" — and the README hero
+clause inherited the demotion downstream. The boss flagged the
+drift on 2026-05-12 in a conceptual session.
+
+The structural correction: **AI economics is the umbrella claim,
+and analytical quality is one of three faces of it.** The three
+faces share a single mechanism (Tier-1 server-side computation
+returns the answer, not the data) and produce three distinct
+properties:
+
+1. **Analytical quality** — pre-computed numbers from
+   `@staticmethod` pure functions under the ADR 0008 determinism
+   invariant. Original consequence-bullet (1) above, unchanged.
+2. **Cognitive amplification** — freed context window goes to
+   reasoning over the analyst's prior Wardrobe, the audit log,
+   and the current question, rather than to holding raw streams
+   the LLM must re-aggregate. The "lost in the middle" attention
+   degradation pattern on long inputs (consequence-bullet (2)
+   above) restated as a *cognitive budget* property: token-per-
+   question is simultaneously a cost lever and a cognition lever
+   because both are bounded by the same underlying scalar.
+3. **Cost-per-question** — token-per-question collapses by 1–2
+   orders of magnitude on most analytical questions. For an
+   academic medical center running daily analyst interactions
+   against a longitudinal cohort, this is the difference between
+   sustainable grant-funded usage and one-off-supplement-required
+   usage. Not vendor-economics; deployment-economics.
+
+The win compounds with the AI ecosystem rather than eroding with
+cheaper models: as per-token cost falls, AI gets deployed against
+larger substrates (whole codebases, whole EHRs, whole archives),
+and the per-question context-budget problem gets harder, not
+easier. Token reduction under the Tier-1 server-side computation
+pattern is what keeps AI tractable at scale.
+
+The umbrella naming also makes ADR 0029's claim properly
+**recipe-general** rather than recipe-specific. CLAUDE.md § "What
+This Project Is" already names the framework as data-agnostic and
+use-case-agnostic — the cognitive amplification + cost-per-
+question win is the same property whether the deployment recipe is
+health research (the worked example), clinical workflows, knowledge
+work over a personal archive, or creative-archive curation. The
+researcher-cost framing surfaced in the boss's 2026-05-12 prompt
+is the umbrella claim observed through the academic-medical-center
+lens, not a separate benefit.
+
+### Doc-truth cascade
+
+This amendment authorizes three downstream edits, landed in the
+same patch (v7.0.11):
+
+1. **CLAUDE.md § "Problems this is built against"** — fourth named
+   problem ("AI economics") added; the "Token efficiency is a
+   useful side effect…not the headline" sentence deleted.
+2. **README.md hero clause** — extended to lead with concrete-
+   dollar framing ($200/month → $2/month) and to name the AI-
+   context-budget property so the recipient's first-paragraph
+   impression includes the AI-economics claim alongside data
+   governance and reproducibility.
+3. **`src/tailor/demo/runner.py` Section 3 framing prose +
+   closing summary** — *"analytical quality, not just billing"*
+   sharpened to *"analytical quality AND AI economics — the same
+   lever from two angles."* The Section 3 token-count printouts
+   (already shipped in v6.12.0) are the visible math behind the
+   umbrella claim.
+
+### Reversal condition (amendment)
+
+If recipient feedback shows the AI-economics framing makes the
+project sound *vendor-economics-shaped* or *cost-optimization-
+shaped* to a research audience (the original reason the framing
+was demoted), the umbrella claim retreats and analytical quality
+returns to the lead. The reversal condition is the named escape
+hatch and does not yet apply — the demotion was the wrong
+correction, but a future overcorrection in the opposite direction
+is the symmetric risk this clause guards against.
 
 ## Consequences
 

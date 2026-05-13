@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tailor-mcp"
-version = "7.0.10"
+version = "7.0.11"
 description = "Tailor: a local-first MCP framework that lets any MCP-speaking AI work with your own data — your Wardrobe stays on your machine, with server-side analytics, consent gates, cost gates, and a durable audit log."
 readme = "README.md"
 requires-python = ">=3.10"

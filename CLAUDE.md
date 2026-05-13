@@ -1,5 +1,27 @@
 # CLAUDE.md — Tailor
 
+> **v7.0.10 (2026-05-12)** — Docs-only patch. README install-path
+> framing aligned with Phase 0 lenient-read closure (2026-05-12). The
+> install commands (`uv tool install git+...tailor-mcp.git` + `tailor
+> tour`) were already correct post-rename; six framing callouts and
+> table rows that described Phase 0 as active and no install as
+> succeeded are updated to reflect the 2026-05-12 macOS outside-
+> recipient install ratified by v7.0.8. Anchor fix: four README
+> cross-references to the Phase 0 ROADMAP header repointed to
+> `#at-a-glance` (the Phase 0 header acquired a `*(closed…)*` suffix
+> that rewrote its anchor). ADR count refreshed 31 → 34 (docs/adr/
+> counts verified). Closes the last active Phase 1 ROADMAP deliverable
+> ("Update README install commands to reflect the install path that
+> survived Phase 0"); all four Phase 1 deliverables are now landed and
+> Phase 2 unblocks. No `src/` or `tests/` changes; no public API
+> changes; no router/security/child/vault/CLI architecture changes.
+> Patch bump. Gates: 940/940 pytest, ruff clean, 76/76 probe, CLI
+> smoke clean. mcp-protocol-auditor NOT TRIGGERED. cue-card-rehearsal-
+> auditor NOT TRIGGERED. recipient-install-validator SKIPPED (README.md
+> not in ADR 0028 trigger globs; v6.11.x falsification grounds the
+> skip). Includes pending README.md governance/framing edit per Phase 1
+> ROADMAP deliverable ("Update README install commands…").
+
 > **v7.0.9 (2026-05-12)** — Governance/CLI-surface patch. `tailor migrate` subcommand
 > and its associated startup warning retired per [ADR 0034](docs/adr/0034-retire-tailor-migrate-subcommand.md)
 > (NEW, Accepted). The v6 → v7 migration population was empirically zero: no successful

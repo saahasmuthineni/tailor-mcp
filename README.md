@@ -15,8 +15,10 @@ the platform's identity***. Future recipes (knowledge work, quantified
 self, household, creative archives) compose on the same engine; see
 [ROADMAP.md](ROADMAP.md) for the phased path from "researcher
 first-look on a hand-delivered wheel" to canonical *personal AI
-server*, including the binding [Phase 0](ROADMAP.md#phase-0--install-path-validation-active-duration-tbd-by-diagnosis)
-install-validation constraint.
+server*. [Phase 0 — install-path validation](ROADMAP.md#at-a-glance)
+closed 2026-05-12 under the lenient read of its exit criterion (one
+Windows + one macOS install proven cross-OS); Phase 1 ship-quality
+housekeeping is now active.
 
 Your **Wardrobe** is what Tailor governs on your behalf: the
 structured collection of your data and prior analytical work that
@@ -30,7 +32,7 @@ sends any of it to a service you didn't choose.
 
 ## 30-second quickstart
 
-> *Phase 0 in progress — install reliability is being validated externally. See [Status](#status). If you're trying this cold, please open an issue with any friction points; that diagnostic is the priority work right now.*
+> *Phase 0 closed 2026-05-12 under the lenient read of the exit criterion — the install ritual below has been completed end-to-end by outside recipients on both Windows (Microsoft Store Claude Desktop) and macOS. The strict read (two clean outside-recipient installs on different OSes, project author untouched at every step) is still open. See [Status](#status). If you hit any friction installing cold, please open an issue — that's the highest-leverage diagnostic right now.*
 
 For a PI or analyst running a multi-subject CSV pilot:
 
@@ -59,7 +61,7 @@ Then open [**docs/guides/worked-example.ipynb**](docs/guides/worked-example.ipyn
 - **Quantified-self / future-recipe explorer** → [Your Wardrobe](#your-wardrobe) · [What This Project Is](CLAUDE.md#what-this-project-is) · [ROADMAP Phase 4 — platform-shape proof](ROADMAP.md#phase-4--platform-shape-proof-direction)
 - **Developer trying the demo** → [Install & run](#install--run)
 - **Architect / integrator** → [Architecture](#architecture) · [Adding a new child data source](CLAUDE.md#adding-a-new-childmcp-new-data-source)
-- **Considering whether to install cold** → [ROADMAP Phase 0 — install-path validation](ROADMAP.md#phase-0--install-path-validation-active-duration-tbd-by-diagnosis) (read this *before* trying)
+- **Considering whether to install cold** → [ROADMAP — install-path validation closed 2026-05-12](ROADMAP.md#at-a-glance) (read the Status section before trying; the install is proven cross-OS but Phase 0 closed under the lenient read, not the strict one)
 - **Curious where this is going** → [What's next](#whats-next) · [full ROADMAP.md](ROADMAP.md)
 
 ---
@@ -241,7 +243,7 @@ For the durable-memory side of the picture (themes, moments, evidence — the *W
 
 ## Status
 
-- **Install-path validation is Phase 0 active work** ([ROADMAP.md](ROADMAP.md#phase-0--install-path-validation-active-duration-tbd-by-diagnosis)). Empirically, no Tailor install has yet succeeded end-to-end on a machine that wasn't the project author's. If you're trying this cold, please coordinate with the maintainer before attempting; open an issue with friction points — that diagnostic is the priority work right now. Until two consecutive fresh-machine installs by outside parties succeed, the install ritual below is honest about its current shape but provisional.
+- **Install-path validation closed 2026-05-12 under the lenient read of the [Phase 0 exit criterion](ROADMAP.md#at-a-glance).** The install ritual below has been completed end-to-end on two outside machines on different OSes: Windows 11 + Microsoft Store Claude Desktop (2026-05-09, self-driven diagnosis on a fresh user account, the boss's machine) and macOS (2026-05-12, friend installed, boss watched only — first true outside-recipient install). The strict read of the exit criterion (two installs by uninvolved third parties with the project author untouched at every step) remains open and is being satisfied opportunistically. The install ritual below is what survived Phase 0; v7.0.4 hardened it with pre-registration Claude Desktop detection, an honest "NOT DETECTED" success banner, and a recipient-vs-developer prerequisites split.
 - Two children ship today (see [Children that ship today](#children-that-ship-today) below): the **CSV directory** child (no-OAuth, generic — closest match to the platform's general shape) and the **running** child (Strava-OAuth, the most-worked-out template). CGM, sleep, ECG, EDF, and FHIR children are held items in the [ROADMAP](ROADMAP.md).
 - PHI scrubbing ships as a documented no-op seam. Institutions subclass
   once their policy is defined. The default scrubber surfaces a warning
@@ -302,11 +304,12 @@ framework. Most readers want the recipient path.
 
 ### Install
 
-> *The install ritual below is what the project ships today. It is being
-> reshaped against whatever path survives [ROADMAP Phase 0](ROADMAP.md#phase-0--install-path-validation-active-duration-tbd-by-diagnosis)
-> (single-binary executable, Docker container, or the current `uv tool install` path
-> patched to actually work cold). Until PyPI publishes (Phase 2), `pip install tailor-mcp`
-> is not yet available.*
+> *The install ritual below is the path that survived [Phase 0](ROADMAP.md#at-a-glance)
+> (closed 2026-05-12 under the lenient read of the exit criterion). The `uv tool install`
+> ritual was chosen over the architecture-restructure alternatives (single-binary
+> executable, Docker container, one-shot installer) — v7.0.4 hardened it against the
+> friction points the two outside-recipient installs surfaced. Until PyPI publishes
+> (Phase 2), `pip install tailor-mcp` is not yet available.*
 
 **Recipient install** — what a PI or analyst would use:
 
@@ -426,9 +429,9 @@ The roadmap is phase-gated. Phases 0–2 are scheduled (concrete deliverables, r
 
 | Phase | Defining question at exit | Window |
 |---|---|---|
-| [**Phase 0 — Install-path validation**](ROADMAP.md#phase-0--install-path-validation-active-duration-tbd-by-diagnosis) *(active)* | Can two outside recipients on different OSes install Tailor end-to-end without the project author touching their machine? | Diagnosis-bound |
-| [**Phase 1 — Ship-quality housekeeping**](ROADMAP.md#phase-1--ship-quality-housekeeping-after-phase-0--2-weeks) | Do the docs and identity match the install path that actually works? | ~2 weeks after Phase 0 |
-| [**Phase 2 — Public-launch readiness**](ROADMAP.md#phase-2--public-launch-readiness-after-phase-1--3-months) | If a stranger discovers Tailor cold, can they find, install, and start trusting it in under 30 minutes? | ~3 months after Phase 1 |
+| [**Phase 0 — Install-path validation**](ROADMAP.md#at-a-glance) *(closed 2026-05-12)* | Can two outside recipients on different OSes install Tailor end-to-end without the project author touching their machine? | Closed (lenient read; strict read open) |
+| [**Phase 1 — Ship-quality housekeeping**](ROADMAP.md#at-a-glance) *(active)* | Do the docs and identity match the install path that actually works? | ~2 weeks (active) |
+| [**Phase 2 — Public-launch readiness**](ROADMAP.md#at-a-glance) | If a stranger discovers Tailor cold, can they find, install, and start trusting it in under 30 minutes? | ~3 months after Phase 1 |
 | [**Phase 3 — Beachhead proof + public launch**](ROADMAP.md#phase-3--beachhead-proof--public-launch-direction) | Has one real research lab used Tailor on real data, cited it in a paper, and would they recommend it? | Direction |
 | [**Phase 4 — Platform-shape proof**](ROADMAP.md#phase-4--platform-shape-proof-direction) | Can a stranger use Tailor with their notes / calendar / photos and any MCP client of their choice? | Direction |
 | [**Phase 5 — Category formation**](ROADMAP.md#phase-5--category-formation-direction) | Do strangers know what *"personal AI server"* means, and do they think of Tailor when they think of it? | Direction |
@@ -485,7 +488,7 @@ Detailed notes in [CLAUDE.md](CLAUDE.md).
 | [ADR 0031 — rename to Tailor + Wardrobe](docs/adr/0031-rename-to-tailor-and-wardrobe.md) | Anyone — the v7.0.0 identity decision, the *Wardrobe* user-facing engine word, and the counter-programming invariant against fashion-domain drift |
 | [docs/design/research-framing.md](docs/design/research-framing.md) | Researchers and IRB reviewers evaluating this for a study |
 | [CLAUDE.md](CLAUDE.md) | Contributors and operators — the architecture, the agent roster, the boss-architect protocols |
-| [docs/adr/](docs/adr/) | Architectural decisions and their rationale (31 ADRs as of v7.0.2) |
+| [docs/adr/](docs/adr/) | Architectural decisions and their rationale (34 ADRs as of v7.0.9) |
 | [docs/design/design-context.pdf](docs/design/design-context.pdf) | Historical design rationale |
 
 ## License

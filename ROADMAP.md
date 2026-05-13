@@ -116,7 +116,7 @@ from a v6 install state no external machine has ever held).
 |---|---|---|
 | ~~**Rename GitHub repo** `Biosensor-to-LLM-Connector` → `tailor-mcp`~~ — **landed 2026-05-10** as a doc-truth pass closing the [ADR 0031 § Negative consequences](docs/adr/0031-rename-to-tailor-and-wardrobe.md) known-debt entry; auto-redirect preserves any existing clones. To be filed in § Shipped at the next version bump. | — | — |
 | ~~**Remove `tailor migrate` subcommand + draft ADR 0034**~~ — **landed 2026-05-12 in v7.0.9** ([ADR 0034](docs/adr/0034-retire-tailor-migrate-subcommand.md)). Subcommand + startup warning both retired; v6 population was empirically zero. ROADMAP originally said "ADR 0032" but 0032 was taken by [ADR 0032 (Retire public-mirror distribution)](docs/adr/0032-retire-public-mirror-distribution.md) on v7.0.6 — the migration ADR is 0034. To be filed in § Shipped at the next version bump. | — | — |
-| **Update README install commands** to reflect the install path that survived Phase 0 | 1-2 hours | Whether Phase 0 patched the existing `uv tool install` ritual or restructured (single-binary, Docker, one-shot installer), the README has to match the install path that actually works. |
+| ~~**Update README install commands** to reflect the install path that survived Phase 0~~ — **landed 2026-05-12 in v7.0.10**. Six framing callouts and table rows updated to reflect Phase 0 lenient-read closure; anchor fix for four `#phase-0--install-path-validation` refs repointed to `#at-a-glance`; ADR count refreshed 31 → 34. All four Phase 1 deliverables now landed; Phase 2 unblocks. | — | — |
 | ~~**Update v7.0.0 banner in CLAUDE.md** to reflect post-migrate-removal state~~ — **superseded by the banner-stacking convention** established since v6.11.1: a new v7.0.9 banner stacks above v7.0.8; v7.0.0's banner is left intact as the running record of what that release actually shipped. Banner-stacking is the load-bearing convention; rewriting prior banners breaks cross-checking against `CHANGELOG.md`. | — | — |
 
 **Phase 1 exit criterion**: docs and identity match the install path
@@ -559,6 +559,15 @@ prior roadmap revisions per the same historical-preservation principle
 [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) applies to
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
+
+### Shipped in v7.0.10 (2026-05-12)
+
+- **README install-path framing aligned with Phase 0 closure** — Six framing callouts and table rows that described Phase 0 as active and no outside install as succeeded are updated to reflect the 2026-05-12 macOS outside-recipient install ratified by v7.0.8. The install commands themselves (`uv tool install git+...tailor-mcp.git` + `tailor tour`) were already correct post-rename; the stale framing was the editorial claim around them.
+- **Lenient-vs-strict-read distinction surfaced explicitly** — The 30-second quickstart callout and Status bullet now name both reads: the lenient read (cross-OS, one Windows + one macOS install proven) closed Phase 0; the strict read (two installs by uninvolved third parties, project author untouched at every step) remains open and is being satisfied opportunistically.
+- **Anchor stability fix** — Four README cross-references to the Phase 0 ROADMAP header repointed from `#phase-0--install-path-validation-active-duration-tbd-by-diagnosis` (which rewrites when a `*(closed…)*` suffix is appended) to `#at-a-glance` (stable). Demonstrates a pattern: section anchors that carry status annotations in their text are fragile cross-reference targets; the at-a-glance table's anchor is the stable entry point.
+- **ADR count refreshed** — Further reading footer: `31 ADRs as of v7.0.2` → `34 ADRs as of v7.0.9` (ADRs 0032, 0033, 0034 landed since v7.0.2; verified by counting `docs/adr/` files).
+- **Phase 1 fully closed** — All four Phase 1 deliverables landed (repo rename v7.0.5, `tailor migrate` retirement v7.0.9, README framing v7.0.10, banner-stacking superseded). Phase 2 — Public-launch readiness — unblocks.
+- Gates: ci-gate-runner SHIPPABLE (940/940 pytest, ruff clean, 76/76 probe, CLI smoke clean). mcp-protocol-auditor NOT TRIGGERED. cue-card-rehearsal-auditor NOT TRIGGERED. recipient-install-validator SKIPPED (README.md not in ADR 0028 trigger globs; v6.11.x falsification grounds the skip).
 
 ### Shipped in v7.0.9 (2026-05-12)
 

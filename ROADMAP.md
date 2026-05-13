@@ -115,9 +115,9 @@ from a v6 install state no external machine has ever held).
 | Deliverable | Effort | Why it matters |
 |---|---|---|
 | ~~**Rename GitHub repo** `Biosensor-to-LLM-Connector` → `tailor-mcp`~~ — **landed 2026-05-10** as a doc-truth pass closing the [ADR 0031 § Negative consequences](docs/adr/0031-rename-to-tailor-and-wardrobe.md) known-debt entry; auto-redirect preserves any existing clones. To be filed in § Shipped at the next version bump. | — | — |
-| **Remove `tailor migrate` subcommand + draft ADR 0032** | half-day | Migrate was scaffolding for a hypothetical v6 user population that turned out to be zero — no successful external v6 install ever happened. Counter-ADR cites ADR 0031's reversal conditions and explains the population accounting. Simplify the startup warning to point at manual rename or fresh install. |
+| ~~**Remove `tailor migrate` subcommand + draft ADR 0034**~~ — **landed 2026-05-12 in v7.0.9** ([ADR 0034](docs/adr/0034-retire-tailor-migrate-subcommand.md)). Subcommand + startup warning both retired; v6 population was empirically zero. ROADMAP originally said "ADR 0032" but 0032 was taken by [ADR 0032 (Retire public-mirror distribution)](docs/adr/0032-retire-public-mirror-distribution.md) on v7.0.6 — the migration ADR is 0034. To be filed in § Shipped at the next version bump. | — | — |
 | **Update README install commands** to reflect the install path that survived Phase 0 | 1-2 hours | Whether Phase 0 patched the existing `uv tool install` ritual or restructured (single-binary, Docker, one-shot installer), the README has to match the install path that actually works. |
-| **Update v7.0.0 banner in CLAUDE.md** to reflect post-migrate-removal state | 30 min | Banner is current shipping reality, not historical record; safe to update. CHANGELOG.md and the Shipped log stay unchanged per the historical-preservation principle. |
+| ~~**Update v7.0.0 banner in CLAUDE.md** to reflect post-migrate-removal state~~ — **superseded by the banner-stacking convention** established since v6.11.1: a new v7.0.9 banner stacks above v7.0.8; v7.0.0's banner is left intact as the running record of what that release actually shipped. Banner-stacking is the load-bearing convention; rewriting prior banners breaks cross-checking against `CHANGELOG.md`. | — | — |
 
 **Phase 1 exit criterion**: docs and identity match the install path
 that actually works, the repo is publicly discoverable under its real
@@ -560,6 +560,14 @@ prior roadmap revisions per the same historical-preservation principle
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
 
+### Shipped in v7.0.9 (2026-05-12)
+
+- **`tailor migrate` retired** — `cmd_migrate`, `_emit_legacy_migration_warning_if_applicable`, and `_legacy_config_dir` deleted from `src/tailor/__main__.py` per [ADR 0034](docs/adr/0034-retire-tailor-migrate-subcommand.md) (NEW, Accepted). The subcommand scaffolded a migration path for a v6 user population that was empirically zero.
+- **[ADR 0034](docs/adr/0034-retire-tailor-migrate-subcommand.md) NEW, Accepted** — grounds the retirement in the empirical record: no successful external v6 install across the v6.10.x patch quartet, the v6.11.x falsified recipient-install-validator, the 2026-05-09 self-driven Windows install, or the 2026-05-12 first true outside-recipient macOS install.
+- **[ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) amended** — status now lists Superseded in part by ADR 0033 AND ADR 0034; migration story blockquote and negative-consequence sub-bullet added; naming decisions and workshop-metaphor invariant retained.
+- **Collateral cleanup** — `README.md` migrate row removed; `ROADMAP.md` Phase 1 struckthrough rows updated; v7.0.0 Shipped entry forward-cited to ADR 0034; `docs/diagnosis/phase-0-diagnosis-kit.md` Expected list updated.
+- Gates: ci-gate-runner SHIPPABLE (940/940 pytest, ruff clean, 76/76 probe, CLI smoke clean). mcp-protocol-auditor NOT TRIGGERED. cue-card-rehearsal-auditor NOT TRIGGERED. recipient-install-validator SKIPPED (pure deletion in `__main__.py`; v6.11.x falsification + 2026-05-12 macOS recipient install are the empirical substitute).
+
 ### Shipped in v7.0.8 (2026-05-12)
 
 - **Phase 0 closed** — Install-path validation closes under the lenient read of the exit criterion. 2026-05-09 Windows (self-driven, fresh user account) proved the technical install path on Windows-Store-Claude; 2026-05-12 macOS (first true outside recipient, friend installed, boss watched) proved the recipient-experience path. Exit intent — uninvolved third parties can install Tailor — is satisfied. Boss made the closure call after protocol-4 conflict was surfaced.
@@ -669,7 +677,8 @@ user-facing engine word **Wardrobe** for what the framework holds on
 the user's behalf (themes / moments / evidence / failure modes /
 audit history / source data) — replaces the working term *substrate*.
 New `tailor migrate` subcommand for non-destructive v6 → v7
-filesystem upgrade. Dual-prefix Claude Desktop cleanup (`biosensor-*`
+filesystem upgrade (retired in v7.0.9 — see
+[ADR 0034](docs/adr/0034-retire-tailor-migrate-subcommand.md)). Dual-prefix Claude Desktop cleanup (`biosensor-*`
 + `tailor` / `tailor-*`) so v6 → v7 doesn't leave orphan entries.
 Counter-programming invariant per [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md):
 visual language stays non-fashion, onboarding copy redirects the

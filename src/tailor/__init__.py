@@ -12,4 +12,4 @@ accounting. Each data source is a ChildMCP. The running child
 (``tailor.children.running``) is one worked example.
 """
 
-__version__ = "7.0.8"
+__version__ = "7.0.9"

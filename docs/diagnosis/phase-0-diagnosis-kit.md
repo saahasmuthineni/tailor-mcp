@@ -145,7 +145,7 @@ uv tool install git+https://github.com/saahasmuthineni/tailor-mcp.git
 tailor --help 2>&1 | Tee-Object -Append "$env:USERPROFILE\diagnosis-tailor-output-attempt-1.txt"
 ```
 
-**Expected:** Help text printing subcommands: pilot, tour, serve, demo, setup, status, migrate, uninstall. With the `Tee-Object` wrapper above, the same output also lands in the per-command file even if the transcript file shows blank.
+**Expected:** Help text printing subcommands: pilot, tour, serve, demo, setup, status, uninstall. (The `migrate` subcommand was retired in v7.0.9 — see [ADR 0034](../adr/0034-retire-tailor-migrate-subcommand.md).) With the `Tee-Object` wrapper above, the same output also lands in the per-command file even if the transcript file shows blank.
 
 #### A8 — Scaffold the tour
 

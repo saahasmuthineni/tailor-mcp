@@ -160,7 +160,7 @@ strangers at the door.
 |---|---|---|
 | **Publish to PyPI as `tailor-mcp`** | 1 day | The canonical install path named in [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) ("when published"). Closes the hand-delivered-wheel gap. `pip install tailor-mcp` becomes the install command. |
 | **Make the GitHub repo public** | 30 min | Without this, the trust narrative ("look at the audit log; look at the 31 ADRs; look at the determinism invariants") cannot establish itself in OSS culture. The discipline only signals trust if outsiders can read it. |
-| **Promote `vocabulary-drift-auditor` agent (reshape of retired `counter-programming-invariant-auditor`)** | 1 day | [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md)'s counter-programming invariant was retired by [ADR 0033](docs/adr/0033-complete-tailor-metaphor-workshop-side.md); the narrow-forbid list at [`tailor-vocabulary.md` § Table 5](docs/design/tailor-vocabulary.md) is enforceable by grep, mooting the original specialist's design. The reshape candidate is broader: a `vocabulary-drift-auditor` that audits drift between [`tailor-vocabulary.md`](docs/design/tailor-vocabulary.md), the shipped code, and the ADR set (parallel shape to `code-vs-roadmap-drift-auditor`). Promotion gates on [ADR 0011](docs/adr/0011-promotion-policy.md)'s structural-argument bar. |
+| ~~**Promote `vocabulary-drift-auditor` agent (reshape of retired `counter-programming-invariant-auditor`)**~~ — **KILLED in Phase 2 planning 2026-05-12** ([§ Killed](#vocabulary-drift-auditor-specialist--killed)). [ADR 0033 § Negative consequences](docs/adr/0033-complete-tailor-metaphor-workshop-side.md) explicitly delegated vocabulary drift to `code-vs-roadmap-drift-auditor`'s existing remit and stated *"does not need a new specialist."* Applied to [ADR 0011](docs/adr/0011-promotion-policy.md)'s three criteria: structural argument is weak (register/taxonomy detection is distinguishable from fact-checking, but the architect ADR already named the seam holder), severity is low (identity-cost, not safety-cost), and the always-forbidden six-word list is grep-enforceable as a pytest invariant. The mechanical replacement landed as `tests/test_workshop_vocabulary_invariant.py`. | — | — |
 | **First-time-user setup pass** | 1 week | Walk through `tailor pilot` and `tailor demo` cold, in someone else's hands, with attention to the friction points an early adopter would hit. README, error messages, and onboarding copy revised against the friction surfaced. |
 | **Apple Silicon reference deployment recipe** | 1 week | Document the *"Tailor on a Mac mini"* recipe for newcomers — recommended hardware tier (M4 24GB minimum), bundled local LLM (Llama 3.1 8B via MLX), always-on LaunchAgent setup, troubleshooting. Decides what *"AI-optimized computer"* means concretely for v1. |
 | **CONTRIBUTING + community machinery** | 2 days | Issue templates for bug / feature / child contribution; PR template; child contribution guide; code of conduct beyond defaults. Without this, public-launch contributions hit unstructured chaos. |
@@ -559,6 +559,54 @@ agent surfaces it on every diff that touches the file; that's the
 right enforcement seam, not a roadmap line. Will be closed
 opportunistically when other work touches that surface.
 
+### `vocabulary-drift-auditor` specialist — KILLED
+
+In Phase 2 planning on 2026-05-12, the candidate specialist was
+evaluated against [ADR 0011](docs/adr/0011-promotion-policy.md)'s
+three criteria — structural argument, severity grounding, and
+maintenance-vs-frequency. The verdict was *not promote*.
+
+The decisive evidence is [ADR 0033 § Negative consequences](docs/adr/0033-complete-tailor-metaphor-workshop-side.md):
+*"The vocabulary file is a new documentation surface that must stay in
+sync with the code and the ADRs. Drift between `tailor-vocabulary.md`,
+the shipped code, and the ADR set is now a class of bug. Mitigated by
+the existing `code-vs-roadmap-drift-auditor` remit — the file is
+treated as documentation under that agent's existing scope and does
+not need a new specialist."* The Phase 2 ROADMAP row was authored
+either before or in the same change as ADR 0033 and the conflict was
+not reconciled at the time. The retirement honors the architect ADR.
+
+Applying ADR 0011 explicitly:
+
+- **Structural argument** — *weak.* Register and taxonomy detection
+  (Tables 1–4) are distinguishable from `code-vs-roadmap-drift-auditor`'s
+  fact-checking remit, but the architect ADR already named the seam
+  holder. A new specialist would silently override ADR 0033.
+- **Severity grounding** — *low.* Cost-of-absence is workshop register
+  collapsing, which lands in [ADR 0033 § Reversal conditions](docs/adr/0033-complete-tailor-metaphor-workshop-side.md)
+  not a PHI / IRB / reproducibility incident. This is the opposite end
+  of the severity spectrum from the four v6.3.0 promotions ADR 0011
+  exemplified.
+- **Maintenance vs frequency** — *not the binding constraint.* Even
+  at low maintenance and medium-to-high fire frequency, criteria 1 and
+  2 already gate the promotion.
+
+The mechanical portion of the rule (Table 5's six always-forbidden
+words: couture, couturier, atelier, boutique, runway, showroom) is
+enforced by `tests/test_workshop_vocabulary_invariant.py`, which runs
+as part of the existing `ci-gate-runner` pytest gate. The
+lifestyle-register-only nine-word list at Table 5 (collection, look,
+style, trend, designer, outfit, brand, aesthetic, showcase) requires
+register-level judgment and is not mechanically enforceable; that
+portion of the invariant is owned by PR review per ADR 0033's existing
+delegation.
+
+Re-evaluate only if recipient evidence of consistent workshop-register
+collapse accumulates — that is the same trigger ADR 0033 § Reversal
+conditions 1 names for the entire metaphor identity, and the agent
+would land as part of the broader vocabulary-amending change rather
+than as an isolated promotion.
+
 ### Legacy `demo` → `verify` rename — KILLED in v6.10.5 per ADR 0027
 
 (Preserved here from the prior ROADMAP for historical continuity.)
@@ -582,6 +630,14 @@ prior roadmap revisions per the same historical-preservation principle
 [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) applies to
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
+
+### Shipped in v7.0.11 (2026-05-12)
+
+- **AI economics restored as top-billed framing** — [ADR 0029](docs/adr/0029-token-reduction-as-analytical-quality.md) amended (2026-05-12) to name **AI economics** as the umbrella claim with three faces: analytical quality, cognitive amplification, and cost-per-question. The three are the same architectural lever — structured answers instead of raw streams. Reversal condition named explicitly (two independent benchmarks showing comparable frontier-model performance on raw-stream vs. structured-summary context at sub-10k-token loads).
+- **CLAUDE.md § "Problems this is built against" gains 4th entry** — "AI economics" added as Problem 4 citing ADR 0029 (Amended). The "Token efficiency is a useful side effect… not the headline" demotion sentence (introduced in the v6.12.0 banner) deleted. The demotion was a doc-drift downstream of what ADR 0029 actually decided.
+- **README hero clause updated** — Bold lead ends with "…and turns a $200/month AI bill into a $2/month one while making the AI materially better at your question." New bold sentence explains the mechanism: structured answers → context goes to reasoning over the question, prior work, audit trail, not data-parsing.
+- **demo runner.py Section 3 + closing summary sharpened** — "analytical quality, not just billing" / "Tier 1 wins on analytical quality, not just on cost" → "analytical quality AND AI economics (cost-per-question and context-per-question are the same lever)". Prose-only changes inside `print()` calls; no logic changes.
+- Gates: ci-gate-runner SHIPPABLE (946/946 pytest, ruff clean, 76/76 probe, CLI smoke clean). mcp-protocol-auditor NOT TRIGGERED. cue-card-rehearsal-auditor NOT TRIGGERED. recipient-install-validator SKIPPED (runner.py in trigger globs but edit is print()-call prose only; v6.11.x falsification grounds the opt-in skip).
 
 ### Shipped in v7.0.10 (2026-05-12)
 

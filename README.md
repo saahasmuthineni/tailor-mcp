@@ -5,11 +5,19 @@
 [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows-lightgrey)](.github/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 
-**Tailor is a personal AI server with research-grade trust** — a
-local-first MCP framework that lets any MCP-speaking AI (Claude
-Desktop, Cline, Cursor, local models via Ollama) work with your own
-data, with every action recorded in a durable audit log and every
-result stamped for reproducibility. Today the worked-out recipe is
+**Tailor is a personal AI server with research-grade trust — and
+turns a $200/month AI bill into a $2/month one while making the AI
+materially better at your question.** A local-first MCP framework
+that lets any MCP-speaking AI (Claude Desktop, Cline, Cursor, local
+models via Ollama) work with your own data, with every action
+recorded in a durable audit log and every result stamped for
+reproducibility. **Daily analyst workflows that would burn hundreds
+of dollars a month dumping raw cohort streams into a hosted LLM run
+for single digits through Tailor — because the AI gets a structured
+answer instead of your raw data, its context window goes to
+reasoning over your question, your prior work, and your audit
+trail, rather than to shuffling streams it then has to re-aggregate
+itself.** Today the worked-out recipe is
 health research — *that's the **first recipe shipped end-to-end, not
 the platform's identity***. Future recipes (knowledge work, quantified
 self, household, creative archives) compose on the same engine; see

@@ -880,13 +880,25 @@ def run_demo(
                 "methods-paper figure, an outlier hunt) - not the model."
             )
             print(
-                "Token reduction is analytical quality, not just billing:"
+                "Token reduction is analytical quality AND AI economics"
             )
             print(
-                "Tier 1 is correct, citable, reproducible; Tier 3 is for"
+                "(ADR 0029, amended 2026-05-12): Tier 1 is correct (citable"
             )
             print(
-                "plotting, not reasoning."
+                "numbers from a pure function), cheap (1-2 orders of"
+            )
+            print(
+                "magnitude fewer tokens per question), AND cognition-"
+            )
+            print(
+                "amplifying (freed context goes to reasoning, not to data"
+            )
+            print(
+                "shuffling). The win generalizes - any AI deployment over"
+            )
+            print(
+                "substantial data faces the same bound."
             )
 
             # ------ Section 4 - Vault: durable analytical memory ------
@@ -1071,7 +1083,10 @@ def run_demo(
         "  3. Three resolutions of the same question - Tier 1 wins on"
     )
     print(
-        "     analytical quality, not just on cost."
+        "     analytical quality AND AI economics (cost-per-question"
+    )
+    print(
+        "     and context-per-question are the same lever)."
     )
     print(
         "  4. Vault as durable interpretive layer - markdown is the"

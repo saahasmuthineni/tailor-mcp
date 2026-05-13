@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-04-13
-- **Related:** [ADR 0001 (Audit log)](0001-audit-log-as-backbone.md), [ROADMAP.md § Per-subject parameter scoping](../../ROADMAP.md#per-subject-parameter-scoping-on-existing-tools), saahasmuthineni/biosensor-to-llm-middleware#13
+- **Related:** [ADR 0001 (Audit log)](0001-audit-log-as-backbone.md), [ROADMAP.md § Per-subject parameter scoping](../../ROADMAP.md#per-subject-parameter-scoping-on-existing-tools), saahasmuthineni/tailor-mcp#13
 
 ## Context
 
@@ -45,7 +45,7 @@ Specifically:
   every `AuditLog.record()` call.
 - Children are **not yet required** to declare `subject_id` in their
   `param_schemas`. When they do (roadmap item; see
-  saahasmuthineni/biosensor-to-llm-middleware#13), the column is ready
+  saahasmuthineni/tailor-mcp#13), the column is ready
   and no further router work is needed.
 
 ## Consequences

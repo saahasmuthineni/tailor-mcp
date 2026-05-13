@@ -18,12 +18,14 @@ screenshot and send it to me before continuing.
   don't have one)
 - **Claude Desktop installed and signed in** — download it from
   <https://claude.ai/download>. Plan ~5 minutes for this *before*
-  you start the steps below; it's a separate install from Python.
+  you start the steps below.
 - The file I sent you ending in `.whl` (probably saved to Downloads)
 - About 10 minutes
 
-You will **not** need: GitHub, a programming background, or any
-participant data. Everything is synthetic and runs on your laptop.
+You will **not** need: GitHub, a programming background, a Python
+install, or any participant data. The Step 1 tool (`uv`) provisions
+its own Python interpreter behind the scenes. Everything is
+synthetic and runs on your laptop.
 
 > **One heads-up on Claude free tier.** The demo runs five prompts
 > back-to-back. If you're on the free plan and you've already been
@@ -33,34 +35,30 @@ participant data. Everything is synthetic and runs on your laptop.
 
 ---
 
-## Step 1 — Install Python (~5 min)
+## Step 1 — Install `uv` (~2 min)
 
-Python is the programming language this tool is built in. **Skip this
-step if you already have Python 3.10 or newer installed** (test by
-opening PowerShell and typing `python --version`).
+`uv` is a small Python tool installer. It bundles its own Python
+interpreter, so you do **not** need Python on `PATH` — `uv` handles
+that for you. (This is what `tailor tour` uses behind the scenes.)
 
-1. Open <https://www.python.org/downloads/> in your browser.
-2. Click the big yellow **"Download Python 3.12.x"** button.
-3. Open the downloaded file from your Downloads folder
-   (`python-3.12.x-amd64.exe`).
-4. **IMPORTANT** — on the very first install screen, check the box
-   at the bottom that says **"Add python.exe to PATH"**. This is the
-   single most common thing to miss; if you skip it, every later
-   command in this guide will fail with a confusing error.
-5. Click **"Install Now"** and wait for it to finish.
-6. Click **"Close"**.
+1. Follow the Windows install instructions at
+   <https://docs.astral.sh/uv/getting-started/installation/>. The page
+   gives a one-line PowerShell command.
+2. Close any open PowerShell windows after `uv` finishes installing,
+   then open a fresh one (this lets PowerShell pick up the new
+   `uv` command).
 
 **Check it worked.** Press the Windows key, type `powershell`, hit
 Enter. A blue/black terminal window opens. Type:
 
 ```
-python --version
+uv --version
 ```
 
-and press Enter. You should see something like `Python 3.12.0`. If
-instead you see "command not found" or "not recognized", the PATH
-checkbox got missed — re-run the installer and make sure it's
-checked this time.
+and press Enter. You should see something like `uv 0.4.x` (any
+version is fine). If you see "not recognized", close the window and
+open another fresh PowerShell — `uv` adds itself to `PATH` on
+install but existing windows don't see it until they're restarted.
 
 Keep this PowerShell window open for the next step.
 
@@ -71,14 +69,14 @@ Keep this PowerShell window open for the next step.
 In the PowerShell window, type:
 
 ```powershell
-pip install $env:USERPROFILE\Downloads\tailor_mcp-6.9.0-py3-none-any.whl
+uv tool install $env:USERPROFILE\Downloads\tailor_mcp-7.0.12-py3-none-any.whl
 ```
 
 (If I gave you a slightly different filename or version number,
 substitute it. If I sent the file via a different path — say to your
 Desktop — replace `Downloads` with `Desktop`.)
 
-You'll see a few "Collecting..." and "Installing..." lines stream
+You'll see a few "Resolving..." and "Installed..." lines stream
 past. When you see your prompt come back (`PS C:\Users\...>`), the
 install is done.
 
@@ -190,9 +188,9 @@ That's the demo.
 
 | What you see | What to try |
 |---|---|
-| `python --version` says "not recognized" | Re-run the Python installer; make sure **"Add python.exe to PATH"** is checked on the first screen. |
-| `pip install` fails with a permissions error | Close PowerShell, then re-open it as Administrator (right-click PowerShell in the Start menu → **Run as Administrator**) and try again. |
-| `pip install` says "no such file" | Check the path matches where the `.whl` file actually lives. Try `dir $env:USERPROFILE\Downloads\tailor*` to find it. |
+| `uv --version` says "not recognized" | Close PowerShell entirely, then open a fresh window. `uv` adds itself to `PATH` on install but existing windows don't pick that up until restarted. If still missing, re-run the installer from <https://docs.astral.sh/uv/getting-started/installation/>. |
+| `uv tool install` fails with a permissions error | Close PowerShell, then re-open it as Administrator (right-click PowerShell in the Start menu → **Run as Administrator**) and try again. |
+| `uv tool install` says "no such file" | Check the path matches where the `.whl` file actually lives. Try `dir $env:USERPROFILE\Downloads\tailor*` to find it. |
 | `tailor --help` is "not recognized" | Open a new PowerShell window so it picks up the new install. If still failing, use `python -m tailor --help`. |
 | Claude Desktop doesn't list any Tailor tools | Fully quit Claude Desktop via the system tray (right-click → Quit), then re-open. If still missing, run `tailor tour --force` to re-write the Claude Desktop config and restart again. |
 | Claude says "the tool errored" on Prompt 2 | Run `tailor tour --force` to re-scaffold the demo data. |

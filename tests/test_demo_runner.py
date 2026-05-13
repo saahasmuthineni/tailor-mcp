@@ -366,10 +366,12 @@ def test_save_shareable_install_url_includes_current_version(
     assert expected_filename in content
 
 
-def test_save_shareable_default_install_url_base_is_public_mirror() -> None:
+def test_save_shareable_default_install_url_base_is_source_repo_releases() -> None:
     """The default install URL base (when
     ``TAILOR_DEMO_INSTALL_URL_BASE`` env var is unset) must point at
-    the public mirror repo per ADR 0024 § 3.1."""
+    the source repo's GitHub Releases page per ADR 0032's retirement
+    of the separate public-mirror repo (Phase 2 onward distribution
+    shape)."""
     from tailor.demo import run_demo
 
     out_path = Path("/tmp") / "_test_share_default.md"
@@ -382,7 +384,8 @@ def test_save_shareable_default_install_url_base_is_public_mirror() -> None:
 
     try:
         content = out_path.read_text(encoding="utf-8")
-        assert "github.com/saahasmuthineni/biosensormcpdemo" in content
+        assert "github.com/saahasmuthineni/tailor-mcp" in content
+        assert "biosensormcpdemo" not in content
     finally:
         if out_path.exists():
             out_path.unlink()
@@ -627,7 +630,7 @@ def test_public_mode_url_allowlist_passes_on_wheel_release_asset() -> None:
 
     good = (
         "Run with `uvx --from "
-        "https://github.com/saahasmuthineni/biosensormcpdemo/releases/download/v6.13.0/tailor_mcp-6.13.0-py3-none-any.whl "
+        "https://github.com/saahasmuthineni/tailor-mcp/releases/download/v7.0.12/tailor_mcp-7.0.12-py3-none-any.whl "
         "tailor demo`."
     )
     # Should NOT raise.

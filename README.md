@@ -396,7 +396,6 @@ interpreter.
 | `tailor demo` | Five-section architectural showcase on bundled HIP Lab fixtures: cohort thesis, router pipeline + audit row, three-tier resolution-appropriateness walk, vault moment write, local-LLM oracle call. ADRs [0027](docs/adr/0027-demo-as-researcher-first-look.md) (researcher first-look framing) + [0029](docs/adr/0029-token-reduction-as-analytical-quality.md) (architectural showcase reshape). Pass `--save-shareable` for an emailable markdown transcript. |
 | `tailor setup` | Strava OAuth wizard (for the running child only) |
 | `tailor status` | Diagnostic check: tokens, DB state, Wardrobe config |
-| `tailor migrate` | One-time copy of `~/.biosensor-mcp/` → `~/.tailor/` for v6 → v7 upgrades. **Likely to be removed in [Phase 1](ROADMAP.md#phase-1--ship-quality-housekeeping-after-phase-0--2-weeks)** — no successful external v6 install ever happened, so the migrating-from population is empty by construction. |
 | `tailor uninstall` | Clean removal |
 
 ---

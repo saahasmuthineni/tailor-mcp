@@ -8,7 +8,6 @@ Usage:
     tailor setup      # Run Strava OAuth setup wizard
     tailor status     # Diagnostic check
     tailor demo       # Five-section walk through the framework's architectural claims on bundled HIP Lab fixtures (ADRs 0027 + 0029); pass --save-shareable for an emailable markdown transcript
-    tailor migrate    # Copy v6.x ~/.biosensor-mcp/ config to ~/.tailor/ (one-time, after upgrading from v6); pass --move to remove the legacy dir after copying
     tailor uninstall  # Clean removal
 """
 
@@ -660,101 +659,8 @@ def _make_cli_stdout_resilient() -> None:
             pass
 
 
-def _legacy_config_dir() -> Path:
-    """The v6.x default config directory, regardless of any env-var
-    overrides currently in effect. Used purely for migration detection."""
-    return Path.home() / ".biosensor-mcp"
-
-
-def _emit_legacy_migration_warning_if_applicable() -> None:
-    """One-line warning at startup when the v6.x legacy config dir exists
-    and the v7.0+ config dir is absent. Per ADR 0031 § "Migration story".
-
-    The warning is non-intrusive: a single stderr line, no prompt, no
-    blocking. Users explicitly run ``tailor migrate`` when ready. This
-    sidesteps the "auto-prompt during a Claude Desktop subprocess
-    invocation" failure mode where a recipient's first run is via
-    ``serve`` (stdin is JSON-RPC, not a human) and any prompt would
-    silently park.
-    """
-    legacy = _legacy_config_dir()
-    current = CONFIG_DIR
-    if legacy.exists() and (not current.exists() or not any(current.iterdir())):
-        print(
-            f"  [tailor v7.0] Legacy directory {legacy} detected. "
-            f"Run `tailor migrate` to copy configs/data to {current}.",
-            file=sys.stderr,
-        )
-
-
-def cmd_migrate():
-    """Copy the v6.x legacy config directory to the v7.0 location.
-
-    Detects ``~/.biosensor-mcp/`` and copies it to ``~/.tailor/`` (or
-    whatever ``TAILOR_CONFIG_DIR`` points at). Non-destructive by default
-    — the legacy directory is preserved so a user can roll back if the
-    migration produces unexpected state. Pass ``--move`` to remove the
-    legacy directory after a successful copy.
-
-    Per ADR 0031 § "Filesystem migration".
-    """
-    import shutil
-
-    legacy = _legacy_config_dir()
-    current = CONFIG_DIR
-
-    print("Tailor — Migrate v6.x config to v7.0 location")
-    print(f"  Source:      {legacy}")
-    print(f"  Destination: {current}")
-
-    if not legacy.exists():
-        print()
-        print(f"  No legacy directory found at {legacy}.")
-        print("  Nothing to migrate. (You may already be on v7.0+ from a clean install.)")
-        return
-
-    if current.exists() and any(current.iterdir()):
-        print()
-        print(f"  Destination {current} already exists and is non-empty.")
-        print("  Refusing to overwrite. Either:")
-        print(f"    - Remove {current} manually, then re-run `tailor migrate`, or")
-        print(f"    - Continue using the current {current} (your v6 data stays at {legacy}).")
-        sys.exit(1)
-
-    move = "--move" in sys.argv[2:]
-
-    print()
-    print(f"  Will {'MOVE' if move else 'COPY'} {legacy} -> {current}")
-    if not move:
-        print(f"  ({legacy} will be preserved after copy as a rollback.)")
-    confirm = input("\n  Proceed? [yes/N]: ").strip().lower()
-    if confirm != "yes":
-        print("  Cancelled.")
-        return
-
-    try:
-        if move:
-            shutil.move(str(legacy), str(current))
-            print(f"\n  Moved {legacy} -> {current}")
-        else:
-            shutil.copytree(legacy, current)
-            print(f"\n  Copied {legacy} -> {current}")
-            print(f"  Legacy directory {legacy} preserved — remove manually when ready.")
-    except (OSError, shutil.Error) as exc:
-        print(f"\n  Migration failed: {exc}")
-        print(f"  Your legacy data at {legacy} is unchanged.")
-        sys.exit(1)
-
-    print()
-    print("  Migration complete. Next steps:")
-    print("    1. Run `tailor status` to confirm the new config is recognized.")
-    print("    2. Run `tailor tour` or open Claude Desktop to verify the new MCP entry works.")
-    print("    3. Once verified, you can remove the legacy directory by hand.")
-
-
 def main():
     _make_cli_stdout_resilient()
-    _emit_legacy_migration_warning_if_applicable()
     commands = {
         "serve": cmd_serve,
         "pilot": cmd_pilot,
@@ -762,7 +668,6 @@ def main():
         "setup": cmd_setup,
         "status": cmd_status,
         "demo": cmd_demo,
-        "migrate": cmd_migrate,
         "uninstall": cmd_uninstall,
     }
 

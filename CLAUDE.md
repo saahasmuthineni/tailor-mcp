@@ -1,5 +1,26 @@
 # CLAUDE.md — Tailor
 
+> **v7.0.9 (2026-05-12)** — Governance/CLI-surface patch. `tailor migrate` subcommand
+> and its associated startup warning retired per [ADR 0034](docs/adr/0034-retire-tailor-migrate-subcommand.md)
+> (NEW, Accepted). The v6 → v7 migration population was empirically zero: no successful
+> external v6 install ever happened across the v6.10.x patch quartet, the v6.11.x
+> falsified recipient-install-validator, the 2026-05-09 self-driven Windows install, or
+> the 2026-05-12 first true outside-recipient macOS install. `cmd_migrate`,
+> `_emit_legacy_migration_warning_if_applicable`, and `_legacy_config_dir` deleted from
+> `src/tailor/__main__.py`; `"migrate": cmd_migrate` removed from dispatch dict;
+> startup-warning call removed from `main()`; module docstring row removed. `README.md`
+> migrate row removed. [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) status
+> updated: now Superseded in part by ADR 0033 AND ADR 0034 (migration story closed;
+> naming decisions and workshop-metaphor invariant retained). `ROADMAP.md` Phase 1
+> struckthrough rows and v7.0.0 Shipped entry forward-cited to ADR 0034.
+> `docs/diagnosis/phase-0-diagnosis-kit.md` Expected list updated. No
+> router/security/child/vault/CLI architecture changes; no tests changed. Patch bump.
+> Gates: 940/940 pytest, ruff clean, 76/76 probe, CLI smoke clean (7 commands, no
+> `migrate`). mcp-protocol-auditor NOT TRIGGERED. cue-card-rehearsal-auditor NOT
+> TRIGGERED. recipient-install-validator SKIPPED (`__main__.py` in trigger globs but
+> change is pure deletion, no new install-path code; v6.11.x falsification + 2026-05-12
+> macOS recipient install are the empirical substitute).
+
 > **v7.0.8 (2026-05-12)** — Governance/team-shape patch. Phase 0 (install-path
 > validation) closes under the lenient read of the [ROADMAP.md](ROADMAP.md)
 > exit criterion at lines 99–100. Strict read requires two consecutive fresh-machine

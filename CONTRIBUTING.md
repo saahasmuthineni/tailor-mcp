@@ -6,8 +6,8 @@ Thanks for considering a contribution. This project is a reference implementatio
 
 ```bash
 # Clone and install in dev mode
-git clone https://github.com/saahasmuthineni/biosensor-to-llm-middleware.git
-cd biosensor-to-llm-middleware
+git clone https://github.com/saahasmuthineni/tailor-mcp.git
+cd tailor-mcp
 python -m venv .venv
 source .venv/bin/activate        # on Windows: .venv\Scripts\activate
 pip install -e ".[dev]"

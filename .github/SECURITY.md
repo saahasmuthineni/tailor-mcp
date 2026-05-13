@@ -19,7 +19,7 @@ treated as load-bearing bugs, not optional polish.
   documented code path.
 
 Use GitHub's **private vulnerability reporting** to file a report:
-<https://github.com/saahasmuthineni/biosensor-to-llm-middleware/security/advisories/new>.
+<https://github.com/saahasmuthineni/tailor-mcp/security/advisories/new>.
 
 Expect an initial acknowledgement within a few days. Triage and fix
 timelines depend on severity and reproducibility — there are no

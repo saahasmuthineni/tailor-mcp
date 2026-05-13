@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-04-13
-- **Related:** [ROADMAP.md § Real PHI-scrubbing implementations](../../ROADMAP.md#real-phi-scrubbing-implementations-behind-the-phiscrubber-slot), saahasmuthineni/biosensor-to-llm-middleware#14
+- **Related:** [ROADMAP.md § Real PHI-scrubbing implementations](../../ROADMAP.md#real-phi-scrubbing-implementations-behind-the-phiscrubber-slot), saahasmuthineni/tailor-mcp#14
 
 ## Context
 

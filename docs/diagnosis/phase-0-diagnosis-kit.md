@@ -40,7 +40,7 @@ Add-LocalGroupMember -Group "Users" -Member "tailor-recipient"
 
 Sign out of your daily-driver account. Sign in as `tailor-recipient`. From this point forward, **act as if you are a recipient who has never seen the project**:
 
-- Don't open `c:\Users\saaha\Biosensor-to-LLM-Connector\` in any editor.
+- Don't open the project source tree (`<repo-root>`) in any editor.
 - Don't run any command from memory; only run commands that appear in the documented install ritual.
 - If a step is ambiguous, **don't infer the right thing** — log the ambiguity and follow the literal text.
 - If you reach for a workaround (*"I know I need to also do X"*), stop. Log the workaround. Do not apply it.
@@ -206,7 +206,7 @@ This path matches the older `examples/hip_lab_demo/realistic/WINDOWS_QUICKSTART.
 From your daily-driver account:
 
 ```powershell
-cd c:\Users\saaha\Biosensor-to-LLM-Connector
+cd <repo-root>            # e.g. the project's git clone location
 python -m build
 ```
 

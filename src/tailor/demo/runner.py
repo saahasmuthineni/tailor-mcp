@@ -379,10 +379,12 @@ def _generate_shareable_markdown(
             (the entire five-section walk).
         version: ``tailor.__version__`` — substituted into the
             install URL so the wheel filename matches the release on
-            the public mirror repo.
-        install_url_base: The GitHub release URL prefix for the public
-            mirror repo (default points at saahasmuthineni's mirror;
-            overridable via ``TAILOR_DEMO_INSTALL_URL_BASE``).
+            the source repo's GitHub Releases page.
+        install_url_base: The GitHub release URL prefix where the
+            wheel artifact is published. Default points at the source
+            repo's Releases page (``saahasmuthineni/tailor-mcp``) per
+            ADR 0032's retirement of the separate public-mirror repo;
+            overridable via ``TAILOR_DEMO_INSTALL_URL_BASE``.
         audience: Either ``"developer"`` (default; existing v6.12.0
             behaviour with ADR breadcrumbs in the footer, transcript
             in a single code fence — suitable for sharing a debug
@@ -1199,7 +1201,7 @@ def run_demo(
             _pkg_version = "unknown"
         install_url_base = os.environ.get(
             "TAILOR_DEMO_INSTALL_URL_BASE",
-            "https://github.com/saahasmuthineni/biosensormcpdemo/releases/download",
+            "https://github.com/saahasmuthineni/tailor-mcp/releases/download",
         )
         markdown = _generate_shareable_markdown(
             transcript=_shareable_buffer.getvalue(),

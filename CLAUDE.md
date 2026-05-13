@@ -1,5 +1,48 @@
 # CLAUDE.md — Tailor
 
+> **v7.0.12 (2026-05-12)** — Phase 2 pre-flip doc-truth sweep. Governed by
+> an `integration-auditor --proposal-mode` REVISE verdict (10 findings: 3
+> BLOCKING / 4 IMPORTANT / 3 NICE-TO-HAVE) on the Phase 2 cheapest-pair
+> plan (PyPI publish + repo public-flip). This is the **reversible half**;
+> v7.0.13 carries the irreversible operations (repo public-flip + PyPI
+> publish) and does not fire until this is on main and an incognito-browse
+> dry-run passes.
+>
+> 2 files deleted: `install.ps1` + `install.sh` (zombie legacy curl-pipe
+> scripts referencing the pre-pre-rename `biosensor-to-llm-middleware` URL;
+> would 404 on a public repo; install path is `uv tool install` per Phase 0
+> closure). 10 files modified: stale `biosensor-to-llm-middleware` URL →
+> `tailor-mcp` in `.github/SECURITY.md`, `CONTRIBUTING.md`,
+> `docs/adr/0002-subject-id-scoping.md`, `docs/adr/0003-phi-scrubber-seam.md`;
+> hardcoded `c:\Users\saaha\Biosensor-to-LLM-Connector\` boss-machine paths →
+> `<repo-root>` placeholder in `docs/diagnosis/phase-0-diagnosis-kit.md`
+> (lines 43, 209); WINDOWS_QUICKSTART install framing rewritten from
+> Python + pip to uv + `uv tool install` (same defect v7.0.4 paid to fix in
+> README, missed in this guide); `src/tailor/demo/runner.py` default
+> `install_url_base` env-var fallback updated from archived
+> `biosensormcpdemo` mirror → `saahasmuthineni/tailor-mcp` Releases page per
+> [ADR 0032](docs/adr/0032-retire-public-mirror-distribution-path.md);
+> matching test renamed + assertion updated in `tests/test_demo_runner.py`;
+> CI badge removed from `README.md` (Actions disabled per project memory;
+> badge would render "no status" on a public repo) + synthetic-by-construction
+> callout added per ADR 0024 § precondition; `ROADMAP.md` Phase 2
+> `vocabulary-drift-auditor` § Killed entry updated (pytest invariant
+> prototyped but deliberately not landed; enforcement reverts to PR review per
+> ADR 0033 § Negative consequences).
+>
+> Four boss-decisions ratified before work began: D1 — accept v7.0.12/v7.0.13
+> split (YES); D2 — delete install scripts (not rewrite); D3 — CONTRIBUTING.md
+> tone work is Phase-3 debt; D4 — CI badge remove (Actions disabled).
+>
+> No `src/` logic changes; no schema changes; no public API changes; no
+> router/security/child/vault/CLI architecture changes. Patch bump. Gates:
+> 940/940 pytest, ruff clean, 76/76 probe, CLI smoke clean.
+> mcp-protocol-auditor NOT TRIGGERED (no framework/router/security/vault paths
+> touched; runner.py edit is string-literal + docstring only). cue-card-
+> rehearsal-auditor NOT TRIGGERED (no CUE_CARD.md or ToolDefinition schema
+> changes). recipient-install-validator NOT TRIGGERED (no ADR 0028 trigger
+> glob paths modified; v6.11.x falsification grounds the opt-in skip).
+
 > **v7.0.11 (2026-05-12)** — Governance/doc-truth patch. AI economics
 > restored as top-billed framing per [ADR 0029](docs/adr/0029-token-reduction-as-analytical-quality.md)
 > (Amended 2026-05-12). The v6.12.0 "Token efficiency is a useful side

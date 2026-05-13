@@ -160,7 +160,7 @@ strangers at the door.
 |---|---|---|
 | **Publish to PyPI as `tailor-mcp`** | 1 day | The canonical install path named in [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) ("when published"). Closes the hand-delivered-wheel gap. `pip install tailor-mcp` becomes the install command. |
 | **Make the GitHub repo public** | 30 min | Without this, the trust narrative ("look at the audit log; look at the 31 ADRs; look at the determinism invariants") cannot establish itself in OSS culture. The discipline only signals trust if outsiders can read it. |
-| ~~**Promote `vocabulary-drift-auditor` agent (reshape of retired `counter-programming-invariant-auditor`)**~~ — **KILLED in Phase 2 planning 2026-05-12** ([§ Killed](#vocabulary-drift-auditor-specialist--killed)). [ADR 0033 § Negative consequences](docs/adr/0033-complete-tailor-metaphor-workshop-side.md) explicitly delegated vocabulary drift to `code-vs-roadmap-drift-auditor`'s existing remit and stated *"does not need a new specialist."* Applied to [ADR 0011](docs/adr/0011-promotion-policy.md)'s three criteria: structural argument is weak (register/taxonomy detection is distinguishable from fact-checking, but the architect ADR already named the seam holder), severity is low (identity-cost, not safety-cost), and the always-forbidden six-word list is grep-enforceable as a pytest invariant. The mechanical replacement landed as `tests/test_workshop_vocabulary_invariant.py`. | — | — |
+| ~~**Promote `vocabulary-drift-auditor` agent (reshape of retired `counter-programming-invariant-auditor`)**~~ — **KILLED in Phase 2 planning 2026-05-12** ([§ Killed](#vocabulary-drift-auditor-specialist--killed)). [ADR 0033 § Negative consequences](docs/adr/0033-complete-tailor-metaphor-workshop-side.md) explicitly delegated vocabulary drift to `code-vs-roadmap-drift-auditor`'s existing remit and stated *"does not need a new specialist."* Applied to [ADR 0011](docs/adr/0011-promotion-policy.md)'s three criteria: structural argument is weak (register/taxonomy detection is distinguishable from fact-checking, but the architect ADR already named the seam holder), severity is low (identity-cost, not safety-cost), and the always-forbidden six-word list is grep-enforceable in principle. A pytest invariant for the always-forbidden six was prototyped during planning and deliberately not landed; Table 5 enforcement is PR review per ADR 0033 § Negative consequences' original delegation. | — | — |
 | **First-time-user setup pass** | 1 week | Walk through `tailor pilot` and `tailor demo` cold, in someone else's hands, with attention to the friction points an early adopter would hit. README, error messages, and onboarding copy revised against the friction surfaced. |
 | **Apple Silicon reference deployment recipe** | 1 week | Document the *"Tailor on a Mac mini"* recipe for newcomers — recommended hardware tier (M4 24GB minimum), bundled local LLM (Llama 3.1 8B via MLX), always-on LaunchAgent setup, troubleshooting. Decides what *"AI-optimized computer"* means concretely for v1. |
 | **CONTRIBUTING + community machinery** | 2 days | Issue templates for bug / feature / child contribution; PR template; child contribution guide; code of conduct beyond defaults. Without this, public-launch contributions hit unstructured chaos. |
@@ -591,15 +591,16 @@ Applying ADR 0011 explicitly:
   at low maintenance and medium-to-high fire frequency, criteria 1 and
   2 already gate the promotion.
 
-The mechanical portion of the rule (Table 5's six always-forbidden
-words: couture, couturier, atelier, boutique, runway, showroom) is
-enforced by `tests/test_workshop_vocabulary_invariant.py`, which runs
-as part of the existing `ci-gate-runner` pytest gate. The
-lifestyle-register-only nine-word list at Table 5 (collection, look,
-style, trend, designer, outfit, brand, aesthetic, showcase) requires
-register-level judgment and is not mechanically enforceable; that
-portion of the invariant is owned by PR review per ADR 0033's existing
-delegation.
+Both portions of Table 5 — the always-forbidden six (couture,
+couturier, atelier, boutique, runway, showroom) and the
+lifestyle-register-only nine (collection, look, style, trend,
+designer, outfit, brand, aesthetic, showcase) — are owned by PR
+review per ADR 0033 § Negative consequences' original delegation. A
+pytest invariant for the always-forbidden six was prototyped during
+Phase 2 planning and deliberately not landed; the call was that a
+mechanical floor was not worth the maintenance cost on a rule whose
+violation has never occurred and whose enforcement seam ADR 0033 had
+already named.
 
 Re-evaluate only if recipient evidence of consistent workshop-register
 collapse accumulates — that is the same trigger ADR 0033 § Reversal
@@ -630,6 +631,11 @@ prior roadmap revisions per the same historical-preservation principle
 [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) applies to
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
+
+### Shipped in v7.0.12 (2026-05-12)
+
+- **Phase 2 pre-flip doc-truth sweep** — reversible half of the PyPI publish + repo public-flip pair. Governed by `integration-auditor --proposal-mode` REVISE (10 findings). Deleted `install.ps1` + `install.sh` (zombie legacy curl-pipe scripts; `uv tool install` is the post-Phase-0 path). Fixed stale `biosensor-to-llm-middleware` URLs in `.github/SECURITY.md`, `CONTRIBUTING.md`, and ADRs 0002/0003. Scrubbed hardcoded boss-machine paths in `docs/diagnosis/phase-0-diagnosis-kit.md`. Updated `WINDOWS_QUICKSTART.md` install framing from Python + pip to uv + `uv tool install`. Re-pointed `runner.py` default `install_url_base` from archived mirror to `tailor-mcp` Releases per [ADR 0032](docs/adr/0032-retire-public-mirror-distribution-path.md). Removed CI badge from README (Actions disabled). Added synthetic-by-construction callout per ADR 0024. Updated ROADMAP Phase 2 `vocabulary-drift-auditor` § Killed entry.
+- **Four boss-decisions ratified**: D1 (v7.0.12/v7.0.13 split); D2 (delete install scripts, not rewrite); D3 (CONTRIBUTING.md tone = Phase-3 debt); D4 (CI badge remove).
 
 ### Shipped in v7.0.11 (2026-05-12)
 

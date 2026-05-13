@@ -15,15 +15,19 @@ direction-oriented — what Tailor is aiming at, with triggering
 conditions instead of dates, because committing to schedules past six
 months out is more cosmetic than honest.
 
-**Phase 0 is the binding constraint and the most important honesty in
-this document.** Empirically, no version of Tailor (or its
-predecessors under the *Biosensor MCP* name) has been successfully
-installed end-to-end on a machine that wasn't the project author's.
-Every prior external send produced a degraded or failed install state.
-Until that changes, every later-phase item is castle-on-sand. The
-roadmap reflects this by making install-path validation the first
-phase; what was previously labelled *"Phase 0 — ship-quality v7.0.0"*
-is now Phase 1, with every other phase shifted accordingly.
+**Phase 0 was the binding constraint and the most important honesty in
+this document — and on 2026-05-12 it closed** under the lenient read
+of its exit criterion (one Windows + one macOS install proven
+cross-OS; see v7.0.8 § Shipped and the Phase 0 section below). For the
+entire v6.x cycle and the first half of v7.x, no version of Tailor (or
+its predecessors under the *Biosensor MCP* name) had been successfully
+installed end-to-end on a machine that wasn't the project author's;
+every prior external send produced a degraded or failed install
+state, and until that changed every later-phase item was
+castle-on-sand. The roadmap structure reflects this history:
+install-path validation is the first phase; what was previously
+labelled *"Phase 0 — ship-quality v7.0.0"* is now Phase 1, with every
+other phase shifted accordingly.
 
 Health-research workflows remain the first deployment recipe shipped
 end-to-end. They are not the platform's identity. Future deployment
@@ -70,23 +74,42 @@ Items not in a phase live in [Held](#held-items-revisit-when-the-trigger-fires) 
 
 ## Phase 0 — Install-path validation *(closed 2026-05-12; lenient read on the two-outside-recipients exit criterion — see v7.0.8 § Shipped)*
 
-Empirically, no version of Tailor (or its predecessors under the
-*Biosensor MCP* name) has ever been successfully installed end-to-end
-on a machine that wasn't the project author's. The v6.10.x patch
-quartet (cp1252, dual-path Claude Desktop, sibling cleanup, Microsoft
-Store sandbox), the v6.11.0 `recipient-install-validator` (silent-
-parked on its second wild run per project memory; falsified), and the
-v6.13.0 demo polish all compose on top of *"the framework runs on the
-user's machine"* — a baseline assumption that is empirically not yet
-true outside the project author's own dev environment.
+**Closure note (2026-05-12)**: Phase 0 closed under the lenient read of
+its exit criterion. The 2026-05-09 Windows install (self-driven
+diagnosis on a fresh `tailor-recipient` user account against Microsoft
+Store Claude Desktop) proved the technical install path; the
+2026-05-12 macOS install (a friend ran the wheel install and `tailor
+tour` on their own Mac with the boss watching only) proved the
+recipient-experience path. The strict read of the exit criterion — two
+clean outside-recipient installs with the project author untouched at
+every step — remains open and is being satisfied opportunistically.
+Boss made the closure call on 2026-05-12 per v7.0.8 § Shipped. The
+pre-closure framing below is retained as the historical record of what
+Phase 0 looked like before it closed; the PATCH-not-RESTRUCTURE
+verdict (see v7.0.4 § Shipped) is the diagnosis-bound deliverable's
+historical answer.
 
-Phase 0 is the discovery and resolution work that makes that
-assumption honestly true for at least two external recipients. This
-phase has no fixed window because its duration is diagnosis-bound. It
-could be days (visible bugs that fix cleanly) or weeks (architecture-
-level rework — single-binary executable, Docker container, one-shot
-installer). Both outcomes are valid; Phase 0 is the work that reveals
-which.
+*Pre-closure framing (retained as historical record):*
+
+For the entire v6.x cycle and the first half of v7.x, no version of
+Tailor (or its predecessors under the *Biosensor MCP* name) had ever
+been successfully installed end-to-end on a machine that wasn't the
+project author's. The v6.10.x patch quartet (cp1252, dual-path Claude
+Desktop, sibling cleanup, Microsoft Store sandbox), the v6.11.0
+`recipient-install-validator` (silent-parked on its second wild run
+per project memory; falsified), and the v6.13.0 demo polish all
+composed on top of *"the framework runs on the user's machine"* — a
+baseline assumption that was empirically not yet true outside the
+project author's own dev environment until the 2026-05-09 + 2026-05-12
+install pair landed.
+
+Phase 0 was the discovery and resolution work that made that
+assumption honestly true for two external recipients. The phase had no
+fixed window because its duration was diagnosis-bound: it could have
+been days (visible bugs that fix cleanly) or weeks
+(architecture-level rework — single-binary executable, Docker
+container, one-shot installer). Both outcomes were valid; Phase 0 was
+the work that revealed which.
 
 | Deliverable | Why it matters |
 |---|---|
@@ -563,11 +586,12 @@ would falsify the historical record.
 ### Shipped in v7.0.10 (2026-05-12)
 
 - **README install-path framing aligned with Phase 0 closure** — Six framing callouts and table rows that described Phase 0 as active and no outside install as succeeded are updated to reflect the 2026-05-12 macOS outside-recipient install ratified by v7.0.8. The install commands themselves (`uv tool install git+...tailor-mcp.git` + `tailor tour`) were already correct post-rename; the stale framing was the editorial claim around them.
-- **Lenient-vs-strict-read distinction surfaced explicitly** — The 30-second quickstart callout and Status bullet now name both reads: the lenient read (cross-OS, one Windows + one macOS install proven) closed Phase 0; the strict read (two installs by uninvolved third parties, project author untouched at every step) remains open and is being satisfied opportunistically.
+- **ROADMAP preamble + Phase 0 section body swept** — In-scope expansion after release-shipper's BORDER NOTE flagged that v7.0.8's status-flip pass had touched the at-a-glance table and the Phase 0 header but missed two stale present-tense blocks: the preamble at lines 18-26 (*"Phase 0 is the binding constraint … has been successfully installed"*) and the Phase 0 section opener at lines 73-89 (*"Empirically, no version of Tailor … has ever been"*). Both repeated the same defect: present-tense assertions of pre-2026-05-12 state. Both rewritten as past-tense historical framing with a closure callout at the top of the Phase 0 section. The pre-closure prose is retained as historical record (the v6.x → v7.x install-failure narrative is load-bearing context); the present-tense claims are flipped. Demonstrates a pattern: status flips that touch headers and tables also need to sweep the explanatory prose buried below the fold.
+- **Lenient-vs-strict-read distinction surfaced explicitly** — The 30-second quickstart callout, Status bullet, and Phase 0 closure callout all now name both reads: the lenient read (cross-OS, one Windows + one macOS install proven) closed Phase 0; the strict read (two installs by uninvolved third parties, project author untouched at every step) remains open and is being satisfied opportunistically.
 - **Anchor stability fix** — Four README cross-references to the Phase 0 ROADMAP header repointed from `#phase-0--install-path-validation-active-duration-tbd-by-diagnosis` (which rewrites when a `*(closed…)*` suffix is appended) to `#at-a-glance` (stable). Demonstrates a pattern: section anchors that carry status annotations in their text are fragile cross-reference targets; the at-a-glance table's anchor is the stable entry point.
 - **ADR count refreshed** — Further reading footer: `31 ADRs as of v7.0.2` → `34 ADRs as of v7.0.9` (ADRs 0032, 0033, 0034 landed since v7.0.2; verified by counting `docs/adr/` files).
 - **Phase 1 fully closed** — All four Phase 1 deliverables landed (repo rename v7.0.5, `tailor migrate` retirement v7.0.9, README framing v7.0.10, banner-stacking superseded). Phase 2 — Public-launch readiness — unblocks.
-- Gates: ci-gate-runner SHIPPABLE (940/940 pytest, ruff clean, 76/76 probe, CLI smoke clean). mcp-protocol-auditor NOT TRIGGERED. cue-card-rehearsal-auditor NOT TRIGGERED. recipient-install-validator SKIPPED (README.md not in ADR 0028 trigger globs; v6.11.x falsification grounds the skip).
+- Gates: ci-gate-runner SHIPPABLE (940/940 pytest, ruff clean, 76/76 probe, CLI smoke clean). mcp-protocol-auditor NOT TRIGGERED. cue-card-rehearsal-auditor NOT TRIGGERED. recipient-install-validator SKIPPED (README.md and ROADMAP.md not in ADR 0028 trigger globs; v6.11.x falsification grounds the skip).
 
 ### Shipped in v7.0.9 (2026-05-12)
 

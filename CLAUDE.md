@@ -1,26 +1,30 @@
 # CLAUDE.md — Tailor
 
 > **v7.0.10 (2026-05-12)** — Docs-only patch. README install-path
-> framing aligned with Phase 0 lenient-read closure (2026-05-12). The
-> install commands (`uv tool install git+...tailor-mcp.git` + `tailor
-> tour`) were already correct post-rename; six framing callouts and
-> table rows that described Phase 0 as active and no install as
-> succeeded are updated to reflect the 2026-05-12 macOS outside-
-> recipient install ratified by v7.0.8. Anchor fix: four README
-> cross-references to the Phase 0 ROADMAP header repointed to
-> `#at-a-glance` (the Phase 0 header acquired a `*(closed…)*` suffix
-> that rewrote its anchor). ADR count refreshed 31 → 34 (docs/adr/
-> counts verified). Closes the last active Phase 1 ROADMAP deliverable
-> ("Update README install commands to reflect the install path that
-> survived Phase 0"); all four Phase 1 deliverables are now landed and
-> Phase 2 unblocks. No `src/` or `tests/` changes; no public API
-> changes; no router/security/child/vault/CLI architecture changes.
-> Patch bump. Gates: 940/940 pytest, ruff clean, 76/76 probe, CLI
-> smoke clean. mcp-protocol-auditor NOT TRIGGERED. cue-card-rehearsal-
-> auditor NOT TRIGGERED. recipient-install-validator SKIPPED (README.md
-> not in ADR 0028 trigger globs; v6.11.x falsification grounds the
-> skip). Includes pending README.md governance/framing edit per Phase 1
-> ROADMAP deliverable ("Update README install commands…").
+> framing + ROADMAP preamble swept to align with Phase 0 lenient-read
+> closure (2026-05-12). The install commands themselves
+> (`uv tool install git+...tailor-mcp.git` + `tailor tour`) were
+> already correct post-rename; what was stale was the editorial framing
+> around them — six callouts and table rows in `README.md`, plus two
+> present-tense prose blocks in `ROADMAP.md` (the preamble at lines
+> 18-26 and the Phase 0 section opener at lines 73-89) that both
+> asserted *"no install has succeeded"* in present tense. The
+> release-shipper's BORDER NOTE on the v7.0.10 initial PR flagged the
+> ROADMAP preamble; the diff was expanded to sweep both ROADMAP blocks
+> together so the same defect doesn't reproduce on the next pass.
+> Anchor fix: four README cross-references to the Phase 0 ROADMAP
+> header repointed to `#at-a-glance` (the Phase 0 header acquired a
+> `*(closed…)*` suffix that rewrote its anchor). ADR count refreshed
+> 31 → 34 (docs/adr/ counts verified). Closes the last active Phase 1
+> ROADMAP deliverable ("Update README install commands to reflect the
+> install path that survived Phase 0"); all four Phase 1 deliverables
+> are now landed and Phase 2 unblocks. No `src/` or `tests/` changes;
+> no public API changes; no router/security/child/vault/CLI
+> architecture changes. Patch bump. Gates: 940/940 pytest, ruff clean,
+> 76/76 probe, CLI smoke clean. mcp-protocol-auditor NOT TRIGGERED.
+> cue-card-rehearsal-auditor NOT TRIGGERED. recipient-install-validator
+> SKIPPED (README.md and ROADMAP.md not in ADR 0028 trigger globs;
+> v6.11.x falsification grounds the skip).
 
 > **v7.0.9 (2026-05-12)** — Governance/CLI-surface patch. `tailor migrate` subcommand
 > and its associated startup warning retired per [ADR 0034](docs/adr/0034-retire-tailor-migrate-subcommand.md)

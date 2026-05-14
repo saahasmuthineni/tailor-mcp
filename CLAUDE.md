@@ -1,5 +1,38 @@
 # CLAUDE.md — Tailor
 
+> **v7.1.1 (2026-05-14)** — Source-agnostic positioning patch (Move 1 of
+> three-move strategic-positioning sequence). `README.md` hero and
+> `README_PYPI.md` intro gain a parallel bold-led clause naming the
+> source-agnostic axis: "The same architecture works on whatever shape
+> your data is already in — CSV directories today; REDCap exports, EDF
+> recordings, FHIR bundles, vendor sensor exports, or any other source
+> through a small `ChildMCP` extension that inherits the full pipeline
+> (tier model, audit, scrubber seam, Wardrobe)." Slot 3 in the README hero;
+> a new ¶3 in the PyPI intro. The two existing AI-economics bold sentences
+> (slots 1+2 in README; ¶1+¶2 in PyPI) are unchanged — the $200/month →
+> $2/month framing preserved at parity per boss's weight-preservation
+> constraint. A 10-100× cost-per-question tie-back sentence closes each new
+> clause to compound the AI-economics umbrella claim rather than diluting it.
+>
+> `integration-auditor --proposal-mode` returned REVISE on first pass with 3
+> IMPORTANT findings addressed: F1 (template-child "four named blanks"
+> overclaim — dropped); F2 (MATLAB not ROADMAP/ADR-grounded — dropped; kept
+> four ROADMAP-held items: REDCap / EDF / FHIR / vendor sensor exports); F3
+> (bold-emphasis ordering — source-agnostic landed in slot 3 to preserve AI-
+> economics slots 1+2); C2 (line-range trimming risk — fixed by exact-string
+> Edit, preserving the "first recipe shipped end-to-end" framing intact).
+> Workshop-vs-lifestyle invariant per ADR 0033 + ADR 0035 Table 5 verified
+> clean (no forbidden words; `Wardrobe` / `ChildMCP` / `Tailor` per Table 1).
+>
+> No `src/` logic changes; no `tests/` changes; no schema changes; no public
+> API changes; no router/security/child/vault/CLI architecture changes. Patch
+> bump. Gates: 946/946 pytest, ruff clean, 76/76 probe, CLI smoke clean.
+> mcp-protocol-auditor NOT TRIGGERED (no framework/router/security/vault paths
+> touched; prose-only). cue-card-rehearsal-auditor NOT TRIGGERED (no CUE_CARD.md
+> or ToolDefinition schema changes). recipient-install-validator SKIPPED
+> (README.md + README_PYPI.md are not ADR 0028 trigger globs; v6.11.x
+> falsification grounds the opt-in skip).
+
 > **v7.1.0 (2026-05-14)** — CLI rename: `tailor demo` → `tailor walkthrough`,
 > `tailor tour` → `tailor fitting-room`. Old verbs preserved as one-cycle
 > deprecation shims with stderr hints citing [ADR 0035](docs/adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md);

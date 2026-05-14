@@ -671,6 +671,10 @@ prior roadmap revisions per the same historical-preservation principle
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
 
+### Shipped in v7.1.1 (2026-05-14)
+
+- **Source-agnostic positioning (Move 1 of 3)** — `README.md` hero and `README_PYPI.md` intro gain a parallel bold-led clause naming the source-agnostic axis (`ChildMCP` extension point; REDCap / EDF / FHIR / vendor sensor exports as held-item examples; 10-100× cost-per-question tie-back). Closes the cold-landing messaging gap where a reader sees CSV fixtures + Strava and concludes Tailor is a CSV tool. AI-economics slots 1+2 preserved at parity. `integration-auditor --proposal-mode` REVISE → resolved (3 IMPORTANT findings addressed pre-edit). Workshop-vs-lifestyle invariant per ADR 0033 + ADR 0035 Table 5 verified clean.
+
 ### Shipped in v7.1.0 (2026-05-14)
 
 - **CLI rename: `tailor demo` → `tailor walkthrough`, `tailor tour` → `tailor fitting-room`** — recipient-experience-shaped verbs replacing the internal-framing names. One-cycle deprecation shims preserve the old verbs with stderr hints; removed in v7.2.0. New `tailor fitting-room` heads-up prompts recipient to quit Claude Desktop before MCP config write. Default `--save-shareable` filename updated to `shareable-walkthrough-vX.Y.Z.md`.

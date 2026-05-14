@@ -34,8 +34,9 @@ most other subjects.  The unusual signal is the absolute amplitude,
 not the decline rate; her force production tracks an ordinary
 failure profile through all of it.
 
-This is the EMG/force decoupling pattern Hunter & Senefeld 2024
-flagged in the *J Physiol* review — high motor-unit recruitment
+This is the EMG/force decoupling pattern consistent with the
+*J Physiol* 2024 review literature on sex differences in human
+performance — high motor-unit recruitment
 without commensurate force production, suggesting the central
 nervous system is working harder per Newton of output. In trained
 subjects this can mean recent overreaching, an undisclosed

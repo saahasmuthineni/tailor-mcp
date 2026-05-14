@@ -64,7 +64,3 @@ README, but not into the project's repository docs. Shipping this
 file inside the wheel closes the discoverability gap so an
 external Claude can route the recipient to `tailor tour`
 instead of recommending manual config edits.
-
-The full Windows recipient walkthrough (with screenshots,
-troubleshooting, and the cue-card prompts) lives in the project
-repository at `examples/hip_lab_demo/realistic/WINDOWS_QUICKSTART.md`.

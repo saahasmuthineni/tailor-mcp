@@ -45,7 +45,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
 # Install Tailor into uv's tool environment
-uv tool install git+https://github.com/saahasmuthineni/tailor-mcp.git
+uv tool install tailor-mcp
 ```
 
 If your institution blocks uv's installer (PowerShell ExecutionPolicy
@@ -53,7 +53,7 @@ restrictions on managed Windows are the most common reason), the
 `pipx` alternative works identically:
 
 ```bash
-pipx install git+https://github.com/saahasmuthineni/tailor-mcp.git
+pipx install tailor-mcp
 ```
 
 Verify the install:

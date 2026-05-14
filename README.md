@@ -44,7 +44,7 @@ sends any of it to a service you didn't choose.
 For a PI or analyst running a multi-subject CSV pilot:
 
 ```bash
-uv tool install git+https://github.com/saahasmuthineni/tailor-mcp.git
+uv tool install tailor-mcp
 tailor pilot          # three prompts, end-to-end smoke check
 ```
 
@@ -317,13 +317,14 @@ framework. Most readers want the recipient path.
 > (closed 2026-05-12 under the lenient read of the exit criterion). The `uv tool install`
 > ritual was chosen over the architecture-restructure alternatives (single-binary
 > executable, Docker container, one-shot installer) — v7.0.4 hardened it against the
-> friction points the two outside-recipient installs surfaced. Until PyPI publishes
-> (Phase 2), `pip install tailor-mcp` is not yet available.*
+> friction points the two outside-recipient installs surfaced; v7.0.13 (2026-05-13)
+> published the package to PyPI as `tailor-mcp`, so the install command names the
+> package directly rather than a git URL.*
 
 **Recipient install** — what a PI or analyst would use:
 
 ```bash
-uv tool install git+https://github.com/saahasmuthineni/tailor-mcp.git
+uv tool install tailor-mcp
 tailor tour          # walkthrough scaffold — registers with Claude Desktop automatically
 # or:
 tailor pilot         # multi-subject CSV pilot wizard — three prompts

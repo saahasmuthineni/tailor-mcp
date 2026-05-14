@@ -346,14 +346,16 @@ def test_save_shareable_writes_self_contained_markdown(tmp_path: Path) -> None:
     assert "ADR 0029" in content
 
 
-def test_save_shareable_install_url_includes_current_version(
+def test_save_shareable_install_command_points_at_pypi_package(
     tmp_path: Path,
 ) -> None:
-    """The wheel URL embedded in the shareable markdown must match the
-    current package version. On each release, the URL pattern
-    automatically updates to the new wheel filename so the friend's
-    one-line install command stays correct."""
-    from tailor import __version__
+    """Per ADR 0030 § Amendment 2026-05-13 (after v7.0.13 PyPI publish
+    closed the wheel-by-email distribution channel), the shareable
+    markdown's install command references the PyPI package name
+    `tailor-mcp` rather than a version-specific wheel filename. The
+    install command is version-agnostic at install time. Regression-
+    tests that the install command does not regress to a
+    version-pinned GitHub-releases URL."""
     from tailor.demo import run_demo
 
     out_path = tmp_path / "shareable.md"
@@ -362,33 +364,45 @@ def test_save_shareable_install_url_includes_current_version(
         run_demo(save_shareable_path=out_path)
 
     content = out_path.read_text(encoding="utf-8")
-    expected_filename = f"tailor-{__version__}-py3-none-any.whl"
-    assert expected_filename in content
+    assert "uvx --from tailor-mcp tailor demo" in content
+    assert "pipx run --spec tailor-mcp tailor demo" in content
+    # No version-specific wheel filename; PyPI distribution is
+    # version-agnostic at install time.
+    assert "github.com/saahasmuthineni/tailor-mcp/releases/download" not in content
 
 
-def test_save_shareable_default_install_url_base_is_source_repo_releases() -> None:
-    """The default install URL base (when
-    ``TAILOR_DEMO_INSTALL_URL_BASE`` env var is unset) must point at
-    the source repo's GitHub Releases page per ADR 0032's retirement
-    of the separate public-mirror repo (Phase 2 onward distribution
-    shape)."""
+def test_save_shareable_emits_pypi_install_no_env_var_override(
+    tmp_path: Path,
+) -> None:
+    """Per ADR 0030 § Amendment 2026-05-13, the shareable markdown's
+    install command is PyPI-shaped (`tailor-mcp`) with no env-var
+    override path — the legacy ``TAILOR_DEMO_INSTALL_URL_BASE`` env var
+    is retired now that PyPI publish closed the wheel-by-email channel.
+    Regression-tests the retirement so a future revert that
+    reintroduces the env-var fallback surfaces here."""
+    import os
+
     from tailor.demo import run_demo
 
-    out_path = Path("/tmp") / "_test_share_default.md"
-    if out_path.exists():
-        out_path.unlink()
+    out_path = tmp_path / "shareable.md"
 
-    buf = io.StringIO()
-    with redirect_stdout(buf):
-        run_demo(save_shareable_path=out_path)
-
+    # Set the legacy env var; the retired code path must ignore it.
+    os.environ["TAILOR_DEMO_INSTALL_URL_BASE"] = (
+        "https://malicious.example.com/releases/download"
+    )
     try:
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            run_demo(save_shareable_path=out_path)
+
         content = out_path.read_text(encoding="utf-8")
-        assert "github.com/saahasmuthineni/tailor-mcp" in content
-        assert "biosensormcpdemo" not in content
+        # The env var has no effect: PyPI command appears, the legacy
+        # URL forms do not.
+        assert "uvx --from tailor-mcp tailor demo" in content
+        assert "malicious.example.com" not in content
+        assert "github.com/saahasmuthineni/tailor-mcp/releases/download" not in content
     finally:
-        if out_path.exists():
-            out_path.unlink()
+        os.environ.pop("TAILOR_DEMO_INSTALL_URL_BASE", None)
 
 
 def test_save_shareable_no_op_when_path_is_none(demo_output: str) -> None:
@@ -514,7 +528,6 @@ def test_audience_invalid_value_raises_in_generate_shareable() -> None:
         _generate_shareable_markdown(
             transcript="dummy",
             version="6.13.0",
-            install_url_base="https://github.com/x/y/releases/download",
             audience="vip",
         )
 
@@ -622,19 +635,22 @@ def test_public_mode_url_allowlist_hard_fails_on_disallowed_https() -> None:
         _enforce_public_url_allowlist(bad)
 
 
-def test_public_mode_url_allowlist_passes_on_wheel_release_asset() -> None:
-    """The wheel-release-asset URL pattern is the one outbound URL
-    permitted on the public page (the install command needs it).
-    Confirms the allowlist isn't accidentally too strict."""
+def test_public_mode_url_allowlist_rejects_wheel_release_asset_after_tightening() -> None:
+    """Per ADR 0030 § Amendment 2026-05-13 (after PyPI publish in
+    v7.0.13 closed the wheel-by-email distribution channel), the
+    public-mode page is fully URL-free; the previously-permitted
+    wheel-release-asset URL pattern now also fails the allowlist.
+    Regression-tests the tightening so a future revert reintroducing
+    a wheel-URL carve-out surfaces here as a failed assertion."""
     from tailor.demo.runner import _enforce_public_url_allowlist
 
-    good = (
+    legacy = (
         "Run with `uvx --from "
-        "https://github.com/saahasmuthineni/tailor-mcp/releases/download/v7.0.12/tailor_mcp-7.0.12-py3-none-any.whl "
+        "https://github.com/saahasmuthineni/tailor-mcp/releases/download/v7.0.13/tailor_mcp-7.0.13-py3-none-any.whl "
         "tailor demo`."
     )
-    # Should NOT raise.
-    _enforce_public_url_allowlist(good)
+    with pytest.raises(ValueError, match="disallowed outbound URL"):
+        _enforce_public_url_allowlist(legacy)
 
 
 def test_splice_panels_returns_single_fence_when_no_section_headers() -> None:
@@ -674,15 +690,18 @@ def test_render_persona_panel_uses_friend_facing_voice() -> None:
     assert "RESEARCHER-LOAD-BEARING" not in panel
 
 
-def test_public_mode_has_only_wheel_release_asset_outbound_urls(
+def test_public_mode_render_emits_zero_outbound_urls(
     tmp_path: Path,
 ) -> None:
-    """End-to-end: a real ``--audience=public`` render contains only the
-    wheel-release-asset URL as outbound — no docs.astral.sh link
-    (developer-mode-only), no other GitHub URLs. The render-time
-    allowlist already enforces this; the test confirms the rendered
+    """End-to-end: a real ``--audience=public`` render emits zero
+    outbound URLs in the rendered markdown file. Per ADR 0030 § Amendment
+    2026-05-13, the public-mode page is fully URL-free after PyPI publish
+    in v7.0.13 closed the wheel-by-email channel. The render-time
+    allowlist already enforces this; this test confirms the rendered
     output actually conforms (defends against the allowlist becoming
-    too lax)."""
+    too lax — a future revert that adds back any URL exception would
+    cause both this end-to-end test AND the function-level allowlist
+    test to fail)."""
     import re
 
     from tailor.demo import run_demo
@@ -694,11 +713,10 @@ def test_public_mode_has_only_wheel_release_asset_outbound_urls(
 
     content = out_path.read_text(encoding="utf-8")
     outbound_urls = re.findall(r"https?://[^\s)\]\"'>]+", content)
-    assert len(outbound_urls) > 0, "Install command must contain wheel URL"
-    for url in outbound_urls:
-        assert "/releases/download/" in url, (
-            f"Disallowed outbound URL in --audience=public output: {url}"
-        )
+    assert outbound_urls == [], (
+        f"--audience=public output must contain zero outbound URLs "
+        f"per ADR 0030 § Amendment 2026-05-13; found: {outbound_urls}"
+    )
 
 
 def test_public_mode_strips_developer_terminal_breadcrumbs(

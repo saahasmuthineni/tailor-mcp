@@ -16,7 +16,14 @@ for single digits through Tailor — because the AI gets a structured
 answer instead of your raw data, its context window goes to
 reasoning over your question, your prior work, and your audit
 trail, rather than to shuffling streams it then has to re-aggregate
-itself.** Today the worked-out recipe is
+itself.** **The same architecture works on whatever shape your
+data is already in — CSV directories today; REDCap exports, EDF
+recordings, FHIR bundles, vendor sensor exports, or any other
+source through a small `ChildMCP` extension that inherits the full
+pipeline (tier model, audit, scrubber seam, Wardrobe).** Every
+shape you wrap inherits the same 10-100× cost-per-question collapse
+and the same provenance discipline, without any of it leaving your
+machine. Today the worked-out recipe is
 health research — *that's the **first recipe shipped end-to-end, not
 the platform's identity***. Future recipes (knowledge work, quantified
 self, household, creative archives) compose on the same engine; see

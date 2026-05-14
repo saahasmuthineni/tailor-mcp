@@ -172,7 +172,7 @@ class TestConfigPathsHelper:
 
 
 # ──────────────────────────────────────────────────────────────────────
-# Tour `_register_with_claude_desktop` — per-path semantics
+# Fitting-room `_register_with_claude_desktop` — per-path semantics
 # ──────────────────────────────────────────────────────────────────────
 
 
@@ -182,27 +182,27 @@ class TestPerPathRegistration:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Scenario (iii). Both Classic and Store configs detected;
-        the same tailor-tour-hip-lab entry must appear in both."""
-        from tailor.tour import main
+        the same tailor-fitting-room-hip-lab entry must appear in both."""
+        from tailor.fitting_room import main
 
         classic = tmp_path / "classic" / "claude_desktop_config.json"
         classic.parent.mkdir()
         sandbox = tmp_path / "sandbox" / "claude_desktop_config.json"
         sandbox.parent.mkdir()
         monkeypatch.setattr(
-            "tailor.tour._claude_desktop_config_paths",
+            "tailor.fitting_room._claude_desktop_config_paths",
             lambda: [classic, sandbox],
         )
 
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         rc = main(["--variant=hip-lab", "--target", str(target)])
         assert rc == 0
         assert classic.exists()
         assert sandbox.exists()
         c = json.loads(classic.read_text(encoding="utf-8"))
         s = json.loads(sandbox.read_text(encoding="utf-8"))
-        assert c["mcpServers"]["tailor-tour-hip-lab"] == \
-               s["mcpServers"]["tailor-tour-hip-lab"]
+        assert c["mcpServers"]["tailor-fitting-room-hip-lab"] == \
+               s["mcpServers"]["tailor-fitting-room-hip-lab"]
 
     def test_per_path_permission_error_does_not_abort_others(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
@@ -210,14 +210,14 @@ class TestPerPathRegistration:
         """Scenario (iv). PermissionError on one path must not abort
         writes to the others. Per ADR 0026 § Per-path atomic semantics.
         """
-        from tailor.tour import main
+        from tailor.fitting_room import main
 
         classic = tmp_path / "classic" / "claude_desktop_config.json"
         classic.parent.mkdir()
         sandbox = tmp_path / "sandbox" / "claude_desktop_config.json"
         sandbox.parent.mkdir()
         monkeypatch.setattr(
-            "tailor.tour._claude_desktop_config_paths",
+            "tailor.fitting_room._claude_desktop_config_paths",
             lambda: [classic, sandbox],
         )
 
@@ -236,14 +236,14 @@ class TestPerPathRegistration:
 
         monkeypatch.setattr(pilot_mod, "_write_claude_config", _raise_for_sandbox)
 
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         rc = main(["--variant=hip-lab", "--target", str(target)])
         # Exit code is 0 because at least one path was written.
         assert rc == 0
         # Classic was written despite the sandbox failure.
         assert classic.exists()
         c = json.loads(classic.read_text(encoding="utf-8"))
-        assert "tailor-tour-hip-lab" in c["mcpServers"]
+        assert "tailor-fitting-room-hip-lab" in c["mcpServers"]
         # Sandbox was NOT written.
         assert not sandbox.exists()
 
@@ -252,14 +252,14 @@ class TestPerPathRegistration:
     ) -> None:
         """Per ADR 0026: exit code is 1 if every detected path failed."""
         from tailor import pilot as pilot_mod
-        from tailor.tour import main
+        from tailor.fitting_room import main
 
         classic = tmp_path / "classic" / "claude_desktop_config.json"
         classic.parent.mkdir()
         sandbox = tmp_path / "sandbox" / "claude_desktop_config.json"
         sandbox.parent.mkdir()
         monkeypatch.setattr(
-            "tailor.tour._claude_desktop_config_paths",
+            "tailor.fitting_room._claude_desktop_config_paths",
             lambda: [classic, sandbox],
         )
 
@@ -268,7 +268,7 @@ class TestPerPathRegistration:
 
         monkeypatch.setattr(pilot_mod, "_write_claude_config", _always_raise)
 
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         rc = main(["--variant=hip-lab", "--target", str(target)])
         assert rc == 1
         assert not classic.exists()
@@ -280,9 +280,9 @@ class TestPerPathRegistration:
         """Scenario (v). The v6.10.3 sibling-cleanup invariant
         ("exactly one biosensor-* entry exists") must hold per-path.
         Both configs start with stale ``tailor`` entries; both
-        must end with only the new ``tailor-tour-hip-lab`` entry.
+        must end with only the new ``tailor-fitting-room-hip-lab`` entry.
         """
-        from tailor.tour import main
+        from tailor.fitting_room import main
 
         classic = tmp_path / "classic" / "claude_desktop_config.json"
         classic.parent.mkdir()
@@ -302,11 +302,11 @@ class TestPerPathRegistration:
             },
         }))
         monkeypatch.setattr(
-            "tailor.tour._claude_desktop_config_paths",
+            "tailor.fitting_room._claude_desktop_config_paths",
             lambda: [classic, sandbox],
         )
 
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         rc = main(["--variant=hip-lab", "--target", str(target)])
         assert rc == 0
         c = json.loads(classic.read_text(encoding="utf-8"))
@@ -318,8 +318,8 @@ class TestPerPathRegistration:
         from tailor.__main__ import _is_orphan_entry_key
         c_owned = [k for k in c["mcpServers"] if _is_orphan_entry_key(k)]
         s_owned = [k for k in s["mcpServers"] if _is_orphan_entry_key(k)]
-        assert c_owned == ["tailor-tour-hip-lab"]
-        assert s_owned == ["tailor-tour-hip-lab"]
+        assert c_owned == ["tailor-fitting-room-hip-lab"]
+        assert s_owned == ["tailor-fitting-room-hip-lab"]
         # Unrelated siblings on both paths preserved.
         assert "obsidian" in c["mcpServers"]
         assert "raycast" in s["mcpServers"]
@@ -332,8 +332,8 @@ class TestPerPathRegistration:
         bare ``tailor`` (no env block) entry in BOTH the classic
         and the sandbox configs — the v6.9.x web-Claude-debugging shape
         reproduced across both — must end up with only the new
-        ``tailor-tour-hip-lab`` entry in both, no stale leftovers."""
-        from tailor.tour import main
+        ``tailor-fitting-room-hip-lab`` entry in both, no stale leftovers."""
+        from tailor.fitting_room import main
 
         bare_entry = {"command": "tailor", "args": ["serve"]}
         classic = tmp_path / "classic" / "claude_desktop_config.json"
@@ -347,11 +347,11 @@ class TestPerPathRegistration:
             "mcpServers": {"tailor": bare_entry},
         }))
         monkeypatch.setattr(
-            "tailor.tour._claude_desktop_config_paths",
+            "tailor.fitting_room._claude_desktop_config_paths",
             lambda: [classic, sandbox],
         )
 
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         rc = main(["--variant=hip-lab", "--target", str(target)])
         assert rc == 0
         from tailor.__main__ import _is_orphan_entry_key
@@ -359,7 +359,7 @@ class TestPerPathRegistration:
             data = json.loads(cfg_path.read_text(encoding="utf-8"))
             keys = list(data["mcpServers"])
             owned_keys = [k for k in keys if _is_orphan_entry_key(k)]
-            assert owned_keys == ["tailor-tour-hip-lab"], (
+            assert owned_keys == ["tailor-fitting-room-hip-lab"], (
                 f"{cfg_path.name} should have exactly one framework-owned "
                 f"entry but has {owned_keys}"
             )
@@ -371,12 +371,12 @@ class TestPerPathRegistration:
         failure, the ``.tmp`` artifact left by ``_write_claude_config``
         is unlinked to avoid clutter across debugging loops."""
         from tailor import pilot as pilot_mod
-        from tailor.tour import main
+        from tailor.fitting_room import main
 
         sandbox = tmp_path / "sandbox" / "claude_desktop_config.json"
         sandbox.parent.mkdir()
         monkeypatch.setattr(
-            "tailor.tour._claude_desktop_config_paths",
+            "tailor.fitting_room._claude_desktop_config_paths",
             lambda: [sandbox],
         )
 
@@ -394,7 +394,7 @@ class TestPerPathRegistration:
 
         monkeypatch.setattr(pilot_mod, "_write_claude_config", _write_then_raise)
 
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         rc = main(["--variant=hip-lab", "--target", str(target)])
         assert rc == 1
         assert not sandbox.exists()

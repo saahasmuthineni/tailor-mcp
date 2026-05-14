@@ -1,5 +1,6 @@
 """
-Regression tests for ``tailor demo``.
+Regression tests for ``tailor walkthrough`` (renamed from
+``tailor demo`` in v7.1.0 per ADR 0035).
 
 Two waves of design intent govern this test file:
 
@@ -333,13 +334,14 @@ def test_save_shareable_writes_self_contained_markdown(tmp_path: Path) -> None:
     assert out_path.exists()
     content = out_path.read_text(encoding="utf-8")
 
-    # Header / title
-    assert "# Tailor - demo" in content
+    # Header / title — renamed from "demo" to "walkthrough" in v7.1.0
+    # per ADR 0035.
+    assert "# Tailor - walkthrough" in content
     # Install command section with both uvx and pipx
     assert "uvx --from" in content
     assert "pipx run --spec" in content
     # Transcript section
-    assert "## Demo output" in content
+    assert "## Walkthrough output" in content
     assert "Section 1" in content
     # Footer with reading-order breadcrumbs
     assert "Where to read next" in content
@@ -364,8 +366,8 @@ def test_save_shareable_install_command_points_at_pypi_package(
         run_demo(save_shareable_path=out_path)
 
     content = out_path.read_text(encoding="utf-8")
-    assert "uvx --from tailor-mcp tailor demo" in content
-    assert "pipx run --spec tailor-mcp tailor demo" in content
+    assert "uvx --from tailor-mcp tailor walkthrough" in content
+    assert "pipx run --spec tailor-mcp tailor walkthrough" in content
     # No version-specific wheel filename; PyPI distribution is
     # version-agnostic at install time.
     assert "github.com/saahasmuthineni/tailor-mcp/releases/download" not in content
@@ -398,7 +400,7 @@ def test_save_shareable_emits_pypi_install_no_env_var_override(
         content = out_path.read_text(encoding="utf-8")
         # The env var has no effect: PyPI command appears, the legacy
         # URL forms do not.
-        assert "uvx --from tailor-mcp tailor demo" in content
+        assert "uvx --from tailor-mcp tailor walkthrough" in content
         assert "malicious.example.com" not in content
         assert "github.com/saahasmuthineni/tailor-mcp/releases/download" not in content
     finally:
@@ -479,7 +481,7 @@ def test_bundled_force_fixtures_are_loadable_via_importlib_resources() -> None:
 def test_personas_schema_ships_in_wheel() -> None:
     """``_personas.json`` must be loadable via importlib.resources from
     the installed package. Ships per pyproject.toml package-data glob
-    so a recipient running ``demo --audience=public --save-shareable``
+    so a recipient running ``walkthrough --audience=public --save-shareable``
     on their machine has the schema locally."""
     from importlib.resources import files
 
@@ -647,7 +649,7 @@ def test_public_mode_url_allowlist_rejects_wheel_release_asset_after_tightening(
     legacy = (
         "Run with `uvx --from "
         "https://github.com/saahasmuthineni/tailor-mcp/releases/download/v7.0.13/tailor_mcp-7.0.13-py3-none-any.whl "
-        "tailor demo`."
+        "tailor walkthrough`."
     )
     with pytest.raises(ValueError, match="disallowed outbound URL"):
         _enforce_public_url_allowlist(legacy)
@@ -723,7 +725,7 @@ def test_public_mode_strips_developer_terminal_breadcrumbs(
     tmp_path: Path,
 ) -> None:
     """In public mode the captured transcript itself must not contain
-    the developer-tier 'tailor pilot' / 'tailor tour'
+    the developer-tier 'tailor pilot' / 'tailor fitting-room'
     suggestion block — those reference recipient-facing CLI surfaces
     that scaffold private-repo files; not appropriate for a public
     page."""
@@ -737,7 +739,7 @@ def test_public_mode_strips_developer_terminal_breadcrumbs(
     content = out_path.read_text(encoding="utf-8")
     assert "If you want to use this with your own data" not in content
     assert "tailor pilot" not in content
-    assert "tailor tour" not in content
+    assert "tailor fitting-room" not in content
 
 
 def test_save_shareable_suppresses_redundant_tip_block(

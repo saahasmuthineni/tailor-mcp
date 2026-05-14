@@ -69,11 +69,11 @@ Pin these to the diagnosis session. They are the rules that distinguish diagnose
 3. **Treat error messages as the user surface.** If you hit an error, copy the exact text. Don't paraphrase. The error message is what the recipient sees.
 4. **One attempt = one friction log file.** Don't conflate runs. Comparing two runs against the same template is the value.
 5. **Stop at the first hard fail.** Hard-fail = step cannot complete without intervention beyond the documented ritual. Note the friction class as **P0**, capture state, end the run. Do not bash through with workarounds to "see what's beyond."
-6. **Demo working ≠ install successful.** The exit signal is `tailor demo` running clean *and* `tailor tour` writing a Claude Desktop config that Claude Desktop actually reads. Both have to work.
+6. **Walkthrough working ≠ install successful.** The exit signal is `tailor walkthrough` running clean *and* `tailor fitting-room` writing a Claude Desktop config that Claude Desktop actually reads. Both have to work. (The verbs were `tailor demo` and `tailor tour` through v7.0.x; renamed in v7.1.0 per [ADR 0035](../adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md). Both old verbs remain functional through v7.1.x with a stderr deprecation hint.)
 
 ## Stranger-eyes install checklist
 
-This is the documented install ritual stripped to literal commands a recipient would execute. The README's recipient install path (`uv tool install tailor-mcp` + `tailor tour`) is canonical for v7.0.13+ via PyPI; pre-v7.0.13 wheel-by-email and `git+` URL paths were the canonical surfaces in earlier releases. The historical wheel path is preserved at the bottom but is not the priority surface.
+This is the documented install ritual stripped to literal commands a recipient would execute. The README's recipient install path (`uv tool install tailor-mcp` + `tailor fitting-room`) is canonical for v7.1.0+ via PyPI; pre-v7.0.13 wheel-by-email and `git+` URL paths were the canonical surfaces in earlier releases. The historical wheel path is preserved at the bottom but is not the priority surface.
 
 For each step, the friction log captures: **expected outcome**, **actual outcome**, **workaround used (if any)**, **friction class**, **screenshot reference**.
 
@@ -145,20 +145,20 @@ uv tool install tailor-mcp
 tailor --help 2>&1 | Tee-Object -Append "$env:USERPROFILE\diagnosis-tailor-output-attempt-1.txt"
 ```
 
-**Expected:** Help text printing subcommands: pilot, tour, serve, demo, setup, status, uninstall. (The `migrate` subcommand was retired in v7.0.9 — see [ADR 0034](../adr/0034-retire-tailor-migrate-subcommand.md).) With the `Tee-Object` wrapper above, the same output also lands in the per-command file even if the transcript file shows blank.
+**Expected:** Help text printing subcommands: pilot, fitting-room, walkthrough, serve, setup, status, uninstall, plus the deprecated aliases tour and demo. (The `migrate` subcommand was retired in v7.0.9 — see [ADR 0034](../adr/0034-retire-tailor-migrate-subcommand.md). The verbs `tour` and `demo` were renamed in v7.1.0 per [ADR 0035](../adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md); both work in v7.1.x and are removed in v7.2.0.) With the `Tee-Object` wrapper above, the same output also lands in the per-command file even if the transcript file shows blank.
 
-#### A8 — Scaffold the tour
+#### A8 — Scaffold the fitting-room
 
 ```powershell
-tailor tour 2>&1 | Tee-Object -Append "$env:USERPROFILE\diagnosis-tailor-output-attempt-1.txt"
+tailor fitting-room 2>&1 | Tee-Object -Append "$env:USERPROFILE\diagnosis-tailor-output-attempt-1.txt"
 ```
 
-**Expected:** Scaffolds bundled HIP Lab fixtures into `~/.tailor/demos/hip-lab/`, writes `user_config.json`, registers with Claude Desktop. Should print success messages and end cleanly. **Watch for:** since v7.0.4, the success banner distinguishes the *Claude-Desktop-installed* case ("registered as 'tailor-tour-hip-lab' in <path>" + "fully quit Claude Desktop, then re-open it") from the *Claude-Desktop-absent* case ("Tour scaffolded; Claude Desktop NOT DETECTED" + "config has been staged for a future install"). Record which message variant the run prints; that is itself the F4-fix's honesty test. (Original finding: [F4 — tour declares success when Claude Desktop is not installed](attempt-1-triage.md#f4--architectural-headline-finding-tour-declares-success-when-claude-desktop-is-not-installed).)
+**Expected:** Scaffolds bundled HIP Lab fixtures into `~/.tailor/demos/hip-lab/`, writes `user_config.json`, registers with Claude Desktop. Should print success messages and end cleanly. **Watch for:** since v7.0.4, the success banner distinguishes the *Claude-Desktop-installed* case ("registered as 'tailor-fitting-room-hip-lab' in <path>" + "fully quit Claude Desktop, then re-open it") from the *Claude-Desktop-absent* case ("Fitting-room scaffolded; Claude Desktop NOT DETECTED" + "config has been staged for a future install"). Record which message variant the run prints; that is itself the F4-fix's honesty test. (Original finding: [F4 — tour declares success when Claude Desktop is not installed](attempt-1-triage.md#f4--architectural-headline-finding-tour-declares-success-when-claude-desktop-is-not-installed).)
 
-#### A9 — Run the architectural demo
+#### A9 — Run the architectural walkthrough
 
 ```powershell
-tailor demo 2>&1 | Tee-Object -Append "$env:USERPROFILE\diagnosis-tailor-output-attempt-1.txt"
+tailor walkthrough 2>&1 | Tee-Object -Append "$env:USERPROFILE\diagnosis-tailor-output-attempt-1.txt"
 ```
 
 **Expected:** Five-section architectural showcase against bundled fixtures. Prints structured output, ends cleanly.
@@ -303,7 +303,7 @@ For each step you ran, fill in all five sub-fields. Use `—` for "not applicabl
 - **Friction class:**
 - **Capture:**
 
-### A8 — tailor tour
+### A8 — tailor fitting-room
 
 - **Expected:** Scaffolds + registers, ends cleanly. **Watch:** is the "Claude Desktop registered" message honest given recipient state?
 - **Actual:**
@@ -311,7 +311,7 @@ For each step you ran, fill in all five sub-fields. Use `—` for "not applicabl
 - **Friction class:**
 - **Capture:**
 
-### A9 — tailor demo
+### A9 — tailor walkthrough
 
 - **Expected:** Five-section showcase prints, ends cleanly
 - **Actual:**
@@ -396,7 +396,7 @@ Per attempt, capture **all** of:
     - Classic: `$env:APPDATA\Claude\claude_desktop_config.json`
     - Store-sandboxed: `$env:LOCALAPPDATA\Packages\Claude_*\LocalCache\Roaming\Claude\claude_desktop_config.json`
     Copy both to `$env:USERPROFILE\diagnosis-claude-config-<attempt>\` so the dual-path resolution can be inspected post-hoc.
-5. **The user_config.json that `tailor tour` wrote**. `~/.tailor/user_config.json` — copy to `$env:USERPROFILE\diagnosis-user-config-<attempt>.json`.
+5. **The user_config.json that `tailor fitting-room` wrote**. `~/.tailor/user_config.json` — copy to `$env:USERPROFILE\diagnosis-user-config-<attempt>.json`.
 
 After each attempt, before resetting the user account, copy the entire `$env:USERPROFILE\diagnosis-*` set to a USB stick or a daily-driver-accessible location. The reset wipes the recipient profile.
 
@@ -413,7 +413,7 @@ After 2-3 Path A attempts (or until Path A stops surfacing new friction), catego
 | **Architectural** | Friction that doesn't fix without restructuring the install path itself (Python prerequisite is a barrier; uv is unfamiliar to non-developers; PATH refresh between shells is invisible). Suggests single-binary executable / Docker / one-shot installer. | Phase 0 deliverable 2 — patch-vs-restructure decision. |
 | **Irreducible** | Friction that would only surface for a real recipient (interpretation gaps, cognitive load) and self-driven diagnosis can't pin down. | Phase 0 deliverable 3+ — track for the first real outside recipient run. |
 
-The split across these buckets *is* the answer to Phase 0 deliverable 2. If most friction lands in **Quick fix** + **Documentation**, the existing architecture is patchable and Phase 0 closes via a few targeted fixes + a README rewrite. If most friction lands in **Architectural**, the existing `uv tool install + tailor tour + Claude Desktop restart` ritual is the wrong shape for non-developers and Phase 0 escalates to a structural change (single-binary / Docker / one-shot installer).
+The split across these buckets *is* the answer to Phase 0 deliverable 2. If most friction lands in **Quick fix** + **Documentation**, the existing architecture is patchable and Phase 0 closes via a few targeted fixes + a README rewrite. If most friction lands in **Architectural**, the existing `uv tool install + tailor fitting-room + Claude Desktop restart` ritual is the wrong shape for non-developers and Phase 0 escalates to a structural change (single-binary / Docker / one-shot installer).
 
 ## When to escalate from Path A to Path B
 

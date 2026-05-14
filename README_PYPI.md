@@ -14,7 +14,7 @@ Your **Wardrobe** is what Tailor governs on your behalf: the structured collecti
 uv tool install tailor-mcp
 ```
 
-Bootstrap your first project with `tailor pilot` (multi-subject CSV setup wizard) or `tailor tour` (a guided walkthrough on bundled synthetic fixtures from the HIP Lab realistic demo). No data leaves your machine at any point. The bundled HIP Lab CSV fixtures (`S001`–`S016`) shipped inside the wheel are synthetic by construction — random-walk traces sized to mimic real cohort shapes, not real participant data.
+Bootstrap your first project with `tailor pilot` (multi-subject CSV setup wizard) or `tailor fitting-room` (a guided walkthrough on bundled synthetic fixtures from the HIP Lab realistic demo). No data leaves your machine at any point. The bundled HIP Lab CSV fixtures (`S001`–`S016`) shipped inside the wheel are synthetic by construction — random-walk traces sized to mimic real cohort shapes, not real participant data.
 
 ## Architecture
 
@@ -69,7 +69,7 @@ Every successful result also carries a `_meta` block stamped with package versio
 
 ## Where to read more
 
-The project landing page at <https://saahasmuthineni.github.io/tailor-mcp-landing/> describes the project's stage and audience. The source repository is currently in invited evaluation; full design documentation (34 numbered ADRs, design notes, roadmap) is private until Tailor completes its first beachhead deployment with a research lab.
+The project landing page at <https://saahasmuthineni.github.io/tailor-mcp-landing/> describes the project's stage and audience. The source repository is currently in invited evaluation; full design documentation (35 numbered ADRs, design notes, roadmap) is private until Tailor completes its first beachhead deployment with a research lab.
 
 ---
 

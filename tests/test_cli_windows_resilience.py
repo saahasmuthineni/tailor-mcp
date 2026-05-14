@@ -155,9 +155,10 @@ class TestStdoutReconfigureHelper:
 
 
 class TestCmdStatusOnFreshTourInstall:
-    """``tailor tour`` creates the data dir but no Strava tables.
-    A recipient running ``tailor status`` next must not crash on
-    the activities/streams SELECT against an empty SQLite file."""
+    """``tailor fitting-room`` (renamed from ``tailor tour`` in v7.1.0
+    per ADR 0035) creates the data dir but no Strava tables. A recipient
+    running ``tailor status`` next must not crash on the
+    activities/streams SELECT against an empty SQLite file."""
 
     def test_cmd_status_does_not_crash_when_activities_table_missing(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,

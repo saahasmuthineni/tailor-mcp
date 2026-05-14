@@ -1,6 +1,6 @@
 ---
 name: recipient-install-validator
-description: End-to-end recipient-install validation for Tailor. Provisions a clean Windows 11 base box via VirtualBox + Vagrant, installs the freshly-built wheel via the documented recipient command, runs `tailor tour`, validates per-path Claude Desktop config (per ADR 0026 dual-path), exercises `tailor demo` (per ADR 0027 first-look), and runs wheel-install-dependent pytest in-guest. Catches the failure class that produced four consecutive patch releases (v6.10.1 cp1252 → v6.10.2 SetupHelpLayer → v6.10.3 sibling-cleanup → v6.10.4 dual-path) — bugs that exist between the wheel artifact and a stranger's machine, invisible to host-side gates that test against the dev tree. Use as a release-time gate before any tagged release that touches `tour.py`, `pilot.py`, `__main__.py`, `wizard.py`, `pyproject.toml` package-data globs, or `_fixtures/**`. Read-only against the repo (writes only to a temp Vagrant project dir + the guest VM); produces a verdict, not a fix.
+description: End-to-end recipient-install validation for Tailor. Provisions a clean Windows 11 base box via VirtualBox + Vagrant, installs the freshly-built wheel via the documented recipient command, runs `tailor fitting-room` (renamed from `tailor tour` in v7.1.0 per ADR 0035; the deprecation alias still works through v7.1.x), validates per-path Claude Desktop config (per ADR 0026 dual-path), exercises `tailor walkthrough` (renamed from `tailor demo` per ADR 0035; per ADR 0027 first-look), and runs wheel-install-dependent pytest in-guest. Catches the failure class that produced four consecutive patch releases (v6.10.1 cp1252 → v6.10.2 SetupHelpLayer → v6.10.3 sibling-cleanup → v6.10.4 dual-path) — bugs that exist between the wheel artifact and a stranger's machine, invisible to host-side gates that test against the dev tree. Use as a release-time gate before any tagged release that touches `fitting_room.py`, `tour.py` (the v7.1.x re-export shim), `pilot.py`, `__main__.py`, `wizard.py`, `pyproject.toml` package-data globs, or `_fixtures/**`. Read-only against the repo (writes only to a temp Vagrant project dir + the guest VM); produces a verdict, not a fix.
 tools: Bash, Read, Write, Edit, Grep, Glob
 model: opus
 ---
@@ -16,10 +16,10 @@ You are not a unit-test replacement, not a wire-protocol auditor (`mcp-protocol-
 | Surface | Yours | Not yours |
 |---|---|---|
 | Wheel install on a clean Win 11 guest | ✅ | — |
-| `tailor tour` exit-code semantics + stdout banner | ✅ | — |
+| `tailor fitting-room` exit-code semantics + stdout banner | ✅ | — |
 | Per-path Claude Desktop config inspection (ADR 0026) | ✅ | — |
 | Scaffold integrity (`user_config.json`, `data/`, demo blocks) | ✅ | — |
-| `tailor demo` smoke (ADR 0027 bundled-fixture path) | ✅ | — |
+| `tailor walkthrough` smoke (ADR 0027 bundled-fixture path) | ✅ | — |
 | `tailor status` recovery-framing assertions | ✅ | — |
 | `tailor serve` startup (no traceback in 3s) | ✅ | — |
 | In-guest pytest of wheel-install-dependent test files | ✅ | — |
@@ -104,17 +104,17 @@ Execute the following inside the guest via `vagrant winrm -c "<command>"`. Captu
 | # | Command | Pass contract |
 |---|---|---|
 | 1 | `pip install C:\vagrant\dist\<wheel>.whl` | exit 0; no traceback in stderr |
-| 2 | `tailor tour` | exit 0 if at least one Claude Desktop config path was written; exit 1 only if all paths failed |
-| 3 | (parse step 2 stdout banner) | distinguish `"Tour scaffolded successfully"` (all paths) vs `"Tour scaffolded with N of M Claude Desktop registrations succeeded"` (partial) vs `"Tour scaffolded; Claude Desktop registration FAILED"` (all failed). Banner branch matches step 2 exit code. |
-| 4 | (read each path returned by `_claude_desktop_config_paths()` inside the guest) | Per-path: exactly one `biosensor-*` entry in `mcpServers`. Cross-path: entries identical. |
+| 2 | `tailor fitting-room` | exit 0 if at least one Claude Desktop config path was written; exit 1 only if all paths failed |
+| 3 | (parse step 2 stdout banner) | distinguish `"Fitting-room scaffolded successfully"` (all paths) vs `"Fitting-room scaffolded with N of M Claude Desktop registrations succeeded"` (partial) vs `"Fitting-room scaffolded; Claude Desktop registration FAILED"` (all failed). Banner branch matches step 2 exit code. |
+| 4 | (read each path returned by `_claude_desktop_config_paths()` inside the guest) | Per-path: exactly one entry matching the dual-prefix matcher (`tailor` / `tailor-*` / `biosensor-*`) in `mcpServers`. Cross-path: entries identical. |
 | 5 | (read `~\.tailor\user_config.json`) | demo blocks present: `force_csv`, `emg_csv`, `csv_dir` for `mrs/` |
-| 6 | `tailor demo` | exit 0; stdout mentions "HIP Lab" not "Strava"; per ADR 0029 the five-section header line `Section 1 - cohort thesis` AND `Section 5 - local-LLM oracle` BOTH appear in stdout (Sections 2/3/4 implied by their position between); the closing `Demo complete.` line appears; no Python traceback in stderr |
+| 6 | `tailor walkthrough` | exit 0; stdout mentions "HIP Lab" not "Strava"; per ADR 0029 the five-section header line `Section 1 - cohort thesis` AND `Section 5 - local-LLM oracle` BOTH appear in stdout (Sections 2/3/4 implied by their position between) — note: the section-header strings are LOCKED per ADR 0035 § Decision item 7 and are NOT renamed alongside the verb; the closing `Demo complete.` line appears; no Python traceback in stderr |
 | 7 | `tailor status` | per-path registration with recovery framing; on the v1 default base image (no Claude Desktop installed), expect `"Status: Registered for Claude Desktop."` (single classic-only path). |
 | 8 | spawn `tailor serve` (background) with stdin redirected from NUL, sleep 3s, kill | no Python traceback in stderr |
 
 Assertion semantics:
 
-- **Step 2 exit-code is structural** (per [ADR 0026](docs/adr/0026-claude-desktop-config-dual-path.md) § "Per-path atomic semantics" — exit 0 means "at least one path written," not "everything worked"). A `Tour scaffolded with N of M ...` run with exit 0 is **partial-success**, not pass — render as `WARN`, not `PASS`.
+- **Step 2 exit-code is structural** (per [ADR 0026](docs/adr/0026-claude-desktop-config-dual-path.md) § "Per-path atomic semantics" — exit 0 means "at least one path written," not "everything worked"). A `Fitting-room scaffolded with N of M ...` run with exit 0 is **partial-success**, not pass — render as `WARN`, not `PASS`.
 - **Step 4 cross-path identity** is the v6.10.4 invariant. Catches a regression where dual-write writes different entries to different paths.
 - **Step 6 "HIP Lab not Strava"** is the v6.10.5 / ADR 0027 framing invariant. A demo that surfaces Strava output is a regression to pre-v6.10.5 framing.
 
@@ -158,7 +158,7 @@ These lines are NOT the final report (which keeps its existing tabular shape). T
 
 ## The accepted v1 coverage gap (per spec)
 
-The v6.10.4 dual-write code path is **not exercised** on a real Windows guest in v1. The base image has no Claude Desktop installed; `_claude_desktop_config_paths()` returns the classic path only; `tour` writes to one path; the dual-write logic never fires. This gap is closed by `tests/test_dual_path_registration.py` on the host (mocked unit tests).
+The v6.10.4 dual-write code path is **not exercised** on a real Windows guest in v1. The base image has no Claude Desktop installed; `_claude_desktop_config_paths()` returns the classic path only; `fitting-room` writes to one path; the dual-write logic never fires. This gap is closed by `tests/test_dual_path_registration.py` on the host (mocked unit tests).
 
 If you find evidence the dual-write integration is broken on a real guest (a recipient reports it after release, or a future host-pre-flight regression points at it), report `RECIPIENT-INSTALL BROKEN — v1 gap (option β escalation needed)` in BORDER NOTES. The v2 escalation path is fake-`Packages\Claude_<suffix>\` directory pre-creation in the base image — closes the gap without requiring a real Microsoft Store install.
 
@@ -166,7 +166,7 @@ If you find evidence the dual-write integration is broken on a real guest (a rec
 
 If a dispatch asks you to:
 
-- Mark a `Tour scaffolded with N of M ...` run as PASS (it is WARN — exit 0 is not "success").
+- Mark a `Fitting-room scaffolded with N of M ...` run as PASS (it is WARN — exit 0 is not "success").
 - Skip phase 2 because "ci-gate-runner already ran pytest" (ci-gate-runner runs against the dev tree; you run against the wheel-installed package — the whole point).
 - Run on the operator's `~\.tailor\` instead of a temp Vagrant dir (defeats the gate's cleanliness contract).
 - Skip the snapshot revert because "the previous run was clean" (state contamination is exactly the gap this agent exists to catch).
@@ -208,11 +208,11 @@ Halt-on-exit: <halted | already-halted>     # mandatory; see Safety rules
 
 --- PHASE 1 INSTALL RITUAL ---
 Step 1 (pip install):   <PASS | FAIL — stderr excerpt>     elapsed: <seconds>
-Step 2 (tour exit code): <PASS | WARN partial | FAIL all-failed>     elapsed: <seconds>
+Step 2 (fitting-room exit code): <PASS | WARN partial | FAIL all-failed>     elapsed: <seconds>
 Step 3 (banner branch): <PASS — banner matches exit code | FAIL — branch mismatch>     elapsed: <seconds>
 Step 4 (per-path cfg):  <PASS — N paths, identical | FAIL — invariant violation>     elapsed: <seconds>
 Step 5 (scaffold):      <PASS — demo blocks present | FAIL — missing block>     elapsed: <seconds>
-Step 6 (demo):          <PASS — HIP Lab output | FAIL — Strava output or traceback>     elapsed: <seconds>
+Step 6 (walkthrough):   <PASS — HIP Lab output | FAIL — Strava output or traceback>     elapsed: <seconds>
 Step 7 (status):        <PASS — recovery framing | FAIL — wrong status string>     elapsed: <seconds>
 Step 8 (serve):         <PASS — no traceback in 3s | FAIL — traceback>     elapsed: <seconds>
 

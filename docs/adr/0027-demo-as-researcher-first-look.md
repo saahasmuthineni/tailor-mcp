@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-05-06
 - **Partially superseded by:** [ADR 0029 (Token reduction is analytical quality)](0029-token-reduction-as-analytical-quality.md) (2026-05-07) — § Negative consequences "the demo bypasses RouterMCP by design" (lines 174-193 below) and the framing-prose contract that names `_meta` in prose because the demo doesn't exercise the router. ADR 0027's central claim — cohort thesis as canonical first-look, no Strava data — is preserved as Section 1 of the v6.12.0 demo.
+- **Partially superseded by:** [ADR 0035 (CLI rename: walkthrough + fitting-room)](0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md) (2026-05-14) — the CLI verb name (`tailor demo`) was renamed to `tailor walkthrough` per the recipient-experience-shaped naming principle. The substance of this ADR — researcher first-look against bundled HIP Lab fixtures, the operator-vs-researcher framing correction, the `sample_data.py` preservation per ADR 0008 — is fully retained. The CLI alias `tailor demo` survives through v7.1.0 with a deprecation hint; it is removed in v7.2.0.
 - **Related:** [ADR 0008 (Deterministic-by-construction processing)](0008-deterministic-by-construction-processing.md), [ADR 0015 (Tier-1 cohort surface)](0015-tier-1-cohort-surface-and-metadata-sidecar.md), [ADR 0024 (Wheel-distributed tour and fixture bundling)](0024-wheel-distributed-tour-and-fixture-bundling.md), [ADR 0029 (Token reduction is analytical quality)](0029-token-reduction-as-analytical-quality.md)
 
 ## Context

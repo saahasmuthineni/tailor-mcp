@@ -39,7 +39,8 @@ synthetic and runs on your laptop.
 
 `uv` is a small Python tool installer. It bundles its own Python
 interpreter, so you do **not** need Python on `PATH` — `uv` handles
-that for you. (This is what `tailor tour` uses behind the scenes.)
+that for you. (This is what `tailor fitting-room` uses behind the
+scenes.)
 
 1. Follow the Windows install instructions at
    <https://docs.astral.sh/uv/getting-started/installation/>. The page
@@ -69,7 +70,7 @@ Keep this PowerShell window open for the next step.
 In the PowerShell window, type:
 
 ```powershell
-uv tool install $env:USERPROFILE\Downloads\tailor_mcp-7.0.12-py3-none-any.whl
+uv tool install $env:USERPROFILE\Downloads\tailor_mcp-7.1.0-py3-none-any.whl
 ```
 
 (If I gave you a slightly different filename or version number,
@@ -87,17 +88,18 @@ tailor --help
 ```
 
 You should see a help screen listing subcommands like `serve`,
-`pilot`, `tour`. If you see "not recognized", close PowerShell and
-open a fresh one, then try again.
+`pilot`, `fitting-room`, `walkthrough`. If you see "not
+recognized", close PowerShell and open a fresh one, then try
+again.
 
 ---
 
-## Step 3 — Run the tour scaffolder (~1 min)
+## Step 3 — Run the scaffolder (~1 min)
 
 Type:
 
 ```
-tailor tour
+tailor fitting-room
 ```
 
 This one command does everything:
@@ -116,7 +118,7 @@ You'll see four progress lines:
   (2/4) write user_config.json
   (3/4) index vault.db
   (4/4) register with Claude Desktop
-        wrote entry 'tailor-tour-hip-lab' to ...
+        wrote entry 'tailor-fitting-room-hip-lab' to ...
 ```
 
 If anything different prints (especially red error text), copy the
@@ -126,16 +128,16 @@ output and send it to me before continuing.
 
 ## Step 4 — Restart Claude Desktop and run the demo
 
-Restart Claude Desktop so it picks up the new tour entry:
+Restart Claude Desktop so it picks up the new fitting-room entry:
 
 1. Find Claude Desktop's icon in the **system tray** (near the clock,
    bottom-right). It may be hidden under the small up-arrow `^` —
    click that to expand the tray if you don't see the icon at first.
 2. Right-click the icon → **Quit** — *not* just close the window.
    Closing the window leaves Claude Desktop running in the background,
-   so reopening it won't pick up the new tour. The right-click → Quit
-   step is the one most likely to trip people up; do this even if it
-   feels redundant.
+   so reopening it won't pick up the new fitting-room entry. The
+   right-click → Quit step is the one most likely to trip people up;
+   do this even if it feels redundant.
 3. Re-open Claude Desktop from the Start menu.
 
 In a fresh chat, send these prompts one at a time, waiting for each
@@ -192,9 +194,9 @@ That's the demo.
 | `uv tool install` fails with a permissions error | Close PowerShell, then re-open it as Administrator (right-click PowerShell in the Start menu → **Run as Administrator**) and try again. |
 | `uv tool install` says "no such file" | Check the path matches where the `.whl` file actually lives. Try `dir $env:USERPROFILE\Downloads\tailor*` to find it. |
 | `tailor --help` is "not recognized" | Open a new PowerShell window so it picks up the new install. If still failing, use `python -m tailor --help`. |
-| Claude Desktop doesn't list any Tailor tools | Fully quit Claude Desktop via the system tray (right-click → Quit), then re-open. If still missing, run `tailor tour --force` to re-write the Claude Desktop config and restart again. |
-| Claude says "the tool errored" on Prompt 2 | Run `tailor tour --force` to re-scaffold the demo data. |
-| Vault search (Prompt 5) returns nothing | Same fix — `tailor tour --force`. |
+| Claude Desktop doesn't list any Tailor tools | Fully quit Claude Desktop via the system tray (right-click → Quit), then re-open. If still missing, run `tailor fitting-room --force` to re-write the Claude Desktop config and restart again. |
+| Claude says "the tool errored" on Prompt 2 | Run `tailor fitting-room --force` to re-scaffold the demo data. |
+| Vault search (Prompt 5) returns nothing | Same fix — `tailor fitting-room --force`. |
 | Anything else | Take a screenshot of the PowerShell window or Claude chat and send it to me. |
 
 ---
@@ -207,8 +209,10 @@ there's no service to stop. To remove everything later:
 1. Delete the folder at `%USERPROFILE%\.tailor\demos\hip-lab\`
    (paste that path into File Explorer's address bar to find it).
 2. Open `%APPDATA%\Claude\claude_desktop_config.json` in Notepad and
-   delete the `"tailor-tour-hip-lab": { ... }` block (and the
-   comma before it, if any).
+   delete the `"tailor-fitting-room-hip-lab": { ... }` block (and the
+   comma before it, if any). On installs older than v7.1.0 the key
+   was `"tailor-tour-hip-lab"` — delete that one instead if you see
+   it.
 3. Optionally: `pip uninstall tailor` and uninstall Python
    from **Settings → Apps**.
 

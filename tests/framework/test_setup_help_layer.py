@@ -46,9 +46,20 @@ def test_demo_blocks_absent_on_strava_only_config():
 
 @pytest.mark.parametrize("scaffolded_key", [
     "force_csv", "emg_csv", "csv_dir", "vault_path",
+    "matlab_file", "redcap_file",
 ])
 def test_demo_blocks_present_disables_diagnostic(scaffolded_key):
     cfg = {scaffolded_key: "/some/path"}
+    assert _demo_blocks_absent(cfg) is False
+
+
+def test_redcap_file_block_disables_setup_help_diagnostic():
+    cfg = {"redcap_file": {"path": "/tmp/redcap"}}
+    assert _demo_blocks_absent(cfg) is False
+
+
+def test_matlab_file_block_disables_setup_help_diagnostic():
+    cfg = {"matlab_file": {"path": "/tmp/matlab"}}
     assert _demo_blocks_absent(cfg) is False
 
 

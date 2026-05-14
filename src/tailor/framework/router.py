@@ -717,6 +717,7 @@ class RouterMCP:
                     "tool_name": tool_name,
                     "called_at": datetime.now(timezone.utc).isoformat(),
                     "scrubber_id": self._phi_scrubber.scrubber_id,
+                    "child_scrubber_id": child.child_scrubber_id,
                 }
                 if self._phi_scrubber.scrubber_warning is not None:
                     result["_meta"]["scrubber_warning"] = self._phi_scrubber.scrubber_warning
@@ -806,6 +807,7 @@ class RouterMCP:
                     "tool_name": tool_name,
                     "called_at": datetime.now(timezone.utc).isoformat(),
                     "scrubber_id": self._phi_scrubber.scrubber_id,
+                    "child_scrubber_id": None,
                     **(
                         {"scrubber_warning": self._phi_scrubber.scrubber_warning}
                         if self._phi_scrubber.scrubber_warning is not None
@@ -992,6 +994,7 @@ class RouterMCP:
                     "tool_name": tool_name,
                     "called_at": datetime.now(timezone.utc).isoformat(),
                     "scrubber_id": self._phi_scrubber.scrubber_id,
+                    "child_scrubber_id": None,
                 }
                 if self._phi_scrubber.scrubber_warning is not None:
                     outer_meta["scrubber_warning"] = (
@@ -1246,6 +1249,7 @@ class RouterMCP:
                     "tool_name": tool_name,
                     "called_at": datetime.now(timezone.utc).isoformat(),
                     "scrubber_id": self._phi_scrubber.scrubber_id,
+                    "child_scrubber_id": child.child_scrubber_id,
                     "source": "INTERNAL",
                 }
                 if self._phi_scrubber.scrubber_warning is not None:
@@ -1280,6 +1284,7 @@ class RouterMCP:
         self._audit.record(
             domain, tool_name, 0, {}, 0, "SUCCESS", 0,
             scrubber_id=self._phi_scrubber.scrubber_id,
+            child_scrubber_id=child.child_scrubber_id,
         )
         return [
             TextContent(
@@ -1333,6 +1338,7 @@ class RouterMCP:
             self._audit.record(
                 domain, tool_name, 0, {}, 0, "SUCCESS", 0,
                 scrubber_id=scrubber_id,
+                child_scrubber_id=child.child_scrubber_id,
             )
             return [
                 TextContent(
@@ -1358,6 +1364,7 @@ class RouterMCP:
                 domain, tool_name, 0, {"force_revoke": force_revoke},
                 0, "PURGE_FAILED", 0,
                 error=str(exc), scrubber_id=scrubber_id,
+                child_scrubber_id=child.child_scrubber_id,
             )
             log.error(
                 f"purge_cache failed for {domain}; revocation aborted "
@@ -1394,11 +1401,13 @@ class RouterMCP:
             {"force_revoke": force_revoke, "purge_result": purge_result},
             0, "PURGE_CACHE", 0,
             scrubber_id=scrubber_id,
+            child_scrubber_id=child.child_scrubber_id,
         )
         self._audit.record(
             domain, tool_name, 0, {"force_revoke": force_revoke},
             0, "SUCCESS", 0,
             scrubber_id=scrubber_id,
+            child_scrubber_id=child.child_scrubber_id,
         )
         return [
             TextContent(

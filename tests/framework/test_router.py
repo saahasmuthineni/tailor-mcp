@@ -1799,3 +1799,205 @@ class TestExistingChildrenWriteNullChildScrubberId:
                 "child_scrubber_id; the audit row must store SQL NULL "
                 "rather than a string sentinel."
             )
+
+
+class MockChildWithScrubber(MockChild):
+    """Mock child that overrides child_scrubber_id to a known value.
+
+    Models the post-v7.3.0 shape: a child wires its own structured-PHI
+    scrubber inside ``execute()`` and exposes a stable identity string
+    via the ABC property. Used to regression-test that the 5 consent-
+    handler audit-record sites in ``router.py`` thread the child's
+    ``child_scrubber_id`` value, closing the v7.3.0 banner-claimed gap.
+    """
+
+    @property
+    def child_scrubber_id(self) -> str | None:
+        return "mock_child_scrubber"
+
+
+class TestConsentHandlerThreadsChildScrubberId:
+    """
+    Regression guard for the v7.3.1 fix on PHI VIOLATION-2 (also named as
+    Integration [S2] — independently confirmed by two specialists during
+    the 2026-05-14 boss-audit bug hunt).
+
+    The v7.3.0 release bundled a "failure rows leaving child_scrubber_id
+    NULL — fixed" claim. The fix landed correctly on _dispatch and
+    _dispatch_internal (13 audit-record sites) but missed the 5 audit-
+    record sites in _handle_consent_approval + _handle_consent_revocation.
+    Effect: for a REDCap child carrying ``child_scrubber_id =
+    "redcap_metadata_flags"``, the consent-event audit rows (the IRB-
+    highest-leverage rows in the entire audit history) silently recorded
+    NULL despite the child carrying an active scrubber.
+
+    These 5 tests cover the 5 sites at router.py:1281, 1334, 1359, 1395,
+    1401. Each forces a child with a non-None child_scrubber_id and
+    asserts the resulting audit row carries the value.
+    """
+
+    def test_approve_consent_threads_child_scrubber_id(self):
+        """Site 1: router.py:1281 — approve_consent_<domain> SUCCESS row."""
+        import sqlite3
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir)
+            try:
+                router.register_child(MockChildWithScrubber("alpha"))
+                _run(router._dispatch("approve_consent_alpha", {}))
+            finally:
+                router.close()
+
+            conn = sqlite3.connect(str(data_dir / "audit.db"))
+            try:
+                rows = conn.execute(
+                    "SELECT tool_name, outcome, child_scrubber_id "
+                    "FROM audit_log WHERE tool_name='approve_consent_alpha' "
+                    "ORDER BY id DESC LIMIT 1"
+                ).fetchall()
+            finally:
+                conn.close()
+
+            assert len(rows) == 1
+            tool_name, outcome, child_scrubber_id = rows[0]
+            assert outcome == "SUCCESS"
+            assert child_scrubber_id == "mock_child_scrubber", (
+                f"approve_consent audit row has "
+                f"child_scrubber_id={child_scrubber_id!r}, expected "
+                f"'mock_child_scrubber'. router.py:1281 fix regressed."
+            )
+
+    def test_revoke_no_prior_approval_threads_child_scrubber_id(self):
+        """Site 2: router.py:1334 — revoke short-circuit SUCCESS row."""
+        import sqlite3
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir)
+            try:
+                router.register_child(MockChildWithScrubber("alpha"))
+                # No prior approve — short-circuit path fires.
+                r = _run(router._dispatch("revoke_consent_alpha", {}))
+                data = _loads(r[0].text)
+                assert data["revoked"] is False
+            finally:
+                router.close()
+
+            conn = sqlite3.connect(str(data_dir / "audit.db"))
+            try:
+                rows = conn.execute(
+                    "SELECT outcome, child_scrubber_id "
+                    "FROM audit_log WHERE tool_name='revoke_consent_alpha' "
+                    "ORDER BY id DESC LIMIT 1"
+                ).fetchall()
+            finally:
+                conn.close()
+
+            assert len(rows) == 1
+            outcome, child_scrubber_id = rows[0]
+            assert outcome == "SUCCESS"
+            assert child_scrubber_id == "mock_child_scrubber", (
+                f"revoke-no-prior-approval row has "
+                f"child_scrubber_id={child_scrubber_id!r}, expected "
+                f"'mock_child_scrubber'. router.py:1334 fix regressed."
+            )
+
+    def test_purge_failed_threads_child_scrubber_id(self):
+        """Site 3: router.py:1359 — PURGE_FAILED row when purge_cache raises."""
+        class PurgeFailingChildWithScrubber(MockChildWithScrubber):
+            def purge_cache(self, *, force: bool = False) -> dict:
+                raise OSError("simulated cache lock")
+
+        import sqlite3
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir)
+            try:
+                router.register_child(PurgeFailingChildWithScrubber("alpha"))
+                _run(router._dispatch("approve_consent_alpha", {}))
+                _run(router._dispatch("revoke_consent_alpha", {}))
+            finally:
+                router.close()
+
+            conn = sqlite3.connect(str(data_dir / "audit.db"))
+            try:
+                rows = conn.execute(
+                    "SELECT outcome, child_scrubber_id "
+                    "FROM audit_log WHERE outcome='PURGE_FAILED' "
+                    "ORDER BY id DESC LIMIT 1"
+                ).fetchall()
+            finally:
+                conn.close()
+
+            assert len(rows) == 1, (
+                "PURGE_FAILED row not written — fail-closed path may have "
+                "regressed entirely"
+            )
+            outcome, child_scrubber_id = rows[0]
+            assert child_scrubber_id == "mock_child_scrubber", (
+                f"PURGE_FAILED row has child_scrubber_id={child_scrubber_id!r}, "
+                f"expected 'mock_child_scrubber'. router.py:1359 fix regressed."
+            )
+
+    def test_purge_cache_paired_row_threads_child_scrubber_id(self):
+        """Site 4: router.py:1395 — PURGE_CACHE paired audit row."""
+        import sqlite3
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir)
+            try:
+                router.register_child(MockChildWithScrubber("alpha"))
+                _run(router._dispatch("approve_consent_alpha", {}))
+                _run(router._dispatch("revoke_consent_alpha", {}))
+            finally:
+                router.close()
+
+            conn = sqlite3.connect(str(data_dir / "audit.db"))
+            try:
+                rows = conn.execute(
+                    "SELECT outcome, child_scrubber_id "
+                    "FROM audit_log WHERE outcome='PURGE_CACHE' "
+                    "ORDER BY id DESC LIMIT 1"
+                ).fetchall()
+            finally:
+                conn.close()
+
+            assert len(rows) == 1, (
+                "PURGE_CACHE row not written — ADR 0013 paired-audit "
+                "invariant violated"
+            )
+            outcome, child_scrubber_id = rows[0]
+            assert child_scrubber_id == "mock_child_scrubber", (
+                f"PURGE_CACHE row has child_scrubber_id={child_scrubber_id!r}, "
+                f"expected 'mock_child_scrubber'. router.py:1395 fix regressed."
+            )
+
+    def test_revoke_success_threads_child_scrubber_id(self):
+        """Site 5: router.py:1401 — revoke_consent SUCCESS row (post-purge)."""
+        import sqlite3
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir)
+            try:
+                router.register_child(MockChildWithScrubber("alpha"))
+                _run(router._dispatch("approve_consent_alpha", {}))
+                _run(router._dispatch("revoke_consent_alpha", {}))
+            finally:
+                router.close()
+
+            conn = sqlite3.connect(str(data_dir / "audit.db"))
+            try:
+                rows = conn.execute(
+                    "SELECT outcome, child_scrubber_id "
+                    "FROM audit_log "
+                    "WHERE tool_name='revoke_consent_alpha' AND outcome='SUCCESS' "
+                    "ORDER BY id DESC LIMIT 1"
+                ).fetchall()
+            finally:
+                conn.close()
+
+            assert len(rows) == 1
+            outcome, child_scrubber_id = rows[0]
+            assert child_scrubber_id == "mock_child_scrubber", (
+                f"revoke SUCCESS row has child_scrubber_id={child_scrubber_id!r}, "
+                f"expected 'mock_child_scrubber'. router.py:1401 fix regressed."
+            )

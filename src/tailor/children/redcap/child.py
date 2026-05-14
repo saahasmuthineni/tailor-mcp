@@ -699,14 +699,14 @@ class RedcapFileChild(ChildMCP):
 
     async def _handle_list_records(self, params: dict) -> dict:
         if not self._redcap_path.is_dir():
-            return {"error": f"Directory not found: {self._redcap_path}"}
+            return {"error": "Directory not found: <configured_redcap_path>"}
         records = self._load_records()
         if not records:
             return {
                 "error": (
-                    f"No records found at "
-                    f"{self._records_file_path()}. Ensure the file exists "
-                    "and is CSV or JSON."
+                    "No records found at "
+                    "<configured_redcap_records_path>. Ensure the file "
+                    "exists and is CSV or JSON."
                 ),
                 **self._scrubber_warning_block(),
             }
@@ -746,7 +746,7 @@ class RedcapFileChild(ChildMCP):
 
     async def _handle_record_detail(self, params: dict) -> dict:
         if not self._redcap_path.is_dir():
-            return {"error": f"Directory not found: {self._redcap_path}"}
+            return {"error": "Directory not found: <configured_redcap_path>"}
         record_id = params["record_id"]
         event_filter = params.get("event")
         records = self._load_records()
@@ -793,12 +793,12 @@ class RedcapFileChild(ChildMCP):
 
     async def _handle_summary_report(self, params: dict) -> dict:
         if not self._redcap_path.is_dir():
-            return {"error": f"Directory not found: {self._redcap_path}"}
+            return {"error": "Directory not found: <configured_redcap_path>"}
         instrument = params.get("instrument")
         records = self._load_records()
         if not records:
             return {
-                "error": f"No records at {self._records_file_path()}",
+                "error": "No records at <configured_redcap_records_path>",
                 **self._scrubber_warning_block(),
             }
         scoped = self._records_for_instrument(records, instrument)
@@ -848,7 +848,7 @@ class RedcapFileChild(ChildMCP):
 
     async def _handle_cohort_summary(self, params: dict) -> dict:
         if not self._redcap_path.is_dir():
-            return {"error": f"Directory not found: {self._redcap_path}"}
+            return {"error": "Directory not found: <configured_redcap_path>"}
         field = params["field"]
         group_by = params["group_by"]
         metric = params.get("metric", "mean")
@@ -890,7 +890,7 @@ class RedcapFileChild(ChildMCP):
         records = self._load_records()
         if not records:
             return {
-                "error": f"No records at {self._records_file_path()}",
+                "error": "No records at <configured_redcap_records_path>",
                 **self._scrubber_warning_block(),
             }
         scoped = self._records_for_event(
@@ -985,13 +985,13 @@ class RedcapFileChild(ChildMCP):
 
     async def _handle_records(self, params: dict) -> dict:
         if not self._redcap_path.is_dir():
-            return {"error": f"Directory not found: {self._redcap_path}"}
+            return {"error": "Directory not found: <configured_redcap_path>"}
         instrument = params["instrument"]
         event_filter = params.get("event")
         records = self._load_records()
         if not records:
             return {
-                "error": f"No records at {self._records_file_path()}",
+                "error": "No records at <configured_redcap_records_path>",
                 **self._scrubber_warning_block(),
             }
         scoped = self._records_for_event(
@@ -1015,12 +1015,12 @@ class RedcapFileChild(ChildMCP):
 
     async def _handle_raw_records(self, params: dict) -> dict:
         if not self._redcap_path.is_dir():
-            return {"error": f"Directory not found: {self._redcap_path}"}
+            return {"error": "Directory not found: <configured_redcap_path>"}
         precision = params.get("precision", 6)
         records = self._load_records()
         if not records:
             return {
-                "error": f"No records at {self._records_file_path()}",
+                "error": "No records at <configured_redcap_records_path>",
                 **self._scrubber_warning_block(),
             }
         scrubbed, legibility = self._apply_scrubber_to_records(records)

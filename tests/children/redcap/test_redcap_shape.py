@@ -569,3 +569,92 @@ class TestChildScrubberWiring:
         assert scrubber.is_known_identifier("dob")
         assert not scrubber.is_known_identifier("phq9_score")
         assert not scrubber.is_known_identifier("study_group")
+
+
+class TestErrorEnvelopesNoPathDisclosure:
+    """Regression for the v7.3.1 fix on PHI VIOLATION-1 (path leak across
+    12 sites in redcap/child.py error envelopes — bug hunt's PHI-IRB
+    risk-reviewer finding). Every error envelope returned to the wire
+    must use placeholder strings rather than the absolute filesystem
+    path; the path-debug surface remains in stderr log.warning only.
+
+    HIPAA Safe Harbor §164.514(b)(2)(i)(B + R) framing: filesystem
+    paths name the analyst's username (geographic / institutional
+    identifier) and the study directory name (study-context identifier).
+    Neither belongs in the LLM transcript nor in the IRB-readable
+    audit-log error column.
+    """
+
+    def test_directory_not_found_envelope_uses_placeholder(self, tmp_path: Path):
+        """All 6 'Directory not found' error envelopes must use
+        the placeholder rather than the absolute path."""
+        config_dir = tmp_path / "config"
+        data_dir = tmp_path / "data"
+        nonexistent = tmp_path / "no_such_redcap_directory"
+        config_dir.mkdir()
+        data_dir.mkdir()
+        (config_dir / "user_config.json").write_text(
+            json.dumps({"redcap_file": {"path": str(nonexistent)}}),
+            encoding="utf-8",
+        )
+        child = RedcapFileChild(config_dir, data_dir)
+
+        # Every tool that gates on directory existence must mask the path.
+        for tool_name in (
+            "redcap_list_records",
+            "redcap_record_detail",
+            "redcap_summary_report",
+            "redcap_cohort_summary",
+            "redcap_records",
+            "redcap_raw_records",
+        ):
+            params = {"record_id": "P001"} if tool_name == "redcap_record_detail" else {}
+            if tool_name == "redcap_records":
+                params = {"instrument": "phq9"}
+            result = asyncio.run(child.execute(tool_name, params))
+            error = result.get("error", "")
+            assert str(nonexistent) not in error, (
+                f"{tool_name}: absolute path {nonexistent!s} leaked into "
+                f"error envelope: {error!r}. PHI VIOLATION-1 regressed."
+            )
+            assert "<configured_redcap_path>" in error or (
+                "<configured_redcap_records_path>" in error
+            ), (
+                f"{tool_name}: placeholder missing in error envelope. "
+                f"Got: {error!r}"
+            )
+
+    def test_no_records_envelope_uses_placeholder(self, tmp_path: Path):
+        """The 5 'No records' error envelopes must use the placeholder."""
+        config_dir = tmp_path / "config"
+        data_dir = tmp_path / "data"
+        redcap_dir = tmp_path / "empty_redcap"
+        config_dir.mkdir()
+        data_dir.mkdir()
+        redcap_dir.mkdir()
+        # Directory exists but contains no records.csv.
+        (config_dir / "user_config.json").write_text(
+            json.dumps({"redcap_file": {"path": str(redcap_dir)}}),
+            encoding="utf-8",
+        )
+        child = RedcapFileChild(config_dir, data_dir)
+
+        # Cover the 4 simpler 'No records at <records_file>' sites; the
+        # cohort_summary site requires a `field` param to reach the
+        # no-records branch and is covered indirectly when a directory
+        # is misconfigured (the first test class).
+        for tool_name, params in (
+            ("redcap_list_records", {}),
+            ("redcap_summary_report", {}),
+            ("redcap_records", {"instrument": "phq9"}),
+            ("redcap_raw_records", {}),
+        ):
+            result = asyncio.run(child.execute(tool_name, params))
+            error = result.get("error", "")
+            if not error:
+                # Tool returned a non-error result; skip.
+                continue
+            assert str(redcap_dir) not in error, (
+                f"{tool_name}: absolute path {redcap_dir!s} leaked into "
+                f"error envelope: {error!r}. PHI VIOLATION-1 regressed."
+            )

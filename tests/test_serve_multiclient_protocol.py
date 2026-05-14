@@ -114,6 +114,7 @@ def _scipy_available() -> bool:
 def _redcap_fixture_path() -> Path:
     """Return the absolute path to the bundled redcap_demo fixture directory."""
     import importlib.resources as ir
+
     import tailor._fixtures as _fx_pkg
     base = ir.files(_fx_pkg)
     demo = base / "redcap_demo"
@@ -295,7 +296,7 @@ def _assert_meta_invariants(
         raise AssertionError(
             f"_meta.called_at is not ISO-8601 parseable: {called_at!r}. "
             f"Error: {exc}"
-        )
+        ) from exc
     assert "domain" in meta, f"_meta missing 'domain': {meta}"
     assert "tier" in meta, f"_meta missing 'tier': {meta}"
     assert "scrubber_id" in meta, f"_meta missing 'scrubber_id': {meta}"
@@ -1134,15 +1135,17 @@ class TestMultiChildContractAssertions:
 
     def test_redcap_instrument_marked_required_in_tool_definition(self) -> None:
         """redcap_records ToolDefinition has instrument.required == True."""
-        from tailor.children.redcap.child import RedcapFileChild
         # RedcapFileChild can't be constructed without a valid path, but
         # we can inspect tool_definitions from a minimally-valid instance
         # by seeding a temp config.
         import tempfile
+
+        from tailor.children.redcap.child import RedcapFileChild
         with tempfile.TemporaryDirectory() as tmp:
             cfg = Path(tmp) / "config"
             data = Path(tmp) / "data"
-            cfg.mkdir(); data.mkdir()
+            cfg.mkdir()
+            data.mkdir()
             redcap_fixture = _redcap_fixture_path()
             (cfg / "user_config.json").write_text(
                 json.dumps({
@@ -1165,12 +1168,14 @@ class TestMultiChildContractAssertions:
 
     def test_every_redcap_tool_has_description_in_param_schema(self) -> None:
         """Every param in every REDCap ToolDefinition has a 'description' key."""
-        from tailor.children.redcap.child import RedcapFileChild
         import tempfile
+
+        from tailor.children.redcap.child import RedcapFileChild
         with tempfile.TemporaryDirectory() as tmp:
             cfg = Path(tmp) / "config"
             data = Path(tmp) / "data"
-            cfg.mkdir(); data.mkdir()
+            cfg.mkdir()
+            data.mkdir()
             redcap_fixture = _redcap_fixture_path()
             (cfg / "user_config.json").write_text(
                 json.dumps({"redcap_file": {"path": str(redcap_fixture)}}),
@@ -1187,12 +1192,14 @@ class TestMultiChildContractAssertions:
 
     def test_redcap_child_scrubber_id_matches_audit_expectation(self) -> None:
         """RedcapFileChild.child_scrubber_id == 'redcap_metadata_flags'."""
-        from tailor.children.redcap.child import RedcapFileChild
         import tempfile
+
+        from tailor.children.redcap.child import RedcapFileChild
         with tempfile.TemporaryDirectory() as tmp:
             cfg = Path(tmp) / "config"
             data = Path(tmp) / "data"
-            cfg.mkdir(); data.mkdir()
+            cfg.mkdir()
+            data.mkdir()
             redcap_fixture = _redcap_fixture_path()
             (cfg / "user_config.json").write_text(
                 json.dumps({"redcap_file": {"path": str(redcap_fixture)}}),

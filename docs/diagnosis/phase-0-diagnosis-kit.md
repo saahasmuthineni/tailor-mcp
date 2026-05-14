@@ -73,7 +73,7 @@ Pin these to the diagnosis session. They are the rules that distinguish diagnose
 
 ## Stranger-eyes install checklist
 
-This is the documented install ritual stripped to literal commands a recipient would execute. The README's recipient install path (`uv tool install git+...` + `tailor tour`) is canonical for v7+. The historical wheel path is preserved at the bottom but is not the priority surface.
+This is the documented install ritual stripped to literal commands a recipient would execute. The README's recipient install path (`uv tool install tailor-mcp` + `tailor tour`) is canonical for v7.0.13+ via PyPI; pre-v7.0.13 wheel-by-email and `git+` URL paths were the canonical surfaces in earlier releases. The historical wheel path is preserved at the bottom but is not the priority surface.
 
 For each step, the friction log captures: **expected outcome**, **actual outcome**, **workaround used (if any)**, **friction class**, **screenshot reference**.
 
@@ -126,7 +126,7 @@ Start-Transcript -Path "$env:USERPROFILE\diagnosis-transcript-attempt-1-part2.tx
 #### A6 — Install tailor via uv
 
 ```powershell
-uv tool install git+https://github.com/saahasmuthineni/tailor-mcp.git
+uv tool install tailor-mcp
 ```
 
 **Expected:** Resolves dependencies, installs `tailor` command into uv's tool space.

@@ -158,8 +158,8 @@ strangers at the door.
 
 | Deliverable | Effort | Why it matters |
 |---|---|---|
-| **Publish to PyPI as `tailor-mcp`** | 1 day | The canonical install path named in [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) ("when published"). Closes the hand-delivered-wheel gap. `pip install tailor-mcp` becomes the install command. |
-| **Make the GitHub repo public** | 30 min | Without this, the trust narrative ("look at the audit log; look at the 31 ADRs; look at the determinism invariants") cannot establish itself in OSS culture. The discipline only signals trust if outsiders can read it. |
+| ~~**Publish to PyPI as `tailor-mcp`**~~ — **Shipped in v7.0.13 (2026-05-13)** | — | The canonical install path named in [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) ("when published") landed; `uv tool install tailor-mcp` is the install command. Closes the hand-delivered-wheel gap. |
+| **Make the GitHub repo public** — **Held under three-condition trigger** (see [§ Held items](#held-items-revisit-when-the-trigger-fires)) | 30 min once triggered | Without this, the trust narrative ("look at the audit log; look at the ADRs; look at the determinism invariants") cannot establish itself in OSS culture. **v7.0.13 unbundled this from the PyPI-publish row** because PyPI is a tooling question (frictionless install — at YES) and public-flip is an audience question (trust narrative going public — at NOT YET); the honest shipping shape matches that. |
 | ~~**Promote `vocabulary-drift-auditor` agent (reshape of retired `counter-programming-invariant-auditor`)**~~ — **KILLED in Phase 2 planning 2026-05-12** ([§ Killed](#vocabulary-drift-auditor-specialist--killed)). [ADR 0033 § Negative consequences](docs/adr/0033-complete-tailor-metaphor-workshop-side.md) explicitly delegated vocabulary drift to `code-vs-roadmap-drift-auditor`'s existing remit and stated *"does not need a new specialist."* Applied to [ADR 0011](docs/adr/0011-promotion-policy.md)'s three criteria: structural argument is weak (register/taxonomy detection is distinguishable from fact-checking, but the architect ADR already named the seam holder), severity is low (identity-cost, not safety-cost), and the always-forbidden six-word list is grep-enforceable in principle. A pytest invariant for the always-forbidden six was prototyped during planning and deliberately not landed; Table 5 enforcement is PR review per ADR 0033 § Negative consequences' original delegation. | — | — |
 | **First-time-user setup pass** | 1 week | Walk through `tailor pilot` and `tailor demo` cold, in someone else's hands, with attention to the friction points an early adopter would hit. README, error messages, and onboarding copy revised against the friction surfaced. |
 | **Apple Silicon reference deployment recipe** | 1 week | Document the *"Tailor on a Mac mini"* recipe for newcomers — recommended hardware tier (M4 24GB minimum), bundled local LLM (Llama 3.1 8B via MLX), always-on LaunchAgent setup, troubleshooting. Decides what *"AI-optimized computer"* means concretely for v1. |
@@ -372,6 +372,45 @@ and Tailor is canonical-shaped within it.
 These items are out of scope for active phases but kept on the radar
 with explicit triggering conditions. When the trigger fires, the item
 gets promoted into the next applicable phase.
+
+### Make the GitHub repo public
+
+v7.0.13 split the original Phase 2 "PyPI publish + repo public-flip"
+bundle into two separable decisions because they answer different
+questions. PyPI answers a tooling question (*"is there a frictionless
+install path?"*) — the project is at YES on it. Repo public-flip
+answers an audience question (*"is the trust narrative going out into
+the world?"*) — the project is at NOT YET. The honest posture as of
+v7.0.13: source code is inspectable via the wheel on PyPI (anyone can
+`pip download tailor-mcp` and unpack the .whl); the project's full
+governance trail (ADRs, ROADMAP, design notes) stays private until a
+deliberate public-flip decision. The landing page at
+[saahasmuthineni.github.io/tailor-mcp-landing](https://saahasmuthineni.github.io/tailor-mcp-landing/)
+serves the *"invited evaluation"* framing as the public interface for
+visitors who don't yet have a back-channel.
+
+**Trigger**: ALL three conditions must fire:
+
+1. **Beachhead lab using Tailor on real data** (Phase 3 Direction A
+   succeeds — public scrutiny becomes a real artifact to point at,
+   not an abstract claim).
+2. **Launch-narrative artifacts drafted** (Phase 3 Direction B's
+   long-form launch post + honest comparison artifacts exist in
+   publish-ready form; trust-receipts and discovery moment co-locate
+   in time).
+3. **Boss separately decides he wants public scrutiny** (readiness ≠
+   pursuit; per project memory the boss-architect's framing is that
+   Tailor is a life-project with foundational-tool ambitions, not a
+   startup launch funnel — the decision to open the repo is
+   independent of all technical readiness, requiring bandwidth to
+   triage drive-by issues and patience for public criticism).
+
+When all three fire, the public-flip is mechanical (~30 minutes of
+repo-settings operation) plus a doc-truth pass over commit history to
+confirm nothing private leaked into history. `integration-auditor
+--proposal-mode` should fire on a planned public-flip diff before the
+visibility-change to surface any commit-message or file content an
+incognito visitor shouldn't see.
 
 ### Real PHI-scrubbing implementations
 

@@ -1,5 +1,86 @@
 # CLAUDE.md — Tailor
 
+> **v7.0.13 (2026-05-13)** — PyPI publish ship. `tailor-mcp` published
+> to PyPI as the canonical install channel; `uv tool install tailor-mcp`
+> replaces the `uv tool install git+https://...` URL form across every
+> recipient-visible doc site. Closes the Phase 2 PyPI-publish
+> deliverable.
+>
+> v7.0.13's shape **departs from the v7.0.12 banner's prediction** —
+> that banner forecasted a "repo public-flip + PyPI publish" bundle.
+> The repo public-flip is deferred to a future version under a
+> three-condition trigger (see [ROADMAP.md § Held items](ROADMAP.md#held-items-revisit-when-the-trigger-fires)):
+> (1) beachhead lab using Tailor on real data, (2) launch-narrative
+> artifacts drafted, (3) boss separately decides he wants public
+> scrutiny. Argument for unbundling: PyPI answers a tooling question
+> ("is there a frictionless install path?") and the project is at YES
+> on it; repo public-flip answers an audience question ("is the trust
+> narrative going out into the world?") and the project is at NOT YET.
+> The honest shipping shape matches that.
+>
+> New: GitHub Pages landing page at
+> [saahasmuthineni.github.io/tailor-mcp-landing](https://saahasmuthineni.github.io/tailor-mcp-landing/)
+> hosts a one-page project description with install command,
+> architecture summary, and explicit "invited evaluation" framing; URL
+> is `Homepage` in `pyproject.toml` so PyPI's sidebar resolves.
+> `Repository` and `Issues` URLs removed since the repo stays private
+> — source code is inspectable via the wheel; governance trail (ADRs,
+> ROADMAP, design notes) stays private. Same posture an academic
+> research tool typically distributes under.
+>
+> `integration-auditor --proposal-mode` returned REVISE on the initial
+> PyPI-only plan with 4 BLOCKING + 5 IMPORTANT + 3 NICE-TO-HAVE
+> findings + 3 prior-decision conflicts; all BLOCKING closed
+> pre-publish. New `README_PYPI.md` authored for PyPI rendering (no
+> Mermaid, no SVGs, no relative links, no GitHub-flavored callouts;
+> ASCII architecture diagram; `pyproject.toml`'s `readme` field
+> repointed) while `README.md` stays the GitHub README;
+> `RECIPIENT_README.md` dead `examples/...WINDOWS_QUICKSTART.md`
+> pointer removed (wheel doesn't bundle `examples/`); `tailor demo
+> --save-shareable` install-URL emission swapped from
+> `github.com/.../releases/download/...wheel.whl` → PyPI commands
+> (`uvx --from tailor-mcp tailor demo`, `pipx run --spec tailor-mcp
+> tailor demo`); `install_url_base` parameter on
+> `_generate_shareable_markdown` retired along with the
+> `TAILOR_DEMO_INSTALL_URL_BASE` env-var override;
+> [ADR 0030](docs/adr/0030-public-mirror-narrative-and-affordance-depth.md)
+> URL allowlist tightened from "wheel-release-asset only" to "zero
+> outbound URLs" via a new **§ Amendment 2026-05-13** section + Status
+> pointer. Three coupled tests in `tests/test_demo_runner.py` flipped
+> to defend the new posture (assert PyPI install commands appear;
+> assert github-releases URL does NOT appear; assert
+> wheel-release-asset URL is REJECTED by the tightened allowlist).
+>
+> Other notable changes: PEP 639 license migration (`license = {text =
+> "Apache-2.0"}` → SPDX `license = "Apache-2.0"` + `license-files =
+> ["LICENSE"]`; redundant `License :: OSI Approved :: Apache Software
+> License` classifier dropped); bundled-fixture citation softened from
+> named-researcher form to literature-form (`Hunter & Senefeld 2024
+> flagged in the J Physiol review` → `consistent with the J Physiol
+> 2024 review literature on sex differences in human performance` —
+> closes the named-person-on-publicly-distributed-artifact concern);
+> doc-sweep of install commands across `CLAUDE.md` active section,
+> `README.md`, `docs/guides/multi-subject-pilot.md`,
+> `docs/diagnosis/phase-0-diagnosis-kit.md`, with historical banner
+> references in CLAUDE.md v7.0.10 entry, ROADMAP Shipped section, and
+> ADR 0031 preserved per the historical-record doc-truth principle.
+>
+> No `src/` logic changes beyond `runner.py` install-URL emission + URL
+> allowlist refactor (the surface BLOCKING-4 + C1 named); no
+> framework/router/security/child/vault changes; no schema changes; no
+> public API changes beyond the `_generate_shareable_markdown`
+> signature simplification (the `install_url_base` parameter is retired).
+> Patch bump because release shape is distribution-channel pivot +
+> doc-truth sweep, not feature work. Gates: ci-gate-runner SHIPPABLE
+> (TBD pending demo-before-commit dispatch). mcp-protocol-auditor NOT
+> TRIGGERED (no framework/router/security/vault paths touched).
+> cue-card-rehearsal-auditor NOT TRIGGERED (no CUE_CARD.md or
+> ToolDefinition schema changes). recipient-install-validator SKIPPED
+> (`pyproject.toml` package-data globs untouched; `_fixtures/**` edit
+> is a one-line citation in a vault moment fixture, not
+> install-path-affecting; v6.11.x falsification grounds the opt-in skip
+> per v6.11.1 policy).
+
 > **v7.0.12 (2026-05-12)** — Phase 2 pre-flip doc-truth sweep. Governed by
 > an `integration-auditor --proposal-mode` REVISE verdict (10 findings: 3
 > BLOCKING / 4 IMPORTANT / 3 NICE-TO-HAVE) on the Phase 2 cheapest-pair
@@ -1544,7 +1625,7 @@ For end users (PIs, analysts), the canonical install path is uv (or
 pipx) against the GitHub URL — no Python install, no venv ritual:
 
 ```bash
-uv tool install git+https://github.com/saahasmuthineni/tailor-mcp.git
+uv tool install tailor-mcp
 tailor pilot     # Three-prompt wizard for the multi-subject CSV pilot
 ```
 

@@ -4,18 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tailor-mcp"
-version = "7.0.12"
+version = "7.0.13"
 description = "Tailor: a local-first MCP framework that lets any MCP-speaking AI work with your own data — your Wardrobe stays on your machine, with server-side analytics, consent gates, cost gates, and a durable audit log."
-readme = "README.md"
+readme = "README_PYPI.md"
 requires-python = ">=3.10"
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{name = "Saahas Muthineni"}]
 keywords = ["mcp", "ai", "personal-data", "local-first", "claude", "llm", "audit", "consent"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -29,9 +29,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/saahasmuthineni/tailor-mcp"
-Repository = "https://github.com/saahasmuthineni/tailor-mcp"
-Issues = "https://github.com/saahasmuthineni/tailor-mcp/issues"
+Homepage = "https://saahasmuthineni.github.io/tailor-mcp-landing/"
 
 [project.optional-dependencies]
 dev = [

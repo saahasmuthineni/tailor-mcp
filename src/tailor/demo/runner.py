@@ -49,7 +49,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import re
 import shutil
 import sqlite3
@@ -234,13 +233,13 @@ _SECTION_HEADER_PATTERN = re.compile(
     re.MULTILINE,
 )
 
-# Public-mirror URL allowlist: only the wheel-release-asset URL is
-# permitted in audience=public output. Any other ``https://`` outbound
-# link is a structural violation of ADR 0030's zero-outbound-affordances
-# invariant.
-_ALLOWED_PUBLIC_URL_PATTERN = re.compile(
-    r"^https://github\.com/[^/]+/[^/]+/releases/download/"
-)
+# Public-mode URL allowlist: zero outbound URLs permitted in
+# audience=public output. Per ADR 0030 § "Amendment 2026-05-13"
+# (tightened the original wheel-release-asset carve-out after v7.0.13
+# closed the wheel-by-email distribution channel via PyPI publish), the
+# public-mode page is fully URL-free. Any https:// link in the
+# rendered output is a structural violation of the
+# zero-outbound-affordances invariant.
 _OUTBOUND_URL_PATTERN = re.compile(r"https?://[^\s)\]\"'>]+")
 _BANNED_URL_SCHEMES = ("mailto:", "ftp:", "tel:")
 
@@ -335,13 +334,16 @@ def _splice_panels_into_transcript(
 
 def _enforce_public_url_allowlist(rendered: str) -> None:
     """Hard-fail per ADR 0030 if the rendered markdown contains any
-    outbound URL outside the wheel-release-asset allowlist or any
-    banned URL scheme (mailto, ftp, tel).
+    outbound URL or any banned URL scheme (mailto, ftp, tel).
 
     Raises ``ValueError`` on any violation. The render-time check is
     the structural backstop on the zero-outbound-affordances invariant
     — a future contributor adding a Discord link "to be helpful" gets
-    a CI failure rather than a silently-shipped public page.
+    a CI failure rather than a silently-shipped public page. Per
+    ADR 0030 § "Amendment 2026-05-13" (tightening the original
+    wheel-release-asset carve-out after PyPI publish in v7.0.13 closed
+    the wheel-by-email distribution channel), the public-mode page is
+    fully URL-free.
     """
     for scheme in _BANNED_URL_SCHEMES:
         if scheme in rendered:
@@ -355,21 +357,20 @@ def _enforce_public_url_allowlist(rendered: str) -> None:
             )
     for match in _OUTBOUND_URL_PATTERN.finditer(rendered):
         url = match.group(0)
-        if not _ALLOWED_PUBLIC_URL_PATTERN.match(url):
-            raise ValueError(
-                f"--audience=public rendered output contains disallowed "
-                f"outbound URL {url!r}; ADR 0030 permits outbound URLs "
-                f"only for the wheel release asset (a "
-                f"github.com/<owner>/<repo>/releases/download/ pattern). "
-                f"Either render with --audience=developer or remove the "
-                f"offending link before generating the shareable file."
-            )
+        raise ValueError(
+            f"--audience=public rendered output contains disallowed "
+            f"outbound URL {url!r}; ADR 0030 (amended 2026-05-13) "
+            f"permits zero outbound URLs on the public-mode page since "
+            f"PyPI publish in v7.0.13 closed the wheel-by-email "
+            f"distribution channel. Either render with "
+            f"--audience=developer or remove the offending link before "
+            f"generating the shareable file."
+        )
 
 
 def _generate_shareable_markdown(
     transcript: str,
     version: str,
-    install_url_base: str,
     audience: str = "developer",
 ) -> str:
     """Wrap a captured demo transcript in a shareable markdown document.
@@ -377,14 +378,12 @@ def _generate_shareable_markdown(
     Args:
         transcript: The captured stdout of a ``tailor demo`` run
             (the entire five-section walk).
-        version: ``tailor.__version__`` — substituted into the
-            install URL so the wheel filename matches the release on
-            the source repo's GitHub Releases page.
-        install_url_base: The GitHub release URL prefix where the
-            wheel artifact is published. Default points at the source
-            repo's Releases page (``saahasmuthineni/tailor-mcp``) per
-            ADR 0032's retirement of the separate public-mirror repo;
-            overridable via ``TAILOR_DEMO_INSTALL_URL_BASE``.
+        version: ``tailor.__version__`` — referenced in the document
+            header so a recipient can confirm which release produced
+            the transcript. Per ADR 0030 (amended 2026-05-13), no
+            version-stamped install URL is constructed; PyPI
+            distribution via ``uv tool install tailor-mcp`` is
+            version-agnostic at install time.
         audience: Either ``"developer"`` (default; existing v6.12.0
             behaviour with ADR breadcrumbs in the footer, transcript
             in a single code fence — suitable for sharing a debug
@@ -406,9 +405,6 @@ def _generate_shareable_markdown(
         raise ValueError(
             f"audience must be 'developer' or 'public'; got {audience!r}"
         )
-
-    wheel_filename = f"tailor-{version}-py3-none-any.whl"
-    wheel_url = f"{install_url_base}/v{version}/{wheel_filename}"
 
     if audience == "public":
         # Per ADR 0030: per-section persona panels spliced in,
@@ -438,13 +434,13 @@ def _generate_shareable_markdown(
             "if needed):\n"
             "\n"
             "```\n"
-            f"uvx --from {wheel_url} tailor demo\n"
+            "uvx --from tailor-mcp tailor demo\n"
             "```\n"
             "\n"
             "Or with `pipx`:\n"
             "\n"
             "```\n"
-            f"pipx run --spec {wheel_url} tailor demo\n"
+            "pipx run --spec tailor-mcp tailor demo\n"
             "```\n"
             "\n"
             "Either command installs the wheel into an ephemeral\n"
@@ -484,13 +480,13 @@ output (Section 1's numerical claims are bit-identical by design).
 If you have [`uv`](https://docs.astral.sh/uv/) installed (recommended):
 
 ```
-uvx --from {wheel_url} tailor demo
+uvx --from tailor-mcp tailor demo
 ```
 
 Or with `pipx`:
 
 ```
-pipx run --spec {wheel_url} tailor demo
+pipx run --spec tailor-mcp tailor demo
 ```
 
 Either command installs the wheel into an ephemeral isolated env,
@@ -1199,14 +1195,9 @@ def run_demo(
             from tailor import __version__ as _pkg_version
         except Exception:
             _pkg_version = "unknown"
-        install_url_base = os.environ.get(
-            "TAILOR_DEMO_INSTALL_URL_BASE",
-            "https://github.com/saahasmuthineni/tailor-mcp/releases/download",
-        )
         markdown = _generate_shareable_markdown(
             transcript=_shareable_buffer.getvalue(),
             version=_pkg_version,
-            install_url_base=install_url_base,
             audience=audience,
         )
         save_shareable_path.parent.mkdir(parents=True, exist_ok=True)

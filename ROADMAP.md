@@ -671,6 +671,13 @@ prior roadmap revisions per the same historical-preservation principle
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
 
+### Shipped in v7.2.0 (2026-05-14)
+
+- **New `src/tailor/children/matlab_file/` package — `MATLABFileChild`** exposes six tools across all three tiers, matching the csv_dir shape: `matlab_list_files`, `matlab_file_detail`, `matlab_summary_report`, `matlab_cohort_summary` (Tier 1); `matlab_downsampled` (Tier 2); `matlab_raw_array` (Tier 3). Cohort surface ships in v1 (not deferred) using the ADR 0015 `metadata.json` sidecar pattern unchanged. Opt-in via `matlab_file` block in `user_config.json`; default deployments behaviourally unchanged.
+- **New [ADR 0036](docs/adr/0036-matlab-child-scope-v72-only-with-deferred-hdf5.md)** — codifies `.mat` v5/v6/v7.2-only scope via `scipy` as an optional extra (`pip install tailor-mcp[matlab]`); v7.3 HDF5-based `.mat` detected by magic bytes and rejected with a typed-error envelope citing the ADR. Reversal condition: first beachhead lab hits the v7.3 gap.
+- **Move 3 / Part 1 closed** — MATLAB child is the second non-CSV source axis demonstrated by the v7.1.1 source-agnostic claim. Move 3 / Part 2 (REDCap existence-proof child) held for v7.3.0 fresh-session build; REDCap PHI-defense posture ratified in memory.
+- **Deprecation-removal target for `tailor tour` / `tailor demo` aliases bumped** from v7.2.0 to a future minor (v7.2.0 scope was re-aimed at Move 3 / MATLAB child; CLI cleanup is unrelated work).
+
 ### Shipped in v7.1.1 (2026-05-14)
 
 - **Source-agnostic positioning (Move 1 of 3)** — `README.md` hero and `README_PYPI.md` intro gain a parallel bold-led clause naming the source-agnostic axis (`ChildMCP` extension point; REDCap / EDF / FHIR / vendor sensor exports as held-item examples; 10-100× cost-per-question tie-back). Closes the cold-landing messaging gap where a reader sees CSV fixtures + Strava and concludes Tailor is a CSV tool. AI-economics slots 1+2 preserved at parity. `integration-auditor --proposal-mode` REVISE → resolved (3 IMPORTANT findings addressed pre-edit). Workshop-vs-lifestyle invariant per ADR 0033 + ADR 0035 Table 5 verified clean.

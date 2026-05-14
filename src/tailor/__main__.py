@@ -10,7 +10,7 @@ Usage:
     tailor status         # Diagnostic check
     tailor uninstall      # Clean removal
 
-Deprecated (removed in v7.2.0):
+Deprecated (removal deferred to a future minor):
     tailor demo           # Renamed to `tailor walkthrough` in v7.1.0 per ADR 0035
     tailor tour           # Renamed to `tailor fitting-room` in v7.1.0 per ADR 0035
 """
@@ -128,6 +128,33 @@ def cmd_serve():
         emg_child = EmgCsvChild(config_dir=CONFIG_DIR, data_dir=DATA_DIR)
         router.register_child(emg_child)
 
+    # matlab_file child (opt-in — requires matlab_file block in user_config.json).
+    # Requires the [matlab] optional extra: `pip install tailor-mcp[matlab]`.
+    # Per ADR 0036, the child supports `.mat` v5/v6/v7.2 only; HDF5-based
+    # v7.3 is held. ImportError on missing scipy must surface visibly so
+    # the operator can act on it (closes proposal-mode audit F3 — the
+    # silent-failure trap that produced v6.10.2's degraded-serve state).
+    matlab_child = None
+    if _ucfg.get("matlab_file"):
+        try:
+            from tailor.children.matlab_file import MATLABFileChild
+            matlab_child = MATLABFileChild(config_dir=CONFIG_DIR, data_dir=DATA_DIR)
+            router.register_child(matlab_child)
+        except ImportError as exc:
+            _banner = "=" * 60
+            sys.stderr.write(
+                f"\n{_banner}\n"
+                f"ERROR: matlab_file is configured in user_config.json but "
+                f"scipy is not installed.\n"
+                f"  Reason: {exc}\n"
+                f"  Fix:    pip install tailor-mcp[matlab]\n"
+                f"  Effect: MATLAB tools NOT registered; other tools "
+                f"work normally.\n"
+                f"{_banner}\n\n"
+            )
+            sys.stderr.flush()
+            log.error(f"matlab_file registration failed: {exc}")
+
     # Predeclared so the local-LLM registration block below can read
     # vault_writer.storage without a NameError on no-vault deployments
     # (per ADR 0023 — substrate scan reads vault_storage; None means
@@ -172,6 +199,8 @@ def cmd_serve():
             _registered.append(force_child)
         if emg_child is not None:
             _registered.append(emg_child)
+        if matlab_child is not None:
+            _registered.append(matlab_child)
         for _child in _registered:
             vaultable.update(getattr(_child, "vaultable_tools", []))
         # max_hr from user config (same source RunningChild reads from).
@@ -310,15 +339,16 @@ def cmd_tour():
     Per ADR 0035: ``tailor tour`` was renamed to ``tailor
     fitting-room`` in v7.1.0 to match the recipient-experience-shaped
     naming principle (commands named after what the recipient is
-    doing, not what the system is making). Both verbs work in v7.1.0
-    with a one-cycle deprecation shim; ``tailor tour`` is removed in
-    v7.2.0.
+    doing, not what the system is making). Both verbs continue to
+    work; removal of the deprecation shim is deferred to a future
+    minor (v7.2.0 release scope was re-aimed at Move 3 / MATLAB).
     """
     print(
         "[deprecation] `tailor tour` has been renamed to "
         "`tailor fitting-room` in v7.1.0 (per ADR 0035).\n"
         "              Both verbs work in this release; "
-        "`tailor tour` is removed in v7.2.0.\n",
+        "the alias removal target has been bumped to a "
+        "future minor.\n",
         file=sys.stderr,
     )
     cmd_fitting_room()
@@ -570,13 +600,14 @@ def cmd_walkthrough():
 
 
 def cmd_demo():
-    """Deprecated alias for ``cmd_walkthrough``. Removed in v7.2.0.
+    """Deprecated alias for ``cmd_walkthrough``. Removal deferred.
 
     Per ADR 0035: ``tailor demo`` was renamed to ``tailor walkthrough``
     in v7.1.0 to match the recipient-experience-shaped naming
     principle (commands named after what the recipient is doing, not
-    what the system is making). Both verbs work in v7.1.0 with a
-    one-cycle deprecation shim; ``tailor demo`` is removed in v7.2.0.
+    what the system is making). Both verbs continue to work; removal
+    of the deprecation shim is deferred to a future minor (v7.2.0
+    release scope was re-aimed at Move 3 / MATLAB).
 
     Forwards every ``sys.argv`` argument transparently to
     ``cmd_walkthrough`` — flag parsing reads ``sys.argv[2:]`` so the
@@ -587,7 +618,8 @@ def cmd_demo():
         "[deprecation] `tailor demo` has been renamed to "
         "`tailor walkthrough` in v7.1.0 (per ADR 0035).\n"
         "              Both verbs work in this release; "
-        "`tailor demo` is removed in v7.2.0.\n",
+        "the alias removal target has been bumped to a "
+        "future minor.\n",
         file=sys.stderr,
     )
     cmd_walkthrough()
@@ -719,7 +751,8 @@ def main():
         "setup": cmd_setup,
         "status": cmd_status,
         "uninstall": cmd_uninstall,
-        # Deprecated aliases — one-cycle shim per ADR 0035; removed in v7.2.0.
+        # Deprecated aliases — one-cycle shim per ADR 0035; removal target
+        # bumped from v7.2.0 to a future minor (v7.2.0 scope = Move 3 / MATLAB).
         # Each maps to a wrapper function that prints a stderr deprecation
         # hint then calls the new verb's handler. Listed last so the --help
         # output groups them visually.

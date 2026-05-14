@@ -336,6 +336,26 @@ class ChildMCP(ABC):
         to release SQLite WAL file locks (required on Windows).
         """
 
+    @property
+    def child_scrubber_id(self) -> str | None:
+        """
+        Identity of the child-level PHI scrubber, if any.
+
+        Per ADR 0003 § Amendment 2026-05-14 + ADR 0037: a child that
+        ships its own structured-PHI scrubber (one that reads
+        domain-specific IRB-approved input like REDCap's
+        ``project_metadata.csv`` identifier flags) returns its
+        scrubber name here. The router stamps this into the audit
+        row's ``child_scrubber_id`` column.
+
+        Default ``None`` means no child-level scrubber runs — the
+        framework-level ``PHIScrubber`` seam (ADR 0003) is the only
+        scrubber that touches the result. ``None`` for csv_dir,
+        matlab_file, running child, template child; e.g.
+        ``"redcap_metadata_flags"`` for RedcapFileChild.
+        """
+        return None
+
     def get_tier(self, tool_name: str) -> int:
         """Get the access tier for a tool."""
         for tool in self.tool_definitions:

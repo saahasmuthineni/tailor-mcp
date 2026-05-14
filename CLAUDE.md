@@ -1,5 +1,103 @@
 # CLAUDE.md — Tailor
 
+> **v7.3.0 (2026-05-14)** — Move 3 / Part 2: REDCap existence-proof
+> child — six-tool, three-tier REDCap-export source axis. Third
+> non-CSV source axis demonstrated by the v7.1.1 source-agnostic
+> claim (after the running child and matlab_file). New
+> `src/tailor/children/redcap/` exposes `RedcapFileChild` with
+> six tools across all three tiers, matching the csv_dir / matlab_file
+> shape: `redcap_list_records`, `redcap_record_detail`,
+> `redcap_summary_report`, `redcap_cohort_summary` (Tier 1);
+> `redcap_records` (Tier 2 — instrument-scoped per the R2 ratified
+> decision; `instrument` is a required parameter, not optional);
+> `redcap_raw_records` (Tier 3). Cohort surface ships in v1 using the
+> ADR 0015 `metadata.json` sidecar pattern unchanged. Opt-in via
+> `redcap_file` block in `user_config.json`; default deployments
+> behaviourally unchanged.
+>
+> [ADR 0037](docs/adr/0037-redcap-child-scope-export-directory-only-with-deferred-live-api.md)
+> (NEW, Accepted) codifies the scope-bound: REDCap CSV export
+> directories only (the artifact every REDCap project produces on
+> demand); live REDCap REST API support deferred behind a future
+> superseding ADR with a named reversal condition (first real-world
+> deployment target identifies live-API as the load-bearing path).
+> Same scope-bound posture as ADR 0036's HDF5 deferral. Critically,
+> REDCap exports are stdlib-only — **no new optional extras**;
+> contrast with v7.2.0's `[matlab]` extra. The lean three-dep base
+> install posture (`mcp`, `requests`, `orjson`) is preserved.
+>
+> [ADR 0003 § Amendment 2026-05-14](docs/adr/0003-phi-scrubber-seam.md)
+> introduces a **child-level PHI scrubber seam** parallel to the
+> framework-level seam. REDCap is the forcing function: a REDCap
+> project's `project_metadata.csv` carries per-field `identifier`
+> flags (Y / N) that structurally answer the question ADR 0003
+> declined to answer generically — *which fields are PHI?* — for this
+> source axis. `RedcapPHIScrubber` reads those flags and scrubs
+> flagged fields inside `RedcapFileChild.execute()` before the result
+> returns to the framework-level seam. New `audit_log.child_scrubber_id`
+> column records the child's internal scrubber identity
+> (`"redcap_metadata_flags"` for REDCap calls; NULL for csv_dir /
+> matlab_file / running which inherit the ABC default). Threaded on
+> every child-related audit row per the existing `scrubber_id`
+> stamping convention; legacy audit DBs migrate via `ALTER TABLE`.
+>
+> **The release-pass cascade caught two HIGH PHI/IRB VIOLATIONs
+> pre-merge** — the structural reason the v7.3.0 banner is honest
+> about this rather than glossing it as "tests added". (1)
+> `phi-irb-risk-reviewer` found that `redcap_cohort_summary`'s
+> per-field guards were using `is_known_identifier`, which returned
+> `False` for unknown fields — silently bypassing the fail-closed
+> defense ADR 0037 codified for the source axis where identifier flags
+> are structurally available. Fixed by predicate swap to
+> `is_identifier` (the inverse — returns `True` unless explicitly
+> flagged non-identifier) plus regression tests on the unknown-field
+> path. (2) `phi-irb-risk-reviewer` also found that failure rows on
+> the dispatch path were leaving `child_scrubber_id` NULL, breaking
+> the ADR 0001 audit-completeness invariant the new column exists to
+> enforce; fixed by stamping the child's scrubber_id at row-construction
+> time, not at success-path return. (3) `red-team-reviewer` returned
+> OBJECTION (HIGH) on coverage — no end-to-end tests for the audit-row
+> threading or the legacy-DB `ALTER TABLE` migration; closed by three
+> new tests in the bundled fix pass. All three findings landed in
+> a single bundled fix pass before this banner shipped.
+> [ADR 0010](docs/adr/0010-adversarial-pairing.md) (adversarial
+> pairing) is the structural reason the gate caught these pre-ship
+> rather than post-recipient — the same shape that earned its keep on
+> v6.10.4 and v6.4.0 keeps earning it here.
+>
+> Three WATCH findings deferred to v7.3.1 (institutional-clarification
+> territory, not VIOLATIONs): (a) `project_metadata.csv` itself is a
+> trust root — a tampered metadata file with all flags flipped to `N`
+> would render `RedcapPHIScrubber` a no-op; needs a hash-stamp or
+> consent-time fingerprint. (b) The `_meta` block on REDCap results
+> should surface `child_scrubber_id` alongside the framework
+> `scrubber_id` so misconfigured deployments are visible in the LLM
+> transcript itself, parallel to the v6.3.1 `scrubber_warning` work.
+> (c) `redcap_summary_report` `top_values` disclosure on permissively
+> allowlisted fields could re-identify on low-cardinality
+> non-identifier-flagged fields (e.g. study site with N=3 sites);
+> needs a small-cell suppression threshold.
+>
+> `mcp-protocol-auditor` TRIGGERED (PROTOCOL OK; 15 wire-level + 4
+> contract tests; side-effect of the audit was 19 new subprocess tests
+> at `tests/test_serve_redcap_protocol.py`).
+> `reproducibility-provenance-auditor` TRIGGERED (CLEAN; all
+> ADR 0001 / 0002 / 0003 / 0008 / 0037 invariants HOLD).
+> `phi-irb-risk-reviewer` TRIGGERED (CLEAN after the bundled fix pass;
+> 2 HIGH VIOLATIONs CLOSED; 3 WATCH findings deferred to v7.3.1 as
+> named above). `red-team-reviewer` OBJECTION (HIGH) → CLOSED by the
+> bundled fix pass's 3 new tests. `researcher-utility-reviewer` runs
+> pre-ship against this banner. `cue-card-rehearsal-auditor` ATTEST
+> SKIP (no CUE_CARD.md changes; the demo cue card is HIP-Lab-specific
+> and does not carry per-child operator prompts). `recipient-install-
+> validator` SKIPPED per v6.11.x falsification precedent;
+> registration block is opt-in-gated so default install path is
+> unchanged. `ci-gate-runner` SHIPPABLE: 1137/1137 pytest (973 prior +
+> 164 new — REDCap shape/processing/scrubber + mcp-protocol subprocess
+> + bundled-fix-pass coverage tests), 82% coverage, ruff clean, 76/76
+> probe, CLI smoke clean. Minor bump because a new child = public API
+> addition (matches the v7.2.0 minor-bump precedent).
+
 > **v7.2.0 (2026-05-14)** — Move 3 / Part 1: MATLAB existence-proof
 > child lands as the second non-CSV source axis demonstrated by the
 > v7.1.1 source-agnostic claim. New `src/tailor/children/matlab_file/`
@@ -1442,7 +1540,7 @@ Your **Wardrobe** is what your AI knows about you: the structured collection of 
 
 Tailor curates your Wardrobe — adds to it, retrieves from it, governs how the AI reaches into it — and never sends any of it to a service you didn't choose. Internally the framework still has component names like `vault/` (the markdown storage layer) and `framework/` (the security pipeline); user-facing language uses **Wardrobe** as the term for what those components hold collectively.
 
-Alongside the Wardrobe, Tailor maintains a separate **Ledger** — the audit log. Every action Tailor took on your behalf is recorded in SQLite with timestamps, parameters, outcomes, `scrubber_id`, and optional `subject_id` scoping. The Ledger is the tailor's own record of work; the Wardrobe is yours. Both are local-first and held on your behalf, but they are accounted separately (per [ADR 0033](docs/adr/0033-complete-tailor-metaphor-workshop-side.md)). The audit-log backbone per [ADR 0001](docs/adr/0001-audit-log-as-backbone.md) is what the Ledger names; internally the audit log lives at `audit.db` in `framework/`, not in `framework/vault/`, so the directory structure already reflected the Ledger / Wardrobe split before this terminology did.
+Alongside the Wardrobe, Tailor maintains a separate **Ledger** — the audit log. Every action Tailor took on your behalf is recorded in SQLite with timestamps, parameters, outcomes, `scrubber_id`, and optional `subject_id` scoping. The Ledger is the tailor's own record of work; the Wardrobe is yours. Both are local-first and held on your behalf, but they are accounted separately (per [ADR 0033](docs/adr/0033-complete-tailor-metaphor-workshop-side.md)). The audit-log backbone per [ADR 0001](docs/adr/0001-audit-log-as-backbone.md) is what the Ledger names; internally the audit log lives at `audit.db` in `framework/`, not in `framework/vault/`, so the directory structure already reflected the Ledger / Wardrobe split before this terminology did. v7.3.0 (per [ADR 0037](docs/adr/0037-redcap-child-scope-export-directory-only-with-deferred-live-api.md) + [ADR 0003 § Amendment](docs/adr/0003-phi-scrubber-seam.md)) adds a parallel `child_scrubber_id` column to record domain-specific structured-PHI scrubbers (e.g., REDCap's `redcap_metadata_flags`). The two columns let an IRB reviewer distinguish framework-level pattern-matching from child-level structured-input scrubbing.
 
 Workshop-vs-lifestyle invariant per [ADR 0033](docs/adr/0033-complete-tailor-metaphor-workshop-side.md) (supersedes the counter-programming invariant from [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md)): the project's metaphor identity is **workshop-shaped**, not lifestyle-shaped. Tailor *commissions* fabric from mills (children), *trims* it to the tier the wearer (AI) needs, and *stitches* the seams with institutional implementations. The full vocabulary lives at [`docs/design/tailor-vocabulary.md`](docs/design/tailor-vocabulary.md); the narrow-forbid list (Table 5 — couture / atelier / boutique / runway / showroom / couturier always forbidden; nine more forbidden only in lifestyle-register usage) is enforceable by grep.
 
@@ -1570,8 +1668,11 @@ LLM client <--> RouterMCP (validate → circuit break → consent → cost → e
               ChildMCP                VaultLayer  LocalLLMLayer ← framework-level
      (one per data source)            (reorientation tier;     (local-LLM guardian;
   e.g. RunningChild, CGMChild        Obsidian vault + index)   skips consent/cost gates)
-                                                               ↑ ADR 0022; opt-in
-                                                                 via user_config
+              (may carry its own PHI scrubber per ADR 0003       ↑ ADR 0022; opt-in
+               § Amendment 2026-05-14; e.g. RedcapPHIScrubber      via user_config
+               reads project_metadata.csv identifier flags
+               inside execute() before result returns to
+               framework PHI scrub)
 ```
 
 **Two persistence tiers, architecturally distinct:**
@@ -1654,6 +1755,11 @@ src/tailor/
       child.py             # MATLABFileChild(ChildMCP) — 6 tools, 3 tiers;
                            #   requires `tailor-mcp[matlab]` optional extra
       processing.py        # MATLABProcessing — stateless analytics
+    redcap/                # REDCap export-directory child (ADR 0037)
+      __init__.py          # Exports RedcapFileChild, RedcapProcessing, RedcapPHIScrubber
+      child.py             # RedcapFileChild(ChildMCP) — 6 tools, 3 tiers
+      processing.py        # RedcapProcessing — stateless analytics
+      scrubber.py          # RedcapPHIScrubber — child-level structured-PHI seam (ADR 0003 § Amendment 2026-05-14)
     template/              # Runnable starting-point child (copy + rename)
       __init__.py          # Rename checklist for new children
       child.py             # TemplateChild(ChildMCP) — minimal 3-tier skeleton
@@ -1692,6 +1798,10 @@ tests/                     # Mirrors src/ layout
     matlab_file/
       test_matlab_shape.py     # Shape + handler tests (scipy-required; skip if missing)
       test_matlab_processing.py  # Pure-function tests (no scipy)
+    redcap/
+      test_redcap_shape.py     # Shape + handler tests for RedcapFileChild
+      test_redcap_processing.py  # Pure-function analytics tests
+      test_redcap_scrubber.py    # RedcapPHIScrubber identifier-flag enforcement tests
     template/
       test_template_shape.py     # Shape contract tests for the template child
       test_template_processing.py # Pure-function analytics tests
@@ -1705,7 +1815,8 @@ tests/                     # Mirrors src/ layout
 | 2 | `CircuitBreaker` | Block domain after 3 consecutive failures; auto-reset after 5 min |
 | 3 | `ConsentGate` | Per-domain biometric consent, session-scoped, revocable |
 | 4 | `CostGate` | Pre-estimate tokens before execution; gate if > 35,000 tokens |
-| 5 | `PHIScrubber` | Institutional PHI-stripping seam; no-op default, subclass-per-child when a real policy exists |
+| 5a | `PHIScrubber` (framework-level) | Cross-domain PHI-stripping seam at the router boundary; no-op default, subclass when an institutional policy applies across every child (e.g. regex-based pattern matchers). ADR 0003. |
+| 5b | Child-level scrubber (e.g. `RedcapPHIScrubber`) | Domain-specific structured-input PHI seam wired inside a child's `execute()` before the result envelope returns. Used when the data source itself carries identifier metadata the framework cannot see (e.g. REDCap's `project_metadata.csv` `identifier=yes/no` flags). Parallel to the framework-level seam, not a replacement. ADR 0003 § Amendment 2026-05-14. |
 | 6 | `AuditLog` + `TokenLedger` | Every call logged to SQLite with optional `subject_id` scoping; cumulative session spend |
 
 Every successful result also carries a `_meta` block stamped with `package_version`, `tool_name`, UTC `called_at`, `domain`, `tier`, `scrubber_id`, and per-call + session token counts — plus `scrubber_warning` whenever the no-op default scrubber is active and `hook_warnings` when a post-execute hook raised. Minimum-viable provenance for results that may end up in a paper.
@@ -1781,6 +1892,37 @@ Config shape in `~/.tailor/user_config.json`:
 
 `variable_filter` is optional; absent means "all 1-D and 2-D numeric variables auto-detected per file." Cohort grouping uses the same `<matlab_dir>/metadata.json` sidecar schema as `csv_dir`: `{"<filename>": {"<field>": <value>, ...}}`.
 
+## REDCap File Child — 6 Tools
+
+Opt-in via `redcap_file` key in `user_config.json`. Wraps a local directory of REDCap CSV/JSON exports + the REDCap data dictionary (`project_metadata.csv`). Per [ADR 0037](docs/adr/0037-redcap-child-scope-export-directory-only-with-deferred-live-api.md), this child supports the export-directory path only; live REDCap REST API access is deferred behind a reversal condition ("first real-world target lab hits the API need").
+
+| Tool | Tier | Description |
+|------|------|-------------|
+| `redcap_list_records` | 1 | List record_ids with per-instrument completion flags and longitudinal event coverage |
+| `redcap_record_detail` | 1 | Single-record summary — non-identifier fields only, grouped by instrument |
+| `redcap_summary_report` | 1 | Per-instrument completion counts + per-field cardinality and distribution |
+| `redcap_cohort_summary` | 1 | Cross-record cohort aggregation by `group_by` (project_metadata.csv field or ADR 0015 sidecar). Refuses identifier-flagged group_by or field to prevent PHI leakage through group-key cardinality. |
+| `redcap_records` | 2 | All subjects' answers to one named instrument across all events, identifier-stripped. `instrument` parameter is REQUIRED. Consent-gated. |
+| `redcap_raw_records` | 3 | All subjects, all events, all instruments, identifier-stripped. Cost-gated. |
+
+Subject scoping per [ADR 0009](docs/adr/0009-vault-subject-keying.md): `record_id` is the `subject_id`; `redcap_event_name` is a grouping dimension threaded through cohort tools but NOT ADR 0009 subject scoping (REDCap's longitudinal structure means one subject has multiple records across events). Variables-as-subjects shapes (one record asking about multiple respondents, e.g. family studies) are deferred — see ADR 0037 § Negative consequences.
+
+**Built-in PHI scrubbing.** `RedcapPHIScrubber` reads `identifier=yes/no` flags from `project_metadata.csv` and strips matching fields from every result envelope before the child returns. Unknown fields default to identifier-positive (fail-closed) per ADR 0037; allowlist them via `unknown_field_allowlist` in the `redcap_file` config block. The scrubber is a new seam parallel to ADR 0003's framework-level seam — see [ADR 0003 § Amendment 2026-05-14](docs/adr/0003-phi-scrubber-seam.md).
+
+Config shape in `~/.tailor/user_config.json`:
+
+```json
+"redcap_file": {
+  "path": "/path/to/redcap/export/directory",
+  "records_file": "records.csv",
+  "project_metadata_file": "project_metadata.csv",
+  "instrument_completion_fields": ["demographics_complete", "phq9_complete"],
+  "unknown_field_allowlist": ["computed_score_v2"]
+}
+```
+
+All keys optional except `path`. Defaults: `records_file="records.csv"`, `project_metadata_file="project_metadata.csv"`. Cohort grouping uses an optional `<redcap_dir>/metadata.json` sidecar per ADR 0015 — distinct from REDCap's `project_metadata.csv` data dictionary; both files may coexist with orthogonal purposes.
+
 ## Running and Testing
 
 For end users (PIs, analysts), the canonical install path is uv (or
@@ -1824,7 +1966,7 @@ to the full record.
 
 - **[ADR 0001 — Audit log is the backbone](docs/adr/0001-audit-log-as-backbone.md).** Every tool call lands in `audit.db`: timestamp, domain, tool, tier, parameters, token estimate, outcome, latency, optional error, optional `subject_id`. Durable evidence of how an analyst accessed participant data — the single most load-bearing feature for research use.
 - **[ADR 0002 — `subject_id` scoping](docs/adr/0002-subject-id-scoping.md).** First-class audit column, optional on calls. The router extracts `subject_id` from parameters and threads it to every audit row; children adopt it in `param_schemas` incrementally. Legacy `audit.db` migrates via `ALTER TABLE`.
-- **[ADR 0003 — PHI scrubbing is a seam, not a policy](docs/adr/0003-phi-scrubber-seam.md).** `PHIScrubber.scrub()` is a no-op by default; institutions subclass. The default emits a one-time warning on first construction and exposes `scrubber_id` so audit rows distinguish misconfigured deployments from real policies.
+- **[ADR 0003 — PHI scrubbing is a seam, not a policy](docs/adr/0003-phi-scrubber-seam.md).** `PHIScrubber.scrub()` is a no-op by default; institutions subclass. The default emits a one-time warning on first construction and exposes `scrubber_id` so audit rows distinguish misconfigured deployments from real policies. Amended 2026-05-14 (triggered by [ADR 0037](docs/adr/0037-redcap-child-scope-export-directory-only-with-deferred-live-api.md)) to recognise a second parallel seam: child-level scrubbers (e.g. `RedcapPHIScrubber`) wired inside a child's `execute()` to handle domain-specific structured identifier metadata the framework-level seam cannot see.
 - **[ADR 0004 — Structured `LLMInstruction`](docs/adr/0004-structured-llm-instruction.md).** Consent and cost gates return a JSON object with individually checkable `must_do`, `must_not_do`, and `on_ambiguous_reply` fields — not a free-text paragraph. Makes compliance auditable.
 - **[ADR 0005 — Pre-estimation, not post-billing](docs/adr/0005-cost-pre-estimation.md).** `CostGate` calls `child.estimate_cost()` before execution using stream metadata (point counts), never the full payload. Estimator failures fail closed.
 - **[ADR 0007 — Rendering-layers policy](docs/adr/0007-rendering-layers-policy.md).** Source-of-truth markdown is plain and AI-readable; plugin-enhanced views (Dataview, Templater) are additive. Any framework-emitted note that uses plugin syntax must ship a snapshot fallback so the same content renders for any reader. The dashboards refresh tool is the reference implementation.
@@ -1833,6 +1975,7 @@ to the full record.
 - **[ADR 0015 — Tier-1 cohort surface + metadata sidecar](docs/adr/0015-tier-1-cohort-surface-and-metadata-sidecar.md).** Two new Tier-1 tools on the CSV directory child — `csv_cohort_summary` (cross-file aggregation by metadata-sidecar group) and `csv_force_decline` (per-file fatigue diagnostic). Group identity travels via `<csv_dir>/metadata.json` (schema `{filename: {field: value}}`, REDCap-shaped), required only by `csv_cohort_summary`. Closes the structural gap where the *"no streams enter LLM context"* claim could not hold for cohort questions: the per-file `csv_summary_report` could not satisfy *"compare X between groups A and B"* without either fabricating numbers or escalating to Tier 2. Pure-function processing per ADR 0008 unchanged.
 - **[ADR 0016 — MCP-protocol auditor: wire-level correctness is a seam, not a hope](docs/adr/0016-mcp-protocol-auditor.md).** Promotes `mcp-protocol-auditor` as a permanent specialist after the v6.5.0 demo-before-commit gate surfaced 5 ship-blocker bugs in 90 minutes that 8 existing gates missed. The framework's MCP-protocol-adapter surface (the JSON-RPC adapter between internal abstractions and the wire format the `mcp` SDK serializes) was structurally untested — no agent in the prior roster drove the framework as a real subprocess speaking JSON-RPC over stdio. The new specialist closes that gap; its first run was the audit that justified its creation (recursive use). Cites ADRs 0001 / 0008 / 0010 / 0011 / 0014.
 - **[ADR 0036 — MATLABFileChild v1 supports `.mat` v≤7.2 only](docs/adr/0036-matlab-child-scope-v72-only-with-deferred-hdf5.md).** The second non-CSV existence-proof child for v7.1.1's source-agnostic claim ships as the v7.2.0 release. `MATLABFileChild` exposes six tools (`matlab_list_files`, `matlab_file_detail`, `matlab_summary_report`, `matlab_cohort_summary`, `matlab_downsampled`, `matlab_raw_array`) at Tiers 1/2/3 with cohort surface in v1 (same `metadata.json` sidecar pattern as ADR 0015). Scope-bound: `.mat` v5/v6/v7.2 via `scipy.io.loadmat` pulled in as an optional dep (`tailor-mcp[matlab]`); HDF5-based v7.3 detected by magic-byte check and rejected with typed-error envelope. Reversal condition named: first beachhead lab hits the v7.3 gap. Preserves the framework's lean three-dep posture (`mcp`, `requests`, `orjson`) on the base install. REDCap (the other Move 3 candidate) is held for v7.3.0 fresh-session build with PHI-defense decision already ratified.
+- **[ADR 0037 — RedcapFileChild scope-bound + deferred live-API + child-level PHI seam](docs/adr/0037-redcap-child-scope-export-directory-only-with-deferred-live-api.md).** Move 3 / Part 2 of the source-agnostic claim. Six tools (4 Tier-1 + 1 Tier-2 instrument-scoped + 1 Tier-3) wrap a local directory of REDCap CSV/JSON exports. Live REDCap REST API path deferred behind "first real-world target lab hits the API need" reversal condition — same shape as ADR 0036's HDF5 deferral. Built-in `RedcapPHIScrubber` ships as a new child-level seam parallel to ADR 0003's framework-level seam, reading `identifier=yes/no` flags from REDCap's IRB-approved `project_metadata.csv`. Three-tier model generalization observed: "progressively-revealing more access under progressively-stronger consent" — not specifically time-series decimation. Cites ADRs 0003 / 0008 / 0009 / 0011 / 0013 / 0015 / 0024 / 0029 / 0036.
 
 ### Implementation notes
 

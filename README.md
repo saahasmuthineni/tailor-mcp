@@ -17,9 +17,9 @@ answer instead of your raw data, its context window goes to
 reasoning over your question, your prior work, and your audit
 trail, rather than to shuffling streams it then has to re-aggregate
 itself.** **The same architecture works on whatever shape your
-data is already in — CSV directories today; REDCap exports, EDF
-recordings, FHIR bundles, vendor sensor exports, or any other
-source through a small `ChildMCP` extension that inherits the full
+data is already in — CSV directories, MATLAB binary exports, and
+REDCap exports today; EDF recordings, FHIR bundles, vendor sensor
+exports, or any other source through a small `ChildMCP` extension that inherits the full
 pipeline (tier model, audit, scrubber seam, Wardrobe).** Every
 shape you wrap inherits the same 10-100× cost-per-question collapse
 and the same provenance discipline, without any of it leaving your
@@ -434,6 +434,8 @@ A **child** is one data source. Each child wraps an ingest path (a directory, an
 | Child | Tools | Auth | Why it's in the README |
 |---|---|---|---|
 | **CSV directory** ([`csv_dir`](src/tailor/children/csv_dir/)) | 7 across 3 tiers, including cohort tools | None — filesystem read | **Closest match to the platform's general shape.** Any directory of per-subject CSVs (REDCap exports, lab dumps, Frictionless data packages) becomes a Wardrobe-grade analytical surface with no vendor API in the way. This is the first child a new deployment configures. |
+| **MATLAB file** ([`matlab_file`](src/tailor/children/matlab_file/)) | 6 across 3 tiers, including cohort tools | None — filesystem read | **First non-CSV source-axis existence proof for the v7.1.1 source-agnostic claim.** Wraps a local directory of MATLAB `.mat` binary exports (v5/v6/v7.2 only per [ADR 0036](docs/adr/0036-matlab-child-scope-v72-only-with-deferred-hdf5.md); HDF5-based v7.3 deferred). Shipped v7.2.0. Requires the `[matlab]` optional extra: `pip install tailor-mcp[matlab]`. |
+| **REDCap** ([`redcap`](src/tailor/children/redcap/)) | 6 across 3 tiers, including cohort tools | None — filesystem read | **First child shipped with built-in PHI scrubbing.** Wraps a local directory of REDCap CSV/JSON exports plus the `project_metadata.csv` data dictionary; `RedcapPHIScrubber` reads `identifier=yes/no` flags and strips matching fields before results return. Child-level seam parallel to [ADR 0003](docs/adr/0003-phi-scrubber-seam.md) § Amendment 2026-05-14. Shipped v7.3.0 per [ADR 0037](docs/adr/0037-redcap-child-scope-export-directory-only-with-deferred-live-api.md). Stdlib-only, no optional extra. |
 | **Running** (Strava-OAuth) ([`running`](src/tailor/children/running/)) | 12 across 3 tiers | OAuth | **The most-worked-out template of the ChildMCP pattern** — every tier exercised, every gate fired, every renderer covered, OAuth ritual end-to-end. Retained for *teaching value*, not because Tailor is for running. **Not the canonical use case.** |
 | **Template** ([`template`](src/tailor/children/template/)) | Stubbed 3-tier skeleton | n/a | Copy + rename to add a new child. Cuts onboarding for a new domain to filling a small set of named blanks. |
 

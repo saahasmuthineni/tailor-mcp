@@ -1740,3 +1740,62 @@ class TestVaultSearchNotesKindFilter:
                 assert "alias" in params["note_type"]["description"].lower()
             finally:
                 writer.close()
+
+
+class TestExistingChildrenWriteNullChildScrubberId:
+    """
+    Per ADR 0003 § Amendment 2026-05-14 + ADR 0037: the framework-level
+    ``scrubber_id`` is threaded on every audit row; the v7.3.0
+    ``child_scrubber_id`` column is parallel for the child-level seam.
+    Children without a child-level scrubber (csv_dir, matlab_file,
+    running, template, and the test ``MockChild``) inherit ``None``
+    from the ``ChildMCP.child_scrubber_id`` ABC default property and
+    must therefore write ``NULL`` to ``audit_log.child_scrubber_id``.
+
+    Regression guard for the red-team-reviewer OBJECTION on the v7.3.0
+    cascade: no coverage proves that pre-REDCap children silently
+    inherit the None default through dispatch.
+    """
+
+    def test_existing_children_write_null_child_scrubber_id(self):
+        import sqlite3
+        with TemporaryDirectory() as tmpdir:
+            data_dir = Path(tmpdir)
+            router = RouterMCP("test", data_dir)
+            router.register_child(MockChild("alpha"))
+
+            # Tier-1 call: no consent, no cost gate.
+            result = _run(router._dispatch(
+                "alpha_free_tool", {"value": 7},
+            ))
+            data = _loads(result[0].text)
+            assert data["result"] == "ok", (
+                "Setup precondition: the Tier-1 call must succeed so we "
+                "audit a SUCCESS row, not an error row."
+            )
+            # Close the router first so all WAL writes flush and the
+            # connection releases (required on Windows before reopening).
+            router.close()
+
+            db_path = data_dir / "audit.db"
+            assert db_path.exists()
+            conn = sqlite3.connect(str(db_path))
+            try:
+                rows = conn.execute(
+                    "SELECT tool_name, outcome, child_scrubber_id"
+                    " FROM audit_log"
+                    " WHERE domain = 'alpha'"
+                    " ORDER BY id DESC LIMIT 1"
+                ).fetchall()
+            finally:
+                conn.close()
+
+            assert len(rows) == 1
+            tool_name, outcome, child_scrubber_id = rows[0]
+            assert tool_name == "alpha_free_tool"
+            assert outcome == "SUCCESS"
+            assert child_scrubber_id is None, (
+                "MockChild inherits the None default from ChildMCP."
+                "child_scrubber_id; the audit row must store SQL NULL "
+                "rather than a string sentinel."
+            )

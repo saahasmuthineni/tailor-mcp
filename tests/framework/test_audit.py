@@ -195,6 +195,107 @@ class TestAuditLogScrubberId:
             ("new_tool", "P007", "noop"),
         ]
 
+    def test_migrates_legacy_audit_db_without_child_scrubber_id(self):
+        """A pre-v7.3.0 audit.db (child_scrubber_id absent) must still open.
+
+        Mirrors ``test_migrates_legacy_audit_db_without_scrubber_id``: the
+        v7.3.0 schema adds a ``child_scrubber_id TEXT`` column per ADR 0003
+        § Amendment 2026-05-14 + ADR 0037. An audit.db created by a v7.2.0
+        or earlier deployment lacks this column; opening it under v7.3.0
+        must silently ALTER TABLE without losing the pre-existing row.
+        """
+        with TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "audit.db"
+
+            # Simulate a v7.2.0 schema: subject_id + scrubber_id + all
+            # oracle_* columns present; child_scrubber_id absent.
+            legacy = sqlite3.connect(str(db))
+            legacy.execute("""
+                CREATE TABLE audit_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    domain TEXT NOT NULL,
+                    tool_name TEXT NOT NULL,
+                    tier INTEGER NOT NULL,
+                    params TEXT,
+                    token_estimate INTEGER,
+                    outcome TEXT NOT NULL,
+                    duration_ms INTEGER,
+                    error TEXT,
+                    subject_id TEXT,
+                    scrubber_id TEXT,
+                    oracle_model_id TEXT,
+                    oracle_model_version_hash TEXT,
+                    oracle_tier TEXT,
+                    oracle_confidence REAL,
+                    oracle_prompt_hash TEXT,
+                    oracle_latency_ms INTEGER,
+                    oracle_substrate_count INTEGER,
+                    oracle_next_best_calls_count INTEGER,
+                    oracle_unresolved_intent_count INTEGER
+                )
+            """)
+            legacy.execute(
+                "INSERT INTO audit_log"
+                " (timestamp, domain, tool_name, tier, outcome,"
+                "  subject_id, scrubber_id)"
+                " VALUES (?,?,?,?,?,?,?)",
+                (
+                    "2025-12-01T00:00:00Z",
+                    "csv_dir",
+                    "csv_list_files",
+                    1,
+                    "SUCCESS",
+                    "P001",
+                    "noop",
+                ),
+            )
+            legacy.commit()
+            legacy.close()
+
+            # Opening AuditLog on the legacy file should silently
+            # ALTER TABLE ADD COLUMN child_scrubber_id TEXT.
+            audit = AuditLog(db)
+            try:
+                # Verify the new column exists via PRAGMA.
+                conn_meta = sqlite3.connect(str(db))
+                try:
+                    cols = {
+                        row[1]: row[2]
+                        for row in conn_meta.execute(
+                            "PRAGMA table_info(audit_log)"
+                        ).fetchall()
+                    }
+                finally:
+                    conn_meta.close()
+                assert "child_scrubber_id" in cols
+                assert cols["child_scrubber_id"] == "TEXT"
+
+                # Record a v7.3.0-shaped row that does populate it.
+                audit.record(
+                    "redcap", "redcap_summary_report", 1, {}, 100,
+                    "SUCCESS", 5,
+                    subject_id="P007", scrubber_id="noop",
+                    child_scrubber_id="redcap_metadata_flags",
+                )
+            finally:
+                audit.close()
+
+            conn = sqlite3.connect(str(db))
+            try:
+                rows = conn.execute(
+                    "SELECT tool_name, subject_id, scrubber_id,"
+                    " child_scrubber_id FROM audit_log ORDER BY id"
+                ).fetchall()
+            finally:
+                conn.close()
+
+        assert rows == [
+            ("csv_list_files", "P001", "noop", None),
+            ("redcap_summary_report", "P007", "noop",
+             "redcap_metadata_flags"),
+        ]
+
 
 class TestAuditParamsSizeBound:
     """

@@ -229,6 +229,19 @@ class AuditLog:
                 "ALTER TABLE audit_log ADD COLUMN "
                 "oracle_unresolved_intent_count INTEGER"
             )
+        if "child_scrubber_id" not in cols:
+            # ADR 0003 § Amendment 2026-05-14 + ADR 0037 — the
+            # child-level structured-PHI seam. Framework-level
+            # scrubber_id records cross-domain pattern matchers
+            # (regex, heuristic, NLP). child_scrubber_id records
+            # domain-specific structured-PHI scrubbers like
+            # RedcapPHIScrubber that read project_metadata.csv
+            # identifier flags. NULL for children that ship no
+            # child-level scrubber (csv_dir, matlab_file, running,
+            # template).
+            self._conn.execute(
+                "ALTER TABLE audit_log ADD COLUMN child_scrubber_id TEXT"
+            )
         self._conn.commit()
 
     @property
@@ -256,6 +269,7 @@ class AuditLog:
                *, error: str | None = None,
                subject_id: str | None = None,
                scrubber_id: str | None = None,
+               child_scrubber_id: str | None = None,
                oracle_model_id: str | None = None,
                oracle_model_version_hash: str | None = None,
                oracle_tier: str | None = None,
@@ -279,14 +293,14 @@ class AuditLog:
             "INSERT INTO audit_log"
             " (timestamp, domain, tool_name, tier, params, token_estimate,"
             "  outcome, duration_ms, error, subject_id, scrubber_id,"
-            "  oracle_model_id, oracle_model_version_hash, oracle_tier,"
-            "  oracle_confidence, oracle_prompt_hash, oracle_latency_ms,"
-            "  oracle_substrate_count, oracle_next_best_calls_count,"
-            "  oracle_unresolved_intent_count)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "  child_scrubber_id, oracle_model_id, oracle_model_version_hash,"
+            "  oracle_tier, oracle_confidence, oracle_prompt_hash,"
+            "  oracle_latency_ms, oracle_substrate_count,"
+            "  oracle_next_best_calls_count, oracle_unresolved_intent_count)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (datetime.now(timezone.utc).isoformat(), domain, tool_name, tier,
              params_repr, token_estimate, outcome, duration_ms, error,
-             subject_id, scrubber_id,
+             subject_id, scrubber_id, child_scrubber_id,
              oracle_model_id, oracle_model_version_hash, oracle_tier,
              oracle_confidence, oracle_prompt_hash, oracle_latency_ms,
              oracle_substrate_count, oracle_next_best_calls_count,

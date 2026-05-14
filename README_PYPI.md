@@ -4,7 +4,7 @@
 
 **It also turns a $200/month AI bill into a $2/month one — and makes the AI materially better at your question.** Most analytical questions resolve to a server-computed summary instead of a raw-stream dump (*return the answer, not the data*). Daily workflows that would burn hundreds of dollars a month against a hosted LLM run for single digits through Tailor, because the AI's context window goes to reasoning over your question and your prior work instead of shuffling streams it would have to re-aggregate itself.
 
-**The same architecture works on whatever shape your data is already in.** A directory of per-subject CSVs is the canonical first child today; REDCap exports, EDF sleep recordings, vendor sensor exports, and FHIR bundles fit the same `ChildMCP` extension point — a runnable template child is the starting point, and your data source inherits the full governance pipeline (tier model, audit, scrubber seam, Wardrobe). What works for CSV works for anything you wrap, and the same 10-100× cost-per-question collapse applies regardless of shape.
+**The same architecture works on whatever shape your data is already in.** Directories of per-subject CSVs, MATLAB binary exports, and REDCap exports are the three child shapes shipped end-to-end today; EDF sleep recordings, vendor sensor exports, and FHIR bundles fit the same `ChildMCP` extension point — a runnable template child is the starting point, and your data source inherits the full governance pipeline (tier model, audit, scrubber seam, Wardrobe). What works for CSV works for anything you wrap, and the same 10-100× cost-per-question collapse applies regardless of shape.
 
 Today the worked-out recipe is health research — *the first recipe shipped end-to-end, not the platform's identity*. Future recipes (knowledge work, quantified self, household, creative archives) compose on the same engine.
 
@@ -34,6 +34,8 @@ LLM client <--> RouterMCP (validate -> circuit break -> consent -> cost
 Children ship in the framework today:
 
 - **csv_dir** — wrap a local directory of per-subject CSV files; 7 tools (file detail, summary report, cohort summary, force decline, downsampled stream, raw stream, file list)
+- **matlab_file** — wrap a local directory of MATLAB `.mat` binary exports (v5/v6/v7.2 only per ADR 0036; HDF5-based v7.3 deferred); 6 tools across 3 tiers including cohort summary. Shipped v7.2.0. Requires the `[matlab]` optional extra: `pip install tailor-mcp[matlab]`
+- **redcap** — wrap a local directory of REDCap CSV/JSON exports plus the `project_metadata.csv` data dictionary; 6 tools across 3 tiers including cohort summary. Built-in PHI scrubbing via `RedcapPHIScrubber` reading `identifier=yes/no` flags from the data dictionary (child-level seam parallel to ADR 0003 § Amendment 2026-05-14). Shipped v7.3.0 per ADR 0037. Stdlib-only, no optional extra
 - **running** — Strava API wrapper as a worked example; 12 tools across pace, heart rate, GPS, run reports, trend reports
 - **template** — runnable starting point for new data sources; copy + rename to wrap your own data
 

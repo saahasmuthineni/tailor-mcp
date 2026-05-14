@@ -155,6 +155,17 @@ def cmd_serve():
             sys.stderr.flush()
             log.error(f"matlab_file registration failed: {exc}")
 
+    # redcap_file child (opt-in — requires redcap_file block in user_config.json).
+    # Per ADR 0037, this is the export-directory path; live REDCap REST API
+    # is deferred behind a future ADR. Stdlib-only; no optional extra needed.
+    # Built-in structured-PHI scrubbing via RedcapPHIScrubber per ADR 0003
+    # § Amendment 2026-05-14 (child-level seam parallel to the framework-
+    # level seam). Identifier flags are read from project_metadata.csv;
+    # unknown fields default to identifier-positive (fail-closed).
+    if _ucfg.get("redcap_file"):
+        from tailor.children.redcap import RedcapFileChild
+        router.register_child(RedcapFileChild(config_dir=CONFIG_DIR, data_dir=DATA_DIR))
+
     # Predeclared so the local-LLM registration block below can read
     # vault_writer.storage without a NameError on no-vault deployments
     # (per ADR 0023 — substrate scan reads vault_storage; None means

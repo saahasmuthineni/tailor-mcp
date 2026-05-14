@@ -1085,6 +1085,7 @@ class RouterMCP:
                     "tool_name": tool_name,
                     "called_at": datetime.now(timezone.utc).isoformat(),
                     "scrubber_id": self._phi_scrubber.scrubber_id,
+                    "child_scrubber_id": None,
                 }
                 if self._phi_scrubber.scrubber_warning is not None:
                     outer_meta["scrubber_warning"] = (

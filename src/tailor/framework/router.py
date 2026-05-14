@@ -448,6 +448,7 @@ class RouterMCP:
                 domain, tool_name, tier, arguments, 0, "PARAM_INVALID", 0,
                 error=err, subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
+                child_scrubber_id=child.child_scrubber_id,
             )
             return [TextContent(type="text", text=_dumps({"error": err}))]
 
@@ -460,6 +461,7 @@ class RouterMCP:
                 domain, tool_name, tier, cleaned, 0, "CIRCUIT_OPEN", 0,
                 error=cb_err, subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
+                child_scrubber_id=child.child_scrubber_id,
             )
             return [TextContent(type="text", text=_dumps({"error": cb_err}))]
 
@@ -471,6 +473,7 @@ class RouterMCP:
                     domain, tool_name, tier, cleaned, 0, "CONSENT_BLOCKED", 0,
                     subject_id=subject_id,
                     scrubber_id=self._phi_scrubber.scrubber_id,
+                    child_scrubber_id=child.child_scrubber_id,
                 )
                 ci = child.consent_info
                 scope = ci.scope
@@ -552,6 +555,7 @@ class RouterMCP:
                     "COST_ESTIMATE_ERROR", duration_ms,
                     error=str(e), subject_id=subject_id,
                     scrubber_id=self._phi_scrubber.scrubber_id,
+                    child_scrubber_id=child.child_scrubber_id,
                 )
                 log.warning(f"Cost estimation failed for {tool_name}: {e}")
                 return [
@@ -579,6 +583,7 @@ class RouterMCP:
                     duration_ms,
                     subject_id=subject_id,
                     scrubber_id=self._phi_scrubber.scrubber_id,
+                    child_scrubber_id=child.child_scrubber_id,
                 )
 
                 # Human-relatable cost context
@@ -663,6 +668,11 @@ class RouterMCP:
                 domain, tool_name, tier, cleaned, tokens, "SUCCESS", duration_ms,
                 subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
+                # Threaded on every audit row (matches existing
+                # scrubber_id convention) to record what child-level
+                # scrubber was configured at this call site, per
+                # ADR 0003 § Amendment 2026-05-14 + ADR 0037.
+                child_scrubber_id=child.child_scrubber_id,
             )
 
             # ── Post-execute hooks (e.g. VaultWriter) ──
@@ -725,6 +735,7 @@ class RouterMCP:
                 domain, tool_name, tier, cleaned, 0, "ERROR", duration_ms,
                 error=str(e), subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
+                child_scrubber_id=child.child_scrubber_id,
             )
             log.error(f"Tool {tool_name} failed: {e}", exc_info=True)
             return [TextContent(type="text", text=_dumps({"error": str(e)}))]
@@ -1134,6 +1145,7 @@ class RouterMCP:
                 domain, tool_name, tier, params, 0, "PARAM_INVALID_INTERNAL", 0,
                 error=err, subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
+                child_scrubber_id=child.child_scrubber_id,
             )
             return {"error": err}
 
@@ -1146,6 +1158,7 @@ class RouterMCP:
                 domain, tool_name, tier, cleaned, 0, "CIRCUIT_OPEN_INTERNAL", 0,
                 error=cb_err, subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
+                child_scrubber_id=child.child_scrubber_id,
             )
             return {"error": cb_err}
 
@@ -1157,6 +1170,7 @@ class RouterMCP:
                     domain, tool_name, tier, cleaned, 0, "CONSENT_BLOCKED_INTERNAL", 0,
                     subject_id=subject_id,
                     scrubber_id=self._phi_scrubber.scrubber_id,
+                    child_scrubber_id=child.child_scrubber_id,
                 )
                 return {"error": f"Consent not approved for domain '{domain}'"}
 
@@ -1172,6 +1186,7 @@ class RouterMCP:
                     "COST_ESTIMATE_ERROR_INTERNAL", duration_ms,
                     error=str(exc), subject_id=subject_id,
                     scrubber_id=self._phi_scrubber.scrubber_id,
+                    child_scrubber_id=child.child_scrubber_id,
                 )
                 log.warning(
                     f"Internal dispatch: cost estimation failed for {tool_name}: {exc}"
@@ -1190,6 +1205,7 @@ class RouterMCP:
                     "COST_GATE_INTERNAL", duration_ms,
                     subject_id=subject_id,
                     scrubber_id=self._phi_scrubber.scrubber_id,
+                    child_scrubber_id=child.child_scrubber_id,
                 )
                 return {"error": f"Cost gate: {cost_est.tokens} tokens exceeds threshold"}
 
@@ -1210,6 +1226,11 @@ class RouterMCP:
                 domain, tool_name, tier, cleaned, tokens, "SUCCESS_INTERNAL", duration_ms,
                 subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
+                # Threaded on every audit row (matches existing
+                # scrubber_id convention) to record what child-level
+                # scrubber was configured at this call site, per
+                # ADR 0003 § Amendment 2026-05-14 + ADR 0037.
+                child_scrubber_id=child.child_scrubber_id,
             )
             # No post-execute hooks — caller manages side effects.
             # Stamp _meta so internal dispatch results carry the same
@@ -1238,6 +1259,7 @@ class RouterMCP:
                 domain, tool_name, tier, cleaned, 0, "ERROR_INTERNAL", duration_ms,
                 error=str(e), subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
+                child_scrubber_id=child.child_scrubber_id,
             )
             log.error(f"Internal dispatch {tool_name} failed: {e}", exc_info=True)
             return {"error": str(e)}

@@ -1,0 +1,18 @@
+{
+  "S001": {"recruitment_wave": "wave_1", "referral_source": "clinic_a"},
+  "S002": {"recruitment_wave": "wave_1", "referral_source": "clinic_a"},
+  "S003": {"recruitment_wave": "wave_1", "referral_source": "self_referred"},
+  "S004": {"recruitment_wave": "wave_1", "referral_source": "clinic_b"},
+  "S005": {"recruitment_wave": "wave_2", "referral_source": "clinic_a"},
+  "S006": {"recruitment_wave": "wave_2", "referral_source": "self_referred"},
+  "S007": {"recruitment_wave": "wave_2", "referral_source": "clinic_a"},
+  "S008": {"recruitment_wave": "wave_2", "referral_source": "clinic_b"},
+  "S009": {"recruitment_wave": "wave_1", "referral_source": "clinic_c"},
+  "S010": {"recruitment_wave": "wave_1", "referral_source": "clinic_c"},
+  "S011": {"recruitment_wave": "wave_1", "referral_source": "self_referred"},
+  "S012": {"recruitment_wave": "wave_1", "referral_source": "clinic_c"},
+  "S013": {"recruitment_wave": "wave_2", "referral_source": "clinic_c"},
+  "S014": {"recruitment_wave": "wave_2", "referral_source": "clinic_c"},
+  "S015": {"recruitment_wave": "wave_2", "referral_source": "self_referred"},
+  "S016": {"recruitment_wave": "wave_2", "referral_source": "clinic_c"}
+}

@@ -216,7 +216,10 @@ def _demo_blocks_absent(user_config: dict) -> bool:
     description explicitly leads with "RECIPIENT SETUP DIAGNOSTIC" so
     Claude won't pick it for vague queries.
     """
-    keys_signalling_scaffold = ("force_csv", "emg_csv", "csv_dir", "vault_path")
+    keys_signalling_scaffold = (
+        "force_csv", "emg_csv", "csv_dir", "vault_path",
+        "matlab_file", "redcap_export",
+    )
     return not any(user_config.get(key) for key in keys_signalling_scaffold)
 
 

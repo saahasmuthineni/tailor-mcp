@@ -1,5 +1,46 @@
 # CLAUDE.md — Tailor
 
+> **v7.2.0 (2026-05-14)** — Move 3 / Part 1: MATLAB existence-proof
+> child lands as the second non-CSV source axis demonstrated by the
+> v7.1.1 source-agnostic claim. New `src/tailor/children/matlab_file/`
+> exposes `MATLABFileChild` (six tools across all three tiers,
+> matching the csv_dir shape): `matlab_list_files`,
+> `matlab_file_detail`, `matlab_summary_report`,
+> `matlab_cohort_summary` (Tier 1); `matlab_downsampled` (Tier 2);
+> `matlab_raw_array` (Tier 3). Cohort surface ships in v1 (not
+> deferred) using the ADR 0015 `metadata.json` sidecar pattern unchanged
+> — closes the proposal-mode F5 finding that MATLAB-shop datasets are
+> cohort-shaped by construction. Opt-in via `matlab_file` block in
+> `user_config.json`; default deployments behaviourally unchanged.
+>
+> [ADR 0036](docs/adr/0036-matlab-child-scope-v72-only-with-deferred-hdf5.md)
+> (NEW, Accepted) codifies the scope-bound: `.mat` v5/v6/v7.2 only via
+> scipy pulled in as an optional dep (`pip install tailor-mcp[matlab]`).
+> v7.3 HDF5-based `.mat` is detected via magic bytes and rejected with
+> a typed-error envelope citing the ADR; full v7.3 support is held
+> behind a future superseding ADR with a named reversal condition
+> (first beachhead lab hits the gap). Lean three-dep posture
+> (`mcp`, `requests`, `orjson`) preserved on the base install.
+>
+> Move 3 / Part 2 (REDCap existence-proof child) **held for v7.3.0
+> fresh-session build**. Originally bundled with MATLAB per the boss's
+> 2026-05-14 protocol-1 ratification; in-session context-budget reality
+> test re-sequenced to unbundled. REDCap-specific proposal-mode audit
+> ran and ratified the PHI-defense posture (built-in REDCap PHI scrubber
+> as ADR 0003 amendment) — the v7.3.0 session inherits that decision.
+>
+> `mcp-protocol-auditor` TRIGGERED (new child's execute() path);
+> `reproducibility-provenance-auditor` TRIGGERED (new processing.py);
+> `researcher-utility-reviewer` ran pre-release. `cue-card-rehearsal-
+> auditor` ATTEST SKIP (no CUE_CARD.md changes; 6 new ToolDefinition
+> schemas are MATLAB-specific and not yet on the cue card). `recipient-
+> install-validator` SKIPPED per v6.11.x falsification precedent;
+> registration block is opt-in-gated so default install path is
+> unchanged. ci-gate-runner SHIPPABLE: 973/973 pytest (937 prior + 36
+> new MATLAB tests; shape tests skip cleanly on machines without
+> scipy), ruff clean, 76/76 probe, CLI smoke clean. Minor bump because
+> a new child = public API addition.
+
 > **v7.1.1 (2026-05-14)** — Source-agnostic positioning patch (Move 1 of
 > three-move strategic-positioning sequence). `README.md` hero and
 > `README_PYPI.md` intro gain a parallel bold-led clause naming the
@@ -36,7 +77,10 @@
 > **v7.1.0 (2026-05-14)** — CLI rename: `tailor demo` → `tailor walkthrough`,
 > `tailor tour` → `tailor fitting-room`. Old verbs preserved as one-cycle
 > deprecation shims with stderr hints citing [ADR 0035](docs/adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md);
-> removed in v7.2.0. New `tailor fitting-room` heads-up prompt warns
+> removal target bumped from v7.2.0 to a future minor (v7.2.0 scope was
+> re-aimed at Move 3 / MATLAB child per the post-v7.1.1 strategic
+> sequence; CLI cleanup is unrelated work). New `tailor fitting-room`
+> heads-up prompt warns
 > recipients to quit Claude Desktop before the command writes the MCP config.
 > Default `--save-shareable` filename updated to `shareable-walkthrough-vX.Y.Z.md`.
 >
@@ -1554,7 +1598,8 @@ src/tailor/
                            #   fixtures + Claude Desktop registration
                            #   (v6.9.0 / ADR 0024; renamed v7.1.0 per ADR 0035)
   tour.py                  # v7.1.x re-export shim for `tailor.tour` (legacy
-                           #   import path); removed in v7.2.0 per ADR 0035
+                           #   import path); removal deferred to a future
+                           #   minor per the v7.2.0 banner amendment
   wizard.py                # Strava OAuth wizard (localhost callback server)
   config.py                # Centralised env-var + user_config.json reader
   _fixtures/               # Synthetic per-subject CSVs shipped in the wheel
@@ -1604,6 +1649,11 @@ src/tailor/
       __init__.py          # Exports CSVDirectoryChild, CSVProcessing
       child.py             # CSVDirectoryChild(ChildMCP) — 7 tools, 3 tiers
       processing.py        # CSVProcessing — stateless analytics
+    matlab_file/           # MATLAB `.mat` binary-format child (ADR 0036)
+      __init__.py          # Exports MATLABFileChild, MATLABProcessing
+      child.py             # MATLABFileChild(ChildMCP) — 6 tools, 3 tiers;
+                           #   requires `tailor-mcp[matlab]` optional extra
+      processing.py        # MATLABProcessing — stateless analytics
     template/              # Runnable starting-point child (copy + rename)
       __init__.py          # Rename checklist for new children
       child.py             # TemplateChild(ChildMCP) — minimal 3-tier skeleton
@@ -1639,6 +1689,9 @@ tests/                     # Mirrors src/ layout
     csv_dir/
       test_csv_shape.py    # Shape contract tests (ported from template)
       test_csv_processing.py  # Pure-function analytics tests
+    matlab_file/
+      test_matlab_shape.py     # Shape + handler tests (scipy-required; skip if missing)
+      test_matlab_processing.py  # Pure-function tests (no scipy)
     template/
       test_template_shape.py     # Shape contract tests for the template child
       test_template_processing.py # Pure-function analytics tests
@@ -1702,6 +1755,32 @@ Opt-in via `csv_dir` key in `user_config.json`. Wraps a local directory of per-s
 
 Optional sidecar for cohort grouping: `<csv_dir.path>/metadata.json` with schema `{"<filename>": {"<field>": <value>, ...}}`. Required by `csv_cohort_summary`; ignored by every other tool. Schema matches REDCap / DataCite / Frictionless Data conventions. See [ADR 0015](docs/adr/0015-tier-1-cohort-surface-and-metadata-sidecar.md).
 
+## MATLAB File Child — 6 Tools
+
+Opt-in via `matlab_file` key in `user_config.json`. Wraps a local directory of MATLAB `.mat` binary files. Requires the `[matlab]` optional extra (`pip install tailor-mcp[matlab]` or `uv tool install tailor-mcp[matlab]`) — scipy is not in the base install. Per [ADR 0036](docs/adr/0036-matlab-child-scope-v72-only-with-deferred-hdf5.md), this child supports `.mat` versions v5/v6/v7.2 only; HDF5-based v7.3 is detected by magic-byte check and rejected with a typed error envelope pointing at the deferred work.
+
+| Tool | Tier | Description |
+|------|------|-------------|
+| `matlab_list_files` | 1 | List `.mat` files with their variables, shapes, and dtypes |
+| `matlab_file_detail` | 1 | Single-file metadata + per-variable summary stats |
+| `matlab_summary_report` | 1 | Per-variable count/mean/std/min/max across one file |
+| `matlab_cohort_summary` | 1 | Cross-file aggregation by metadata-sidecar group (same `metadata.json` pattern as `csv_dir`; see ADR 0015) |
+| `matlab_downsampled` | 2 | Decimated 1-D variable at every Nth element |
+| `matlab_raw_array` | 3 | Full 1-D numeric variable with precision reduction |
+
+Subject scoping per [ADR 0009](docs/adr/0009-vault-subject-keying.md): one `.mat` file = one subject (matching the `csv_dir` / `force_csv` / `emg_csv` lineage). Multi-subject `.mat` files where variables-are-subjects (e.g. an 8×1000 envelope matrix where rows are participants) are deferred — `subject_id` is audit-log scoping only and does NOT filter axes. See ADR 0036 § Negative consequences.
+
+Config shape in `~/.tailor/user_config.json`:
+
+```json
+"matlab_file": {
+  "path": "/path/to/mat/directory",
+  "variable_filter": ["EMG_envelope", "force"]
+}
+```
+
+`variable_filter` is optional; absent means "all 1-D and 2-D numeric variables auto-detected per file." Cohort grouping uses the same `<matlab_dir>/metadata.json` sidecar schema as `csv_dir`: `{"<filename>": {"<field>": <value>, ...}}`.
+
 ## Running and Testing
 
 For end users (PIs, analysts), the canonical install path is uv (or
@@ -1731,7 +1810,7 @@ tailor setup         # Strava OAuth wizard for the worked-example child
 tailor walkthrough   # Researcher first-look — runs cohort tools on bundled HIP Lab fixtures (ADRs 0027 + 0035)
 tailor serve        # Start MCP server (Claude Desktop calls this)
 tailor status       # Diagnostic check
-# Deprecated aliases (removed in v7.2.0; one-cycle shims per ADR 0035):
+# Deprecated aliases (removal deferred to a future minor; one-cycle shims per ADR 0035):
 tailor tour         # alias for `tailor fitting-room`
 tailor demo         # alias for `tailor walkthrough`
 ```
@@ -1753,6 +1832,7 @@ to the full record.
 - **[ADR 0009 — Vault subject-keying](docs/adr/0009-vault-subject-keying.md).** Themes carry an optional, set-once `subject_id` in frontmatter — promotion (None → P004) is allowed, reassignment (P003 → P007) is a hard error. Evidence blocks and moments stamp the subject of their writing call. List/search queries filter rows match-or-NULL when `subject_id` is provided so cross-subject themes and v6.1-era legacy notes stay visible. Resolves the design question ADR 0002 deliberately deferred.
 - **[ADR 0015 — Tier-1 cohort surface + metadata sidecar](docs/adr/0015-tier-1-cohort-surface-and-metadata-sidecar.md).** Two new Tier-1 tools on the CSV directory child — `csv_cohort_summary` (cross-file aggregation by metadata-sidecar group) and `csv_force_decline` (per-file fatigue diagnostic). Group identity travels via `<csv_dir>/metadata.json` (schema `{filename: {field: value}}`, REDCap-shaped), required only by `csv_cohort_summary`. Closes the structural gap where the *"no streams enter LLM context"* claim could not hold for cohort questions: the per-file `csv_summary_report` could not satisfy *"compare X between groups A and B"* without either fabricating numbers or escalating to Tier 2. Pure-function processing per ADR 0008 unchanged.
 - **[ADR 0016 — MCP-protocol auditor: wire-level correctness is a seam, not a hope](docs/adr/0016-mcp-protocol-auditor.md).** Promotes `mcp-protocol-auditor` as a permanent specialist after the v6.5.0 demo-before-commit gate surfaced 5 ship-blocker bugs in 90 minutes that 8 existing gates missed. The framework's MCP-protocol-adapter surface (the JSON-RPC adapter between internal abstractions and the wire format the `mcp` SDK serializes) was structurally untested — no agent in the prior roster drove the framework as a real subprocess speaking JSON-RPC over stdio. The new specialist closes that gap; its first run was the audit that justified its creation (recursive use). Cites ADRs 0001 / 0008 / 0010 / 0011 / 0014.
+- **[ADR 0036 — MATLABFileChild v1 supports `.mat` v≤7.2 only](docs/adr/0036-matlab-child-scope-v72-only-with-deferred-hdf5.md).** The second non-CSV existence-proof child for v7.1.1's source-agnostic claim ships as the v7.2.0 release. `MATLABFileChild` exposes six tools (`matlab_list_files`, `matlab_file_detail`, `matlab_summary_report`, `matlab_cohort_summary`, `matlab_downsampled`, `matlab_raw_array`) at Tiers 1/2/3 with cohort surface in v1 (same `metadata.json` sidecar pattern as ADR 0015). Scope-bound: `.mat` v5/v6/v7.2 via `scipy.io.loadmat` pulled in as an optional dep (`tailor-mcp[matlab]`); HDF5-based v7.3 detected by magic-byte check and rejected with typed-error envelope. Reversal condition named: first beachhead lab hits the v7.3 gap. Preserves the framework's lean three-dep posture (`mcp`, `requests`, `orjson`) on the base install. REDCap (the other Move 3 candidate) is held for v7.3.0 fresh-session build with PHI-defense decision already ratified.
 
 ### Implementation notes
 

@@ -1,9 +1,9 @@
 """
-rehearse.py — non-interactive end-to-end check of the HIP Lab tour
-realistic walkthrough.
+rehearse.py — non-interactive end-to-end check of the HIP Lab
+fitting-room realistic walkthrough.
 
-Scaffolds a fresh tour into a temp directory, calls each tool the
-walkthrough exercises, asserts the bridge numbers and the
+Scaffolds a fresh fitting-room into a temp directory, calls each
+tool the walkthrough exercises, asserts the bridge numbers and the
 cross-session-memory invariant, and exits 0 on green. No state
 lands outside the temp dir — the dev's ~/.tailor/ is
 untouched.
@@ -11,7 +11,7 @@ untouched.
 Usage:
     python examples/hip_lab_demo/realistic/rehearse.py
 
-Exit code 0 = every check green, the tour is rehearsal-ready.
+Exit code 0 = every check green, the fitting-room is rehearsal-ready.
 Non-zero = at least one check failed; the failure mode is named
 on the FAIL line(s) above the summary.
 
@@ -27,12 +27,13 @@ above all other female peaks, ratio >= 1.20 vs the other-female
 mean) so future drift in generate.py can't silently flatten the
 demo's wow.
 
-Per ADR 0024 the tour fixtures live in the bundled package tree
-(``src/tailor/_fixtures/hip_lab_demo_realistic/``); this
-script scaffolds them into a temp dir via ``tailor.tour``
-the same way mom or Senefeld would in a real install. That makes
-the rehearsal exercise the *recipient* code path, not a
-back-channel.
+Per ADR 0024 the fitting-room fixtures live in the bundled package
+tree (``src/tailor/_fixtures/hip_lab_demo_realistic/``); this script
+scaffolds them into a temp dir via ``tailor.tour`` (the v6.9.0 module
+path retained as a re-export shim through v7.1.x per ADR 0035; the
+canonical module is now ``tailor.fitting_room``) the same way mom or
+Senefeld would in a real install. That makes the rehearsal exercise
+the *recipient* code path, not a back-channel.
 """
 
 from __future__ import annotations
@@ -74,14 +75,14 @@ def _section(title: str) -> None:
 
 
 async def _run_checks(target: Path) -> int:
-    # Match what the live tour does — set env vars so the children's
-    # config.py reads from the temp scaffold rather than the dev's
-    # real ~/.tailor/.
+    # Match what the live fitting-room does — set env vars so the
+    # children's config.py reads from the temp scaffold rather than
+    # the dev's real ~/.tailor/.
     os.environ["TAILOR_CONFIG_DIR"] = str(target)
     os.environ["TAILOR_DATA_DIR"] = str(target / "data")
 
-    # Late imports so the tour scaffold (which set up user_config.json)
-    # runs before child config-load.
+    # Late imports so the fitting-room scaffold (which set up
+    # user_config.json) runs before child config-load.
     from tailor.children.emg_csv import EmgCsvChild
     from tailor.children.force_csv import ForceCsvChild
     from tailor.framework.vault.storage import VaultStorage
@@ -93,7 +94,7 @@ async def _run_checks(target: Path) -> int:
 
     print()
     print("=" * 64)
-    print(" HIP Lab tour — REHEARSAL (variant=hip-lab)")
+    print(" HIP Lab fitting-room — REHEARSAL (variant=hip-lab)")
     print(f" Target dir: {target}")
     print("=" * 64)
 
@@ -282,7 +283,10 @@ async def _run_checks(target: Path) -> int:
     n_pass = sum(results)
     n_total = len(results)
     if n_pass == n_total:
-        print(f" REHEARSAL: ALL {n_total} CHECKS PASSED — tour is rehearsal-ready.")
+        print(
+            f" REHEARSAL: ALL {n_total} CHECKS PASSED — fitting-room is "
+            f"rehearsal-ready."
+        )
         print(" Open a fresh Claude Desktop chat and walk CUE_CARD.md.")
         return 0
     else:
@@ -298,8 +302,13 @@ async def main() -> int:
     with tempfile.TemporaryDirectory(prefix="biosensor_tour_rehearse_") as tmp:
         target = Path(tmp) / "hip-lab"
 
-        # Scaffold a fresh tour into the temp dir. --no-claude-desktop
-        # so the dev's Claude Desktop config stays untouched.
+        # Scaffold a fresh fitting-room into the temp dir.
+        # --no-claude-desktop so the dev's Claude Desktop config
+        # stays untouched.
+        # NOTE: ``tailor.tour`` is the v6.9.0 module path retained as
+        # a re-export shim through v7.1.x per ADR 0035; canonical
+        # module is now ``tailor.fitting_room``. Import flips in
+        # v7.2.0 when the shim retires.
         from tailor.tour import main as tour_main
         rc = tour_main([
             "--variant=hip-lab",
@@ -307,7 +316,7 @@ async def main() -> int:
             "--target", str(target),
         ])
         if rc != 0:
-            print(f"tour scaffold failed (rc={rc})")
+            print(f"fitting-room scaffold failed (rc={rc})")
             return rc
 
         return await _run_checks(target)

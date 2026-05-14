@@ -54,7 +54,7 @@ For a developer exploring the framework:
 git clone https://github.com/saahasmuthineni/tailor-mcp.git
 cd tailor-mcp
 pip install -e ".[dev]"
-tailor demo           # five-section architectural showcase on bundled HIP Lab fixtures (ADRs 0027 + 0029)
+tailor walkthrough    # five-section architectural showcase on bundled HIP Lab fixtures (ADRs 0027 + 0029)
 tailor --help         # see all commands
 ```
 
@@ -325,26 +325,31 @@ framework. Most readers want the recipient path.
 
 ```bash
 uv tool install tailor-mcp
-tailor tour          # walkthrough scaffold — registers with Claude Desktop automatically
+tailor fitting-room  # walkthrough scaffold — registers with Claude Desktop automatically
 # or:
 tailor pilot         # multi-subject CSV pilot wizard — three prompts
 ```
 
-Both `tailor tour` and `tailor pilot` write (or merge with) the
+Both `tailor fitting-room` and `tailor pilot` write (or merge with) the
 recipient's Claude Desktop config; no manual JSON editing required.
 
+> The verb was `tailor tour` through v7.0.x; renamed to `tailor
+> fitting-room` in v7.1.0 per [ADR 0035](docs/adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md).
+> The old verb still works in v7.1.0 with a stderr deprecation hint and
+> is removed in v7.2.0.
+
 > **Install Claude Desktop first.** Tailor's MCP integration runs *inside*
-> Claude Desktop — `tailor tour` registers the server in Claude Desktop's
-> config, but the recipient still needs Claude Desktop installed to talk
-> to it. As of v7.0.4 `tailor tour` detects whether Claude Desktop is
-> installed on the user account and prints a different success banner
+> Claude Desktop — `tailor fitting-room` registers the server in Claude
+> Desktop's config, but the recipient still needs Claude Desktop installed
+> to talk to it. As of v7.0.4 the scaffolder detects whether Claude Desktop
+> is installed on the user account and prints a different success banner
 > ("Claude Desktop NOT DETECTED — config staged for future install")
 > when it isn't, rather than the misleading-success message earlier
 > versions printed.
 
 #### What success looks like
 
-After `tailor tour` completes and Claude Desktop is restarted, ask
+After `tailor fitting-room` completes and Claude Desktop is restarted, ask
 Claude Desktop *"What MCP servers are connected?"*.
 
 - **Tailor will appear as a *session-scoped server*, not a connector
@@ -404,12 +409,14 @@ interpreter.
 | Command | Description |
 |---|---|
 | `tailor pilot` | Multi-subject CSV pilot wizard — three prompts, end-to-end smoke check |
-| `tailor tour` | Live-audience walkthrough — scaffolds bundled HIP Lab fixtures + registers with Claude Desktop (ADR 0024) |
+| `tailor fitting-room` | Recipient-driven walkthrough — scaffolds bundled HIP Lab fixtures + registers with Claude Desktop (ADRs [0024](docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md) + [0035](docs/adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md)) |
 | `tailor serve` | Start the MCP server (invoked by the LLM client) |
-| `tailor demo` | Five-section architectural showcase on bundled HIP Lab fixtures: cohort thesis, router pipeline + audit row, three-tier resolution-appropriateness walk, vault moment write, local-LLM oracle call. ADRs [0027](docs/adr/0027-demo-as-researcher-first-look.md) (researcher first-look framing) + [0029](docs/adr/0029-token-reduction-as-analytical-quality.md) (architectural showcase reshape). Pass `--save-shareable` for an emailable markdown transcript. |
+| `tailor walkthrough` | Five-section architectural showcase on bundled HIP Lab fixtures: cohort thesis, router pipeline + audit row, three-tier resolution-appropriateness walk, vault moment write, local-LLM oracle call. ADRs [0027](docs/adr/0027-demo-as-researcher-first-look.md) (researcher first-look framing) + [0029](docs/adr/0029-token-reduction-as-analytical-quality.md) (architectural showcase reshape) + [0035](docs/adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md) (rename). Pass `--save-shareable` for an emailable markdown transcript. |
 | `tailor setup` | Strava OAuth wizard (for the running child only) |
 | `tailor status` | Diagnostic check: tokens, DB state, Wardrobe config |
 | `tailor uninstall` | Clean removal |
+| `tailor demo` *(deprecated)* | One-cycle shim aliasing `tailor walkthrough` per [ADR 0035](docs/adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md); prints a stderr hint and dispatches to the new verb. Removed in v7.2.0. |
+| `tailor tour` *(deprecated)* | One-cycle shim aliasing `tailor fitting-room` per [ADR 0035](docs/adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md); prints a stderr hint and dispatches to the new verb. Removed in v7.2.0. |
 
 ---
 

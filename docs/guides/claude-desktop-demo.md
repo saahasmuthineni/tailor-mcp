@@ -5,7 +5,7 @@ This documents how to produce `docs/claude-desktop-demo.gif` — a short screenc
 ## Setup
 
 1. **Window size:** 1280x800 (Retina/HiDPI), zoom 100%
-2. **Data source:** Run `tailor tour` first (ADR 0024) — scaffolds the bundled HIP Lab synthetic fixtures and registers a sandboxed MCP server entry with Claude Desktop. Strictly synthetic data; never use real participant data when recording GIFs.
+2. **Data source:** Run `tailor fitting-room` first (ADRs 0024 + 0035; renamed from `tailor tour` in v7.1.0) — scaffolds the bundled HIP Lab synthetic fixtures and registers a sandboxed MCP server entry with Claude Desktop. Strictly synthetic data; never use real participant data when recording GIFs.
 3. **Ensure tailor is connected** in Claude Desktop (check via `tailor status`)
 
 ## Prompt script

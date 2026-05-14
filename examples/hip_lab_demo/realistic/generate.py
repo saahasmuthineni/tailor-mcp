@@ -334,7 +334,7 @@ def main():
     print(f"    emg/    -> {EMG_DIR}")
     print(f"    mrs/    -> {MRS_DIR}")
     print()
-    print("Re-running 'tailor tour' (or rehearse.py) will pick up")
+    print("Re-running 'tailor fitting-room' (or rehearse.py) will pick up")
     print("the regenerated fixtures from this location.")
 
 

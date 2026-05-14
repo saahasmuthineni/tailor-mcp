@@ -14,7 +14,7 @@ Set Theme "Catppuccin Mocha"
 Set TypingSpeed 60ms
 Set Padding 16
 
-Type "tailor demo"
+Type "tailor walkthrough"
 Enter
 Sleep 8s
 Sleep 2s

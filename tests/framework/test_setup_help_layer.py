@@ -75,7 +75,7 @@ def test_layer_exposes_single_tool(tmp_path):
     desc = tools[0].description
     assert "force_cohort_summary" in desc
     assert "emg_cohort_summary" in desc
-    assert "tailor tour" in desc
+    assert "tailor fitting-room" in desc
 
 
 def test_layer_param_schema_is_empty(tmp_path):
@@ -93,8 +93,9 @@ async def test_execute_returns_recipient_steps(tmp_path):
     assert "diagnosis" in result
     assert "recipient_steps" in result
     assert isinstance(result["recipient_steps"], list)
-    # The first command surfaced must be `tailor tour`.
-    assert any("tailor tour" in s for s in result["recipient_steps"])
+    # The first command surfaced must be `tailor fitting-room`
+    # (renamed from `tailor tour` in v7.1.0 per ADR 0035).
+    assert any("tailor fitting-room" in s for s in result["recipient_steps"])
     assert "diagnostics" in result
     # Diagnostic paths are home-redacted (phi-irb Lens 1 closure):
     # tmp_path lives under Path.home() on Windows, so the rendered
@@ -133,7 +134,7 @@ async def test_execute_redacts_home_from_diagnostic_paths(tmp_path, monkeypatch)
     if str(Path.home()) == str(fake_home):
         diag = result["diagnostics"]
         for key in (
-            "config_dir", "user_config_path", "default_tour_target",
+            "config_dir", "user_config_path", "default_scaffold_target",
         ):
             assert str(fake_home) not in diag[key], (
                 f"diagnostic field {key} leaked the home path "

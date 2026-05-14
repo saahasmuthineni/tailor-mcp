@@ -19,7 +19,7 @@ pip install -e ".[dev]"
 pytest -v                          # run tests (~250+ tests)
 python tests/security_probe.py     # standalone security-gate probe
 tailor --help               # CLI smoke test
-tailor demo                 # researcher first-look on bundled HIP Lab fixtures (ADR 0027)
+tailor walkthrough          # researcher first-look on bundled HIP Lab fixtures (ADRs 0027 + 0035)
 ```
 
 ### Lint & format

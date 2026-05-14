@@ -1,12 +1,13 @@
 """
-Tests for the ``tailor tour`` subcommand.
+Tests for the ``tailor fitting-room`` subcommand.
 
-Per ADR 0024 the tour scaffolds a live-audience walkthrough from
-bundled fixtures. The load-bearing claims this suite enforces:
+Per ADR 0024 the fitting-room scaffolds a live-audience walkthrough
+from bundled fixtures (renamed from ``tailor tour`` in v7.1.0 per
+ADR 0035). The load-bearing claims this suite enforces:
 
 - Bundled fixtures actually ship in the package (sanity check on
   ``pyproject.toml`` package-data globs — without these, the wheel
-  is empty of fixtures and ``tour`` errors at scaffold time).
+  is empty of fixtures and ``fitting-room`` errors at scaffold time).
 - The scaffolder writes a ``user_config.json`` whose absolute paths
   resolve to the target dir (force_csv / emg_csv child registration
   depends on this exact shape).
@@ -21,6 +22,11 @@ bundled fixtures. The load-bearing claims this suite enforces:
 - Pre-existing sibling MCP servers in Claude Desktop's config
   survive the merge (deep-merge invariant inherited from
   ``pilot.py``'s v6.2.1 hardening).
+- The happy-path quit-first heads-up (added in v7.1.0 per ADR 0035 §
+  Decision item 3) prints BEFORE the ``(1/4) copy bundled fixtures``
+  step, so a recipient with Claude Desktop running has the chance to
+  abort and quit it before the strip-and-replace writes touch the
+  config file.
 """
 
 from __future__ import annotations
@@ -30,7 +36,7 @@ from pathlib import Path
 
 import pytest
 
-from tailor.tour import (
+from tailor.fitting_room import (
     DEFAULT_VARIANT,
     VARIANTS,
     _resolve_target,
@@ -98,7 +104,7 @@ class TestBundledFixtures:
 class TestScaffold:
 
     def test_scaffold_populates_all_subdirs(self, tmp_path: Path):
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         rc = main([
             "--variant=hip-lab",
             "--no-claude-desktop",
@@ -126,7 +132,7 @@ class TestScaffold:
     def test_user_config_has_absolute_paths_pointing_at_target(
         self, tmp_path: Path,
     ):
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         main([
             "--variant=hip-lab", "--no-claude-desktop",
             "--target", str(target),
@@ -157,7 +163,7 @@ class TestScaffold:
         assert cfg["vault_path"] == str(resolved / "vault")
 
     def test_vault_index_has_seed_moment(self, tmp_path: Path):
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         main([
             "--variant=hip-lab", "--no-claude-desktop",
             "--target", str(target),
@@ -176,7 +182,7 @@ class TestScaffold:
             storage.close()
 
     def test_idempotent_rerun(self, tmp_path: Path):
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         rc1 = main([
             "--variant=hip-lab", "--no-claude-desktop",
             "--target", str(target),
@@ -186,7 +192,8 @@ class TestScaffold:
             "--variant=hip-lab", "--no-claude-desktop",
             "--target", str(target),
         ])
-        # Second run "refreshes" the existing tour — no error, no clobber.
+        # Second run "refreshes" the existing fitting-room — no error,
+        # no clobber.
         assert rc2 == 0
         assert (target / "user_config.json").is_file()
 
@@ -194,8 +201,8 @@ class TestScaffold:
         self, tmp_path: Path, capsys,
     ):
         """Scaffolder refuses to clobber a directory that wasn't a prior
-        tour scaffold (no user_config.json present)."""
-        target = tmp_path / "tour"
+        fitting-room scaffold (no user_config.json present)."""
+        target = tmp_path / "fitting-room"
         target.mkdir()
         (target / "stranger_file.txt").write_text(
             "don't clobber me", encoding="utf-8",
@@ -211,7 +218,7 @@ class TestScaffold:
         ) == "don't clobber me"
 
     def test_force_overrides_non_tour_target_guard(self, tmp_path: Path):
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         target.mkdir()
         (target / "stranger_file.txt").write_text("clobber me", encoding="utf-8")
         rc = main([
@@ -219,26 +226,26 @@ class TestScaffold:
             "--target", str(target),
         ])
         assert rc == 0
-        # Tour fixtures scaffolded successfully past the guard.
+        # Fitting-room fixtures scaffolded successfully past the guard.
         assert (target / "force" / "S001_force.csv").is_file()
 
     def test_force_wipes_stale_state_from_prior_tour(self, tmp_path: Path):
-        """v6.9.2 bug #3 — ``--force`` against a prior-tour target must
-        actually wipe stale state, not just bypass the guard.
+        """v6.9.2 bug #3 — ``--force`` against a prior fitting-room target
+        must actually wipe stale state, not just bypass the guard.
 
         Before v6.9.2, ``_copy_resource_tree`` was file-by-file
         ``shutil.copy2`` with no rmtree, so a broken scaffold could not
         be cleanly recovered via ``--force`` — the WINDOWS_QUICKSTART
         recovery instruction was a lie.
         """
-        target = tmp_path / "tour"
-        # First scaffold (clean tour).
+        target = tmp_path / "fitting-room"
+        # First scaffold (clean fitting-room).
         rc = main([
             "--variant=hip-lab", "--no-claude-desktop",
             "--target", str(target),
         ])
         assert rc == 0
-        # Drop a stale file inside the prior-tour target as if a
+        # Drop a stale file inside the prior-fitting-room target as if a
         # broken scaffold had left it there.
         stale = target / "force" / "stale_from_broken_scaffold.csv"
         stale.write_text("don't survive a --force", encoding="utf-8")
@@ -272,15 +279,15 @@ class TestClaudeDesktopRegistration:
         none) instead of the demo, and the recipient sees no tools."""
         fake_config = tmp_path / "claude_desktop_config.json"
         monkeypatch.setattr(
-            "tailor.tour._claude_desktop_config_paths",
+            "tailor.fitting_room._claude_desktop_config_paths",
             lambda: [fake_config],
         )
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         rc = main(["--variant=hip-lab", "--target", str(target)])
         assert rc == 0
         assert fake_config.exists()
         cfg = json.loads(fake_config.read_text(encoding="utf-8"))
-        entry = cfg["mcpServers"]["tailor-tour-hip-lab"]
+        entry = cfg["mcpServers"]["tailor-fitting-room-hip-lab"]
         resolved = target.expanduser().resolve()
         assert entry["env"]["TAILOR_CONFIG_DIR"] == str(resolved)
         assert entry["env"]["TAILOR_DATA_DIR"] == str(resolved / "data")
@@ -298,14 +305,14 @@ class TestClaudeDesktopRegistration:
             },
         }), encoding="utf-8")
         monkeypatch.setattr(
-            "tailor.tour._claude_desktop_config_paths",
+            "tailor.fitting_room._claude_desktop_config_paths",
             lambda: [fake_config],
         )
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         main(["--variant=hip-lab", "--target", str(target)])
         cfg = json.loads(fake_config.read_text(encoding="utf-8"))
         assert "some-other-server" in cfg["mcpServers"]
-        assert "tailor-tour-hip-lab" in cfg["mcpServers"]
+        assert "tailor-fitting-room-hip-lab" in cfg["mcpServers"]
 
     def test_cleans_stale_biosensor_entries_before_writing(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
@@ -318,8 +325,8 @@ class TestClaudeDesktopRegistration:
         subsequent ``tailor tour --force`` previously left
         that bare entry in place; Claude Desktop would then launch
         two MCP servers, the bare one's SetupHelpLayer leaking into
-        the working-demo tool surface. Tour must clean every
-        ``biosensor-*`` sibling before adding its own.
+        the working-demo tool surface. Fitting-room must clean every
+        ``biosensor-*`` and ``tailor-*`` sibling before adding its own.
         """
         fake_config = tmp_path / "claude_desktop_config.json"
         fake_config.write_text(json.dumps({
@@ -336,19 +343,19 @@ class TestClaudeDesktopRegistration:
             },
         }), encoding="utf-8")
         monkeypatch.setattr(
-            "tailor.tour._claude_desktop_config_paths",
+            "tailor.fitting_room._claude_desktop_config_paths",
             lambda: [fake_config],
         )
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         rc = main(["--variant=hip-lab", "--target", str(target)])
         assert rc == 0
         cfg = json.loads(fake_config.read_text(encoding="utf-8"))
         servers = cfg["mcpServers"]
-        # Stale biosensor-* entries are gone.
+        # Stale biosensor-* / tailor-* entries are gone.
         assert "tailor" not in servers
         assert "biosensor-tour-old-variant" not in servers
-        # Fresh tour entry is present.
-        assert "tailor-tour-hip-lab" in servers
+        # Fresh fitting-room entry is present.
+        assert "tailor-fitting-room-hip-lab" in servers
         # Non-biosensor sibling MCP servers are preserved.
         assert "some-other-server" in servers
         assert servers["some-other-server"] == {
@@ -358,14 +365,14 @@ class TestClaudeDesktopRegistration:
     def test_no_op_when_only_target_entry_already_present(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     ):
-        """Re-running ``tour --force`` against a clean prior tour
+        """Re-running ``fitting-room --force`` against a clean prior
         scaffold must NOT mis-classify the target entry as stale and
-        delete it. The cleanup is "every biosensor-* EXCEPT the one
+        delete it. The cleanup is "every tailor-* EXCEPT the one
         we're about to write" — confirms the !=server_name guard."""
         fake_config = tmp_path / "claude_desktop_config.json"
         fake_config.write_text(json.dumps({
             "mcpServers": {
-                "tailor-tour-hip-lab": {
+                "tailor-fitting-room-hip-lab": {
                     "command": "python",
                     "args": ["-m", "tailor", "serve"],
                     "env": {"TAILOR_CONFIG_DIR": "/old/path"},
@@ -373,18 +380,18 @@ class TestClaudeDesktopRegistration:
             },
         }), encoding="utf-8")
         monkeypatch.setattr(
-            "tailor.tour._claude_desktop_config_paths",
+            "tailor.fitting_room._claude_desktop_config_paths",
             lambda: [fake_config],
         )
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         rc = main([
             "--variant=hip-lab", "--target", str(target), "--force",
         ])
         assert rc == 0
         cfg = json.loads(fake_config.read_text(encoding="utf-8"))
         # Entry survives; env was overwritten with the new target.
-        assert "tailor-tour-hip-lab" in cfg["mcpServers"]
-        entry = cfg["mcpServers"]["tailor-tour-hip-lab"]
+        assert "tailor-fitting-room-hip-lab" in cfg["mcpServers"]
+        entry = cfg["mcpServers"]["tailor-fitting-room-hip-lab"]
         resolved = target.expanduser().resolve()
         assert entry["env"]["TAILOR_CONFIG_DIR"] == str(resolved)
 
@@ -393,10 +400,10 @@ class TestClaudeDesktopRegistration:
     ):
         fake_config = tmp_path / "claude_desktop_config.json"
         monkeypatch.setattr(
-            "tailor.tour._claude_desktop_config_paths",
+            "tailor.fitting_room._claude_desktop_config_paths",
             lambda: [fake_config],
         )
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         main([
             "--variant=hip-lab", "--no-claude-desktop",
             "--target", str(target),
@@ -409,10 +416,10 @@ class TestClaudeDesktopRegistration:
         """On Linux ``_claude_desktop_config_paths`` returns an empty list —
         the scaffolder must complete cleanly without raising."""
         monkeypatch.setattr(
-            "tailor.tour._claude_desktop_config_paths",
+            "tailor.fitting_room._claude_desktop_config_paths",
             lambda: [],
         )
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         rc = main(["--variant=hip-lab", "--target", str(target)])
         assert rc == 0
 
@@ -448,7 +455,7 @@ class TestVariantTable:
         ``user_config`` builder branch. The argparse layer keeps real
         users from triggering this (``choices=VARIANTS``); the guard
         catches programmatic callers."""
-        from tailor.tour import _write_user_config
+        from tailor.fitting_room import _write_user_config
         with pytest.raises(ValueError, match="unknown variant"):
             _write_user_config("nonexistent-variant", tmp_path)
 
@@ -468,15 +475,15 @@ class TestClaudeDesktopPresenceDetection:
     def test_linux_always_returns_false(
         self, monkeypatch: pytest.MonkeyPatch,
     ):
-        from tailor import tour
-        monkeypatch.setattr(tour.sys, "platform", "linux")
-        assert tour._detect_claude_desktop_presence() is False
+        from tailor import fitting_room
+        monkeypatch.setattr(fitting_room.sys, "platform", "linux")
+        assert fitting_room._detect_claude_desktop_presence() is False
 
     def test_windows_classic_dir_exists_returns_true(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     ):
-        from tailor import tour
-        monkeypatch.setattr(tour.sys, "platform", "win32")
+        from tailor import fitting_room
+        monkeypatch.setattr(fitting_room.sys, "platform", "win32")
         appdata = tmp_path / "AppData_Roaming"
         (appdata / "Claude").mkdir(parents=True)
         monkeypatch.setenv("APPDATA", str(appdata))
@@ -484,13 +491,13 @@ class TestClaudeDesktopPresenceDetection:
         # accidentally match the host's real Claude UWP package and
         # mask a regression in the classic-dir branch.
         monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "AppData_Local"))
-        assert tour._detect_claude_desktop_presence() is True
+        assert fitting_room._detect_claude_desktop_presence() is True
 
     def test_windows_uwp_package_dir_exists_returns_true(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     ):
-        from tailor import tour
-        monkeypatch.setattr(tour.sys, "platform", "win32")
+        from tailor import fitting_room
+        monkeypatch.setattr(fitting_room.sys, "platform", "win32")
         # Force APPDATA to a path where Claude/ does NOT exist so only
         # the UWP branch can satisfy the detection.
         appdata = tmp_path / "AppData_Roaming"
@@ -500,22 +507,22 @@ class TestClaudeDesktopPresenceDetection:
         pkg_dir = local_appdata / "Packages" / "Claude_pzs8sxrjxfjjc"
         pkg_dir.mkdir(parents=True)
         monkeypatch.setenv("LOCALAPPDATA", str(local_appdata))
-        assert tour._detect_claude_desktop_presence() is True
+        assert fitting_room._detect_claude_desktop_presence() is True
 
     def test_windows_neither_present_returns_false(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     ):
         """The case the v7.0.4 fix is built against — recipient on a
         fresh Windows account with no Claude Desktop installed."""
-        from tailor import tour
-        monkeypatch.setattr(tour.sys, "platform", "win32")
+        from tailor import fitting_room
+        monkeypatch.setattr(fitting_room.sys, "platform", "win32")
         appdata = tmp_path / "AppData_Roaming"
         appdata.mkdir()
         monkeypatch.setenv("APPDATA", str(appdata))
         local_appdata = tmp_path / "AppData_Local"
         (local_appdata / "Packages").mkdir(parents=True)
         monkeypatch.setenv("LOCALAPPDATA", str(local_appdata))
-        assert tour._detect_claude_desktop_presence() is False
+        assert fitting_room._detect_claude_desktop_presence() is False
 
     def test_windows_uwp_package_must_be_directory_not_file(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
@@ -523,8 +530,8 @@ class TestClaudeDesktopPresenceDetection:
         """A regular file matching the Claude_* glob (unlikely but
         possible — antivirus scratch file, partial install artifact)
         must not satisfy detection."""
-        from tailor import tour
-        monkeypatch.setattr(tour.sys, "platform", "win32")
+        from tailor import fitting_room
+        monkeypatch.setattr(fitting_room.sys, "platform", "win32")
         appdata = tmp_path / "AppData_Roaming"
         appdata.mkdir()
         monkeypatch.setenv("APPDATA", str(appdata))
@@ -533,29 +540,29 @@ class TestClaudeDesktopPresenceDetection:
         pkgs.mkdir(parents=True)
         (pkgs / "Claude_artifact").write_text("not a real package")
         monkeypatch.setenv("LOCALAPPDATA", str(local_appdata))
-        assert tour._detect_claude_desktop_presence() is False
+        assert fitting_room._detect_claude_desktop_presence() is False
 
 
 class TestSuccessBannerHonestyOnAbsentClaudeDesktop:
     """The Phase 0 F4 architectural fix: when Claude Desktop is absent,
-    tour must not promise a "fully quit Claude Desktop, then re-open"
-    ritual the recipient cannot perform. The config is still staged
-    (per ADR 0026 § "First-time-install on a Store-only machine") but
-    the recipient is told the install is incomplete."""
+    fitting-room must not promise a "fully quit Claude Desktop, then
+    re-open" ritual the recipient cannot perform. The config is still
+    staged (per ADR 0026 § "First-time-install on a Store-only machine")
+    but the recipient is told the install is incomplete."""
 
     def test_absent_claude_desktop_banner_says_not_detected(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys,
     ):
         fake_config = tmp_path / "claude_desktop_config.json"
         monkeypatch.setattr(
-            "tailor.tour._claude_desktop_config_paths",
+            "tailor.fitting_room._claude_desktop_config_paths",
             lambda: [fake_config],
         )
         monkeypatch.setattr(
-            "tailor.tour._detect_claude_desktop_presence",
+            "tailor.fitting_room._detect_claude_desktop_presence",
             lambda: False,
         )
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         rc = main(["--variant=hip-lab", "--target", str(target)])
         assert rc == 0
         out = capsys.readouterr().out
@@ -568,28 +575,28 @@ class TestSuccessBannerHonestyOnAbsentClaudeDesktop:
         # The config IS still staged (ADR 0026 stage-for-later benefit).
         assert fake_config.exists()
         cfg = json.loads(fake_config.read_text(encoding="utf-8"))
-        assert "tailor-tour-hip-lab" in cfg["mcpServers"]
+        assert "tailor-fitting-room-hip-lab" in cfg["mcpServers"]
 
     def test_absent_claude_desktop_uses_staged_verb_not_registered(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys,
     ):
         """A small but load-bearing word change: the absent-Claude case
-        says ``staged as 'tailor-tour-hip-lab'`` rather than
+        says ``staged as 'tailor-fitting-room-hip-lab'`` rather than
         ``registered as ...`` — registration implies a process picked
         it up, which is the lie this fix exists to close."""
         fake_config = tmp_path / "claude_desktop_config.json"
         monkeypatch.setattr(
-            "tailor.tour._claude_desktop_config_paths",
+            "tailor.fitting_room._claude_desktop_config_paths",
             lambda: [fake_config],
         )
         monkeypatch.setattr(
-            "tailor.tour._detect_claude_desktop_presence",
+            "tailor.fitting_room._detect_claude_desktop_presence",
             lambda: False,
         )
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         main(["--variant=hip-lab", "--target", str(target)])
         out = capsys.readouterr().out
-        assert "staged as 'tailor-tour-hip-lab'" in out
+        assert "staged as 'tailor-fitting-room-hip-lab'" in out
 
     def test_present_claude_desktop_keeps_quit_and_reopen_message(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys,
@@ -599,44 +606,44 @@ class TestSuccessBannerHonestyOnAbsentClaudeDesktop:
         the working case attempt 2 (2026-05-09) validated end-to-end."""
         fake_config = tmp_path / "claude_desktop_config.json"
         monkeypatch.setattr(
-            "tailor.tour._claude_desktop_config_paths",
+            "tailor.fitting_room._claude_desktop_config_paths",
             lambda: [fake_config],
         )
         monkeypatch.setattr(
-            "tailor.tour._detect_claude_desktop_presence",
+            "tailor.fitting_room._detect_claude_desktop_presence",
             lambda: True,
         )
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         rc = main(["--variant=hip-lab", "--target", str(target)])
         assert rc == 0
         out = capsys.readouterr().out
-        assert "Tour scaffolded successfully" in out
+        assert "Fitting-room scaffolded successfully" in out
         assert "fully quit Claude Desktop" in out
-        assert "registered as 'tailor-tour-hip-lab'" in out
+        assert "registered as 'tailor-fitting-room-hip-lab'" in out
         # NOT_DETECTED banner is NOT printed in the present case.
         assert "NOT DETECTED" not in out
 
 
 class TestConnectorVsServerFraming:
-    """Phase 0 attempt-2 F5 fix (v7.0.4): tour-success message preempts
-    the visual-asymmetry confusion attempt 2 surfaced (Spotify renders
-    as a connector card; tailor renders as a 'session-scoped server'
-    in prose). Tailor cannot change Claude Desktop's UI; it can warn
-    the recipient before they see the asymmetry and stop."""
+    """Phase 0 attempt-2 F5 fix (v7.0.4): fitting-room success message
+    preempts the visual-asymmetry confusion attempt 2 surfaced (Spotify
+    renders as a connector card; tailor renders as a 'session-scoped
+    server' in prose). Tailor cannot change Claude Desktop's UI; it can
+    warn the recipient before they see the asymmetry and stop."""
 
     def test_present_claude_desktop_explains_session_scoped_server_framing(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys,
     ):
         fake_config = tmp_path / "claude_desktop_config.json"
         monkeypatch.setattr(
-            "tailor.tour._claude_desktop_config_paths",
+            "tailor.fitting_room._claude_desktop_config_paths",
             lambda: [fake_config],
         )
         monkeypatch.setattr(
-            "tailor.tour._detect_claude_desktop_presence",
+            "tailor.fitting_room._detect_claude_desktop_presence",
             lambda: True,
         )
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         main(["--variant=hip-lab", "--target", str(target)])
         out = capsys.readouterr().out
         assert "session-scoped server" in out
@@ -650,15 +657,62 @@ class TestConnectorVsServerFraming:
         the UI. The absent-case message stands alone."""
         fake_config = tmp_path / "claude_desktop_config.json"
         monkeypatch.setattr(
-            "tailor.tour._claude_desktop_config_paths",
+            "tailor.fitting_room._claude_desktop_config_paths",
             lambda: [fake_config],
         )
         monkeypatch.setattr(
-            "tailor.tour._detect_claude_desktop_presence",
+            "tailor.fitting_room._detect_claude_desktop_presence",
             lambda: False,
         )
-        target = tmp_path / "tour"
+        target = tmp_path / "fitting-room"
         main(["--variant=hip-lab", "--target", str(target)])
         out = capsys.readouterr().out
         assert "session-scoped server" not in out
         assert "connector card" not in out
+
+
+# ──────────────────────────────────────────────────────────────────────
+# v7.1.0 / ADR 0035 — quit-first heads-up on the happy path.
+#
+# Promoted from failure-recovery tail to happy-path emission so every
+# v7.0.x → v7.1.0 recipient hears the quit-first instruction at the
+# moment it matters (before the strip-and-replace writes touch the
+# Claude Desktop config). See ADR 0035 § Decision item 3.
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestQuitFirstHeadsUpOnHappyPath:
+
+    def test_quit_first_heads_up_prints_before_step_1_of_4(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys,
+    ):
+        """The quit-first heads-up must print BEFORE ``(1/4) copy bundled
+        fixtures`` so the recipient sees it before any side effects on
+        the Claude Desktop config file land. Recipient with a running
+        Claude Desktop holding the config open can ctrl-c here and quit
+        the app before re-running."""
+        monkeypatch.setattr(
+            "tailor.fitting_room._claude_desktop_config_paths",
+            lambda: [],
+        )
+        target = tmp_path / "fitting-room"
+        rc = main([
+            "--variant=hip-lab", "--no-claude-desktop",
+            "--target", str(target),
+        ])
+        assert rc == 0
+        out = capsys.readouterr().out
+        # Both substrings present.
+        assert "Heads up" in out
+        assert "quit it fully" in out
+        assert "(1/4) copy bundled fixtures" in out
+        # Heads-up appears before step 1.
+        heads_up_idx = out.find("Heads up")
+        step_one_idx = out.find("(1/4) copy bundled fixtures")
+        assert heads_up_idx >= 0
+        assert step_one_idx >= 0
+        assert heads_up_idx < step_one_idx, (
+            "quit-first heads-up must print BEFORE step 1 of 4 so the "
+            "recipient can abort before side effects on the Claude "
+            "Desktop config file land (ADR 0035 § Decision item 3)."
+        )

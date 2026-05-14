@@ -132,7 +132,7 @@ Three specialists are file-touched-gated release-time checks owned by ADRs 0016 
 |---|---|---|---|
 | `cue-card-rehearsal-auditor` | `examples/hip_lab_demo/realistic/CUE_CARD.md`, `src/tailor/children/**/child.py`, `src/tailor/framework/vault/layer.py`, `src/tailor/framework/local_llm/layer.py` (any file declaring `ToolDefinition` schemas) | seconds | attestation-required |
 | `mcp-protocol-auditor` | `src/tailor/framework/router.py`, `src/tailor/framework/audit.py`, `src/tailor/framework/security.py`, `src/tailor/framework/vault/layer.py`, `src/tailor/framework/vault/writer.py`, `src/tailor/children/*/child.py` | minutes | attestation-required |
-| `recipient-install-validator` | `src/tailor/tour.py`, `src/tailor/pilot.py`, `src/tailor/__main__.py`, `src/tailor/wizard.py`, `pyproject.toml` (package-data globs only — see below), `src/tailor/_fixtures/**` | 30–100 min | opt-in |
+| `recipient-install-validator` | `src/tailor/fitting_room.py`, `src/tailor/tour.py` (re-export shim through v7.1.x), `src/tailor/pilot.py`, `src/tailor/__main__.py`, `src/tailor/wizard.py`, `pyproject.toml` (package-data globs only — see below), `src/tailor/_fixtures/**` | 30–100 min | opt-in |
 
 Compute touched files via:
 

@@ -70,7 +70,7 @@ Tailor  ─ commissions ──▶  Mill (child)
 - **AI** is the wearer — a collaborator on the team, outfitted by
   Tailor, acts on the user's behalf.
 
-Benefit is ultimately optimised to the User. The AI benefits greatly
+Benefit is ultimately optimized to the User. The AI benefits greatly
 as part of the loop. The Ledger audience (see Table 4) benefits via
 inspectability.
 
@@ -109,6 +109,7 @@ register switch can rescue these):
 | boutique | Retail-lifestyle register |
 | runway | Fashion-show register |
 | showroom | Retail-display register |
+| closet | Domestic-lifestyle register; the compound *closet tour* is the influencer-content phrase (consumption-side display of curated possessions). Also adjacency-confusing with the load-bearing Wardrobe noun. Rejected for the `tailor tour` rename in v7.1.0 per [ADR 0035](../adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md); `fitting-room` adopted instead. |
 
 **Forbidden in lifestyle-register usage** (permitted in workshop /
 infrastructure register, but the burden is on the writer to make the
@@ -149,9 +150,14 @@ as its primary name.
 - Hem
 - Press
 - Polish
-- Fitting (as a session-event noun — *"this fitting"* is okay; a
-  class named `Fitting` is not)
 - Embroider
+
+*Note*: `Fitting` was previously listed here as a weak-beat
+session-event noun. It moved out of this table in v7.1.0 per
+[ADR 0035](../adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md) when
+the compound *fitting-room* was promoted to a load-bearing CLI
+command name. See § Recipient-facing surfaces below for its
+current status.
 
 **Retroactive drops** (previously considered, now retired):
 
@@ -161,6 +167,36 @@ as its primary name.
 - **Cut** — too parametric. *Cut* could mean either *Trim* (filter to
   a tier) or *Commission* (carve a specific fabric out of a thread).
   Replaced by *Trim* for the tier-filter case.
+
+## Recipient-facing surfaces
+
+The CLI verbs Tailor exposes are vocabulary too. Recipient-facing
+surfaces are named after **what the recipient is doing**, not what
+the system is making. This is the *recipient-experience-shaped
+naming principle* codified in [ADR 0035](../adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md).
+
+| Verb | Meaning | Etymology |
+|---|---|---|
+| **walkthrough** | The terminal-only architectural showcase the recipient watches (5 sections, ~30 seconds, no install state, no Claude Desktop). | Deliberately metaphor-neutral — the pre-metaphor zero-friction first look. No workshop-vocabulary ramp is required to evaluate Tailor for the first time, which is itself a load-bearing property of the entry point. |
+| **fitting-room** | The scaffolded surface the recipient drives from Claude Desktop (bundled synthetic-by-construction fixtures + Claude Desktop registration + persistent state under `~/.tailor/demos/`). | Workshop-register: in tailoring, a fitting room is where the customer puts on the work-in-progress and tests the fit before any final commitment. Maps onto Tailor's scaffold-and-try-with-bundled-fabric flow — including the synthetic-by-construction precondition per [ADR 0024](../adr/0024-wheel-distributed-tour-and-fixture-bundling.md), which mirrors muslin/toile fabric in real tailoring. |
+
+The principle applies to **recipient-evaluation-class** commands —
+CLI verbs that a recipient types while evaluating Tailor for the
+first time (`walkthrough` and `fitting-room` today). It does **not**
+apply to **operator-class** commands, which are explicitly
+grandfathered:
+
+- `serve`, `status`, `uninstall`, `setup` — system operations; the
+  recipient-as-operator is the audience by then. Recipient-experience
+  naming applies less cleanly.
+- `pilot` — precedented in research-domain CLI language. Renaming
+  would cost more recognition than it gains.
+
+A new CLI command in the recipient-evaluation class should be
+weighed against (a) the principle above, (b) the Table 5 narrow-
+forbid list, and (c) the structural-nouns / verbs in Tables 1–2.
+Operator-class additions are governed by the existing conventions
+without further test.
 
 ## How this file updates
 

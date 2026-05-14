@@ -1,6 +1,8 @@
 # Share the demo with a friend (wheel-by-email)
 
-**Audience:** the boss-architect, when they want to send `tailor demo`
+**Audience:** the boss-architect, when they want to send `tailor
+walkthrough` (formerly `tailor demo`; renamed in v7.1.0 per
+[ADR 0035](../adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md))
 to a technical friend (CS grad, researcher, RSE) for evaluation.
 
 **Why this exists:** [ADR 0024 § 3](../adr/0024-wheel-distributed-tour-and-fixture-bundling.md)
@@ -41,7 +43,7 @@ Always pass `--audience=public` (per [ADR 0030](../adr/0030-public-mirror-narrat
 + [ADR 0032](../adr/0032-retire-public-mirror-distribution.md)):
 
 ```
-tailor demo --audience=public --save-shareable transcript.md
+tailor walkthrough --audience=public --save-shareable transcript.md
 ```
 
 In `--audience=public` mode the saved markdown gets per-persona reading
@@ -51,7 +53,7 @@ Discord, no contact form per ADR 0030's zero-outbound-affordances
 invariant), and a render-time URL-allowlist check that hard-fails if
 any disallowed outbound URL appears.
 
-If `tailor demo --audience=public --save-shareable` fails with
+If `tailor walkthrough --audience=public --save-shareable` fails with
 `ValueError: ...rendered output contains disallowed outbound URL...`,
 that is the ADR 0030 render-time allowlist working as designed: a
 contributor accidentally introduced a contact mechanism on the public
@@ -68,7 +70,7 @@ Attach two files to a personal email to the friend:
 
 Body: a one-paragraph note saying *"here's that thing I was telling you
 about — install with `uv tool install ./tailor_mcp-<version>-py3-none-any.whl`,
-then run `tailor demo`, transcript attached for context."*
+then run `tailor walkthrough`, transcript attached for context."*
 
 The friend's machine prerequisites are the same as for any Tailor
 recipient (per [README.md § Prerequisites](../../README.md)): `uv` (or
@@ -82,7 +84,7 @@ on a different account or VM:
 
 ```
 uv tool install ./tailor_mcp-<version>-py3-none-any.whl
-tailor demo
+tailor walkthrough
 ```
 
 Should produce the same five-section demo output. The transcript file
@@ -127,4 +129,7 @@ of these is in question, do not send the wheel:
   `tailor-mcp`"* + *"Make the GitHub repo public"* commitments that
   retire wheel-by-email naturally.
 - `src/tailor/demo/runner.py` — the `--save-shareable` implementation.
-- `src/tailor/__main__.py:cmd_demo` — the CLI flag wiring.
+- `src/tailor/__main__.py:cmd_walkthrough` — the CLI flag wiring
+  (renamed from `cmd_demo` in v7.1.0 per [ADR 0035](../adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md);
+  the deprecated `cmd_demo` shim remains through v7.1.0 and is
+  removed in v7.2.0).

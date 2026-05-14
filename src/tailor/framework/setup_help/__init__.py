@@ -9,10 +9,11 @@ or ``vault_path`` in ``user_config.json``).
 The trigger condition is exactly the dad-style failure documented in
 the v6.10.2 release notes: the recipient installed the wheel, ran
 ``tailor serve`` directly (via web-Claude-mediated manual
-config rather than the canonical ``tailor tour``), and now
-sits in front of a server with only ``ask_local_oracle`` and the
-running child's 12 strava tools — none of which match the cue-card
-prompts (``force_cohort_summary``, ``emg_cohort_summary``, etc.).
+config rather than the canonical ``tailor fitting-room`` — renamed
+from ``tailor tour`` in v7.1.0 per ADR 0035), and now sits in front
+of a server with only ``ask_local_oracle`` and the running child's
+12 strava tools — none of which match the cue-card prompts
+(``force_cohort_summary``, ``emg_cohort_summary``, etc.).
 
 Why a layer and not a ChildMCP: registering through ``register_child``
 auto-generates ``approve_consent_<domain>`` + ``revoke_consent_<domain>``
@@ -85,7 +86,7 @@ _SETUP_HELP_DESCRIPTION = (
     "emg_envelope_summary, csv_summary_report, csv_cohort_summary, "
     "csv_force_decline, or any vault_* tool and they appear missing, "
     "call this tool — it returns step-by-step terminal instructions for "
-    "the recipient to scaffold the HIP Lab demo via `tailor tour`, "
+    "the recipient to scaffold the HIP Lab demo via `tailor fitting-room`, "
     "then restart Claude Desktop. Always safe to call; takes no "
     "parameters; returns instructions only."
 )
@@ -140,29 +141,31 @@ class SetupHelpLayer:
         config_dir_exists = self._config_dir.exists()
         user_config_path = self._config_dir / "user_config.json"
         user_config_exists = user_config_path.exists()
-        default_tour_target = (
+        default_scaffold_target = (
             Path.home() / ".tailor" / "demos" / "hip-lab"
         )
-        tour_target_exists = default_tour_target.exists()
+        scaffold_target_exists = default_scaffold_target.exists()
 
         return {
             "diagnosis": (
                 "This tailor server is running but no demo "
                 "scaffold has been installed. The expected recipient "
-                "path is `tailor tour`, which copies bundled "
-                "synthetic fixtures, writes user_config.json, indexes "
-                "the seed vault, and registers a Claude Desktop entry. "
-                "Without it, only the running (Strava) child + the "
-                "local-LLM guardian are loaded — none of the demo "
-                "tools (force_cohort_summary, emg_cohort_summary, "
-                "vault_*) exist on this server."
+                "path is `tailor fitting-room` (renamed from `tailor "
+                "tour` in v7.1.0 per ADR 0035; the legacy verb still "
+                "works through v7.1.0), which copies bundled synthetic "
+                "fixtures, writes user_config.json, indexes the seed "
+                "vault, and registers a Claude Desktop entry. Without "
+                "it, only the running (Strava) child + the local-LLM "
+                "guardian are loaded — none of the demo tools "
+                "(force_cohort_summary, emg_cohort_summary, vault_*) "
+                "exist on this server."
             ),
             "recipient_steps": [
                 "Open a terminal (PowerShell on Windows; Terminal on "
                 "macOS).",
-                "Run: tailor tour",
-                "If that errors with 'tour scaffold already exists', "
-                "run: tailor tour --force",
+                "Run: tailor fitting-room",
+                "If that errors with 'scaffold already exists', "
+                "run: tailor fitting-room --force",
                 "Fully quit Claude Desktop (right-click the system-tray "
                 "icon and choose Quit on Windows; Cmd+Q on macOS — "
                 "closing the window is not enough).",
@@ -176,10 +179,10 @@ class SetupHelpLayer:
                 "config_dir_exists": config_dir_exists,
                 "user_config_path": _redact_home(str(user_config_path)),
                 "user_config_exists": user_config_exists,
-                "default_tour_target": _redact_home(
-                    str(default_tour_target),
+                "default_scaffold_target": _redact_home(
+                    str(default_scaffold_target),
                 ),
-                "default_tour_target_exists": tour_target_exists,
+                "default_scaffold_target_exists": scaffold_target_exists,
                 "tailor_config_dir_env": _redact_home(
                     os.environ.get(
                         "TAILOR_CONFIG_DIR", "(not set)",
@@ -192,9 +195,9 @@ class SetupHelpLayer:
                 ),
                 "python_executable": _redact_home(sys.executable),
             },
-            "if_tour_keeps_failing": (
+            "if_scaffold_keeps_failing": (
                 "Send a screenshot of the terminal output from "
-                "`tailor tour` to the project owner. The most "
+                "`tailor fitting-room` to the project owner. The most "
                 "common Windows failure mode (cp1252 encoding crashes) "
                 "was patched in v6.10.1; if the wheel installed is "
                 "v6.9.x, upgrading the wheel is the fix."

@@ -2,13 +2,17 @@
 CLI for Tailor.
 
 Usage:
-    tailor serve      # Start MCP server (Claude Desktop calls this)
-    tailor pilot      # Configure CSV-based multi-subject pilot (start here for the v6.2 use case)
-    tailor tour       # Scaffold a live-audience walkthrough (HIP Lab realistic demo by default)
-    tailor setup      # Run Strava OAuth setup wizard
-    tailor status     # Diagnostic check
-    tailor demo       # Five-section walk through the framework's architectural claims on bundled HIP Lab fixtures (ADRs 0027 + 0029); pass --save-shareable for an emailable markdown transcript
-    tailor uninstall  # Clean removal
+    tailor serve          # Start MCP server (Claude Desktop calls this)
+    tailor pilot          # Configure CSV-based multi-subject pilot (start here for the v6.2 use case)
+    tailor fitting-room   # Scaffold a guided walkthrough you can drive from Claude Desktop (HIP Lab realistic by default); recipient tries on bundled work-in-progress (ADR 0024)
+    tailor walkthrough    # Watch the framework's architectural claims in 5 sections on bundled HIP Lab fixtures (ADRs 0027 + 0029); pass --save-shareable for an emailable markdown transcript
+    tailor setup          # Run Strava OAuth setup wizard
+    tailor status         # Diagnostic check
+    tailor uninstall      # Clean removal
+
+Deprecated (removed in v7.2.0):
+    tailor demo           # Renamed to `tailor walkthrough` in v7.1.0 per ADR 0035
+    tailor tour           # Renamed to `tailor fitting-room` in v7.1.0 per ADR 0035
 """
 
 import json
@@ -249,8 +253,9 @@ def cmd_serve():
     # only when no demo scaffold blocks are present in user_config.json —
     # the failure mode dad's transcript surfaced (recipient lands at a
     # bare `tailor serve` via web-Claude-mediated manual config
-    # rather than `tailor tour`, sees a sparse tool surface, asks
-    # for `force_cohort_summary` which doesn't exist on this server).
+    # rather than `tailor fitting-room`, sees a sparse tool surface,
+    # asks for `force_cohort_summary` which doesn't exist on this
+    # server).
     # When the demo IS scaffolded (force_csv / emg_csv / csv_dir /
     # vault_path present), this layer is never constructed so the tool
     # cannot collide with real cohort tools.
@@ -284,18 +289,39 @@ def cmd_pilot():
     sys.exit(pilot_main())
 
 
-def cmd_tour():
-    """Scaffold a live-audience walkthrough from bundled fixtures.
+def cmd_fitting_room():
+    """Scaffold a guided walkthrough you can drive from Claude Desktop.
 
-    Companion to ``cmd_demo``: ``demo`` is a researcher first-look
-    that runs the cohort tools against bundled fixtures in a tempdir
-    (no durable state); ``tour`` is the audience-walkthrough path
-    that scaffolds the same fixtures into a recipient-visible
-    directory and registers with Claude Desktop. See ADRs 0024 and
-    0027.
+    Companion to ``cmd_walkthrough``: ``walkthrough`` is the
+    terminal-only architectural showcase you watch (ADR 0027);
+    ``fitting-room`` is the active surface where you put on the
+    bundled work-in-progress — copies bundled fixtures into a
+    recipient-visible directory, writes ``user_config.json``,
+    indexes the vault, and registers with Claude Desktop. See ADRs
+    0024 and 0035.
     """
-    from tailor.tour import main as tour_main
-    sys.exit(tour_main())
+    from tailor.fitting_room import main as fitting_room_main
+    sys.exit(fitting_room_main())
+
+
+def cmd_tour():
+    """Deprecated alias for ``cmd_fitting_room``. Removed in v7.2.0.
+
+    Per ADR 0035: ``tailor tour`` was renamed to ``tailor
+    fitting-room`` in v7.1.0 to match the recipient-experience-shaped
+    naming principle (commands named after what the recipient is
+    doing, not what the system is making). Both verbs work in v7.1.0
+    with a one-cycle deprecation shim; ``tailor tour`` is removed in
+    v7.2.0.
+    """
+    print(
+        "[deprecation] `tailor tour` has been renamed to "
+        "`tailor fitting-room` in v7.1.0 (per ADR 0035).\n"
+        "              Both verbs work in this release; "
+        "`tailor tour` is removed in v7.2.0.\n",
+        file=sys.stderr,
+    )
+    cmd_fitting_room()
 
 
 def cmd_status():
@@ -440,7 +466,7 @@ def cmd_status():
         # as recovery instructions, not state report".
         print()
         if not registered_paths:
-            print("  Status: NOT registered — run `tailor tour` or `pilot`.")
+            print("  Status: NOT registered — run `tailor fitting-room` or `pilot`.")
         elif len(registered_paths) == len(paths):
             if len(paths) == 1:
                 print("  Status: Registered for Claude Desktop.")
@@ -460,7 +486,7 @@ def cmd_status():
                 "the unregistered variant,"
             )
             print(
-                "          run `tailor tour --force` to register "
+                "          run `tailor fitting-room --force` to register "
                 "in the missing one."
             )
             for p in unregistered:
@@ -470,16 +496,16 @@ def cmd_status():
     print("Done.")
 
 
-def cmd_demo():
+def cmd_walkthrough():
     """Researcher first-look — five-section walk through the framework's
     architectural claims against bundled HIP Lab fixtures. See ADRs
-    0027 and 0029.
+    0027, 0029, and 0035.
 
     Optional flags:
-        --save-shareable [PATH]   Capture the demo's stdout into a
-            self-contained markdown file suitable for emailing or
+        --save-shareable [PATH]   Capture the walkthrough's stdout into
+            a self-contained markdown file suitable for emailing or
             hosting at a static URL. PATH is optional; defaults to
-            ``~/.tailor/shareable-demo-vX.Y.Z.md``.
+            ``~/.tailor/shareable-walkthrough-vX.Y.Z.md``.
         --audience=<developer|public>   Default ``developer``. In
             ``public`` mode (per ADR 0030) the saved markdown gets
             per-persona reading panels + attribution-only footer + a
@@ -506,7 +532,7 @@ def cmd_demo():
                 i += 2
                 continue
             save_shareable = (
-                CONFIG_DIR / f"shareable-demo-v{_pkg_version}.md"
+                CONFIG_DIR / f"shareable-walkthrough-v{_pkg_version}.md"
             )
             i += 1
             continue
@@ -541,6 +567,30 @@ def cmd_demo():
         sys.exit(2)
 
     run_demo(save_shareable_path=save_shareable, audience=audience)
+
+
+def cmd_demo():
+    """Deprecated alias for ``cmd_walkthrough``. Removed in v7.2.0.
+
+    Per ADR 0035: ``tailor demo`` was renamed to ``tailor walkthrough``
+    in v7.1.0 to match the recipient-experience-shaped naming
+    principle (commands named after what the recipient is doing, not
+    what the system is making). Both verbs work in v7.1.0 with a
+    one-cycle deprecation shim; ``tailor demo`` is removed in v7.2.0.
+
+    Forwards every ``sys.argv`` argument transparently to
+    ``cmd_walkthrough`` — flag parsing reads ``sys.argv[2:]`` so the
+    deprecated invocation produces identical behavior to the new
+    verb.
+    """
+    print(
+        "[deprecation] `tailor demo` has been renamed to "
+        "`tailor walkthrough` in v7.1.0 (per ADR 0035).\n"
+        "              Both verbs work in this release; "
+        "`tailor demo` is removed in v7.2.0.\n",
+        file=sys.stderr,
+    )
+    cmd_walkthrough()
 
 
 def _is_orphan_entry_key(key: str) -> bool:
@@ -664,11 +714,17 @@ def main():
     commands = {
         "serve": cmd_serve,
         "pilot": cmd_pilot,
-        "tour": cmd_tour,
+        "fitting-room": cmd_fitting_room,
+        "walkthrough": cmd_walkthrough,
         "setup": cmd_setup,
         "status": cmd_status,
-        "demo": cmd_demo,
         "uninstall": cmd_uninstall,
+        # Deprecated aliases — one-cycle shim per ADR 0035; removed in v7.2.0.
+        # Each maps to a wrapper function that prints a stderr deprecation
+        # hint then calls the new verb's handler. Listed last so the --help
+        # output groups them visually.
+        "tour": cmd_tour,
+        "demo": cmd_demo,
     }
 
     if len(sys.argv) < 2 or sys.argv[1] in ("--help", "-h", "help"):

@@ -27,12 +27,14 @@ no source clone, no env-var-by-hand.  See
 
 ```bash
 # Non-interactive end-to-end check (no Claude in the loop).
-# Scaffolds a fresh tour into a temp dir and asserts the bridge
-# numbers; cleans up on exit.
+# Scaffolds a fresh fitting-room into a temp dir and asserts the
+# bridge numbers; cleans up on exit.
 python examples/hip_lab_demo/realistic/rehearse.py
 
 # Live demo path: scaffold + register with Claude Desktop in one shot.
-tailor tour
+# (Renamed from `tailor tour` in v7.1.0 per ADR 0035; the legacy
+# verb still works through v7.1.0 with a stderr deprecation hint.)
+tailor fitting-room
 ```
 
 Then walk Senefeld through the
@@ -48,7 +50,7 @@ python examples/hip_lab_demo/realistic/generate.py
 
 `generate.py` writes directly into the package's
 `_fixtures/hip_lab_demo_realistic/` tree, so the next
-`tailor tour` (or `pip install`-built wheel) picks up the
+`tailor fitting-room` (or `pip install`-built wheel) picks up the
 regenerated fixtures with no further plumbing.
 
 ---
@@ -72,14 +74,15 @@ rehearsal-ready; non-zero = at least one number drifted from
 [`CUE_CARD.md`](CUE_CARD.md)'s expected ranges, identifying the
 failure before the meeting rather than during.
 
-Rehearse scaffolds its own temp tour and tears it down on exit, so
-your `~/.tailor/` directory stays untouched. Re-run any time
-`generate.py`, the seed moment, or the tour module changes.
+Rehearse scaffolds its own temp fitting-room and tears it down on
+exit, so your `~/.tailor/` directory stays untouched. Re-run any
+time `generate.py`, the seed moment, or the fitting-room module
+changes.
 
-### 2. Scaffold the live tour and register with Claude Desktop
+### 2. Scaffold the live fitting-room and register with Claude Desktop
 
 ```bash
-tailor tour
+tailor fitting-room
 ```
 
 This one command:
@@ -91,9 +94,9 @@ This one command:
   `TAILOR_CONFIG_DIR` and `TAILOR_DATA_DIR` into the
   `env` block** — the recipient never types an env var by hand
 
-Output ends with a "Tour scaffolded successfully" banner naming
-the target dir, the Claude Desktop config path, and the entry
-name (`tailor-tour-hip-lab`).
+Output ends with a "Fitting-room scaffolded successfully" banner
+naming the target dir, the Claude Desktop config path, and the
+entry name (`tailor-fitting-room-hip-lab`).
 
 Pass `--force` to refresh after a regen of the bundled fixtures.
 Pass `--no-claude-desktop` for headless / CI use.
@@ -113,7 +116,7 @@ You should see ~55 tools across `force_csv`, `emg_csv`, `vault_*`,
 `strava_*` (Strava is the worked-example child; loads but errors
 without OAuth — ignore for this demo), and `ask_local_oracle`.
 
-If `force_csv` or `emg_csv` is missing, run `tailor tour
+If `force_csv` or `emg_csv` is missing, run `tailor fitting-room
 --force` to rewrite the user_config and restart Claude Desktop.
 
 ---
@@ -280,9 +283,9 @@ their data was used for."*
 
 | What breaks | What to do |
 |---|---|
-| Claude Desktop doesn't see the tools | Restart Claude Desktop fully (system-tray Quit, then re-open). If still missing, run `tailor tour --force` and restart again. |
-| `force_csv` returns "directory not found" | Re-run `tailor tour --force` — re-writes user_config.json with current absolute paths. |
-| Vault search returns nothing | The vault.db wasn't indexed — `tailor tour --force` re-runs the indexing step. The seed moment file lives at `~/.tailor/demos/hip-lab/vault/moments/2026-04-20-s004-emg-force-decoupling-suspected.md` if you want to confirm it exists. |
+| Claude Desktop doesn't see the tools | Restart Claude Desktop fully (system-tray Quit, then re-open). If still missing, run `tailor fitting-room --force` and restart again. |
+| `force_csv` returns "directory not found" | Re-run `tailor fitting-room --force` — re-writes user_config.json with current absolute paths. |
+| Vault search returns nothing | The vault.db wasn't indexed — `tailor fitting-room --force` re-runs the indexing step. The seed moment file lives at `~/.tailor/demos/hip-lab/vault/moments/2026-04-20-s004-emg-force-decoupling-suspected.md` if you want to confirm it exists. |
 | `force_summary.decline_pct` returns null | Known limitation — use `peak` and `mvc_window_mean_250ms` instead.  Don't acknowledge this gap proactively; if Senefeld asks, see [Pre-armed answers](#pre-armed-answers-if-senefeld-asks) below. |
 | You can't remember what to say | Read the **Walkthrough script** above straight off the page — every step has a "what to point out" line. |
 
@@ -413,8 +416,8 @@ literal string, so this breaks the wow moment.
 ### Symptom: Vault search returns nothing
 
 This is an operator action, not a Claude prompt — `vault.db`
-wasn't indexed when the tour scaffolded.  Exit the chat, run
-`tailor tour --force`, restart the demo from step 1.
+wasn't indexed when the fitting-room scaffolded.  Exit the chat,
+run `tailor fitting-room --force`, restart the demo from step 1.
 
 ---
 
@@ -426,8 +429,8 @@ examples/hip_lab_demo/realistic/        # Dev-side scaffolding
                           — writes into the package's bundled-fixtures
                           tree (see below), not into this directory
   rehearse.py             Non-interactive end-to-end check; scaffolds a
-                          fresh tour into a temp dir and asserts bridge
-                          numbers
+                          fresh fitting-room into a temp dir and asserts
+                          bridge numbers
   README.md               This file
   CUE_CARD.md             One-page printable cue card for live use
   WINDOWS_QUICKSTART.md   Standalone Windows quickstart for non-technical

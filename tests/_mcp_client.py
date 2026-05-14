@@ -106,23 +106,24 @@ def seed_full_config(root: Path) -> dict[str, Path]:
 
 def seed_tour_config(root: Path) -> dict[str, Path]:
     """
-    Seed a tour-path config under ``root`` using the bundled wheel
-    fixtures (force_csv + emg_csv + csv_dir/MRS + vault).
+    Seed a fitting-room-path config under ``root`` using the bundled
+    wheel fixtures (force_csv + emg_csv + csv_dir/MRS + vault).
 
-    This is the config a recipient gets after ``tailor tour``.
+    This is the config a recipient gets after ``tailor fitting-room``.
     It registers 70 tools total: 9 force_csv + 8 emg_csv + 7 csv_dir
     + 25 vault + 12 running + 1 ask_local_oracle + 4 consent tools +
     4 consent-revoke tools. force_csv and emg_csv are the surfaces
     absent from ``seed_full_config`` -- tests using this fixture cover
-    the tour demo path that ``spawn_server`` does not reach.
+    the fitting-room path that ``spawn_server`` does not reach.
 
     Returns the scaffolded ``target_dir`` and ``data_dir`` paths.
     The ``TAILOR_CONFIG_DIR`` and ``TAILOR_DATA_DIR`` env vars
     are both set to the same directory (``target_dir``/``target_dir/data``)
-    matching the shape ``tour._register_with_claude_desktop`` bakes in.
+    matching the shape
+    ``fitting_room._register_with_claude_desktop`` bakes in.
     """
-    target_dir = root / "tour"
-    from tailor.tour import _scaffold_fixtures, _write_user_config
+    target_dir = root / "fitting-room"
+    from tailor.fitting_room import _scaffold_fixtures, _write_user_config
     _scaffold_fixtures("hip-lab", target_dir)
     _write_user_config("hip-lab", target_dir)
     data_dir = target_dir / "data"

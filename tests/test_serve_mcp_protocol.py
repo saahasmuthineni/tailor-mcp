@@ -1484,36 +1484,43 @@ def test_tools_list_no_json_rpc_error_after_description_expansion() -> None:
 
 
 # ──────────────────────────────────────────────────────────────────
-# v6.9.0 regression tests — tour subcommand isolation
+# v6.9.0 regression tests — fitting-room subcommand isolation
+# (originally named ``tour`` per v6.9.0; renamed v7.1.0 per ADR 0035)
 # ──────────────────────────────────────────────────────────────────
 
 
 def test_v690_tour_subcommand_not_exposed_as_mcp_tool() -> None:
-    """V690-T1: the new ``tailor tour`` CLI subcommand must not
+    """V690-T1: the ``tailor fitting-room`` CLI subcommand (originally
+    ``tailor tour`` per v6.9.0; renamed v7.1.0 per ADR 0035) must not
     appear as an MCP tool in tools/list.
 
-    Adjacent risk: the v6.9.0 dispatch-table addition in ``__main__.py``
-    (``"tour": cmd_tour``) could in theory leak into the router's tool
-    registry if ``cmd_tour`` were called at import time or if the
-    dispatch table were iterated by a tool-registration path.
+    Adjacent risk: the dispatch-table additions in ``__main__.py``
+    (``"fitting-room": cmd_fitting_room`` and the v7.1.0 deprecation
+    aliases ``"tour": cmd_tour`` / ``"demo": cmd_demo``) could in
+    theory leak into the router's tool registry if any of those
+    handler functions were called at import time or if the dispatch
+    table were iterated by a tool-registration path.
 
-    This test drives tools/list end-to-end and asserts no ``tour``-named
-    or ``cmd_tour``-named entry is present. It is the subprocess-level
-    regression for the startup-isolation invariant.
+    This test drives tools/list end-to-end and asserts none of the
+    CLI-verb names (or their handler symbols) are present in the MCP
+    tool registry. It is the subprocess-level regression for the
+    startup-isolation invariant.
     """
     with spawn_server() as (client, _paths):
         client.initialize()
         resp = client.list_tools()
         assert "error" not in resp, f"tools/list error: {resp}"
         names = {t["name"] for t in resp["result"]["tools"]}
-        assert "tour" not in names, (
-            "tour appeared as an MCP tool — cmd_tour dispatch leaked into "
-            "the router's tool registry."
-        )
-        assert "cmd_tour" not in names, (
-            "cmd_tour appeared as an MCP tool — dispatch table iterated "
-            "by tool-registration path."
-        )
+        for verb in ("tour", "fitting-room", "demo", "walkthrough"):
+            assert verb not in names, (
+                f"{verb!r} appeared as an MCP tool — CLI dispatch leaked "
+                f"into the router's tool registry."
+            )
+        for sym in ("cmd_tour", "cmd_fitting_room", "cmd_demo", "cmd_walkthrough"):
+            assert sym not in names, (
+                f"{sym!r} appeared as an MCP tool — dispatch table "
+                f"iterated by tool-registration path."
+            )
         # No repr artifacts from the new dispatch entry.
         assert_no_repr_artifacts(json.dumps(resp))
 
@@ -2048,9 +2055,11 @@ def test_sh2_tailor_setup_help_call_returns_correct_envelope() -> None:
         assert all(isinstance(s, str) for s in steps), (
             "recipient_steps must contain only strings"
         )
-        # The canonical tour command must be present
-        assert any("tailor tour" in s for s in steps), (
-            "recipient_steps does not mention 'tailor tour' — "
+        # The canonical scaffolding command must be present.
+        # Renamed from `tailor tour` to `tailor fitting-room` in
+        # v7.1.0 per ADR 0035.
+        assert any("tailor fitting-room" in s for s in steps), (
+            "recipient_steps does not mention 'tailor fitting-room' — "
             "the canonical scaffolding command is absent from the wire payload"
         )
 

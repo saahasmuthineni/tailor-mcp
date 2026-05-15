@@ -1,5 +1,220 @@
 # CLAUDE.md — Tailor
 
+> **v7.3.2 (2026-05-15)** — Closes the two remaining v7.3.0 WATCH findings deferred
+> from v7.3.1: (a) `project_metadata.csv` is a trust root — a tampered file with
+> every identifier flag flipped from `Y` to `N` would render `RedcapPHIScrubber`
+> a no-op with no cryptographic provenance of the state the scrubber was constructed
+> against; and (c) `redcap_summary_report`'s `top_values` and
+> `redcap_cohort_summary`'s group counts could re-identify on low-cardinality
+> non-identifier-flagged fields (the N=3-sites disclosure path v7.3.0's release-pass
+> auditor named). Two framework primitives land — both shaped as seams the
+> framework hosts rather than policies it ships, matching ADR 0003's structural
+> argument.
+>
+> **ADR 0003 § Amendment 2026-05-15 (NEW)** ratifies the trust-root attestation
+> seam and the small-cell suppression posture. Lands inside ADR 0003 (not 0037)
+> because the primitive generalises across children — a future EDF channel-metadata
+> manifest, FHIR profile descriptor, or vendor calibration sidecar all inherit the
+> seam. ADR 0037 stays REDCap-specific; ADR 0003 stays the seam-definition home.
+> The "promotion to a framework registry on third domain" condition matches
+> ADR 0013's precedent.
+>
+> **(a) Trust-root fingerprint seam.** New `RedcapPHIScrubber.fingerprint` property
+> computes SHA-256 over a canonical-form rendering of sorted
+> `(field_name, identifier_flag)` tuples at scrubber construction time. The
+> canonical-form distinction is load-bearing: Excel/PowerShell BOM/CRLF/whitespace
+> round-trips do NOT trip the fingerprint (otherwise legitimate operator edits
+> would false-positive); flag flips and field additions/removals DO. New
+> `audit_log.source_metadata_fingerprint TEXT` column (domain-agnostic naming)
+> plus `idx_audit_source_metadata_fingerprint` index lets an IRB reviewer query
+> "which calls ran under fingerprint X" with one-line SQL. Threaded through every
+> audit row a child writes via the existing `child_scrubber_id` stamping
+> convention (matching the all-call-sites-sweep rule from v7.3.1). Surfaced in
+> result `_meta.source_metadata_fingerprint` across all 5 dispatch paths so the
+> LLM transcript carries the trust-root identity at the moment of disclosure.
+> `RedcapFileChild.execute()` re-reads `project_metadata.csv` on every call and
+> returns a typed `REDCAP_METADATA_FINGERPRINT_MISMATCH` error envelope on drift;
+> **forward-only policy** per ADR 0003 § Amendment 2026-05-15 — prior calls' data
+> stays in the LLM transcript (the framework cannot un-send bytes); consent stays
+> granted (revocation is operator action).
+>
+> **(a) Operator recovery is an attestation ritual.** New `tailor redcap reattest`
+> CLI subcommand. Prints the cached fingerprint (most recent
+> `audit_log.source_metadata_fingerprint` for `domain='redcap_file'`), the new
+> fingerprint computed from the current on-disk file, and a sorted field-by-field
+> listing of the current trust-root state with each field's identifier flag
+> (`ok` vs `IDENTIFIER`). The listing is the trust-affording artifact: a tamper
+> attempt that flipped every flag is visibly displayed before the operator
+> confirms; a legitimate edit (new instrument added mid-enrollment) is visibly
+> displayed before the operator confirms. On `y`, writes a `REATTEST` audit row
+> carrying the new fingerprint; the running `tailor serve` must be restarted to
+> load the new attestation. The framework refuses to silently update fingerprints
+> to match on-disk changes — that would defeat the seam.
+>
+> **(c) Small-cell suppression posture.** New
+> `RedcapProcessing.apply_small_cell_suppression_to_top_values` and
+> `apply_small_cell_suppression_to_groups` static helpers (per ADR 0008
+> `@staticmethod` invariant). Below-threshold entries collapse into a single
+> aggregate of shape `{value: "<small_cell_suppressed>", count: "<below_threshold>",
+> suppressed_count: K}` for top_values and `{n: "<below_threshold>",
+> suppressed_group_count: K}` for groups. Applied to BOTH `redcap_summary_report`
+> `top_values` AND `redcap_cohort_summary` `groups` per the auditor's F4 finding
+> — the cohort group-count surface is the higher-leverage re-identification path
+> the initial plan missed. Default k=5 (HHS SDL baseline). Configurable via
+> `redcap_file.small_cell_suppression_threshold` in `user_config.json`; validated
+> `>= 2` at config-load time so a permissive k=1 misconfig is refused loudly
+> rather than silently ignored. Studies with elevated re-identification risk
+> (pediatric, mental health, rare-disease) opt up to k=10/k=11.
+> `small_cell_suppression_threshold` surfaces at the top level of every result
+> envelope where suppression was applied; a `small_cell_warning` field surfaces
+> alongside whenever the framework default is in force rather than an explicit
+> operator setting — parallels v6.3.1's `scrubber_warning` pattern, landed at the
+> top of the child envelope (alongside `unknown_field_count`,
+> `field_marked_identifier_stripped`) because the threshold is child-domain-specific
+> and the router does not own per-child policy fields.
+>
+> **Proposal-mode audit caught three BLOCKING + three IMPORTANT pre-implementation.**
+> F1 — fingerprint at consent-time only would leave Tier-1 REDCap calls unanchored
+> on a fresh install since Tier-1 REDCap is not consent-gated per ADR 0037 —
+> resolved by stamping at server boot (D1). F2 — `_meta` threading on all five
+> sites — addressed by domain-conditional value
+> (`child.child_source_metadata_fingerprint` on child paths, `None` on
+> vault / local_llm / setup_help paths). F3 — raw-byte hash would false-positive
+> on Excel BOM round-trips — addressed by canonical-form sorted tuples (D5).
+> C1 — mid-session mismatch auto-revoke vs forward-only — resolved as forward-only
+> (D2). C2 — REDCap-specific column naming vs domain-agnostic — resolved as
+> `source_metadata_fingerprint` + ADR 0003 § Amendment placement (D4). C3 — k=5
+> default vs required-config — resolved as default-with-warning (D7).
+>
+> No router / security / cost / audit-pipeline architectural changes beyond the
+> additive column, the additive `_meta` field, and the additive interface
+> property (`child_source_metadata_fingerprint` on `ChildMCP` with default
+> `None`). No public API breaks; new CLI subcommand (`tailor redcap reattest`)
+> is additive. Patch bump (additive `_meta` fields + additive audit column +
+> new failure-class error envelope + new CLI subcommand match the v7.3.1
+> patch-bump precedent for observability-only additions).
+>
+> **Release-pass fix cascade — 2 VIOLATIONs + 2 WATCH findings closed
+> pre-merge.** `phi-irb-risk-reviewer` returned VIOLATION on two
+> structural defects in the first-pass implementation, with
+> `reproducibility-provenance-auditor` independently flagging the same
+> first defect under its `BORDER NOTES`. **(F-A VIOLATION, Lens 2 + 3)**:
+> `cmd_redcap_reattest` was hand-rolling a raw `sqlite3.INSERT` into
+> `audit_log` rather than calling `AuditLog.record()`, leaving
+> `scrubber_id` NULL on the REATTEST row — directly breaking ADR 0003's
+> *"scrubber_id turns 'did we scrub?' into a fact on disk"* invariant,
+> the same v7.3.0 banner-claim-falsification class the v7.3.1
+> all-call-sites-sweep rule existed to catch (the rule fired on router
+> sites; the CLI hand-rolled path slipped past). Rewrote to use
+> `AuditLog.record()` — inherits the full schema, the migration logic,
+> `scrubber_id="noop"` (framework default), and any future audit-column
+> additions automatically. **(F-B VIOLATION, Lens 3)**: the mismatch
+> path was returning a dict-with-error-key from
+> `RedcapFileChild.execute()` rather than raising — the router's
+> exception handler never fired, so the audit row was stamped
+> `outcome="SUCCESS"` with the boot-time fingerprint while the on-disk
+> fingerprint that triggered the mismatch lived only in the wire
+> transcript. ADR 0003 § Amendment 2026-05-15's stated promise *"the
+> audit log carries both fingerprints"* was unhonored as shipped.
+> Switched to raising a new `RedcapMetadataFingerprintMismatch` typed
+> exception carrying both fingerprints as attributes + in `str(exc)`;
+> the router's existing exception handler records `outcome=ERROR` with
+> the error column queryable via
+> `WHERE error LIKE 'REDCAP_METADATA_FINGERPRINT_MISMATCH:%'`.
+> **(F-C WATCH, Lens 1)**: small-cell suppression was applied to
+> `top_values` and cohort `groups` only; `redcap_summary_report`'s
+> `completion_counts` (the third aggregate count surface — `{instrument:
+> count}`) was left unsuppressed, leaking small-N disclosure of the
+> same shape the auditor's F4 finding closed for cohort groups. Added
+> a third static helper `apply_small_cell_suppression_to_completion_counts`;
+> wired into `_handle_summary_report`. **(F-D WATCH, Lens 6)**: added a
+> 4th retention-category paragraph to `docs/design/research-framing.md`
+> naming trust-root attestation rows alongside biometric cache,
+> analyst notes, and oracle audit rows. IRB submissions citing Tailor
+> against a REDCap protocol now have doc text to point at for the
+> mismatch-disclosure question.
+>
+> Gates after fix cascade: **1266/1266 pytest** (1187 prior + 79 net
+> new — 49 first-pass + 30 fix-pass: 5 completion_counts suppression
+> tests + 1 router-side mismatch-error-audit verifier + 24 wire-level
+> regression tests in `tests/test_serve_v732_wire_audit.py` added as a
+> side-effect of the `mcp-protocol-auditor` run), 3 scipy-conditional
+> skips. Ruff clean. `recipient-install-validator` SKIPPED per v6.11.x
+> falsification precedent (no install-path globs touched).
+>
+> **mcp-protocol-auditor GAP closure — 28/0 audit-record-site invariant.**
+> The auditor's first pass returned PROTOCOL OK with one GAP: the
+> `local_llm` SUCCESS audit row didn't pass `source_metadata_fingerprint=`
+> explicitly even though every other SUCCESS row did (DB default of NULL
+> was semantically correct but the implicit-vs-explicit inconsistency
+> broke the "all-call-sites sweep" rule from v7.3.1). The fix-pass made
+> the local_llm site explicit, then pushed to full 28/0 closure across
+> the 6 remaining framework-tier error/exception sites (vault
+> PARAM_INVALID + ERROR, local_llm PARAM_INVALID + ERROR, setup_help
+> PARAM_INVALID + ERROR). Every `audit.record()` site in `router.py`
+> now threads the kwarg explicitly; the next sweep is trivial.
+> `tests/test_serve_v732_wire_audit.py::TestW5AllCallSitesSweep::test_all_audit_record_sites_carry_source_metadata_fingerprint`
+> asserts the 28/0 invariant by reading router source — fails loudly
+> on any future regression.
+>
+> **Second-pass verdicts both clean.** `phi-irb-risk-reviewer` re-audit
+> on the F-A through F-D fixes + first-pass 28/0 closure returned
+> **NO RISK across all six threat-model lenses** (Safe Harbor, consent
+> scope, audit-log completeness, scrubber asymmetry, subject_id
+> integrity, retention) — every VIOLATION + WATCH from the first pass
+> closed with regression-test coverage. `reproducibility-provenance-
+> auditor` re-audit returned **CLEAN** on every touched in-scope file
+> (audit, interfaces, router, redcap child / processing / scrubber,
+> main); ADR 0001 + ADR 0003 § Amendment 2026-05-15 + ADR 0008
+> invariants HOLD with file:line citations; the first-pass BORDER NOTE
+> on `cmd_redcap_reattest` hand-rolled INSERT is closed.
+>
+> **Red-team-reviewer caught a structural defect all four upstream
+> specialists missed — MEDIUM OBJECTION closed before ship.** The
+> first-pass "28/0 audit-record-site invariant closure" claim was
+> **factually wrong** — actual count was 26/2 (vault SUCCESS at
+> `router.py:803`, setup_help SUCCESS at `router.py:1092` lacked the
+> explicit `source_metadata_fingerprint=` kwarg). The W5 contract test
+> meant to enforce the invariant had a textual-window false-positive:
+> its 25-line scan after every `self._audit.record(` line was picking
+> up the `source_metadata_fingerprint` field name out of the **adjacent
+> `_meta` block dict literal** that follows each dispatch path's
+> SUCCESS audit, not out of the audit-record call's actual keyword
+> list. The test passed for the wrong reason. Behaviorally the wire
+> and DB were unaffected (`AuditLog.record()` defaults the kwarg to
+> None) but the v7.3.1 banner's all-call-sites-sweep rule had a
+> structural teeth-gap exactly where the v7.3.2 banner claimed it had
+> teeth. **F-E + F-F closures:** F-E adds explicit `source_metadata_
+> fingerprint=None` at `router.py:803` (vault SUCCESS) and `:1092`
+> (setup_help SUCCESS). F-F rewrites W5 with AST-based detection
+> (`ast.walk` finds every `self._audit.record()` call node, inspects
+> ONLY its `node.keywords` list, ignores textual adjacency) so future
+> textual masking cannot recur. The W5 enforcement class is now
+> **AST-class rather than grep-class** — strictly stronger than the
+> v7.3.1 banner mandated. This is precisely the ADR 0010 (adversarial
+> pairing) earning-its-keep moment that v6.10.4 and v6.4.0 named: the
+> dissent layer catches the failure mode the same model produces in
+> its confirmation-shaped craft persona.
+>
+> **Red-team BORDER NOTES recorded for v7.3.3.** (1) Circuit-breaker
+> interaction with mismatch failures: 3 consecutive mismatches in 300
+> seconds trips the circuit; for the next 5 minutes the LLM sees a
+> generic "Circuit open for redcap_file" envelope rather than the
+> mismatch's `tailor redcap reattest` recovery hint. ADR 0003 §
+> Amendment 2026-05-15 names the recovery path but does not name the
+> circuit-breaker interaction; no test exercises the multi-mismatch
+> path. (2) Blanket `except Exception: return None` in
+> `_detect_fingerprint_mismatch` swallows every exception from
+> `RedcapPHIScrubber.__init__`; a future required-parameter refactor
+> would silently disable mismatch detection without test coverage
+> flagging it. Both deferred to v7.3.3 as known-debt; neither is a
+> wire/DB-correctness defect today.
+>
+> Both auditors also independently flag a **cosmetic indentation
+> BORDER NOTE** (`source_metadata_fingerprint=` lines sitting one
+> column shallower than the sibling `child_scrubber_id=`) — ruff
+> passes; deferred to the next reformatter pass.
+
 > **v7.3.1 (2026-05-15)** — Bug-hunt-followup patch + structural gate-composition closure.
 > Closes 3 VIOLATION-class defects + 4 HIGH findings surfaced by a 7-specialist max-depth
 > audit against v7.3.0 HEAD (2026-05-14 overnight session), plus a 5th defect surfaced

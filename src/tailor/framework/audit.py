@@ -242,6 +242,29 @@ class AuditLog:
             self._conn.execute(
                 "ALTER TABLE audit_log ADD COLUMN child_scrubber_id TEXT"
             )
+        if "source_metadata_fingerprint" not in cols:
+            # ADR 0003 § Amendment 2026-05-15 — trust-root attestation
+            # seam. Records the cryptographic fingerprint (SHA-256 over
+            # canonical-form) of the structured metadata input the
+            # child-level scrubber relied on at call time. Domain-
+            # agnostic naming: any future child whose scrubber reads a
+            # structured input (FHIR profile descriptor, EDF channel
+            # manifest, vendor calibration sidecar) writes its
+            # fingerprint here. NULL on dispatch paths with no child-
+            # level scrubber, and on children whose scrubber does not
+            # expose a `fingerprint` property.
+            self._conn.execute(
+                "ALTER TABLE audit_log ADD COLUMN "
+                "source_metadata_fingerprint TEXT"
+            )
+            # Indexed because the natural IRB-review query is "which
+            # calls ran under fingerprint X" — full-table scans become
+            # slow on multi-year audit databases.
+            self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS "
+                "idx_audit_source_metadata_fingerprint "
+                "ON audit_log(source_metadata_fingerprint)"
+            )
         self._conn.commit()
 
     @property
@@ -270,6 +293,7 @@ class AuditLog:
                subject_id: str | None = None,
                scrubber_id: str | None = None,
                child_scrubber_id: str | None = None,
+               source_metadata_fingerprint: str | None = None,
                oracle_model_id: str | None = None,
                oracle_model_version_hash: str | None = None,
                oracle_tier: str | None = None,
@@ -293,14 +317,16 @@ class AuditLog:
             "INSERT INTO audit_log"
             " (timestamp, domain, tool_name, tier, params, token_estimate,"
             "  outcome, duration_ms, error, subject_id, scrubber_id,"
-            "  child_scrubber_id, oracle_model_id, oracle_model_version_hash,"
+            "  child_scrubber_id, source_metadata_fingerprint,"
+            "  oracle_model_id, oracle_model_version_hash,"
             "  oracle_tier, oracle_confidence, oracle_prompt_hash,"
             "  oracle_latency_ms, oracle_substrate_count,"
             "  oracle_next_best_calls_count, oracle_unresolved_intent_count)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (datetime.now(timezone.utc).isoformat(), domain, tool_name, tier,
              params_repr, token_estimate, outcome, duration_ms, error,
              subject_id, scrubber_id, child_scrubber_id,
+             source_metadata_fingerprint,
              oracle_model_id, oracle_model_version_hash, oracle_tier,
              oracle_confidence, oracle_prompt_hash, oracle_latency_ms,
              oracle_substrate_count, oracle_next_best_calls_count,

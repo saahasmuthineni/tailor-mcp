@@ -356,6 +356,32 @@ class ChildMCP(ABC):
         """
         return None
 
+    @property
+    def child_source_metadata_fingerprint(self) -> str | None:
+        """
+        SHA-256 fingerprint of the child-level scrubber's trust-root
+        metadata at scrubber construction time, if any.
+
+        Per ADR 0003 § Amendment 2026-05-15: a child whose scrubber
+        reads a structured metadata input from disk (REDCap's
+        ``project_metadata.csv``; future candidates FHIR profile
+        descriptors, EDF channel manifests, vendor calibration
+        sidecars) returns its scrubber's ``fingerprint`` property here.
+        The router stamps this into the audit row's
+        ``source_metadata_fingerprint`` column and surfaces it in
+        result ``_meta.source_metadata_fingerprint`` so an IRB reviewer
+        can correlate any disclosure with the trust-root state in
+        force when the disclosure occurred.
+
+        Default ``None`` means the child does not ship a child-level
+        scrubber, or its scrubber does not expose a ``fingerprint``
+        property. ``None`` for csv_dir, matlab_file, running child,
+        template child; ``RedcapFileChild`` returns its scrubber's
+        SHA-256 fingerprint over canonical-form
+        ``(field_name, identifier_flag)`` tuples.
+        """
+        return None
+
     def get_tier(self, tool_name: str) -> int:
         """Get the access tier for a tool."""
         for tool in self.tool_definitions:

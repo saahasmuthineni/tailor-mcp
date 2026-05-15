@@ -63,10 +63,56 @@ from ...framework.interfaces import (
     ToolDefinition,
     ValidationSchema,
 )
-from .processing import COHORT_METRICS, RedcapProcessing
+from .processing import (
+    COHORT_METRICS,
+    DEFAULT_SMALL_CELL_THRESHOLD,
+    RedcapProcessing,
+)
 from .scrubber import RedcapPHIScrubber
 
 log = logging.getLogger("tailor.redcap")
+
+
+class RedcapMetadataFingerprintMismatch(Exception):
+    """Per ADR 0003 § Amendment 2026-05-15 — trust-root attestation
+    drift detected.
+
+    Raised by ``RedcapFileChild._detect_fingerprint_mismatch`` when the
+    on-disk fingerprint of ``project_metadata.csv`` differs from the
+    scrubber's cached fingerprint at server-boot time. The router's
+    exception handler records an ``outcome=ERROR`` audit row carrying
+    both fingerprints in the error column (``error LIKE
+    'REDCAP_METADATA_FINGERPRINT_MISMATCH:%'``) — queryable by IRB
+    review to correlate any disclosure with the trust-root state
+    actually on disk at the moment of detection.
+
+    ``__str__`` returns the operator-facing message including both
+    fingerprints in a parseable form so the LLM transcript carries the
+    same information the audit row carries. Closes the
+    phi-irb-risk-reviewer Lens 3 VIOLATION-2 finding that a
+    dict-return shape would leak the on-disk fingerprint only into the
+    wire transcript while the audit row stamped the wrong (boot-time)
+    value under outcome=SUCCESS.
+    """
+
+    def __init__(
+        self,
+        fingerprint_at_boot: str,
+        fingerprint_on_disk: str,
+    ):
+        self.fingerprint_at_boot = fingerprint_at_boot
+        self.fingerprint_on_disk = fingerprint_on_disk
+        super().__init__(
+            f"REDCAP_METADATA_FINGERPRINT_MISMATCH: "
+            f"project_metadata.csv has changed since this server boot. "
+            f"The scrubber's identifier-flag attestation is no longer "
+            f"current. Run `tailor redcap reattest` to review the new "
+            f"state and re-attest, then restart `tailor serve` to "
+            f"reload the trust root. "
+            f"fingerprint_at_boot={fingerprint_at_boot} "
+            f"fingerprint_on_disk={fingerprint_on_disk}. "
+            f"See ADR 0003 § Amendment 2026-05-15."
+        )
 
 RECORD_ID_PATTERN = r"^[A-Za-z0-9_\-\.]{1,255}$"
 INSTRUMENT_NAME_PATTERN = r"^[A-Za-z_][A-Za-z0-9_]{0,63}$"
@@ -146,6 +192,35 @@ class RedcapFileChild(ChildMCP):
             )
             unknown_field_allowlist = []
 
+        # ADR 0003 § Amendment 2026-05-15 — small-cell suppression
+        # threshold. Optional config; defaults to k=5 (HHS SDL
+        # baseline). Validated >= 2 at config-load time so a permissive
+        # k=1 misconfig is refused loudly here rather than silently
+        # ignored at call time. We also track whether the operator set
+        # the threshold explicitly — when the default is in force, the
+        # child surfaces a small_cell_warning in every result envelope
+        # so the deployment-time setting is visible to IRB review.
+        raw_threshold = redcap_cfg.get("small_cell_suppression_threshold")
+        self._small_cell_default_in_force = raw_threshold is None
+        if raw_threshold is None:
+            self._small_cell_threshold = DEFAULT_SMALL_CELL_THRESHOLD
+        else:
+            try:
+                parsed = int(raw_threshold)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"redcap_file.small_cell_suppression_threshold must be an "
+                    f"integer >= 2; got {raw_threshold!r}"
+                ) from exc
+            if parsed < 2:
+                raise ValueError(
+                    f"redcap_file.small_cell_suppression_threshold must be "
+                    f">= 2; got {parsed} (k=1 disables suppression and is "
+                    f"refused as a permissive misconfiguration; see ADR 0003 "
+                    f"§ Amendment 2026-05-15)"
+                )
+            self._small_cell_threshold = parsed
+
         # Initialise the child-level scrubber once at construction
         # time. It tolerates a missing project_metadata.csv (its
         # ``child_scrubber_warning`` property surfaces the
@@ -199,6 +274,18 @@ class RedcapFileChild(ChildMCP):
         SUCCESS rows.
         """
         return self._scrubber.scrubber_id if self._scrubber else None
+
+    @property
+    def child_source_metadata_fingerprint(self) -> str | None:
+        """Per ADR 0003 § Amendment 2026-05-15 — SHA-256 fingerprint of
+        the scrubber's canonical-form trust-root state at construction
+        time. Stamped into the audit-log ``source_metadata_fingerprint``
+        column and surfaced into result ``_meta`` so an IRB reviewer
+        can correlate any disclosure with the
+        ``project_metadata.csv`` state in force when the disclosure
+        occurred.
+        """
+        return self._scrubber.fingerprint if self._scrubber else None
 
     # ══════════════════════════════════════════════════════════
     # CONSENT
@@ -486,6 +573,18 @@ class RedcapFileChild(ChildMCP):
     # ══════════════════════════════════════════════════════════
 
     async def execute(self, tool_name: str, params: dict) -> dict:
+        # ADR 0003 § Amendment 2026-05-15 — trust-root fingerprint
+        # check. Re-read project_metadata.csv from disk and compare its
+        # canonical-form fingerprint to the scrubber's cached value. On
+        # mismatch, RAISE RedcapMetadataFingerprintMismatch so the
+        # router's exception handler records an ERROR audit row (per
+        # ADR 0001 audit-completeness invariant), with the error column
+        # carrying BOTH fingerprints in parseable form. A dict-return
+        # would mis-record as SUCCESS and leak the on-disk fingerprint
+        # only into the wire transcript — phi-irb-risk-reviewer
+        # 2026-05-15 Lens 3 VIOLATION-2 closure.
+        self._detect_fingerprint_mismatch()
+
         handlers = {
             "redcap_list_records": self._handle_list_records,
             "redcap_record_detail": self._handle_record_detail,
@@ -498,6 +597,47 @@ class RedcapFileChild(ChildMCP):
         if not handler:
             return {"error": f"Unknown tool: {tool_name}"}
         return await handler(params)
+
+    def _detect_fingerprint_mismatch(self) -> None:
+        """Per ADR 0003 § Amendment 2026-05-15 — re-read
+        ``project_metadata.csv`` from disk and compare its canonical-form
+        fingerprint to the scrubber's cached fingerprint. Raises
+        :class:`RedcapMetadataFingerprintMismatch` on drift; returns
+        ``None`` when the fingerprints agree (including the case where
+        the on-disk file is missing — the scrubber's own fail-closed
+        path handles that and surfaces via ``child_scrubber_warning``).
+
+        Raising rather than returning a dict ensures the router's
+        exception handler at ``_dispatch`` records an ``outcome=ERROR``
+        audit row carrying both fingerprints in the error column —
+        queryable by IRB review via
+        ``SELECT * FROM audit_log WHERE error LIKE 'REDCAP_METADATA_FINGERPRINT_MISMATCH:%'``.
+        Closes the audit-completeness gap a dict-return shape would
+        leave open (the on-disk fingerprint would be wire-only and the
+        outcome would be mis-stamped SUCCESS).
+        """
+        if self._scrubber is None:
+            return None
+        candidate_path = self._redcap_path / self._project_metadata_filename
+        if not candidate_path.is_file():
+            # File became unreadable since boot. Don't fire mismatch —
+            # the scrubber's existing missing-file path handles this
+            # (every field gets stripped fail-closed). Letting it fall
+            # through to the handler is the right shape.
+            return None
+        try:
+            candidate = RedcapPHIScrubber(
+                project_metadata_path=candidate_path,
+                unknown_field_allowlist=[],
+            )
+        except Exception:
+            return None
+        if candidate.fingerprint == self._scrubber.fingerprint:
+            return None
+        raise RedcapMetadataFingerprintMismatch(
+            fingerprint_at_boot=self._scrubber.fingerprint,
+            fingerprint_on_disk=candidate.fingerprint,
+        )
 
     # ──────────────────────────────────────────────────────────
     # Private helpers
@@ -653,6 +793,31 @@ class RedcapFileChild(ChildMCP):
         if warning is None:
             return {}
         return {"child_scrubber_warning": warning}
+
+    def _small_cell_envelope_fields(self) -> dict:
+        """Per ADR 0003 § Amendment 2026-05-15 — surface the
+        deployment-time small-cell threshold (and the default-in-force
+        warning when applicable) at the top level of every result
+        envelope where suppression was applied. Symmetric intent to
+        ``scrubber_warning``'s deployment-misconfig surface, landed at
+        the top level of the child envelope alongside other child-level
+        legibility fields.
+        """
+        out: dict = {
+            "small_cell_suppression_threshold": self._small_cell_threshold,
+        }
+        if self._small_cell_default_in_force:
+            out["small_cell_warning"] = (
+                "small_cell_suppression_threshold is at the framework "
+                f"default (k={DEFAULT_SMALL_CELL_THRESHOLD}, HHS SDL "
+                "baseline). Studies with elevated re-identification risk "
+                "(pediatric, mental health, rare-disease populations) "
+                "should opt up to a higher k via the "
+                "`small_cell_suppression_threshold` key in the "
+                "`redcap_file` block of user_config.json. See ADR 0003 "
+                "§ Amendment 2026-05-15."
+            )
+        return out
 
     def _field_values_for_records(
         self, records: list[dict], field: str,
@@ -816,6 +981,20 @@ class RedcapFileChild(ChildMCP):
                 if value is not None and str(value).strip() == "2":
                     count += 1
             completion_counts[inst] = count
+        # Per ADR 0003 § Amendment 2026-05-15 — apply small-cell
+        # suppression to completion_counts. A study with N=2 enrolled
+        # at a pilot site discloses the count directly through this
+        # surface even when top_values + cohort groups are correctly
+        # suppressed (phi-irb-risk-reviewer 2026-05-15 Lens 1 WATCH).
+        # Replaces the count value with the "<below_threshold>"
+        # sentinel; the instrument name key is structural metadata
+        # (not a participant identifier per HIPAA Safe Harbor) so it
+        # stays queryable.
+        completion_counts = (
+            self._processing.apply_small_cell_suppression_to_completion_counts(
+                completion_counts, self._small_cell_threshold,
+            )
+        )
 
         # Per-field summaries — only fields that survived scrubbing.
         field_names: list[str] = []
@@ -834,7 +1013,19 @@ class RedcapFileChild(ChildMCP):
         field_summaries: dict[str, dict] = {}
         for f in field_names:
             values = [r.get(f) for r in scrubbed]
-            field_summaries[f] = self._processing.summarize_field(values)
+            summary = self._processing.summarize_field(values)
+            # Per ADR 0003 § Amendment 2026-05-15 — apply small-cell
+            # suppression to categorical top_values so a low-cardinality
+            # non-identifier-flagged field (e.g. study site with N=3
+            # sites) cannot re-identify through count disclosure.
+            if "top_values" in summary:
+                summary["top_values"] = (
+                    self._processing.apply_small_cell_suppression_to_top_values(
+                        summary["top_values"],
+                        self._small_cell_threshold,
+                    )
+                )
+            field_summaries[f] = summary
 
         envelope = {
             "n_records_scanned": len(scoped),
@@ -842,6 +1033,7 @@ class RedcapFileChild(ChildMCP):
             "completion_counts": completion_counts,
             "field_summaries": field_summaries,
             **self._legibility_for_envelope(legibility),
+            **self._small_cell_envelope_fields(),
         }
         envelope.update(self._scrubber_warning_block())
         return envelope
@@ -959,6 +1151,17 @@ class RedcapFileChild(ChildMCP):
             group_stats["metric_value"] = metric_value
             groups[group_key] = group_stats
 
+        # Per ADR 0003 § Amendment 2026-05-15 — apply small-cell
+        # suppression to cohort group counts. The higher-leverage
+        # re-identification path the auditor's F4 finding named: a
+        # study with N=3 sites discloses site-level identity directly
+        # through cohort group counts even when top_values is
+        # correctly suppressed. Applied AFTER cohort_stats is computed
+        # per group; small-N groups collapse into one aggregate entry.
+        groups = self._processing.apply_small_cell_suppression_to_groups(
+            groups, self._small_cell_threshold,
+        )
+
         # Surface scrubber legibility on the aggregate. We aggregate
         # over scoped to know if the field itself was unknown-stripped
         # (which would silently produce no group values).
@@ -975,6 +1178,7 @@ class RedcapFileChild(ChildMCP):
             "missing_group_field": missing_group_field,
             "field_not_in_record_count": field_not_in_record_count,
             **self._legibility_for_envelope(agg_legibility),
+            **self._small_cell_envelope_fields(),
         }
         envelope.update(self._scrubber_warning_block())
         return envelope

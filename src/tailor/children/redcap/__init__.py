@@ -29,8 +29,13 @@ Shape-contract tests at ``tests/children/redcap/test_redcap_shape.py``
 mirror the matlab_file shape tests.
 """
 
-from .child import RedcapFileChild
+from .child import RedcapFileChild, RedcapMetadataFingerprintMismatch
 from .processing import RedcapProcessing
 from .scrubber import RedcapPHIScrubber
 
-__all__ = ["RedcapFileChild", "RedcapProcessing", "RedcapPHIScrubber"]
+__all__ = [
+    "RedcapFileChild",
+    "RedcapMetadataFingerprintMismatch",
+    "RedcapPHIScrubber",
+    "RedcapProcessing",
+]

@@ -33,6 +33,7 @@ dictionary.
 from __future__ import annotations
 
 import csv
+import hashlib
 import logging
 from pathlib import Path
 
@@ -82,6 +83,14 @@ class RedcapPHIScrubber:
         self._identifier_map: dict[str, bool] = {}
         self._warning: str | None = None
         self._load_metadata()
+        # ADR 0003 § Amendment 2026-05-15 — fingerprint over canonical
+        # form (sorted (field_name, identifier_flag) tuples). Computed
+        # once at construction; the property below returns the cached
+        # value. unknown_field_allowlist is a per-deployment operator
+        # setting, NOT part of the trust root (project_metadata.csv is
+        # the IRB-attested artifact); the allowlist is excluded from
+        # the fingerprint by design.
+        self._fingerprint: str = self._compute_fingerprint()
 
     # ──────────────────────────────────────────────────────────────
     # Construction-time metadata loading
@@ -156,6 +165,59 @@ class RedcapPHIScrubber:
             if alias in fieldnames:
                 return alias
         return None
+
+    # ──────────────────────────────────────────────────────────────
+    # Trust-root fingerprint (ADR 0003 § Amendment 2026-05-15)
+    # ──────────────────────────────────────────────────────────────
+
+    def _compute_fingerprint(self) -> str:
+        """SHA-256 over the canonical-form rendering of the loaded
+        identifier map.
+
+        Canonical form: sorted ``(field_name, "Y"|"N")`` tuples joined
+        by tabs and newlines, UTF-8 encoded. This is the
+        semantically-loadbearing content the scrubber relies on — the
+        actual map that drives identifier decisions — not the raw file
+        bytes. Whitespace, BOM markers, CRLF/LF flips, and column
+        reordering do not trip the fingerprint; flag flips and field
+        additions/removals do.
+
+        An empty map (missing or unparseable project_metadata.csv)
+        produces a deterministic fingerprint over the empty string —
+        the fail-closed posture is still attested cryptographically,
+        which lets the reattest CLI surface "you're running with no
+        trust root" as a distinct attested state rather than a
+        silent miss.
+        """
+        lines = [
+            f"{name}\t{'Y' if flag else 'N'}"
+            for name, flag in sorted(self._identifier_map.items())
+        ]
+        canonical = "\n".join(lines).encode("utf-8")
+        return hashlib.sha256(canonical).hexdigest()
+
+    @property
+    def fingerprint(self) -> str:
+        """SHA-256 fingerprint of the loaded trust-root state.
+
+        Stamped into the audit-log ``source_metadata_fingerprint``
+        column on every REDCap-child call. Surfaces into result
+        ``_meta.source_metadata_fingerprint`` so an IRB reviewer can
+        correlate any disclosure with the trust-root state in force
+        when the disclosure occurred.
+
+        Per ADR 0003 § Amendment 2026-05-15.
+        """
+        return self._fingerprint
+
+    @property
+    def canonical_state(self) -> list[tuple[str, bool]]:
+        """Sorted view of ``(field_name, is_identifier)`` pairs used
+        by the reattest CLI to render the current trust-root state.
+
+        Read-only — the underlying map is frozen at construction time.
+        """
+        return sorted(self._identifier_map.items())
 
     # ──────────────────────────────────────────────────────────────
     # Identity (audit-row provenance)

@@ -2,17 +2,18 @@
 CLI for Tailor.
 
 Usage:
-    tailor serve          # Start MCP server (Claude Desktop calls this)
-    tailor pilot          # Configure CSV-based multi-subject pilot (start here for the v6.2 use case)
-    tailor fitting-room   # Scaffold a guided walkthrough you can drive from Claude Desktop (HIP Lab realistic by default); recipient tries on bundled work-in-progress (ADR 0024)
-    tailor walkthrough    # Watch the framework's architectural claims in 5 sections on bundled HIP Lab fixtures (ADRs 0027 + 0029); pass --save-shareable for an emailable markdown transcript
-    tailor setup          # Run Strava OAuth setup wizard
-    tailor status         # Diagnostic check
-    tailor uninstall      # Clean removal
+    tailor serve            # Start MCP server (Claude Desktop calls this)
+    tailor pilot            # Configure CSV-based multi-subject pilot (start here for the v6.2 use case)
+    tailor fitting-room     # Scaffold a guided walkthrough you can drive from Claude Desktop (HIP Lab realistic by default); recipient tries on bundled work-in-progress (ADR 0024)
+    tailor walkthrough      # Watch the framework's architectural claims in 5 sections on bundled HIP Lab fixtures (ADRs 0027 + 0029); pass --save-shareable for an emailable markdown transcript
+    tailor setup            # Run Strava OAuth setup wizard
+    tailor redcap reattest  # Re-attest the REDCap trust-root metadata after legitimate edits to project_metadata.csv (ADR 0003 § Amendment 2026-05-15)
+    tailor status           # Diagnostic check
+    tailor uninstall        # Clean removal
 
 Deprecated (removal deferred to a future minor):
-    tailor demo           # Renamed to `tailor walkthrough` in v7.1.0 per ADR 0035
-    tailor tour           # Renamed to `tailor fitting-room` in v7.1.0 per ADR 0035
+    tailor demo             # Renamed to `tailor walkthrough` in v7.1.0 per ADR 0035
+    tailor tour             # Renamed to `tailor fitting-room` in v7.1.0 per ADR 0035
 """
 
 import json
@@ -731,6 +732,234 @@ def _clean_claude_desktop_orphan_entries() -> dict[Path, list[str]]:
     return results
 
 
+def cmd_redcap():
+    """Dispatch subcommands grouped under ``tailor redcap``.
+
+    Currently supports:
+        tailor redcap reattest   # Re-attest project_metadata.csv after a legitimate edit
+
+    The two-token surface (``redcap reattest`` rather than
+    ``redcap-reattest``) leaves room for additional REDCap-specific
+    operator subcommands without inflating the top-level command list.
+    """
+    if len(sys.argv) < 3:
+        print("Usage: tailor redcap <subcommand>")
+        print("Subcommands: reattest")
+        sys.exit(1)
+    subcmd = sys.argv[2]
+    if subcmd == "reattest":
+        cmd_redcap_reattest()
+    elif subcmd in ("--help", "-h", "help"):
+        print(cmd_redcap.__doc__)
+        sys.exit(0)
+    else:
+        print(f"Unknown REDCap subcommand: {subcmd}")
+        print("Available subcommands: reattest")
+        sys.exit(1)
+
+
+def cmd_redcap_reattest():
+    """Re-attest the REDCap trust-root metadata fingerprint.
+
+    Per ADR 0003 § Amendment 2026-05-15. The operator runs this command
+    after a legitimate edit to ``project_metadata.csv`` (e.g. adding a
+    new survey instrument's fields mid-enrollment, the common REDCap
+    workflow) to re-establish the cryptographic attestation of the
+    trust-root state.
+
+    Behaviour:
+
+    1. Loads the configured REDCap export directory from
+       ``user_config.json``.
+    2. Constructs a fresh ``RedcapPHIScrubber`` against the current
+       on-disk ``project_metadata.csv`` and computes its canonical-form
+       fingerprint.
+    3. Reads the most recent ``source_metadata_fingerprint`` stamped in
+       ``audit.db`` for ``domain='redcap_file'`` — the cached attestation.
+    4. Prints (a) the cached fingerprint, (b) the new fingerprint, (c)
+       a sorted field-by-field listing of the current trust-root state
+       so the operator can visually confirm the file looks correct.
+       A tamper attempt that flipped every flag to ``N`` is displayed
+       visibly before the operator confirms.
+    5. Prompts for ``yes`` to attest, anything else to abort.
+    6. On attest, writes a ``REATTEST`` audit row to ``audit.db``
+       capturing the new fingerprint. The running ``tailor serve``
+       process is **not** affected — the operator must restart it
+       (``Ctrl-C`` then re-launch, or restart Claude Desktop which
+       re-spawns the server) so the new file is loaded at child
+       construction time.
+
+    The framework does **not** silently update fingerprints to match
+    on-disk changes. The reattest ritual is the trust-affording
+    surface; without it, fingerprint mismatch fails-closed at every
+    REDCap tool call.
+    """
+    import sqlite3
+
+    user_config = CONFIG_DIR / "user_config.json"
+    if not user_config.exists():
+        print(
+            f"Error: {user_config} not found. Configure REDCap first via "
+            f"`tailor pilot` or by adding a `redcap_file` block to "
+            f"user_config.json.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    try:
+        cfg = json.loads(user_config.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"Error: could not parse {user_config}: {exc}", file=sys.stderr)
+        sys.exit(1)
+    redcap_cfg = cfg.get("redcap_file")
+    if not redcap_cfg or not isinstance(redcap_cfg, dict):
+        print(
+            "Error: no `redcap_file` block in user_config.json. Nothing to "
+            "re-attest. See ADR 0037 for the REDCap config shape.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    raw_path = redcap_cfg.get("path")
+    if not raw_path:
+        print(
+            "Error: redcap_file.path is required in user_config.json.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    redcap_dir = Path(raw_path).expanduser().resolve()
+    metadata_filename = redcap_cfg.get(
+        "project_metadata_file", "project_metadata.csv",
+    )
+    metadata_path = redcap_dir / metadata_filename
+    if not metadata_path.is_file():
+        print(
+            f"Error: project_metadata.csv not found at "
+            f"{metadata_path}. Cannot attest a missing file. Place the "
+            f"REDCap data dictionary at this path and re-run.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # Load the current state.
+    from tailor.children.redcap.scrubber import RedcapPHIScrubber
+    try:
+        candidate = RedcapPHIScrubber(
+            project_metadata_path=metadata_path,
+            unknown_field_allowlist=[],
+        )
+    except Exception as exc:
+        print(
+            f"Error: could not parse {metadata_path}: {exc}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    new_fingerprint = candidate.fingerprint
+
+    # Look up the most-recent cached fingerprint.
+    audit_path = DATA_DIR / "audit.db"
+    cached_fingerprint: str | None = None
+    if audit_path.exists():
+        try:
+            with sqlite3.connect(str(audit_path)) as conn:
+                cur = conn.execute(
+                    "SELECT source_metadata_fingerprint FROM audit_log "
+                    "WHERE domain = ? AND source_metadata_fingerprint IS NOT NULL "
+                    "ORDER BY id DESC LIMIT 1",
+                    ("redcap_file",),
+                )
+                row = cur.fetchone()
+                if row is not None:
+                    cached_fingerprint = row[0]
+        except sqlite3.OperationalError:
+            # audit.db exists but the column / table may not yet have
+            # been migrated by a serve invocation. Treat as no prior
+            # attestation rather than failing.
+            cached_fingerprint = None
+
+    # Render the operator-facing report.
+    print("Tailor — REDCap trust-root reattest")
+    print("=" * 60)
+    print(f"\nproject_metadata.csv: {metadata_path}")
+    print(f"\nCached fingerprint   : {cached_fingerprint or '(no prior attestation in audit.db)'}")
+    print(f"New fingerprint      : {new_fingerprint}")
+    if cached_fingerprint == new_fingerprint:
+        print(
+            "\nFingerprints agree — the trust-root state on disk matches "
+            "the cached attestation. No reattest needed."
+        )
+        sys.exit(0)
+    print()
+    if candidate.child_scrubber_warning:
+        print(f"[warning] {candidate.child_scrubber_warning}\n")
+    print("Current trust-root state (sorted by field_name):")
+    print("-" * 60)
+    state = candidate.canonical_state
+    if not state:
+        print("  (empty — project_metadata.csv loaded but no field rows)")
+    else:
+        for name, is_identifier in state:
+            flag = "IDENTIFIER" if is_identifier else "ok"
+            print(f"  {name:40s}  {flag}")
+    print("-" * 60)
+    print(
+        f"\n{len(state)} field(s) total; "
+        f"{sum(1 for _, f in state if f)} flagged as identifier."
+    )
+    print(
+        "\nReview the listing above. A tamper attempt would show every "
+        "identifier field flipped to `ok`. A legitimate edit (new "
+        "instrument added) shows the new fields with their expected flags."
+    )
+    print(
+        "\nAttesting will write a REATTEST row to audit.db with the new "
+        "fingerprint. You will need to restart `tailor serve` (Ctrl-C "
+        "then re-launch, or restart Claude Desktop) for the running "
+        "server to pick up the new trust-root state."
+    )
+    confirm = input("\nAttest the new fingerprint? (yes/no): ").strip().lower()
+    if confirm != "yes":
+        print("Cancelled. No audit row written.")
+        sys.exit(0)
+
+    # Write the REATTEST audit row via AuditLog.record() — NOT a
+    # hand-rolled INSERT. The hand-rolled path was the v7.3.2 first-pass
+    # implementation; phi-irb-risk-reviewer + reproducibility-provenance-
+    # auditor independently named it as a defect (the REATTEST row would
+    # leak NULL into scrubber_id, breaking ADR 0003's "scrubber_id turns
+    # 'did we scrub?' into a fact on disk" invariant). Routing through
+    # the canonical helper inherits the migration logic, the scrubber_id
+    # default, and any future audit-column additions automatically.
+    audit_path.parent.mkdir(parents=True, exist_ok=True)
+    from tailor.framework.audit import AuditLog
+    from tailor.framework.security import PHIScrubber
+    audit_log = AuditLog(audit_path)
+    framework_scrubber = PHIScrubber()
+    try:
+        audit_log.record(
+            domain="redcap_file",
+            tool_name="redcap_reattest",
+            tier=0,
+            params={
+                "cached_fingerprint": cached_fingerprint,
+                "new_fingerprint": new_fingerprint,
+            },
+            token_estimate=0,
+            outcome="REATTEST",
+            duration_ms=0,
+            scrubber_id=framework_scrubber.scrubber_id,
+            child_scrubber_id="redcap_metadata_flags",
+            source_metadata_fingerprint=new_fingerprint,
+        )
+    finally:
+        audit_log.close()
+    print(
+        f"\nAttested. New fingerprint {new_fingerprint[:16]}... recorded."
+    )
+    print(
+        "Restart `tailor serve` for the running server to pick up the "
+        "new trust-root state."
+    )
+
+
 def cmd_uninstall():
     """Clean removal."""
     print("Tailor — Uninstall")
@@ -789,6 +1018,10 @@ def main():
         "fitting-room": cmd_fitting_room,
         "walkthrough": cmd_walkthrough,
         "setup": cmd_setup,
+        # `redcap` is a parent verb that dispatches its own subcommand
+        # from sys.argv[2] (currently only `reattest`). Per ADR 0003
+        # § Amendment 2026-05-15.
+        "redcap": cmd_redcap,
         "status": cmd_status,
         "uninstall": cmd_uninstall,
         # Deprecated aliases — one-cycle shim per ADR 0035; removal target

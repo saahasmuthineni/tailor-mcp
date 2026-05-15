@@ -31,6 +31,20 @@ COHORT_METRICS = (
     "count",
 )
 
+# Per ADR 0003 § Amendment 2026-05-15 — k-anonymity threshold default
+# for small-cell suppression on aggregate count surfaces. HHS
+# Statistical Disclosure Limitation baseline for CMS data. Studies
+# with elevated re-identification risk (pediatric, mental health,
+# rare-disease) opt up via redcap_file.small_cell_suppression_threshold
+# in user_config.json.
+DEFAULT_SMALL_CELL_THRESHOLD = 5
+
+# Sentinel value placed in the ``count`` field of suppressed entries.
+# Stringified so it's visibly distinct from real integer counts — an
+# LLM reading the envelope cannot confuse it with a numeric count.
+SUPPRESSED_VALUE_PLACEHOLDER = "<small_cell_suppressed>"
+SUPPRESSED_COUNT_PLACEHOLDER = "<below_threshold>"
+
 
 class RedcapProcessing:
     """Pure-function analytics for REDCap record fields."""
@@ -244,6 +258,131 @@ class RedcapProcessing:
             "mode": top_value,
             "cardinality": len(counter),
         }
+
+    # ──────────────────────────────────────────────────────────────
+    # Small-cell suppression (ADR 0003 § Amendment 2026-05-15)
+    # ──────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def apply_small_cell_suppression_to_top_values(
+        top_values: list[dict],
+        threshold: int,
+    ) -> list[dict]:
+        """Collapse entries with ``count < threshold`` into a single
+        aggregate suppressed entry. Per ADR 0003 § Amendment 2026-05-15.
+
+        Input shape: ``[{"value": V, "count": N}, ...]`` as produced by
+        ``summarize_field`` for categorical fields. Output preserves
+        every entry where ``count >= threshold`` and appends a single
+        aggregate at the end of shape
+        ``{"value": "<small_cell_suppressed>", "count": "<below_threshold>",
+        "suppressed_count": K}`` where K is the number of distinct
+        suppressed values. ``threshold`` < 2 is treated as no-op
+        (returns input unchanged) — the child enforces ``>= 2`` at
+        config-load time but this method defends the invariant.
+        """
+        if threshold < 2:
+            return list(top_values)
+        kept: list[dict] = []
+        suppressed_count = 0
+        for entry in top_values:
+            try:
+                count_int = int(entry.get("count"))
+            except (TypeError, ValueError):
+                # Defensive: a count that isn't coercible to int can't
+                # be compared to the threshold; keep the entry rather
+                # than silently dropping data.
+                kept.append(entry)
+                continue
+            if count_int < threshold:
+                suppressed_count += 1
+            else:
+                kept.append(entry)
+        if suppressed_count > 0:
+            kept.append({
+                "value": SUPPRESSED_VALUE_PLACEHOLDER,
+                "count": SUPPRESSED_COUNT_PLACEHOLDER,
+                "suppressed_count": suppressed_count,
+            })
+        return kept
+
+    @staticmethod
+    def apply_small_cell_suppression_to_completion_counts(
+        completion_counts: dict[str, int],
+        threshold: int,
+    ) -> dict[str, int | str]:
+        """Replace below-threshold counts with the
+        ``"<below_threshold>"`` sentinel while preserving the
+        instrument-name keys. Per ADR 0003 § Amendment 2026-05-15.
+
+        Input shape: ``{instrument_name: count}`` as produced by
+        ``redcap_summary_report``. Output shape: same keys, but values
+        below ``threshold`` are replaced with the sentinel string. The
+        instrument name itself is structural metadata (not a participant
+        identifier per HIPAA Safe Harbor §164.514) so it stays
+        queryable; only the count is suppressed.
+
+        This is the third small-cell surface — after ``top_values`` and
+        cohort ``groups`` — and closes the
+        phi-irb-risk-reviewer 2026-05-15 Lens 1 WATCH finding: a study
+        with N=2 enrolled at a pilot site discloses the count directly
+        through completion_counts even when the other two surfaces are
+        correctly suppressed. ``threshold`` < 2 is a no-op (returns
+        input unchanged).
+        """
+        if threshold < 2:
+            return dict(completion_counts)
+        out: dict[str, int | str] = {}
+        for instrument, count in completion_counts.items():
+            try:
+                count_int = int(count)
+            except (TypeError, ValueError):
+                out[instrument] = count
+                continue
+            if count_int < threshold:
+                out[instrument] = SUPPRESSED_COUNT_PLACEHOLDER
+            else:
+                out[instrument] = count_int
+        return out
+
+    @staticmethod
+    def apply_small_cell_suppression_to_groups(
+        groups: dict[str, dict],
+        threshold: int,
+    ) -> dict[str, dict]:
+        """Collapse cohort groups with ``n < threshold`` into a single
+        aggregate suppressed entry. Per ADR 0003 § Amendment 2026-05-15.
+
+        Input shape: ``{group_key: {"n": N, ...}}`` as produced by
+        ``redcap_cohort_summary``'s aggregation loop. Output preserves
+        every group where ``n >= threshold`` and replaces every other
+        group with one aggregate entry keyed by
+        ``"<small_cell_suppressed>"`` of shape
+        ``{"n": "<below_threshold>", "suppressed_group_count": K}``.
+        ``threshold`` < 2 returns the input unchanged.
+        """
+        if threshold < 2:
+            return dict(groups)
+        kept: dict[str, dict] = {}
+        suppressed_group_count = 0
+        for group_key, group_stats in groups.items():
+            try:
+                n_int = int(group_stats.get("n", 0))
+            except (TypeError, ValueError):
+                # Defensive: an n field that isn't coercible to int can't
+                # be compared; keep the group.
+                kept[group_key] = group_stats
+                continue
+            if n_int < threshold:
+                suppressed_group_count += 1
+            else:
+                kept[group_key] = group_stats
+        if suppressed_group_count > 0:
+            kept[SUPPRESSED_VALUE_PLACEHOLDER] = {
+                "n": SUPPRESSED_COUNT_PLACEHOLDER,
+                "suppressed_group_count": suppressed_group_count,
+            }
+        return kept
 
     # ──────────────────────────────────────────────────────────────
     # Instrument-completion counter (REDCap convention)

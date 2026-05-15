@@ -232,3 +232,226 @@ class TestDeterminismInvariant:
         first = RedcapProcessing.aggregate_metric(values, "mean")
         second = RedcapProcessing.aggregate_metric(values, "mean")
         assert first == second
+
+
+# ═══════════════════════════════════════════════════════════════
+# SMALL-CELL SUPPRESSION (ADR 0003 § Amendment 2026-05-15)
+# ═══════════════════════════════════════════════════════════════
+#
+# Suppresses low-cardinality aggregate count surfaces so a study with
+# N=3 sites cannot disclose site-level identity through cohort group
+# counts even when the identifier scrubber seam is correctly
+# configured. Applies symmetrically to summary_report top_values and
+# cohort_summary group counts.
+
+
+class TestSmallCellSuppressionOnTopValues:
+    def test_below_threshold_collapses_to_aggregate(self):
+        top_values = [
+            {"value": "Boston", "count": 12},
+            {"value": "NYC", "count": 8},
+            {"value": "Chicago", "count": 3},
+            {"value": "Seattle", "count": 2},
+            {"value": "Austin", "count": 1},
+        ]
+        out = RedcapProcessing.apply_small_cell_suppression_to_top_values(
+            top_values, threshold=5,
+        )
+        # Boston + NYC pass; Chicago/Seattle/Austin collapse.
+        kept = [e for e in out if e.get("value") != "<small_cell_suppressed>"]
+        assert {e["value"] for e in kept} == {"Boston", "NYC"}
+        # Exactly one aggregate entry, suppressed_count = 3.
+        agg = [e for e in out if e.get("value") == "<small_cell_suppressed>"]
+        assert len(agg) == 1
+        assert agg[0]["count"] == "<below_threshold>"
+        assert agg[0]["suppressed_count"] == 3
+
+    def test_no_aggregate_when_all_pass(self):
+        top_values = [
+            {"value": "A", "count": 10},
+            {"value": "B", "count": 8},
+        ]
+        out = RedcapProcessing.apply_small_cell_suppression_to_top_values(
+            top_values, threshold=5,
+        )
+        assert out == top_values
+        assert not any(e.get("value") == "<small_cell_suppressed>" for e in out)
+
+    def test_aggregate_only_when_all_below(self):
+        top_values = [
+            {"value": "A", "count": 2},
+            {"value": "B", "count": 1},
+        ]
+        out = RedcapProcessing.apply_small_cell_suppression_to_top_values(
+            top_values, threshold=5,
+        )
+        assert len(out) == 1
+        assert out[0]["value"] == "<small_cell_suppressed>"
+        assert out[0]["suppressed_count"] == 2
+
+    def test_threshold_below_2_is_noop(self):
+        """k=1 disables suppression — the child refuses this at
+        config-load time, but the helper defensively passes through."""
+        top_values = [
+            {"value": "A", "count": 1},
+            {"value": "B", "count": 1},
+        ]
+        out = RedcapProcessing.apply_small_cell_suppression_to_top_values(
+            top_values, threshold=1,
+        )
+        assert out == top_values
+
+    def test_empty_input(self):
+        out = RedcapProcessing.apply_small_cell_suppression_to_top_values(
+            [], threshold=5,
+        )
+        assert out == []
+
+    def test_non_integer_count_passes_through(self):
+        """Defensive: a count that isn't coercible to int is kept
+        rather than silently dropped — better to surface unexpected
+        data shape than to corrupt the envelope."""
+        top_values = [
+            {"value": "A", "count": "not-an-int"},
+            {"value": "B", "count": 10},
+        ]
+        out = RedcapProcessing.apply_small_cell_suppression_to_top_values(
+            top_values, threshold=5,
+        )
+        assert any(e["value"] == "A" for e in out)
+        assert any(e["value"] == "B" for e in out)
+
+    def test_at_threshold_is_kept(self):
+        """count >= threshold passes (k=5 means k OR MORE)."""
+        top_values = [
+            {"value": "exactly_5", "count": 5},
+            {"value": "below_5", "count": 4},
+        ]
+        out = RedcapProcessing.apply_small_cell_suppression_to_top_values(
+            top_values, threshold=5,
+        )
+        kept_values = {e["value"] for e in out if e.get("count") != "<below_threshold>"}
+        assert kept_values == {"exactly_5"}
+
+
+class TestSmallCellSuppressionOnCompletionCounts:
+    """Closes phi-irb-risk-reviewer 2026-05-15 Lens 1 WATCH: a study
+    with N=2 enrolled at a pilot site discloses the count directly
+    through redcap_summary_report's completion_counts surface even
+    when top_values + cohort groups are correctly suppressed.
+    completion_counts is the third aggregate surface and gets the
+    same k-anonymity threshold treatment."""
+
+    def test_below_threshold_replaced_with_sentinel(self):
+        completion_counts = {
+            "demographics": 12,
+            "phq9": 8,
+            "biospecimen": 3,
+            "site_visit": 2,
+        }
+        out = RedcapProcessing.apply_small_cell_suppression_to_completion_counts(
+            completion_counts, threshold=5,
+        )
+        # Instrument names preserved; below-threshold counts replaced.
+        assert set(out.keys()) == {
+            "demographics", "phq9", "biospecimen", "site_visit",
+        }
+        assert out["demographics"] == 12
+        assert out["phq9"] == 8
+        assert out["biospecimen"] == "<below_threshold>"
+        assert out["site_visit"] == "<below_threshold>"
+
+    def test_no_replacement_when_all_pass(self):
+        completion_counts = {"demographics": 10, "phq9": 8}
+        out = RedcapProcessing.apply_small_cell_suppression_to_completion_counts(
+            completion_counts, threshold=5,
+        )
+        assert out == completion_counts
+
+    def test_threshold_below_2_is_noop(self):
+        completion_counts = {"a": 1, "b": 1}
+        out = RedcapProcessing.apply_small_cell_suppression_to_completion_counts(
+            completion_counts, threshold=1,
+        )
+        assert out == completion_counts
+
+    def test_empty_input(self):
+        out = RedcapProcessing.apply_small_cell_suppression_to_completion_counts(
+            {}, threshold=5,
+        )
+        assert out == {}
+
+    def test_at_threshold_is_kept(self):
+        completion_counts = {"exactly_5": 5, "below_5": 4}
+        out = RedcapProcessing.apply_small_cell_suppression_to_completion_counts(
+            completion_counts, threshold=5,
+        )
+        assert out["exactly_5"] == 5
+        assert out["below_5"] == "<below_threshold>"
+
+
+class TestSmallCellSuppressionOnGroups:
+    def test_below_threshold_collapses(self):
+        groups = {
+            "intervention": {"n": 12, "mean": 7.5, "metric_value": 7.5},
+            "control": {"n": 10, "mean": 8.1, "metric_value": 8.1},
+            "site_C": {"n": 3, "mean": 6.0, "metric_value": 6.0},
+            "site_D": {"n": 2, "mean": 7.0, "metric_value": 7.0},
+        }
+        out = RedcapProcessing.apply_small_cell_suppression_to_groups(
+            groups, threshold=5,
+        )
+        # intervention + control pass; site_C and site_D collapse.
+        assert set(out.keys()) == {
+            "intervention", "control", "<small_cell_suppressed>",
+        }
+        agg = out["<small_cell_suppressed>"]
+        assert agg["n"] == "<below_threshold>"
+        assert agg["suppressed_group_count"] == 2
+
+    def test_no_aggregate_when_all_pass(self):
+        groups = {
+            "A": {"n": 10},
+            "B": {"n": 8},
+        }
+        out = RedcapProcessing.apply_small_cell_suppression_to_groups(
+            groups, threshold=5,
+        )
+        assert out == groups
+        assert "<small_cell_suppressed>" not in out
+
+    def test_threshold_below_2_is_noop(self):
+        groups = {"A": {"n": 1}, "B": {"n": 1}}
+        out = RedcapProcessing.apply_small_cell_suppression_to_groups(
+            groups, threshold=1,
+        )
+        assert out == groups
+
+    def test_empty_input(self):
+        out = RedcapProcessing.apply_small_cell_suppression_to_groups(
+            {}, threshold=5,
+        )
+        assert out == {}
+
+    def test_at_threshold_is_kept(self):
+        groups = {
+            "exactly_5": {"n": 5},
+            "below_5": {"n": 4},
+        }
+        out = RedcapProcessing.apply_small_cell_suppression_to_groups(
+            groups, threshold=5,
+        )
+        assert "exactly_5" in out
+        assert "below_5" not in out
+        assert "<small_cell_suppressed>" in out
+
+    def test_preserves_group_stats_on_kept_groups(self):
+        """Passing groups have their full stats dict preserved — only
+        sub-threshold groups are aggregated."""
+        groups = {
+            "A": {"n": 10, "mean": 7.5, "std": 1.2, "metric_value": 7.5},
+        }
+        out = RedcapProcessing.apply_small_cell_suppression_to_groups(
+            groups, threshold=5,
+        )
+        assert out == groups

@@ -20,7 +20,11 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
-from tailor.children.redcap import RedcapFileChild, RedcapPHIScrubber
+from tailor.children.redcap import (
+    RedcapFileChild,
+    RedcapMetadataFingerprintMismatch,
+    RedcapPHIScrubber,
+)
 from tailor.framework.interfaces import (
     SUBJECT_ID_SCHEMA,
     CostEstimate,
@@ -658,3 +662,359 @@ class TestErrorEnvelopesNoPathDisclosure:
                 f"{tool_name}: absolute path {redcap_dir!s} leaked into "
                 f"error envelope: {error!r}. PHI VIOLATION-1 regressed."
             )
+
+
+# ═══════════════════════════════════════════════════════════════
+# TRUST-ROOT FINGERPRINT MISMATCH (ADR 0003 § Amendment 2026-05-15)
+# ═══════════════════════════════════════════════════════════════
+#
+# RedcapFileChild.execute() re-reads project_metadata.csv on every
+# call and compares the on-disk fingerprint against the scrubber's
+# cached fingerprint. Mismatch fails closed with a typed error
+# envelope. The IRB-critical property: a tampered metadata file
+# cannot run silently — the framework refuses to operate on a
+# trust-root state different from the one attested at server boot.
+
+
+class TestFingerprintMismatchOnExecute:
+    def _build_child(self, tmp_path: Path, metadata_body: str) -> RedcapFileChild:
+        """Build a RedcapFileChild against a fresh temp dir with the
+        given metadata body. Returns the constructed child."""
+        config_dir = tmp_path / "config"
+        data_dir = tmp_path / "data"
+        redcap_dir = tmp_path / "redcap"
+        for d in (config_dir, data_dir, redcap_dir):
+            d.mkdir(exist_ok=True)
+        (redcap_dir / "records.csv").write_text(
+            "record_id,sex\nS001,F\nS002,M\n", encoding="utf-8",
+        )
+        (redcap_dir / "project_metadata.csv").write_text(
+            metadata_body, encoding="utf-8",
+        )
+        (config_dir / "user_config.json").write_text(
+            json.dumps({"redcap_file": {"path": str(redcap_dir)}}),
+            encoding="utf-8",
+        )
+        return RedcapFileChild(config_dir, data_dir)
+
+    def test_no_mismatch_on_fresh_call(self, tmp_path: Path):
+        """The trivial case: scrubber loaded from the same file
+        currently on disk; no mismatch."""
+        body = (
+            "field_name,form_name,field_type,identifier\n"
+            "record_id,demographics,text,\n"
+            "sex,demographics,radio,\n"
+        )
+        child = self._build_child(tmp_path, body)
+        # No exception raised — call returns the handler's result.
+        result = asyncio.run(child.execute("redcap_list_records", {}))
+        assert "REDCAP_METADATA_FINGERPRINT_MISMATCH" not in result.get(
+            "error", "",
+        ), (
+            f"Mismatch fired on fresh call where file is unchanged: "
+            f"{result!r}"
+        )
+
+    def test_mismatch_after_identifier_flag_flip(self, tmp_path: Path):
+        """The structural attack: an attacker flips identifier flags
+        from Y to blank in project_metadata.csv between server boot
+        and the next call. The next execute() MUST RAISE
+        RedcapMetadataFingerprintMismatch — closes phi-irb-risk-reviewer
+        2026-05-15 Lens 3 VIOLATION-2 (dict-return would mis-record as
+        SUCCESS in the audit log and leak the on-disk fingerprint only
+        into the wire transcript)."""
+        original_body = (
+            "field_name,form_name,field_type,identifier\n"
+            "record_id,demographics,text,\n"
+            "participant_name,demographics,text,y\n"
+            "sex,demographics,radio,\n"
+        )
+        child = self._build_child(tmp_path, original_body)
+        # The attacker overwrites project_metadata.csv flipping the
+        # participant_name flag from y to blank.
+        flipped_body = (
+            "field_name,form_name,field_type,identifier\n"
+            "record_id,demographics,text,\n"
+            "participant_name,demographics,text,\n"
+            "sex,demographics,radio,\n"
+        )
+        (child._redcap_path / "project_metadata.csv").write_text(
+            flipped_body, encoding="utf-8",
+        )
+        with pytest.raises(RedcapMetadataFingerprintMismatch) as exc_info:
+            asyncio.run(child.execute("redcap_list_records", {}))
+        # Structured access via the exception's typed attributes.
+        assert exc_info.value.fingerprint_at_boot != (
+            exc_info.value.fingerprint_on_disk
+        )
+        # str(exc) carries both fingerprints in parseable form for
+        # the audit log (per ADR 0003 § Amendment 2026-05-15).
+        message = str(exc_info.value)
+        assert "REDCAP_METADATA_FINGERPRINT_MISMATCH" in message
+        assert "fingerprint_at_boot=" in message
+        assert "fingerprint_on_disk=" in message
+        assert exc_info.value.fingerprint_at_boot in message
+        assert exc_info.value.fingerprint_on_disk in message
+        # The error envelope must point the operator to the reattest
+        # ritual — recovery path visibility per ADR 0003 § Amendment
+        # 2026-05-15.
+        assert "tailor redcap reattest" in message
+        assert "ADR 0003" in message
+
+    def test_mismatch_envelope_has_no_absolute_path(self, tmp_path: Path):
+        """The mismatch error message must not leak the absolute
+        on-disk path of project_metadata.csv — same path-disclosure
+        invariant as v7.3.1's REDCap error envelopes."""
+        original_body = (
+            "field_name,form_name,field_type,identifier\n"
+            "sex,demographics,radio,\n"
+        )
+        child = self._build_child(tmp_path, original_body)
+        flipped_body = (
+            "field_name,form_name,field_type,identifier\n"
+            "sex,demographics,radio,y\n"  # flag flipped
+        )
+        (child._redcap_path / "project_metadata.csv").write_text(
+            flipped_body, encoding="utf-8",
+        )
+        with pytest.raises(RedcapMetadataFingerprintMismatch) as exc_info:
+            asyncio.run(child.execute("redcap_list_records", {}))
+        # The path should not appear in the exception message.
+        assert str(child._redcap_path) not in str(exc_info.value)
+
+    def test_fires_on_every_tool(self, tmp_path: Path):
+        """Mismatch must fire on every REDCap tool, not just
+        list_records — the check is in execute() before handler
+        dispatch."""
+        original_body = (
+            "field_name,form_name,field_type,identifier\n"
+            "sex,demographics,radio,\n"
+        )
+        child = self._build_child(tmp_path, original_body)
+        flipped_body = (
+            "field_name,form_name,field_type,identifier\n"
+            "sex,demographics,radio,y\n"
+        )
+        (child._redcap_path / "project_metadata.csv").write_text(
+            flipped_body, encoding="utf-8",
+        )
+        for tool_name, params in (
+            ("redcap_list_records", {}),
+            ("redcap_record_detail", {"record_id": "S001"}),
+            ("redcap_summary_report", {}),
+            ("redcap_records", {"instrument": "phq9"}),
+            ("redcap_raw_records", {}),
+        ):
+            with pytest.raises(RedcapMetadataFingerprintMismatch):
+                asyncio.run(child.execute(tool_name, params))
+
+    def test_metadata_deleted_does_not_trigger_mismatch(self, tmp_path: Path):
+        """If project_metadata.csv is deleted between boot and call
+        (legitimate operator action — clearing the dir to re-export),
+        the mismatch check must NOT fire. The scrubber's own
+        fail-closed missing-file path handles it (every field gets
+        stripped fail-closed) and surfaces via child_scrubber_warning
+        in _meta. Mismatch is specifically for trust-root drift, not
+        for absence."""
+        original_body = (
+            "field_name,form_name,field_type,identifier\n"
+            "sex,demographics,radio,\n"
+        )
+        child = self._build_child(tmp_path, original_body)
+        (child._redcap_path / "project_metadata.csv").unlink()
+        # No exception raised — fall through to scrubber's
+        # fail-closed missing-file handling.
+        result = asyncio.run(child.execute("redcap_list_records", {}))
+        assert "REDCAP_METADATA_FINGERPRINT_MISMATCH" not in result.get(
+            "error", "",
+        ), (
+            "Missing metadata file should not trigger fingerprint "
+            "mismatch — fall through to scrubber's fail-closed path"
+        )
+
+    def test_router_catches_mismatch_and_writes_error_audit_row(
+        self, tmp_path: Path,
+    ):
+        """Closes phi-irb-risk-reviewer 2026-05-15 Lens 3 VIOLATION-2.
+
+        When the mismatch exception propagates up to the router's
+        ``_dispatch`` exception handler, the audit row carries
+        ``outcome="ERROR"`` (NOT SUCCESS) and the error column
+        contains both fingerprints in parseable form. IRB review can
+        then ``SELECT * FROM audit_log WHERE error LIKE
+        'REDCAP_METADATA_FINGERPRINT_MISMATCH:%'`` to find every
+        mismatch-detected disclosure surface."""
+        import sqlite3
+        original_body = (
+            "field_name,form_name,field_type,identifier\n"
+            "sex,demographics,radio,\n"
+        )
+        child = self._build_child(tmp_path, original_body)
+        # Build a router around the child and stand up the audit log.
+        router = RouterMCP(
+            name="t",
+            data_dir=tmp_path / "data",
+            cost_threshold=35_000,
+            circuit_threshold=3,
+            circuit_reset=300,
+        )
+        router.register_child(child)
+        # Flip the trust root after boot.
+        flipped_body = (
+            "field_name,form_name,field_type,identifier\n"
+            "sex,demographics,radio,y\n"
+        )
+        (child._redcap_path / "project_metadata.csv").write_text(
+            flipped_body, encoding="utf-8",
+        )
+        # Drive through the router via dispatch_internal so the
+        # exception path is exercised the same way Claude Desktop
+        # would trigger it.
+        result = asyncio.run(
+            router.dispatch_internal("redcap_list_records", {}),
+        )
+        assert "error" in result
+        assert "REDCAP_METADATA_FINGERPRINT_MISMATCH" in result["error"]
+        # The audit row must be queryable as outcome=ERROR.
+        router.close()
+        with sqlite3.connect(str(tmp_path / "data" / "audit.db")) as conn:
+            cur = conn.execute(
+                "SELECT outcome, error, source_metadata_fingerprint "
+                "FROM audit_log "
+                "WHERE error LIKE 'REDCAP_METADATA_FINGERPRINT_MISMATCH:%' "
+                "ORDER BY id DESC LIMIT 1"
+            )
+            row = cur.fetchone()
+        assert row is not None, (
+            "no audit row with REDCAP_METADATA_FINGERPRINT_MISMATCH "
+            "error string — IRB review cannot reconstruct the mismatch "
+            "from audit.db"
+        )
+        outcome, error, fingerprint = row
+        assert outcome == "ERROR_INTERNAL", (
+            f"mismatch was recorded as outcome={outcome!r}; should be "
+            f"ERROR_INTERNAL (dispatch_internal) — verifies the dict-"
+            f"return-as-SUCCESS bug is closed"
+        )
+        assert "fingerprint_at_boot=" in error
+        assert "fingerprint_on_disk=" in error
+
+
+# ═══════════════════════════════════════════════════════════════
+# SMALL-CELL SUPPRESSION ON HANDLERS (ADR 0003 § Amendment 2026-05-15)
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestSmallCellSuppressionOnHandlers:
+    def _build_child(
+        self,
+        tmp_path: Path,
+        threshold: int | None = None,
+    ) -> RedcapFileChild:
+        """Construct a child against bundled fixtures with optional
+        small_cell_suppression_threshold override."""
+        config_dir = tmp_path / "config"
+        data_dir = tmp_path / "data"
+        redcap_dir = tmp_path / "redcap"
+        for d in (config_dir, data_dir, redcap_dir):
+            d.mkdir(exist_ok=True)
+        for name in ("records.csv", "project_metadata.csv", "metadata.json"):
+            shutil.copy(FIXTURE_DIR / name, redcap_dir / name)
+        cfg = {"redcap_file": {"path": str(redcap_dir)}}
+        if threshold is not None:
+            cfg["redcap_file"]["small_cell_suppression_threshold"] = threshold
+        (config_dir / "user_config.json").write_text(
+            json.dumps(cfg), encoding="utf-8",
+        )
+        return RedcapFileChild(config_dir, data_dir)
+
+    def test_summary_report_envelope_carries_threshold(self, tmp_path: Path):
+        child = self._build_child(tmp_path, threshold=10)
+        result = asyncio.run(child.execute("redcap_summary_report", {}))
+        assert result.get("small_cell_suppression_threshold") == 10
+        # Explicit operator setting: no default warning.
+        assert "small_cell_warning" not in result
+
+    def test_summary_report_default_warning_when_no_config(self, tmp_path: Path):
+        """When small_cell_suppression_threshold is not set in
+        user_config.json, every result envelope MUST carry a
+        small_cell_warning so IRB transcript review sees the default-
+        in-force state."""
+        child = self._build_child(tmp_path, threshold=None)
+        result = asyncio.run(child.execute("redcap_summary_report", {}))
+        assert result.get("small_cell_suppression_threshold") == 5
+        assert "small_cell_warning" in result
+        assert "k=5" in result["small_cell_warning"]
+        assert "ADR 0003" in result["small_cell_warning"]
+
+    def test_cohort_summary_envelope_carries_threshold(self, tmp_path: Path):
+        child = self._build_child(tmp_path, threshold=8)
+        result = asyncio.run(child.execute(
+            "redcap_cohort_summary",
+            {"field": "phq9_score", "group_by": "study_group", "metric": "mean"},
+        ))
+        if "error" in result:
+            pytest.skip(f"cohort tool returned error; not on the path: {result['error']}")
+        assert result.get("small_cell_suppression_threshold") == 8
+        assert "small_cell_warning" not in result
+
+    def test_config_threshold_below_2_rejected(self, tmp_path: Path):
+        """k=1 disables suppression and is refused at config-load."""
+        config_dir = tmp_path / "config"
+        data_dir = tmp_path / "data"
+        redcap_dir = tmp_path / "redcap"
+        for d in (config_dir, data_dir, redcap_dir):
+            d.mkdir(exist_ok=True)
+        for name in ("records.csv", "project_metadata.csv"):
+            shutil.copy(FIXTURE_DIR / name, redcap_dir / name)
+        (config_dir / "user_config.json").write_text(
+            json.dumps({"redcap_file": {
+                "path": str(redcap_dir),
+                "small_cell_suppression_threshold": 1,
+            }}),
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError, match=">= 2"):
+            RedcapFileChild(config_dir, data_dir)
+
+    def test_config_threshold_non_int_rejected(self, tmp_path: Path):
+        """Non-int threshold is refused at config-load."""
+        config_dir = tmp_path / "config"
+        data_dir = tmp_path / "data"
+        redcap_dir = tmp_path / "redcap"
+        for d in (config_dir, data_dir, redcap_dir):
+            d.mkdir(exist_ok=True)
+        for name in ("records.csv", "project_metadata.csv"):
+            shutil.copy(FIXTURE_DIR / name, redcap_dir / name)
+        (config_dir / "user_config.json").write_text(
+            json.dumps({"redcap_file": {
+                "path": str(redcap_dir),
+                "small_cell_suppression_threshold": "not-an-int",
+            }}),
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError):
+            RedcapFileChild(config_dir, data_dir)
+
+
+# ═══════════════════════════════════════════════════════════════
+# CHILD-SCRUBBER-FINGERPRINT INTERFACE
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestChildSourceMetadataFingerprint:
+    def test_property_returns_scrubber_fingerprint(
+        self, redcap_child: RedcapFileChild,
+    ):
+        """RedcapFileChild.child_source_metadata_fingerprint must
+        return the scrubber's fingerprint property — the framework
+        reads this when stamping audit rows and _meta blocks."""
+        assert redcap_child.child_source_metadata_fingerprint is not None
+        assert redcap_child.child_source_metadata_fingerprint == (
+            redcap_child._scrubber.fingerprint
+        )
+
+    def test_is_sha256_hex(self, redcap_child: RedcapFileChild):
+        fingerprint = redcap_child.child_source_metadata_fingerprint
+        assert len(fingerprint) == 64
+        assert all(c in "0123456789abcdef" for c in fingerprint)

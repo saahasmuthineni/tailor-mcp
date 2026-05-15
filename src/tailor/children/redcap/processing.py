@@ -310,7 +310,7 @@ class RedcapProcessing:
     def apply_small_cell_suppression_to_completion_counts(
         completion_counts: dict[str, int],
         threshold: int,
-    ) -> dict[str, "int | str"]:
+    ) -> dict[str, int | str]:
         """Replace below-threshold counts with the
         ``"<below_threshold>"`` sentinel while preserving the
         instrument-name keys. Per ADR 0003 § Amendment 2026-05-15.

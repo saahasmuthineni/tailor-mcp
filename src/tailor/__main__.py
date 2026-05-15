@@ -795,7 +795,6 @@ def cmd_redcap_reattest():
     REDCap tool call.
     """
     import sqlite3
-    from datetime import datetime, timezone
 
     user_config = CONFIG_DIR / "user_config.json"
     if not user_config.exists():

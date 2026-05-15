@@ -252,6 +252,7 @@ class TestW1SourceMetadataFingerprintOnRedcap:
     def test_fingerprint_matches_known_fixture_hash(self) -> None:
         """The fingerprint value is deterministic for the bundled fixture."""
         import importlib.resources as ir
+
         import tailor._fixtures as _fx_pkg
         from tailor.children.redcap.scrubber import RedcapPHIScrubber
 

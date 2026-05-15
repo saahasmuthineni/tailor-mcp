@@ -97,13 +97,16 @@ class RedcapPHIScrubber:
         """
         if not self._project_metadata_path.is_file():
             self._warning = (
-                f"RedcapPHIScrubber: project_metadata.csv not found at "
-                f"{self._project_metadata_path}. Fail-closed default in "
+                "RedcapPHIScrubber: project_metadata.csv not found at "
+                "<configured_redcap_metadata_path>. Fail-closed default in "
                 "effect — every field will be treated as identifier-"
                 "positive and stripped unless explicitly allowlisted "
                 "via unknown_field_allowlist. See ADR 0037."
             )
-            log.warning(self._warning)
+            log.warning(
+                f"RedcapPHIScrubber: project_metadata.csv not found at "
+                f"{self._project_metadata_path}. Fail-closed default in effect."
+            )
             return
         try:
             with open(
@@ -118,10 +121,14 @@ class RedcapPHIScrubber:
                         "RedcapPHIScrubber: could not locate "
                         f"field-name column (looked for {FIELD_NAME_ALIASES}) "
                         f"or identifier column (looked for {IDENTIFIER_ALIASES}) "
-                        f"in {self._project_metadata_path}. Fail-closed "
+                        "in <configured_redcap_metadata_path>. Fail-closed "
                         "default in effect. See ADR 0037."
                     )
-                    log.warning(self._warning)
+                    log.warning(
+                        f"RedcapPHIScrubber: column resolution failed in "
+                        f"{self._project_metadata_path}. Fail-closed default "
+                        f"in effect."
+                    )
                     return
                 for row in reader:
                     name = (row.get(field_col) or "").strip()
@@ -131,11 +138,15 @@ class RedcapPHIScrubber:
                     self._identifier_map[name] = flag in POSITIVE_IDENTIFIER_VALUES
         except (OSError, csv.Error, ValueError) as exc:
             self._warning = (
+                "RedcapPHIScrubber: could not parse "
+                f"<configured_redcap_metadata_path>: {type(exc).__name__}. "
+                "Fail-closed default in effect. See ADR 0037."
+            )
+            log.warning(
                 f"RedcapPHIScrubber: could not parse "
                 f"{self._project_metadata_path}: {exc}. Fail-closed default "
-                "in effect. See ADR 0037."
+                f"in effect."
             )
-            log.warning(self._warning)
             return
 
     @staticmethod

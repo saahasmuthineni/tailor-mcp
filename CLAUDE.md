@@ -1,5 +1,92 @@
 # CLAUDE.md — Tailor
 
+> **v7.3.1 (2026-05-15)** — Bug-hunt-followup patch + structural gate-composition closure.
+> Closes 3 VIOLATION-class defects + 4 HIGH findings surfaced by a 7-specialist max-depth
+> audit against v7.3.0 HEAD (2026-05-14 overnight session), plus a 5th defect surfaced
+> by boss-report-auditor adversarial pairing on the v7.3.1 draft itself, plus the team-
+> shape closure of the structural gate-composition gap the hunt named. Two of the three
+> original VIOLATIONs were direct falsifications of v7.3.0 banner claims — this banner
+> names them as second-pass catches rather than glossing past. Patch-bump per v6.3.1
+> precedent (the `scrubber_warning` `_meta` field landed as patch — observability-only
+> additions to `_meta` are strictly additive on the read side and don't break consumers).
+>
+> **Banner-claim falsification 1 — IRB-stakes.** v7.3.0 claimed "failure rows leaving
+> `child_scrubber_id` NULL — fixed by stamping at row-construction time." The fix landed
+> correctly on `_dispatch` and `dispatch_internal` (13 sites) but missed the 5 audit-record
+> sites in the consent handlers at `framework/router.py:1281, 1334, 1359, 1395, 1401`.
+> On a REDCap deployment, an OHRP inquiry asking "did your child-level PHI scrubber run
+> when consent was withdrawn?" CANNOT be answered from the audit log alone — the consent-
+> revocation rows (the IRB-highest-leverage events in the entire audit history) silently
+> recorded `child_scrubber_id` as NULL despite the REDCap child carrying an active
+> `redcap_metadata_flags` scrubber. PHI agent and integration-auditor independently named
+> the same 5 line numbers — reproducibility-grade finding. Commit `072b483` threads
+> `child_scrubber_id` into all 5 sites + 5 new unit tests + wire-side end-to-end verifier
+> in `tests/test_serve_v731_wire_audit.py::TestW3ConsentAuditRowsThreadChildScrubberId`.
+>
+> **Banner-claim falsification 2.** v7.3.0 framed REDCap as "registration block is opt-in-
+> gated so default install path is unchanged" — true for default installs, materially
+> misleading for any opt-in deployment with a malformed `redcap_file` block (missing
+> required `path` key). `__main__.py:165-167` had no try/except, so
+> `RedcapFileChild.__init__` raising `ValueError` aborted `tailor serve` with rc=1, taking
+> down running + csv_dir + vault + local_llm. Same v6.10.2 SetupHelpLayer failure class.
+> Commit `1e9c442` wraps the registration mirroring the matlab pattern 27 lines above;
+> serve boots rc=0, operator banner on stderr, other tools registered. Subprocess
+> regression test `test_v731_malformed_redcap_config_does_not_kill_serve` + wire-side
+> `TestW4MisconfiguredRedcapBoots` cover this on the wire.
+>
+> **PHI Safe Harbor surface reduction.** `redcap/child.py` 11 error-envelope sites +
+> `redcap/scrubber.py` 3 warning sites swapped raw-path interpolation for
+> `<configured_redcap_path>` / `<configured_redcap_records_path>` /
+> `<configured_redcap_metadata_path>` placeholders. Full path retained in stderr
+> `log.warning` only — dev/operator debug surface preserved, LLM transcript +
+> `audit_log.error` column de-identified per HIPAA Safe Harbor §164.514(b)(2)(i)(B + R).
+> Coupling B fix per proposal-mode audit: scrubber.py sites reached the wire via
+> `child_scrubber_warning` → `_scrubber_warning_block()` on every result envelope; without
+> this extension, the Item 5 corruption tests would have locked the disclosure.
+> Commit `b221e65`.
+>
+> **WATCH (b) closure — `child_scrubber_id` in `_meta`.** v7.3.0 banner deferred surfacing
+> the new column on the wire. v7.3.1 closes it across 5 `_meta` stamping sites in
+> `framework/router.py` (child dispatch:711, vault layer:801, local_llm layer:986,
+> setup_help layer:1087, dispatch_internal:1240). The first 4 landed in commit 2; the
+> setup_help site (5/5) was discovered by boss-report-auditor's G8 finding while auditing
+> this very banner draft and landed in commit 7/7 — concrete evidence the chosen option 2
+> is real, not theoretical. Wire-output shape uniformity across all dispatch paths.
+> mcp-protocol-auditor wire-side test `test_meta_contains_child_scrubber_id_wire_side_three_sites`
+> covers three reachable sites + a raw-wire byte inspection asserting JSON `null` (not
+> Python `"None"` repr).
+>
+> **Three secondary fixes.** (a) `setup_help/__init__.py:221` one-char typo
+> `"redcap_export"` → `"redcap_file"` (commit `94b5dc9`) closed an inverse-v6.10.2 trap
+> where SetupHelpLayer was firing on working REDCap deployments. (b)
+> `RedcapPHIScrubber._load_metadata` exception handler gains 3 regression tests on three
+> failure modes (OSError via patched `builtins.open`, non-UTF-8 raw bytes, BOM-only file
+> — third one activates a different fail-closed branch per proposal-mode auditor's
+> prediction; same fail-closed invariant verified). (c) REDCap child added to vault
+> writer's `_registered` list in `__main__.py:215` closing the v7.3.0 BORDER NOTE
+> asymmetry (vaultable_tools collected for every child except redcap).
+>
+> **Structural finding closed — option 2 landed (commit `5ba80c7`).** The v7.3.0 cascade
+> shipped with 3 VIOLATIONs because specialist agents fired on the *diff* and verified
+> new code, but each VIOLATION was an *invariant the diff implied* — existing call sites
+> that pre-existed v7.3.0 but now needed to satisfy a new contract. Three v7.3.x findings
+> demonstrate the class (consent-handler audit threading, setup_help _meta, v6.3.1
+> scrubber_id wiring). Boss chose option 2: extend `phi-irb-risk-reviewer` prompt with a
+> new mandatory "Step 1.5 — All-call-sites sweep on new invariants" pre-Step-2 procedure.
+> When a diff adds a new `audit_log` column, a new `_meta` field, a new `ChildMCP`
+> property, or any other shared-invariant change, the auditor must grep for every
+> existing call site of the invariant, diff against the diff's adds, and verify each
+> untouched site either correctly inherits the default or threads the new value.
+> Reversal condition named: if v7.4.x ships with zero defects caught by this rule, retire
+> as ceremony.
+>
+> `ci-gate-runner` SHIPPABLE: **1187/1187 pytest** (verified post-commit-7 at 87b6b24;
+> 1137 prior + 50 net new), 3 scipy-conditional skips, 82% coverage, ruff clean,
+> 76/76 security probe, CLI smoke clean. `mcp-protocol-auditor` PROTOCOL OK on all 6
+> v7.3.1 wire surfaces. `boss-report-auditor` REVISE → 10 gaps addressed.
+> `recipient-install-validator` SKIPPED per v6.11.x falsification precedent.
+> Patch bump.
+
 > **v7.3.0 (2026-05-14)** — Move 3 / Part 2: REDCap existence-proof
 > child — six-tool, three-tier REDCap-export source axis. Third
 > non-CSV source axis demonstrated by the v7.1.1 source-agnostic

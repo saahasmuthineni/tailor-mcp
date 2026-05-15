@@ -397,3 +397,129 @@ class TestSeamTopology:
 
     def test_is_a_distinct_class(self):
         assert RedcapPHIScrubber is not PHIScrubber
+
+
+# ═══════════════════════════════════════════════════════════════
+# CORRUPT METADATA — FAIL-CLOSED ACROSS THREE FAILURE MODES
+# ═══════════════════════════════════════════════════════════════
+#
+# Closes the v7.3.1 coverage regression on RedcapPHIScrubber._load_metadata
+# the bug hunt's coverage-criticality-mapper named CRITICAL: the exception
+# handler at scrubber.py:132 (now ~135 post-v7.3.1 path-placeholder edit)
+# was code-correct but had no executable test. A malformed metadata file
+# would silently activate fail-closed mode with a warning; without a test,
+# any future refactor that broke fail-closed (e.g., changing the empty-map
+# default to allowlist-all-unknowns) would land green.
+#
+# Plus a parallel test for the field_col-is-None branch at scrubber.py:116,
+# which per the proposal-mode auditor's note may activate on the BOM-only
+# fixture instead of the exception handler — encoding="utf-8-sig" strips
+# a leading BOM transparently, so a BOM-only file yields fieldnames=[]
+# and hits the column-resolution failure branch, not the parse-error one.
+
+
+class TestFailClosedOnCorruptProjectMetadata:
+    """Three failure modes; same fail-closed invariant on each.
+
+    Regression for the v7.3.0 coverage gap CRITICAL-classified by the
+    bug hunt's coverage-criticality-mapper (per ADR 0014 § "Newly-
+    uncovered code in CRITICAL or HIGH regions is COVERAGE REGRESSION
+    regardless of overall percentage"). The PHI-scrubber seam is
+    CRITICAL per ADR 0003 + ADR 0037.
+    """
+
+    def test_fail_closed_on_os_error_opening_metadata(self, tmp_path: Path, monkeypatch):
+        """OSError on open() → exception handler fires → fail closed.
+
+        Hits the exception handler at scrubber.py:135 (post-v7.3.1
+        path-substitution). OSError is the most reliable
+        cross-platform trigger for the exception handler arm of
+        (OSError, csv.Error, ValueError) — file-locked / permission-
+        denied / device-disconnected paths all surface as OSError.
+        Patches builtins.open to raise so we don't depend on
+        platform-specific permission behaviour or global csv module
+        state (the field_size_limit alternative would mutate global
+        state shared with other tests).
+        """
+        meta = tmp_path / "project_metadata.csv"
+        # Write a valid-shape file so the existence check passes; the
+        # patched open() is what makes the read fail.
+        meta.write_text("field_name,identifier\nx,\n", encoding="utf-8")
+
+        import builtins
+        original_open = builtins.open
+
+        def _raising_open(path, *args, **kwargs):
+            if str(path) == str(meta):
+                raise OSError("simulated read failure")
+            return original_open(path, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "open", _raising_open)
+        scrubber = RedcapPHIScrubber(meta)
+        assert scrubber.child_scrubber_warning is not None, (
+            "scrubber should set _warning on OSError during metadata read"
+        )
+        # Path-disclosure regression — v7.3.1 item 2 + Coupling B fix.
+        assert str(tmp_path) not in scrubber.child_scrubber_warning, (
+            f"absolute path leaked into child_scrubber_warning despite v7.3.1 "
+            f"placeholder substitution: {scrubber.child_scrubber_warning!r}"
+        )
+        assert "<configured_redcap_metadata_path>" in scrubber.child_scrubber_warning, (
+            "placeholder marker missing — v7.3.1 path-substitution regressed"
+        )
+        assert "ADR 0037" in scrubber.child_scrubber_warning, (
+            "ADR citation missing — operator-debug surface lost"
+        )
+        # Fail-closed: every unknown field is treated as identifier.
+        assert scrubber.is_identifier("any_field_name") is True
+        assert scrubber.is_identifier("phq9_score") is True
+
+    def test_fail_closed_on_non_utf8_bytes(self, tmp_path: Path):
+        """Non-UTF-8 byte sequence raises UnicodeDecodeError → fail closed.
+
+        UnicodeDecodeError is a subclass of ValueError, caught by the
+        handler at scrubber.py:132. The file is written as raw bytes
+        with a Latin-1-only character that breaks the utf-8-sig decoder.
+        """
+        meta = tmp_path / "project_metadata.csv"
+        # 0xFF on its own is invalid as a UTF-8 start byte.
+        meta.write_bytes(
+            b"field_name,form_name,field_type,identifier\n"
+            b"\xff\xff_bad_bytes,demographics,text,y\n"
+        )
+        scrubber = RedcapPHIScrubber(meta)
+        assert scrubber.child_scrubber_warning is not None
+        assert str(tmp_path) not in scrubber.child_scrubber_warning
+        assert "<configured_redcap_metadata_path>" in scrubber.child_scrubber_warning
+        assert "ADR 0037" in scrubber.child_scrubber_warning
+        # Fail-closed.
+        assert scrubber.is_identifier("anything") is True
+
+    def test_fail_closed_on_bom_only_file(self, tmp_path: Path):
+        """BOM-only file → fieldnames empty → field_col is None branch.
+
+        Per the proposal-mode auditor's prediction: encoding="utf-8-sig"
+        transparently strips a leading BOM, so a BOM-only file presents
+        an empty stream to csv.DictReader. fieldnames is None or empty;
+        _resolve_column returns None; the warning emitted is the one at
+        scrubber.py:116, NOT the parse-error handler at :132. Different
+        branch, same fail-closed invariant.
+        """
+        meta = tmp_path / "project_metadata.csv"
+        # UTF-8 BOM with no body at all.
+        meta.write_bytes(b"\xef\xbb\xbf")
+        scrubber = RedcapPHIScrubber(meta)
+        assert scrubber.child_scrubber_warning is not None, (
+            "BOM-only file should activate the field_col-is-None branch"
+        )
+        assert str(tmp_path) not in scrubber.child_scrubber_warning
+        # Path-disclosure regression: this branch's warning was also
+        # path-leaking pre-v7.3.1 per Coupling B; verify placeholder
+        # substitution holds on this branch too.
+        assert "<configured_redcap_metadata_path>" in scrubber.child_scrubber_warning, (
+            f"path placeholder missing on field_col-is-None branch warning: "
+            f"{scrubber.child_scrubber_warning!r}"
+        )
+        assert "ADR 0037" in scrubber.child_scrubber_warning
+        # Fail-closed invariant holds on this branch too.
+        assert scrubber.is_identifier("anything") is True

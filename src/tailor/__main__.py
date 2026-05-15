@@ -162,9 +162,36 @@ def cmd_serve():
     # § Amendment 2026-05-14 (child-level seam parallel to the framework-
     # level seam). Identifier flags are read from project_metadata.csv;
     # unknown fields default to identifier-positive (fail-closed).
+    #
+    # Registration wrapped in try/except mirroring the matlab_file pattern
+    # above. v7.3.0 shipped this block unguarded — a malformed
+    # `{"redcap_file": {...}}` config (e.g., missing the required `path`
+    # key) would raise ValueError during RedcapFileChild.__init__, abort
+    # the entire `tailor serve` boot with rc=1, and take down running +
+    # csv_dir + vault + local_llm alongside REDCap. v7.3.1 closes this
+    # by mirroring the matlab_file pattern: surface the failure visibly
+    # to stderr, leave other children registered.
+    redcap_child = None
     if _ucfg.get("redcap_file"):
-        from tailor.children.redcap import RedcapFileChild
-        router.register_child(RedcapFileChild(config_dir=CONFIG_DIR, data_dir=DATA_DIR))
+        try:
+            from tailor.children.redcap import RedcapFileChild
+            redcap_child = RedcapFileChild(config_dir=CONFIG_DIR, data_dir=DATA_DIR)
+            router.register_child(redcap_child)
+        except (ImportError, ValueError, OSError) as exc:
+            _banner = "=" * 60
+            sys.stderr.write(
+                f"\n{_banner}\n"
+                f"ERROR: redcap_file is configured in user_config.json but "
+                f"the child could not register.\n"
+                f"  Reason: {exc}\n"
+                f"  Fix:    ensure redcap_file.path points to an existing "
+                f"REDCap export directory.\n"
+                f"  Effect: REDCap tools NOT registered; other tools "
+                f"work normally.\n"
+                f"{_banner}\n\n"
+            )
+            sys.stderr.flush()
+            log.error(f"redcap_file registration failed: {exc}")
 
     # Predeclared so the local-LLM registration block below can read
     # vault_writer.storage without a NameError on no-vault deployments
@@ -212,6 +239,8 @@ def cmd_serve():
             _registered.append(emg_child)
         if matlab_child is not None:
             _registered.append(matlab_child)
+        if redcap_child is not None:
+            _registered.append(redcap_child)
         for _child in _registered:
             vaultable.update(getattr(_child, "vaultable_tools", []))
         # max_hr from user config (same source RunningChild reads from).

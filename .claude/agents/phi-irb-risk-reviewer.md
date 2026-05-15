@@ -104,6 +104,46 @@ For each lens × diff pair, walk:
 
 A diff that only touches `framework/vault/renderer.py` (markdown rendering) probably doesn't trigger Lenses 1, 4, 5 strongly. A diff that touches `framework/audit.py` triggers Lens 3 hard. Pre-screen.
 
+### Step 1.5 — All-call-sites sweep on new invariants (mandatory pre-Step-2)
+
+**When the diff introduces a new `audit_log` column, a new `_meta` field, a new kwarg on `AuditLog.record()`, a new property on `ChildMCP`, or any other shared-invariant change, sweep ALL existing call sites of that invariant — not only the diff-touched ones.**
+
+This rule exists because of three concrete cases on v7.3.x where this agent (and its peers) missed defects by looking only at the diff:
+
+- **v7.3.0 → v7.3.1 (consent-handler audit rows).** v7.3.0 added `child_scrubber_id` as a new `audit_log` column. The bundled fix pass threaded it into `_dispatch` and `dispatch_internal` (13 sites — all in the diff). It missed the 5 sites in `_handle_consent_approval` + `_handle_consent_revocation` because those handlers were *unchanged by the diff* but now had a new contract to satisfy. Result: REDCap consent-revocation rows silently recorded NULL despite an active child-scrubber. Caught at v7.3.1 cycle time by phi-irb + integration-auditor independently.
+- **v7.3.0 → v7.3.1 (setup_help `_meta` site).** v7.3.1 commit 2 added `child_scrubber_id` to 4 `_meta` stamping sites in `router.py`. It missed a 5th site at `router.py:1087` in `_dispatch_setup_help` because the dispatch-path enumeration looked at where `_meta` was added in the diff, not at the corpus's full enumeration of 5 sites. Caught by boss-report-auditor adversarial pairing on the draft.
+- **v6.3.1 (scrubber.scrubber_id wiring).** v6.2.0 added `scrubber_id` as a new column. v6.3.1 closed an "ADR 0003 doc-lie" by wiring it into the audit row — but only on the dispatch path. The phi-irb-risk-reviewer at the time would have benefited from this rule explicitly enumerated.
+
+**Sweep procedure when the diff adds a new column / invariant:**
+
+```bash
+# After git diff identifies the new column / invariant name (e.g. child_scrubber_id):
+
+# 1. Find EVERY callsite of the function that takes the new kwarg
+grep -nE 'audit\.record\(|self\._audit\.record\(' src/tailor/framework/ -r
+
+# 2. Diff that list against the diff's adds — find the call sites
+#    that were NOT touched but should now thread the new kwarg
+git diff <base>...HEAD -- src/tailor/framework/router.py | grep -E 'audit\.record'
+
+# 3. For each call site NOT in the diff: read the surrounding code.
+#    Does the new invariant apply? If yes, NOT threading it is a
+#    bug, even though the diff "looks correct." File as VIOLATION
+#    if the missed sites are IRB-relevant (consent events, audit
+#    completeness, PHI scrubber identity). File as WATCH if the
+#    miss is on a less-load-bearing path.
+
+# Same procedure applies to new _meta fields:
+grep -nE 'result\["_meta"\]\s*=\s*\{|outer_meta\s*[:=]\s*\{' src/tailor/framework/ -r
+# ...vs the diff's _meta additions.
+
+# Same for new properties on ChildMCP that all children must override or inherit:
+grep -nE 'class \w+Child\(ChildMCP\)' src/tailor/children/ -r
+# ...and verify each child either inherits the ABC default or overrides correctly.
+```
+
+**Flag every missed call site as a VIOLATION (if IRB-relevant) or WATCH (otherwise) — do NOT treat "looks correct in the diff" as evidence of correctness when the change introduces a new shared invariant.**
+
 ### Step 2 — Run the lens probes
 
 For each applicable lens, do `grep` or read the new file content. Examples:

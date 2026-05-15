@@ -46,9 +46,20 @@ def test_demo_blocks_absent_on_strava_only_config():
 
 @pytest.mark.parametrize("scaffolded_key", [
     "force_csv", "emg_csv", "csv_dir", "vault_path",
+    "matlab_file", "redcap_file",
 ])
 def test_demo_blocks_present_disables_diagnostic(scaffolded_key):
     cfg = {scaffolded_key: "/some/path"}
+    assert _demo_blocks_absent(cfg) is False
+
+
+def test_redcap_file_block_disables_setup_help_diagnostic():
+    cfg = {"redcap_file": {"path": "/tmp/redcap"}}
+    assert _demo_blocks_absent(cfg) is False
+
+
+def test_matlab_file_block_disables_setup_help_diagnostic():
+    cfg = {"matlab_file": {"path": "/tmp/matlab"}}
     assert _demo_blocks_absent(cfg) is False
 
 
@@ -210,6 +221,19 @@ async def test_dispatch_setup_help_writes_audit_row(router_with_setup_help, tmp_
     assert payload["_meta"]["domain"] == "setup_help"
     assert payload["_meta"]["tier"] == 1
     assert payload["_meta"]["scrubber_id"]
+    # v7.3.1: child_scrubber_id must be present-but-None on framework-level
+    # layers (parallel to vault + local_llm; no child in scope).  Regression
+    # guard for the boss-report-auditor G8 finding — setup_help was the 5th
+    # _meta site initially missed when items 1 + 6 of v7.3.1 landed.
+    assert "child_scrubber_id" in payload["_meta"], (
+        f"setup_help _meta missing child_scrubber_id key. "
+        f"v7.3.1 G8 regression — keys present: "
+        f"{sorted(payload['_meta'].keys())}"
+    )
+    assert payload["_meta"]["child_scrubber_id"] is None, (
+        f"setup_help is a framework-level layer with no child; "
+        f"got {payload['_meta']['child_scrubber_id']!r}"
+    )
 
     # Audit row must record domain="setup_help" with subject_id=None
     # (server-state diagnostic; not per-subject).

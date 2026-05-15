@@ -685,9 +685,18 @@ class TestDemoBlocksAbsentContract:
         """New key: matlab_file block must suppress SetupHelpLayer."""
         assert self._predicate({"matlab_file": {"path": "/tmp/mat"}}) is False
 
-    def test_redcap_export_returns_false(self) -> None:
-        """New key: redcap_export block must suppress SetupHelpLayer."""
-        assert self._predicate({"redcap_export": {"path": "/tmp/rc"}}) is False
+    def test_redcap_file_returns_false(self) -> None:
+        """redcap_file block must suppress SetupHelpLayer.
+
+        Pre-v7.3.1 this test referenced the typo key ``redcap_export``
+        that lived in ``keys_signalling_scaffold`` at the same time
+        the actual REDCap config key was ``redcap_file``. The bug hunt's
+        integration-auditor caught the cross-file mismatch; commit 1 of
+        v7.3.1 fixed the source and the primary regression in
+        ``tests/framework/test_setup_help_layer.py``. This duplicate test
+        is now corrected to match the source.
+        """
+        assert self._predicate({"redcap_file": {"path": "/tmp/rc"}}) is False
 
     def test_falsy_matlab_file_value_returns_true(self) -> None:
         """Falsy matlab_file values (None, empty string, empty dict) should NOT

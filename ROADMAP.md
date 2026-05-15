@@ -671,6 +671,24 @@ prior roadmap revisions per the same historical-preservation principle
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
 
+### Shipped in v7.3.1 (2026-05-15)
+
+- **Commit 1/8 — `child_scrubber_id` threaded into consent-handler audit rows** (`framework/router.py:1281, 1334, 1359, 1395, 1401`): 5 missed sites from the v7.3.0 banner claim; VIOLATION-class (banner-claim falsification 1). 5 new unit tests + wire-side verifier `TestW3ConsentAuditRowsThreadChildScrubberId`.
+- **Commit 2/8 — `child_scrubber_id` surfaced in `_meta` across 4 dispatch sites** (child dispatch:711, vault layer:801, local_llm layer:986, dispatch_internal:1240); WATCH (b) closure from v7.3.0 banner.
+- **Commit 3/8 — PHI Safe Harbor path-placeholder surface reduction** (`redcap/child.py` 11 sites + `redcap/scrubber.py` 3 sites): raw filesystem paths → `<configured_redcap_path>` placeholders in LLM transcript + audit error column; full paths retained in stderr `log.warning` only. HIPAA Safe Harbor §164.514(b)(2)(i)(B + R).
+- **Commit 4/8 — REDCap registration guard** (`__main__.py`): try/except wrapper mirrors matlab pattern; malformed `redcap_file` config no longer aborts `tailor serve` rc=1; VIOLATION-class (banner-claim falsification 2). Subprocess regression test + wire-side `TestW4MisconfiguredRedcapBoots`.
+- **Commit 5/8 — `setup_help/__init__.py:221` typo fix** `"redcap_export"` → `"redcap_file"`: inverse-v6.10.2 trap where SetupHelpLayer was firing on working REDCap deployments. HIGH severity.
+- **Commit 6/8 — 18 v7.3.1 wire-level regression tests** in `tests/test_serve_v731_wire_audit.py`: W1 (audit row schema), W2 (child_scrubber_id non-null), W3 (consent audit threading), W4 (misconfigured REDCap boots), W5 (path placeholder in error), W6 (child_scrubber_id in _meta).
+- **Commit 7/8 — `setup_help` `_meta` site (5/5) + `RedcapPHIScrubber._load_metadata` 3 failure-mode tests + REDCap vault-writer registration**: setup_help site discovered by boss-report-auditor G8 while auditing the v7.3.1 banner draft; concrete evidence option-2 structural closure works. REDCap child added to vault writer `_registered` list closing BORDER NOTE asymmetry.
+- **Commit 8/8 — phi-irb-risk-reviewer prompt extended with Step 1.5 all-call-sites sweep rule**: structural gate-composition gap closure (option 2). When a diff adds a new `audit_log` column, `_meta` field, `ChildMCP` property, or other shared-invariant change, auditor must grep every existing call site and verify each untouched site either correctly inherits the default or threads the new value. Reversal condition named.
+
+**Deferred to v7.3.2:**
+- PHI WATCH items 1–8 (project_metadata.csv trust-root hash-stamp; small-cell suppression threshold for redcap_summary_report top_values; consent-handler audit `child_scrubber_id` back-fill migration for pre-v7.3.1 audit DBs; redcap_cohort_summary group-key cardinality suppression; redcap_records instrument boundary enforcement test; ADR 0037 retention-category documentation; redcap_raw_records cost-gate calibration)
+- Doc-truth items (ROADMAP at-a-glance table REDCap row; README source-agnostic claim update for v7.3.1 fixes)
+- Coverage debt (dispatch_internal error-path coverage; setup_help _meta site coverage; RedcapPHIScrubber edge-case coverage)
+- Integration [S3] finding (redcap_cohort_summary cross-event grouping ambiguity)
+- Reproducibility NEEDS REVIEW items (redcap_processing stateless verification; scrubber determinism attestation)
+
 ### Shipped in v7.3.0 (2026-05-14)
 
 - **New `src/tailor/children/redcap/` package — `RedcapFileChild`** (Move 3 / Part 2 per [ADR 0037](docs/adr/0037-redcap-child-scope-export-directory-only-with-deferred-live-api.md)) exposes six tools across all three tiers, matching the csv_dir / matlab_file shape: `redcap_list_records`, `redcap_record_detail`, `redcap_summary_report`, `redcap_cohort_summary` (Tier 1); `redcap_records` (Tier 2 — `instrument` is a required parameter per the R2 ratified decision, not optional); `redcap_raw_records` (Tier 3). Cohort surface ships in v1 using the ADR 0015 `metadata.json` sidecar pattern unchanged. Opt-in via `redcap_file` block in `user_config.json`; default deployments behaviourally unchanged. Stdlib-only — no new optional extras (contrast with v7.2.0's `[matlab]` extra); lean three-dep base install posture preserved.

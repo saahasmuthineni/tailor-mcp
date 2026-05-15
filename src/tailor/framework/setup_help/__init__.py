@@ -218,7 +218,7 @@ def _demo_blocks_absent(user_config: dict) -> bool:
     """
     keys_signalling_scaffold = (
         "force_csv", "emg_csv", "csv_dir", "vault_path",
-        "matlab_file", "redcap_export",
+        "matlab_file", "redcap_file",
     )
     return not any(user_config.get(key) for key in keys_signalling_scaffold)
 

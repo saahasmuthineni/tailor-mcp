@@ -523,3 +523,228 @@ class TestFailClosedOnCorruptProjectMetadata:
         assert "ADR 0037" in scrubber.child_scrubber_warning
         # Fail-closed invariant holds on this branch too.
         assert scrubber.is_identifier("anything") is True
+
+
+# ═══════════════════════════════════════════════════════════════
+# TRUST-ROOT FINGERPRINT (ADR 0003 § Amendment 2026-05-15)
+# ═══════════════════════════════════════════════════════════════
+#
+# The fingerprint is a cryptographic provenance primitive over the
+# canonical-form rendering of (field_name, identifier_flag) tuples.
+# It records the trust-root state the scrubber was constructed
+# against — an IRB auditor reconstructing "which calls ran under
+# which state" queries by hash.
+#
+# Properties under test:
+#  1. Deterministic — same map → same fingerprint across runs.
+#  2. Canonical-form invariance — whitespace / CRLF / BOM round-trips
+#     do not trip the fingerprint (only flag content matters).
+#  3. Sensitivity — flag flips and field additions/removals DO trip.
+#  4. Empty-state attestation — missing or unparseable metadata
+#     produces a deterministic fingerprint over the empty map.
+#  5. canonical_state — sorted view used by `tailor redcap reattest`.
+
+
+class TestProjectMetadataFingerprint:
+    """Per ADR 0003 § Amendment 2026-05-15."""
+
+    def test_fingerprint_is_deterministic(self, tmp_path: Path):
+        """Same metadata content → same fingerprint, across instances."""
+        (tmp_path / "a").mkdir()
+        (tmp_path / "b").mkdir()
+        meta1 = _write_snake_case_metadata(tmp_path / "a")
+        meta2 = _write_snake_case_metadata(tmp_path / "b")
+        a = RedcapPHIScrubber(meta1)
+        b = RedcapPHIScrubber(meta2)
+        assert a.fingerprint == b.fingerprint
+
+    def test_fingerprint_is_sha256_hex(self, tmp_path: Path):
+        scrubber = RedcapPHIScrubber(_write_snake_case_metadata(tmp_path))
+        # 64 hex chars = SHA-256.
+        assert len(scrubber.fingerprint) == 64
+        assert all(c in "0123456789abcdef" for c in scrubber.fingerprint)
+
+    def test_fingerprint_invariant_under_bom_round_trip(self, tmp_path: Path):
+        """A file saved by Excel/PowerShell with a UTF-8 BOM prefix
+        must produce the SAME fingerprint as the same file without the
+        BOM. v6.9.2's utf-8-sig migration handles BOM transparently;
+        the canonical-form fingerprint must inherit that property —
+        otherwise legitimate Excel round-trips trip false alarms."""
+        bom_dir = tmp_path / "bom"
+        no_bom_dir = tmp_path / "no_bom"
+        bom_dir.mkdir()
+        no_bom_dir.mkdir()
+        body = (
+            SNAKE_CASE_HEADER
+            + "record_id,demographics,text,\n"
+            + "participant_name,demographics,text,y\n"
+            + "sex,demographics,radio,\n"
+        )
+        # No-BOM file:
+        (no_bom_dir / "project_metadata.csv").write_text(body, encoding="utf-8")
+        # BOM-prefixed file (the byte sequence Excel emits on Windows):
+        (bom_dir / "project_metadata.csv").write_bytes(
+            b"\xef\xbb\xbf" + body.encode("utf-8")
+        )
+        a = RedcapPHIScrubber(no_bom_dir / "project_metadata.csv")
+        b = RedcapPHIScrubber(bom_dir / "project_metadata.csv")
+        assert a.fingerprint == b.fingerprint, (
+            "BOM-round-trip tripped the fingerprint — canonical-form "
+            "invariant broken"
+        )
+
+    def test_fingerprint_invariant_under_crlf_round_trip(self, tmp_path: Path):
+        """A file saved by a Windows editor uses CRLF; a Unix editor
+        uses LF. The canonical-form fingerprint MUST be invariant —
+        line endings are not semantically loadbearing."""
+        lf_dir = tmp_path / "lf"
+        crlf_dir = tmp_path / "crlf"
+        lf_dir.mkdir()
+        crlf_dir.mkdir()
+        body_lf = (
+            SNAKE_CASE_HEADER
+            + "record_id,demographics,text,\n"
+            + "sex,demographics,radio,\n"
+        )
+        body_crlf = body_lf.replace("\n", "\r\n")
+        (lf_dir / "project_metadata.csv").write_text(body_lf, encoding="utf-8")
+        (crlf_dir / "project_metadata.csv").write_text(body_crlf, encoding="utf-8")
+        a = RedcapPHIScrubber(lf_dir / "project_metadata.csv")
+        b = RedcapPHIScrubber(crlf_dir / "project_metadata.csv")
+        assert a.fingerprint == b.fingerprint, (
+            "CRLF/LF round-trip tripped the fingerprint — canonical-form "
+            "invariant broken"
+        )
+
+    def test_fingerprint_changes_on_identifier_flag_flip(self, tmp_path: Path):
+        """The structural attack the fingerprint defends against — an
+        operator (or compromised process) flips an identifier flag
+        from Y to N to disable scrubbing. MUST trip the fingerprint."""
+        flipped_dir = tmp_path / "flipped"
+        original_dir = tmp_path / "original"
+        flipped_dir.mkdir()
+        original_dir.mkdir()
+        original_body = (
+            SNAKE_CASE_HEADER
+            + "participant_name,demographics,text,y\n"
+            + "sex,demographics,radio,\n"
+        )
+        flipped_body = (
+            SNAKE_CASE_HEADER
+            + "participant_name,demographics,text,\n"  # y → blank
+            + "sex,demographics,radio,\n"
+        )
+        (original_dir / "project_metadata.csv").write_text(
+            original_body, encoding="utf-8",
+        )
+        (flipped_dir / "project_metadata.csv").write_text(
+            flipped_body, encoding="utf-8",
+        )
+        a = RedcapPHIScrubber(original_dir / "project_metadata.csv")
+        b = RedcapPHIScrubber(flipped_dir / "project_metadata.csv")
+        assert a.fingerprint != b.fingerprint, (
+            "identifier flag flip did NOT trip the fingerprint — the "
+            "primitive does not detect the structural attack it exists "
+            "to defend against"
+        )
+
+    def test_fingerprint_changes_on_field_addition(self, tmp_path: Path):
+        """A new field added to project_metadata.csv (the common
+        legitimate mid-enrollment edit — adding a new instrument's
+        fields) MUST trip the fingerprint so the operator is forced
+        through the reattest ritual rather than the change going
+        silent."""
+        before_dir = tmp_path / "before"
+        after_dir = tmp_path / "after"
+        before_dir.mkdir()
+        after_dir.mkdir()
+        before_body = SNAKE_CASE_HEADER + "sex,demographics,radio,\n"
+        after_body = (
+            SNAKE_CASE_HEADER
+            + "sex,demographics,radio,\n"
+            + "phq9_q1,phq9,radio,\n"
+        )
+        (before_dir / "project_metadata.csv").write_text(before_body, encoding="utf-8")
+        (after_dir / "project_metadata.csv").write_text(after_body, encoding="utf-8")
+        a = RedcapPHIScrubber(before_dir / "project_metadata.csv")
+        b = RedcapPHIScrubber(after_dir / "project_metadata.csv")
+        assert a.fingerprint != b.fingerprint
+
+    def test_fingerprint_invariant_under_row_reordering(self, tmp_path: Path):
+        """Same fields with the same flags but different row order
+        produce the same fingerprint — the canonical form is sorted
+        by field name. (The data dictionary's row order is a REDCap
+        UI convenience, not part of the trust root.)"""
+        order_a_dir = tmp_path / "a"
+        order_b_dir = tmp_path / "b"
+        order_a_dir.mkdir()
+        order_b_dir.mkdir()
+        order_a_body = (
+            SNAKE_CASE_HEADER
+            + "sex,demographics,radio,\n"
+            + "participant_name,demographics,text,y\n"
+        )
+        order_b_body = (
+            SNAKE_CASE_HEADER
+            + "participant_name,demographics,text,y\n"
+            + "sex,demographics,radio,\n"
+        )
+        (order_a_dir / "project_metadata.csv").write_text(order_a_body, encoding="utf-8")
+        (order_b_dir / "project_metadata.csv").write_text(order_b_body, encoding="utf-8")
+        a = RedcapPHIScrubber(order_a_dir / "project_metadata.csv")
+        b = RedcapPHIScrubber(order_b_dir / "project_metadata.csv")
+        assert a.fingerprint == b.fingerprint
+
+    def test_fingerprint_excludes_allowlist(self, tmp_path: Path):
+        """The unknown_field_allowlist is a per-deployment operator
+        setting (user_config.json), NOT part of the trust root
+        (project_metadata.csv is the IRB-attested artifact). Two
+        scrubbers loading the same metadata file with different
+        allowlists must produce the same fingerprint."""
+        meta = _write_snake_case_metadata(tmp_path)
+        with_allowlist = RedcapPHIScrubber(meta, unknown_field_allowlist=["foo"])
+        without_allowlist = RedcapPHIScrubber(meta, unknown_field_allowlist=[])
+        assert with_allowlist.fingerprint == without_allowlist.fingerprint
+
+    def test_fingerprint_deterministic_on_missing_metadata(self, tmp_path: Path):
+        """A scrubber constructed against a missing project_metadata.csv
+        has an empty identifier_map; its fingerprint MUST be
+        deterministic so the reattest ritual can detect the
+        no-metadata state cryptographically (rather than treating it
+        as 'no fingerprint to compare')."""
+        a = RedcapPHIScrubber(tmp_path / "a" / "missing.csv")
+        b = RedcapPHIScrubber(tmp_path / "b" / "missing.csv")
+        # Both have empty identifier_map → both have the same
+        # canonical-form (the empty-string SHA-256).
+        import hashlib
+        assert a.fingerprint == b.fingerprint
+        assert a.fingerprint == hashlib.sha256(b"").hexdigest()
+
+
+class TestCanonicalState:
+    """The sorted view used by `tailor redcap reattest`."""
+
+    def test_returns_sorted_field_flag_tuples(self, tmp_path: Path):
+        meta = _write_snake_case_metadata(tmp_path)
+        scrubber = RedcapPHIScrubber(meta)
+        state = scrubber.canonical_state
+        # Sorted by field name.
+        names = [name for name, _ in state]
+        assert names == sorted(names)
+        # Each entry is (str, bool).
+        for name, flag in state:
+            assert isinstance(name, str)
+            assert isinstance(flag, bool)
+
+    def test_identifier_flag_matches_is_known_identifier(self, tmp_path: Path):
+        meta = _write_snake_case_metadata(tmp_path)
+        scrubber = RedcapPHIScrubber(meta)
+        for name, flag in scrubber.canonical_state:
+            assert flag == scrubber.is_known_identifier(name), (
+                f"canonical_state's flag for {name} disagrees with "
+                f"is_known_identifier — the views should be consistent"
+            )
+
+    def test_empty_on_missing_metadata(self, tmp_path: Path):
+        scrubber = RedcapPHIScrubber(tmp_path / "missing.csv")
+        assert scrubber.canonical_state == []

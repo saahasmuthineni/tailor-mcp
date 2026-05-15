@@ -262,6 +262,33 @@ erasure — would need a fourth disposition for oracle audit rows;
 the framework does not provide one today and does not pre-empt
 the decision.
 
+A fourth retention category, codified by [ADR 0003 § Amendment
+2026-05-15](../adr/0003-phi-scrubber-seam.md), sits alongside the
+three above: **trust-root attestation rows**. Every REDCap-touching
+audit row carries the SHA-256 fingerprint of `project_metadata.csv`
+(the IRB-attested data dictionary that drives `RedcapPHIScrubber`'s
+identifier flags) in the `source_metadata_fingerprint` column.
+`REATTEST` outcome rows additionally record an operator's confirmation
+that a legitimate edit to `project_metadata.csv` was made (typically
+the addition of a new instrument's fields mid-enrollment). Trust-root
+rows are append-only by ADR 0001 design; they survive consent
+revocation in the same posture analyst-authored notes do (work
+product), not in the posture biometric cache does (purged) — the
+fingerprint is provenance of *which scrubber policy state* a call
+ran under, not biometric data of any participant. An IRB reviewer
+reconstructing "which calls ran under which trust-root state" queries
+this column directly:
+`SELECT * FROM audit_log WHERE source_metadata_fingerprint = '...'`
+returns every disclosure made under that attested policy state.
+Mismatch failures (the on-disk file diverged from the cached
+attestation) land as `outcome="ERROR"` rows whose `error` column
+carries both fingerprints in a parseable `fingerprint_at_boot=...
+fingerprint_on_disk=...` shape — queryable via
+`error LIKE 'REDCAP_METADATA_FINGERPRINT_MISMATCH:%'`. The
+framework does not erase trust-root rows on consent revocation and
+does not pre-empt that decision; studies whose IRB language requires
+attestation-log erasure on withdrawal would need a fifth disposition.
+
 ## Other framings explicitly out of scope today
 
 Two larger framings remain open and will be addressed in a later

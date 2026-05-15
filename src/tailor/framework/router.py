@@ -449,6 +449,7 @@ class RouterMCP:
                 error=err, subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 child_scrubber_id=child.child_scrubber_id,
+                source_metadata_fingerprint=child.child_source_metadata_fingerprint,
             )
             return [TextContent(type="text", text=_dumps({"error": err}))]
 
@@ -462,6 +463,7 @@ class RouterMCP:
                 error=cb_err, subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 child_scrubber_id=child.child_scrubber_id,
+                source_metadata_fingerprint=child.child_source_metadata_fingerprint,
             )
             return [TextContent(type="text", text=_dumps({"error": cb_err}))]
 
@@ -474,6 +476,7 @@ class RouterMCP:
                     subject_id=subject_id,
                     scrubber_id=self._phi_scrubber.scrubber_id,
                     child_scrubber_id=child.child_scrubber_id,
+                source_metadata_fingerprint=child.child_source_metadata_fingerprint,
                 )
                 ci = child.consent_info
                 scope = ci.scope
@@ -556,6 +559,7 @@ class RouterMCP:
                     error=str(e), subject_id=subject_id,
                     scrubber_id=self._phi_scrubber.scrubber_id,
                     child_scrubber_id=child.child_scrubber_id,
+                source_metadata_fingerprint=child.child_source_metadata_fingerprint,
                 )
                 log.warning(f"Cost estimation failed for {tool_name}: {e}")
                 return [
@@ -584,6 +588,7 @@ class RouterMCP:
                     subject_id=subject_id,
                     scrubber_id=self._phi_scrubber.scrubber_id,
                     child_scrubber_id=child.child_scrubber_id,
+                source_metadata_fingerprint=child.child_source_metadata_fingerprint,
                 )
 
                 # Human-relatable cost context
@@ -673,6 +678,7 @@ class RouterMCP:
                 # scrubber was configured at this call site, per
                 # ADR 0003 § Amendment 2026-05-14 + ADR 0037.
                 child_scrubber_id=child.child_scrubber_id,
+                source_metadata_fingerprint=child.child_source_metadata_fingerprint,
             )
 
             # ── Post-execute hooks (e.g. VaultWriter) ──
@@ -718,6 +724,7 @@ class RouterMCP:
                     "called_at": datetime.now(timezone.utc).isoformat(),
                     "scrubber_id": self._phi_scrubber.scrubber_id,
                     "child_scrubber_id": child.child_scrubber_id,
+                    "source_metadata_fingerprint": child.child_source_metadata_fingerprint,
                 }
                 if self._phi_scrubber.scrubber_warning is not None:
                     result["_meta"]["scrubber_warning"] = self._phi_scrubber.scrubber_warning
@@ -737,6 +744,7 @@ class RouterMCP:
                 error=str(e), subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 child_scrubber_id=child.child_scrubber_id,
+                source_metadata_fingerprint=child.child_source_metadata_fingerprint,
             )
             log.error(f"Tool {tool_name} failed: {e}", exc_info=True)
             return [TextContent(type="text", text=_dumps({"error": str(e)}))]
@@ -779,6 +787,7 @@ class RouterMCP:
                 "vault", tool_name, tier, arguments, 0, "PARAM_INVALID", 0,
                 error=err, subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
             )
             return [TextContent(type="text", text=_dumps({"error": err}))]
 
@@ -795,6 +804,7 @@ class RouterMCP:
                 "vault", tool_name, tier, cleaned, tokens, "SUCCESS", duration_ms,
                 subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
             )
 
             if isinstance(result, dict):
@@ -808,6 +818,7 @@ class RouterMCP:
                     "called_at": datetime.now(timezone.utc).isoformat(),
                     "scrubber_id": self._phi_scrubber.scrubber_id,
                     "child_scrubber_id": None,
+                    "source_metadata_fingerprint": None,
                     **(
                         {"scrubber_warning": self._phi_scrubber.scrubber_warning}
                         if self._phi_scrubber.scrubber_warning is not None
@@ -823,6 +834,7 @@ class RouterMCP:
                 "vault", tool_name, tier, cleaned, 0, "ERROR", duration_ms,
                 error=str(e), subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
             )
             log.error(f"Vault tool {tool_name} failed: {e}", exc_info=True)
             return [TextContent(type="text", text=_dumps({"error": str(e)}))]
@@ -877,6 +889,7 @@ class RouterMCP:
                 "local_llm", tool_name, tier, arguments, 0, "PARAM_INVALID", 0,
                 error=err, subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
             )
             return [TextContent(type="text", text=_dumps({"error": err}))]
 
@@ -968,6 +981,12 @@ class RouterMCP:
                 duration_ms,
                 subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
+                # Explicit None per the v7.3.1 all-call-sites-sweep
+                # rule and mcp-protocol-auditor 2026-05-15 GAP finding —
+                # local_llm has no child-level scrubber so the value is
+                # None by construction; the explicit kwarg keeps every
+                # SUCCESS audit row consistent under the sweep.
+                source_metadata_fingerprint=None,
                 oracle_model_id=oracle_meta_for_audit.get("model_id"),
                 oracle_model_version_hash=oracle_meta_for_audit.get(
                     "model_version_hash"
@@ -995,6 +1014,7 @@ class RouterMCP:
                     "called_at": datetime.now(timezone.utc).isoformat(),
                     "scrubber_id": self._phi_scrubber.scrubber_id,
                     "child_scrubber_id": None,
+                    "source_metadata_fingerprint": None,
                 }
                 if self._phi_scrubber.scrubber_warning is not None:
                     outer_meta["scrubber_warning"] = (
@@ -1012,6 +1032,7 @@ class RouterMCP:
                 "local_llm", tool_name, tier, cleaned, 0, "ERROR", duration_ms,
                 error=str(e), subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
             )
             log.error(
                 f"Local-LLM tool {tool_name} failed: {e}", exc_info=True,
@@ -1058,6 +1079,7 @@ class RouterMCP:
                 "PARAM_INVALID", 0,
                 error=err, subject_id=None,
                 scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
             )
             return [TextContent(type="text", text=_dumps({"error": err}))]
 
@@ -1073,6 +1095,7 @@ class RouterMCP:
                 "SUCCESS", duration_ms,
                 subject_id=None,
                 scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
             )
 
             if isinstance(result, dict):
@@ -1086,6 +1109,7 @@ class RouterMCP:
                     "called_at": datetime.now(timezone.utc).isoformat(),
                     "scrubber_id": self._phi_scrubber.scrubber_id,
                     "child_scrubber_id": None,
+                    "source_metadata_fingerprint": None,
                 }
                 if self._phi_scrubber.scrubber_warning is not None:
                     outer_meta["scrubber_warning"] = (
@@ -1102,6 +1126,7 @@ class RouterMCP:
                 "ERROR", duration_ms,
                 error=str(e), subject_id=None,
                 scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
             )
             log.error(
                 f"Setup-help tool {tool_name} failed: {e}", exc_info=True,
@@ -1150,6 +1175,7 @@ class RouterMCP:
                 error=err, subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 child_scrubber_id=child.child_scrubber_id,
+                source_metadata_fingerprint=child.child_source_metadata_fingerprint,
             )
             return {"error": err}
 
@@ -1163,6 +1189,7 @@ class RouterMCP:
                 error=cb_err, subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 child_scrubber_id=child.child_scrubber_id,
+                source_metadata_fingerprint=child.child_source_metadata_fingerprint,
             )
             return {"error": cb_err}
 
@@ -1175,6 +1202,7 @@ class RouterMCP:
                     subject_id=subject_id,
                     scrubber_id=self._phi_scrubber.scrubber_id,
                     child_scrubber_id=child.child_scrubber_id,
+                source_metadata_fingerprint=child.child_source_metadata_fingerprint,
                 )
                 return {"error": f"Consent not approved for domain '{domain}'"}
 
@@ -1191,6 +1219,7 @@ class RouterMCP:
                     error=str(exc), subject_id=subject_id,
                     scrubber_id=self._phi_scrubber.scrubber_id,
                     child_scrubber_id=child.child_scrubber_id,
+                source_metadata_fingerprint=child.child_source_metadata_fingerprint,
                 )
                 log.warning(
                     f"Internal dispatch: cost estimation failed for {tool_name}: {exc}"
@@ -1210,6 +1239,7 @@ class RouterMCP:
                     subject_id=subject_id,
                     scrubber_id=self._phi_scrubber.scrubber_id,
                     child_scrubber_id=child.child_scrubber_id,
+                source_metadata_fingerprint=child.child_source_metadata_fingerprint,
                 )
                 return {"error": f"Cost gate: {cost_est.tokens} tokens exceeds threshold"}
 
@@ -1235,6 +1265,7 @@ class RouterMCP:
                 # scrubber was configured at this call site, per
                 # ADR 0003 § Amendment 2026-05-14 + ADR 0037.
                 child_scrubber_id=child.child_scrubber_id,
+                source_metadata_fingerprint=child.child_source_metadata_fingerprint,
             )
             # No post-execute hooks — caller manages side effects.
             # Stamp _meta so internal dispatch results carry the same
@@ -1251,6 +1282,7 @@ class RouterMCP:
                     "called_at": datetime.now(timezone.utc).isoformat(),
                     "scrubber_id": self._phi_scrubber.scrubber_id,
                     "child_scrubber_id": child.child_scrubber_id,
+                    "source_metadata_fingerprint": child.child_source_metadata_fingerprint,
                     "source": "INTERNAL",
                 }
                 if self._phi_scrubber.scrubber_warning is not None:
@@ -1265,6 +1297,7 @@ class RouterMCP:
                 error=str(e), subject_id=subject_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 child_scrubber_id=child.child_scrubber_id,
+                source_metadata_fingerprint=child.child_source_metadata_fingerprint,
             )
             log.error(f"Internal dispatch {tool_name} failed: {e}", exc_info=True)
             return {"error": str(e)}
@@ -1286,6 +1319,7 @@ class RouterMCP:
             domain, tool_name, 0, {}, 0, "SUCCESS", 0,
             scrubber_id=self._phi_scrubber.scrubber_id,
             child_scrubber_id=child.child_scrubber_id,
+            source_metadata_fingerprint=child.child_source_metadata_fingerprint,
         )
         return [
             TextContent(
@@ -1340,6 +1374,7 @@ class RouterMCP:
                 domain, tool_name, 0, {}, 0, "SUCCESS", 0,
                 scrubber_id=scrubber_id,
                 child_scrubber_id=child.child_scrubber_id,
+                source_metadata_fingerprint=child.child_source_metadata_fingerprint,
             )
             return [
                 TextContent(
@@ -1366,6 +1401,7 @@ class RouterMCP:
                 0, "PURGE_FAILED", 0,
                 error=str(exc), scrubber_id=scrubber_id,
                 child_scrubber_id=child.child_scrubber_id,
+                source_metadata_fingerprint=child.child_source_metadata_fingerprint,
             )
             log.error(
                 f"purge_cache failed for {domain}; revocation aborted "
@@ -1403,12 +1439,14 @@ class RouterMCP:
             0, "PURGE_CACHE", 0,
             scrubber_id=scrubber_id,
             child_scrubber_id=child.child_scrubber_id,
+            source_metadata_fingerprint=child.child_source_metadata_fingerprint,
         )
         self._audit.record(
             domain, tool_name, 0, {"force_revoke": force_revoke},
             0, "SUCCESS", 0,
             scrubber_id=scrubber_id,
             child_scrubber_id=child.child_scrubber_id,
+            source_metadata_fingerprint=child.child_source_metadata_fingerprint,
         )
         return [
             TextContent(

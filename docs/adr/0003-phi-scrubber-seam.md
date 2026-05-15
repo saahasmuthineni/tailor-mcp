@@ -142,3 +142,62 @@ Per [ADR 0011](0011-promotion-policy.md), if a **third** structured-PHI child wa
 ### What is unchanged
 
 The framework-level scrubber seam codified by this ADR's Decision section is preserved verbatim. The no-op default still emits its one-time warning on first construction. The `scrubber_warning` field continues to surface in `_meta` for the no-op deployment. This ADR's original load-bearing claim — *the framework cannot define what PHI means generically* — is the same claim today. The new child-level seam is policy-**aware-by-input**, not policy-baked-in; the framework's authority boundary is unchanged.
+
+## Amendment 2026-05-15 — Trust-root attestation seam + small-cell suppression posture
+
+Triggered by the v7.3.0 release banner's WATCH (a) and (c) findings deferred from v7.3.1 and addressed in v7.3.2.
+
+### The two concerns this amendment ratifies
+
+**Trust-root attestation seam.** A child-level scrubber that reads a structured input from disk (the v7.3.0 amendment's case) inherits the trust-root of that input. For `RedcapPHIScrubber` the trust root is `project_metadata.csv` and its `identifier=yes/no` flags. A tampered metadata file with every flag flipped from `Y` to `N` would render the scrubber a no-op — the existing seam has no cryptographic provenance recording *which state* of the trust root was in force when the scrubber ran. This amendment ships the seam that records it. It is **not** a tamper-prevention mechanism (the framework cannot prevent the operator from editing a file on their own machine); it is a **tamper-attribution** mechanism (an IRB auditor reconstructing what state was in force for a given call queries the fingerprint by hash, not by trust).
+
+**Small-cell suppression posture.** A child-level scrubber that emits aggregate sample-count surfaces (REDCap's `top_values`, REDCap's `cohort_summary` group counts; future EDF channel-occupancy counts; FHIR resource-cardinality counts) can re-identify on low-cardinality non-identifier-flagged fields even when the identifier seam is correctly configured. A study with N=3 sites discloses site-level identity through cohort group counts directly. The framework ships **k-anonymity threshold suppression** as a seam, with a default-with-warning posture matching ADR 0003's existing scrubber-warning pattern.
+
+### The trust-root fingerprint seam — decision
+
+- Every child-level scrubber that reads a structured metadata input from disk exposes a **`fingerprint` property**. The property returns a hex string (SHA-256) computed at scrubber construction time over a **canonical-form** rendering of the loaded metadata, not the raw file bytes.
+- "Canonical form" means a deterministic serialization of the *semantically-loadbearing* content the scrubber actually relies on — for `RedcapPHIScrubber`, sorted `(field_name, identifier_flag)` tuples joined by a fixed separator and UTF-8 encoded. Whitespace, BOM markers, CRLF/LF flips, and column reordering do **not** trip the fingerprint; flag flips and field additions/removals do.
+- The framework adds a new `audit_log.source_metadata_fingerprint TEXT` column (domain-agnostic naming — `project_metadata_fingerprint` would be REDCap-specific and the seam generalizes to future children) plus an index `idx_audit_source_metadata_fingerprint`. NULL on non-child-scrubber dispatch paths and on children that ship no child-level scrubber.
+- Stamped on every audit row produced by a child whose scrubber exposes a `fingerprint` property — the value is the fingerprint **at the moment the call executed**, not at consent-grant time. Boot-time attestation: the fingerprint is established when the operator configured the metadata file before launching `tailor serve`. The framework does not require explicit consent-time fingerprint stamping; Tier-1 REDCap tools are not consent-gated per ADR 0037, so a consent-only stamping site has no anchor on a fresh install.
+- Surfaced in result `_meta.source_metadata_fingerprint` on the wire so the LLM transcript carries the trust-root identity at the moment of disclosure. NULL on non-child-scrubber dispatch paths to preserve the all-call-sites-sweep rule the v7.3.1 banner codified.
+- **Forward-only mismatch policy.** A scrubber whose `fingerprint` at call time differs from its `fingerprint` at scrubber construction is structurally impossible by the design above (the scrubber's fingerprint is computed once at construction and cached); the relevant question is what happens when the on-disk file diverges from the scrubber's cached state. Children that want to detect this re-read the file on every `execute()` and compare; on mismatch they emit a typed error envelope, fail-closed, and do **not** auto-revoke consent or auto-purge the cache (ADR 0013's revocation flow is operator action). Prior calls' data remains in the LLM transcript — the framework cannot un-send bytes; the audit log carries both fingerprints so an IRB reviewer can correlate.
+- **Operator recovery is an attestation ritual.** The framework provides one CLI surface per child that ships this seam — e.g. `tailor redcap reattest` — which prints (a) the cached fingerprint (the most recent value stamped in `audit_log.source_metadata_fingerprint` for this child's domain), (b) the new fingerprint computed from the current on-disk file, (c) a structured listing of the current trust-root state field-by-field with the identifier flag on each, prompts the operator to confirm, and re-stamps the audit log with the new fingerprint on `y`. The listing is the trust-affording artifact: a tamper attempt that flipped every flag to `N` is visibly displayed before the operator confirms; a legitimate edit (new instrument added mid-enrollment) is visibly displayed before the operator confirms; the framework refuses to silently update the fingerprint to match the new file. The framework does **not** store the cached canonical-form state (only the fingerprint hash) — a field-by-field historical diff is not available by design, the storage cost is deliberately not paid; the current-state listing plus the cached-vs-new fingerprint transition is the attestation surface.
+
+### The small-cell suppression posture — decision
+
+- Every child-level scrubber that ships aggregate count surfaces (`top_values`, `cohort_summary` group counts, future analogues) accepts an optional `small_cell_suppression_threshold: int` config (in the child's `user_config.json` block — e.g. `redcap_file.small_cell_suppression_threshold`).
+- The framework ships **k=5** as the default (HHS Statistical Disclosure Limitation baseline for CMS data). Validated `≥ 2` to refuse a permissive k=1 misconfiguration; refused at config-load time, not call time.
+- Entries below the threshold are collapsed into a single replacement entry of shape `{value: "<small_cell_suppressed>", count: "<below_threshold>", suppressed_count: N}` where N is the number of distinct suppressed values. The replacement shape is consistent across surfaces so an LLM consumer (or human IRB reviewer) sees the same structural signal whether reading `top_values` or cohort `groups`.
+- Surfaced at the top level of the child's result envelope as `small_cell_suppression_threshold` so IRB transcript review sees the deployment-time setting visibly. A sibling `small_cell_warning` field surfaces on every result envelope **when the framework default k=5 is in force** rather than an explicit operator setting — same intent as ADR 0003's `_meta.scrubber_warning` for the no-op framework scrubber, but landed at the top of the child envelope alongside other child-level legibility fields (`unknown_field_count`, `field_marked_identifier_stripped`) because the threshold is a child-domain setting the router does not own. Studies that need k=10 / k=11 (pediatric, mental health, rare-disease populations) opt up in `user_config.json`; the warning makes the default-in-force state visible at the point of disclosure rather than buried in a startup log.
+
+### Consequences
+
+**Positive.**
+
+- An IRB auditor reconstructing "which calls ran under which state of the trust root" queries the fingerprint column by hash — a one-line SQL question with a cryptographic answer.
+- Tamper attempts on `project_metadata.csv` (the trust root for the entire `RedcapPHIScrubber`) are visible at the attestation surface (`tailor redcap reattest`'s diff print) before the operator confirms.
+- The seam generalizes — future children with structured metadata inputs (FHIR profile descriptors, EDF channel manifests, vendor sensor calibration sidecars) inherit the trust-root pattern without re-deciding it.
+- Small-cell suppression turns a class of statistical re-identification risk (low-cardinality non-identifier-flagged fields) into a deployment-visible config rather than an institutional implementation detail.
+- The default-with-warning posture matches the framework's existing pattern: ship a safe-enough default so deployments work out-of-the-box, surface the default-in-force state in every result envelope so reviewers see it.
+
+**Negative.**
+
+- A legitimate operator edit to `project_metadata.csv` mid-enrollment requires running `tailor redcap reattest`. This is friction the framework adds; the alternative (silent acceptance of any change) defeats the seam.
+- The fingerprint primitive is cryptographic provenance, not tamper *prevention*. An operator with write access to the metadata file can always re-attest after tampering. The seam is honest about what it can do (attribution) vs. what it cannot (prevention).
+- Framework-default k=5 is a policy choice for the threshold-below-which-to-suppress decision. The default-with-warning posture is the compromise: ship a HHS-grounded default for first-run usability; surface the default-in-force state visibly so the IRB knows the setting was not explicitly attested.
+
+**Neutral.**
+
+- The new audit column is one of several added across the v7.x cycle (`scrubber_id`, `child_scrubber_id`, oracle-tier columns). Each is NULL on dispatch paths it does not apply to; the audit table's column count grows but per-row sparseness stays consistent.
+
+### Promotion condition
+
+Per [ADR 0011](0011-promotion-policy.md): if a **third** child-level scrubber wants the trust-root fingerprint seam (FHIR profile-descriptor-driven scrubbing is the likely next candidate; EDF channel-metadata-driven scrubbing is the second), that is the signal to promote the seam into a `ChildMCP` abstract method (`child_scrubber_fingerprint -> str | None`) and a framework registry — same shape as the [ADR 0013](0013-cache-only-purge-on-consent-revocation.md) promotion of `purge_cache`. Until then, the seam stays per-child wired-by-child — each child whose scrubber exposes a `fingerprint` property has its `child.child_scrubber_fingerprint` read by the router at dispatch time and threaded through the audit row.
+
+### Workshop-vs-lifestyle invariant adherence
+
+Per [ADR 0033](0033-complete-tailor-metaphor-workshop-side.md): the fingerprint primitive is **workshop-shaped** — the tailor records cryptographically which bolt of fabric came from which mill at what state, not whether the fabric was fashionable. The reattest ritual is a workshop ritual — the tailor and the customer confirm together what the fabric is before stitching. Vocabulary stays in the workshop register; the always-forbidden list (Table 5 of `docs/design/tailor-vocabulary.md`) is unaffected.
+
+### What is unchanged
+
+ADR 0003's original load-bearing claim — *the framework cannot define what PHI means generically* — is the same claim today. The 2026-05-14 amendment's child-level scrubber seam is preserved verbatim. The trust-root fingerprint primitive is policy-aware-by-input (the IRB attested to `project_metadata.csv` at protocol creation; the fingerprint records the state of that attestation); small-cell suppression is policy-aware-by-config (the operator sets the threshold per their IRB's k-anonymity guidance). The framework's authority boundary is unchanged.

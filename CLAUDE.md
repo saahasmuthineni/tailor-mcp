@@ -1,5 +1,165 @@
 # CLAUDE.md — Tailor
 
+> **v7.3.4 (2026-05-16)** — Post-first-real-recipient-run hardening patch.
+> 2026-05-16 first outside-recipient walkthrough (Windows + Claude Desktop,
+> non-technical friend) produced 5 findings. Scope escalated through four
+> shapes over the course of the session: A (narrow S004 fix) → Option 2
+> (Senefeld-ready expansion) → γ (scope-box: meeting flexes, ship-quality
+> binds) → Option B (AI-economics demonstration via configurable
+> `cost_threshold`). Patch bump: all additions are additive (new operator-
+> configurable default, new bundled fixture, new ADR Proposed). No public API
+> breaks. Matches the v7.3.1 / v7.3.2 / v7.3.3 patch-bump precedent for
+> observability + recipient-experience hardening.
+>
+> **Pre-implementation gates surfaced ship-blockers the original plan missed —
+> again.** This is the fourth consecutive v7.3.x release where
+> proposal-mode / wire / cue-card gates returned findings the pytest suite
+> and ruff were structurally unable to see. `integration-auditor
+> --proposal-mode` returned REVISE with **F1 + F3 BLOCKING** + 5 IMPORTANT +
+> 6 prior-decision-conflicts: F3 caught a one-session illusion — the seeded
+> `snapshot.md` delivers the orientation wow on session 1, but the next
+> `vault_generate_snapshot` call overwrites it with `*(No recent run data.)*`
+> Strava-shaped output, regressing the demo to the original failure shape on
+> session 2. F1 caught that `_infer_note_type` classified bare `snapshot.md`
+> as `note_type="unknown"`, making the fixture un-indexable. Both blocking
+> findings were structural: no unit test exercises the cascade
+> rescan → kind-filter → fixture read that a real recipient would follow.
+> `mcp-protocol-auditor` wire returned **DEFECTS FOUND**: D1 — the cohort
+> thesis silently returned `null` for every fatigue metric on bundled HIP Lab
+> subjects because float-seconds timestamps (the fixture format) were not
+> handled in `_extract_timestamps`; the demo's load-bearing analytical claim
+> was broken on the wire while pytest was green because unit tests construct
+> datetime fixtures by hand. D2 — `force_cohort_summary` used `group_field`
+> while `csv_cohort_summary`'s sibling parameter is `group_by`, an API parity
+> break that would fail LLM inference. `cue-card-rehearsal-auditor` returned
+> **BLOCKED** on D5 (`value_column` description had no literal-header
+> example), D6 (`SUBJECT_ID_PARAM_DOC` lacked `'S001'`/`'S004'` examples and
+> overclaimed "does not filter data" for vault tools per ADR 0009), D7
+> (`group_by` enumerated only `'sex'` missing the `'group'` axis). All
+> ship-blockers closed in the implementation pass.
+>
+> **Cohort thesis hot path — D1 + D1-companion.** `_extract_timestamps` in
+> both `force_csv/child.py` and `emg_csv/child.py` now falls back to
+> float-seconds offset when no ISO-datetime column is found, matching the
+> actual format of the bundled 100 Hz HIP Lab fixtures. Wire-verified:
+> F=65.3 N mean, M=87.6 N mean, S004 peak=229 N / `time_to_50pct_drop_s`
+> non-null on `metric=time_to_50pct_drop_s`. A companion key-mismatch
+> (handler read `decline_pct` but the pure function returned
+> `decline_pct_total`) surfaced during D1 wire verification and was closed
+> in the same pass; S004 now returns `decline_pct=76.1%`.
+>
+> **API parity — D2 rename.** `force_cohort_summary` + `emg_cohort_summary`
+> parameter renamed `group_field` → `group_by` across ToolDefinition,
+> param_schema, handler, and result-dict key to match `csv_cohort_summary`.
+> An LLM that has seen `csv_cohort_summary`'s schema now infers the correct
+> parameter name on the first call across all three cohort tools. The
+> `value_column` ↔ `column` asymmetry across the same three tools is
+> acknowledged but deferred — that sweep is a wider refactor; v7.4.0 queue.
+>
+> **Vault layer de-Strava — F3 closure.** `_handle_fitness_summary` no longer
+> returns `*(No recent run data.)*` on HIP Lab deployments; the Strava-specific
+> Weekly Summary section in `renderer.py` is now conditional on there actually
+> being running data. `_infer_note_type` in `rescan.py` maps `snapshot.md` →
+> `"snapshot"` kind, and `_ALLOWED_KINDS` + the `vault_list_notes` tool
+> description were both updated to include `"snapshot"`. `vault-smoke-validator`
+> surfaced the `_ALLOWED_KINDS` gap as a kind-filter inconsistency during the
+> release pass; closed in the same pass. Together these three changes make the
+> vault layer data-source-agnostic on the demo hot path — the structural
+> commitment [ADR 0038](docs/adr/0038-vault-layer-is-data-source-agnostic.md)
+> (Proposed) codifies for v7.4.0's full sweep.
+>
+> **Bundled `snapshot.md` — orientation fixture.** A `snapshot.md` pre-seeded
+> under `src/tailor/_fixtures/hip_lab_demo_realistic/vault/` ships in the
+> wheel. A recipient's first session opens with a structured orientation:
+> vault health, open themes, active analytical questions, and a "## Token cost
+> shape" section with wire-audit-verified numbers (Tier 1 ~310 tokens · Tier 2
+> ~6,750 · Tier 3 ~50,000 actual / ~24,000 pre-execution estimate). The
+> fixture honors the ADR 0024 synthetic-by-construction precondition: no real
+> participant data, no real researcher identities. A `regenerate-warning`
+> banner in the `tailor fitting-room` success output tells recipients that
+> re-running `vault_generate_snapshot` will overwrite the seeded orientation —
+> the structural lesson from F3.
+>
+> **Option B — AI-economics demonstration (ADR 0029).** Pre-implementation
+> tier-escalation wire audit confirmed the [ADR 0029](docs/adr/0029-token-reduction-as-analytical-quality.md)
+> claim is empirically real on the bundled fixtures (164× token lift across
+> the tier ladder) but the framework-default `cost_threshold=35_000` would not
+> fire on the bundled 60s fixtures (Tier-3 pre-execution estimate ~24k < 35k
+> threshold). `cost_threshold` is now operator-configurable from
+> `user_config.json` with the `35_000` default preserved so existing
+> deployments are behaviourally unchanged; the `tailor fitting-room` scaffold
+> writes `cost_threshold: 15000` so the gate fires demonstrably on bundled
+> fixtures. A fifth banner prompt ("Step me through the tier levels for subject
+> four — what does each one cost?") and the new "## Token cost shape" section
+> in `snapshot.md` ground the recipient's first impression in audit-verified
+> numbers rather than aspirational framing. The `CostEstimate.alternative_
+> description` ("force_downsampled (interval=10) → ~90% cheaper") surfaces
+> through the ADR 0004 `LLMInstruction` envelope when the recipient probes
+> Tier 3. A cost-estimator 2.1× under-estimate BORDER NOTE (estimate ~24k vs
+> actual ~50k for one 60s subject at 100 Hz) is queued for v7.4.0
+> calibration work — the gate fires at the right structural moment; the
+> absolute accuracy is the quality-of-life follow-up.
+>
+> **Red-team caught an over-promise no other specialist could have named.**
+> The fitting-room banner prompt "Show me what just happened in the audit log"
+> had no MCP tool to land on — v7.3.4 has no `audit_query` tool; the audit
+> log is accessible only via shell `sqlite3` or the `tailor status` CLI.
+> `red-team-reviewer` named the aspirational framing as a medium OBJECTION
+> post-implementation: the recipient who tries that prompt gets a confused LLM
+> or a fabricated response, the exact failure class v7.3.x is named against.
+> Closure: banner prompt reworded to "Show me the recent moments in the vault"
+> (callable via `vault_list_moments`); `snapshot.md`'s audit-log section
+> softened to acknowledge the MCP-callable audit query is v7.4.0 work; the
+> queue carries the new `audit_query` tool as the top v7.4.0 item. Same
+> ADR 0010 adversarial-pairing earning-its-keep moment the v7.3.3, v7.3.2,
+> and v7.3.1 banners named: the dissent layer catches the failure mode the
+> confirmation-shaped craft persona produces.
+>
+> **Schema description sweeps (D5, D6, D7, and SUBJECT_ID_PARAM_DOC).**
+> `value_column` in `force_csv` and `emg_csv` tool descriptions now names
+> literal column headers ("force", "envelope") so a recipient can read
+> the schema and know what to type without opening the CSV. `group_by`
+> description enumerates both `'sex'` and `'group'`. `SUBJECT_ID_PARAM_DOC`
+> carries `'S001'`/`'S004'` literal examples and distinguishes biosensor-tier
+> (audit-log scoping only; does not filter source data) from vault-tier
+> (actively filters per ADR 0009 subject keying) to close the ADR 0009
+> semantic drift the auditor named.
+>
+> **Recipient-ergonomics.** `README.md` Prerequisites section gains a per-OS
+> one-liner table (PowerShell `irm`, winget, macOS/Linux curl) addressing the
+> `uv` discovery friction the 2026-05-16 recipient hit. `tailor fitting-room`
+> success banner reshaped: a single "Next step" clause leads, three
+> science-shaped prompts follow, paths demoted to a labeled "Files & locations
+> (for reference)" block so the initial impression is a prompt, not a menu.
+>
+> **ADR-0038 (Proposed) lands in this PR.** Codifies "vault layer is
+> data-source-agnostic" as a structural invariant — the vault layer must not
+> assume a running child is present or that subjects are athletes. v7.3.4
+> ships partial closure (demo hot path de-Strava); v7.4.0 ships the full
+> structural sweep (residual `_kind_to_domain` mapper, backfill config
+> defaults, competing orientation tools). ADR 0027 gains a forward-cite
+> footer to ADR 0038.
+>
+> **Gates: ci-gate-runner SHIPPABLE** (1318/1318 pytest, 3 scipy-conditional
+> skips, ruff clean, 76/76 security probe, CLI smoke). **mcp-protocol-auditor
+> PROTOCOL OK** (120/120 wire tests; 1 BORDER NOTE — `value_column` ↔
+> `column` API parity queued v7.4.0). **reproducibility-provenance-auditor
+> CLEAN** (every touched file HOLDS against ADRs 0001/0002/0003/0008/0009;
+> new fixed-epoch construction blessed deterministic; 3 cosmetic BORDER NOTES
+> recorded). **vault-smoke-validator SHIPPABLE** (all blocks pass; kind-filter
+> inconsistency surfaced + closed). **phi-irb-risk-reviewer NO RISK** across
+> all 6 threat-model lenses; synthetic-by-construction precondition honored in
+> snapshot prose. **researcher-utility-reviewer ALIGNED** (PI LOAD-BEARING
+> HIGH; Analyst LOAD-BEARING MEDIUM; IRB LOAD-BEARING-modifying LOW).
+> **coverage-criticality-mapper REGRESSION → CLOSED** (2 new tests — ISO-
+> datetime success path + legacy Strava `total_running > 0` branch).
+> **red-team-reviewer OBJECTION (medium) → CLOSED** (audit-log over-promise
+> reworded). cue-card-rehearsal-auditor TRIGGERED → all findings CLOSED
+> pre-implementation. recipient-install-validator SKIPPED per v6.11.x
+> falsification precedent (fitting_room.py + __main__.py changes are banner /
+> config-reader prose, not new install-path logic; no new failure class).
+> Net-new tests: 21 in `tests/test_v734_demo_readiness.py`.
+
 > **v7.3.3 (2026-05-15)** — Closes the two red-team BORDER NOTES the v7.3.2
 > banner explicitly deferred. The patch lands as a *typed-exception-taxonomy*
 > patch rather than two point-fixes — one structural argument covers both

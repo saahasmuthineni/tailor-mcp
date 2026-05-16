@@ -671,6 +671,14 @@ prior roadmap revisions per the same historical-preservation principle
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
 
+### Shipped in v7.4.0 (2026-05-16)
+
+- **New `audit_query` MCP tool** — closes the v7.3.4 audit-log-over-promise gap (the fitting-room banner prompt "Show me what just happened in the audit log" now has an MCP tool to land on). The audit log is now LLM-queryable under a B1 column allowlist (12 columns + 1 derived `has_error`); raw `params` and raw `error` content never egress. `AuditLog.query()` uses explicit `SELECT`, never `SELECT *`, with `limit=100` hard cap.
+- **ADR 0039 (NEW, Accepted)** — "audit log is LLM-queryable under column allowlist"; codifies the B1 allowlist construction argument and the bypass-design rationale for `AuditQueryLayer` as a fourth framework-tier layer. Cites ADRs 0001 / 0002 / 0003 / 0009 / 0012 / 0022.
+- **ADR 0012 § Amendment v7.4.0** — fourth framework-tier bypass entry for `AuditQueryLayer`.
+- Net-new tests: 42 (32 unit + 10 subprocess wire). Tool surface: 49 → 50. Minor bump.
+- Gates: ci-gate-runner SHIPPABLE (1360/1360 pytest, ruff clean, 76/76 probe, CLI smoke). mcp-protocol-auditor PROTOCOL OK. integration-auditor REVISE (pre-implementation) → all BLOCKING + IMPORTANT closed before code. adr-weigher PASS. red-team-reviewer NO OBJECTION FOUND.
+
 ### Shipped in v7.3.4 (2026-05-16)
 
 Phase 2 first-time-user setup pass — first end-to-end pass. The 2026-05-16 first real outside-recipient walkthrough (Windows + Claude Desktop, non-technical friend) produced 5 findings that drove four scope-shape escalations over the session: narrow S004 fix → Senefeld-ready expansion → γ scope-box (meeting flexes, ship-quality binds) → Option B (AI-economics demonstration). Three pre-implementation gates returned non-PASS verdicts; every ship-blocker closed before any code was written. Closes the Phase 2 first-time-user setup pass deliverable first opened at v7.0.13's PyPI publish (2026-05-13) and unblocked at the Phase 0 closure (2026-05-12).

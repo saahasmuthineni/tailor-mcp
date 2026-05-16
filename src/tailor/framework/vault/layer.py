@@ -70,7 +70,7 @@ _MAX_NOTES_CHARS = 2000
 # Allowed note kinds surfaced to users of the kind filter
 _ALLOWED_KINDS = (
     "run_report", "trend_report", "compare_runs",
-    "theme", "moment", "failure_mode", "dashboard",
+    "theme", "moment", "failure_mode", "dashboard", "snapshot",
 )
 
 # Max nodes returned by vault_traverse_links (prevents runaway traversal)
@@ -113,10 +113,12 @@ class VaultLayer:
         defs = [
             ToolDefinition(
                 "vault_get_fitness_summary", 1,
-                "Primary session orientation tool. Surfaces open themes and recent "
-                "moments so you can resume prior analytical threads, plus a weekly "
-                "fitness table aggregated from run notes — no Strava sync needed. "
-                "Call this first in a new session. ~600–800 tokens.",
+                "Session orientation tool. Surfaces open themes and recent moments "
+                "so you can resume prior analytical threads, plus a weekly "
+                "aggregate table for any registered biosensor children (e.g. a "
+                "weekly run summary if a running child is registered; skipped on "
+                "deployments without one). Call vault_get_snapshot first when a "
+                "snapshot.md exists; this is the fallback. ~600–800 tokens.",
                 {
                     "weeks_back": {
                         "type": "integer",
@@ -128,15 +130,16 @@ class VaultLayer:
             ToolDefinition(
                 "vault_list_notes", 1,
                 "Browse vault notes with optional filters. Shows filename, date, "
-                "kind, and whether insight notes exist. Includes themes and moments "
-                "alongside run/trend/compare notes.",
+                "kind, and whether insight notes exist. Covers themes, moments, "
+                "failure modes, dashboards, and (when a biosensor child is "
+                "registered) per-activity reports like run / trend / compare notes.",
                 {
                     "kind": {
                         "type": "string",
                         "description": (
-                            "Filter by note kind: run_report | trend_report | "
-                            "compare_runs | theme | moment | failure_mode | "
-                            "dashboard"
+                            "Filter by note kind: theme | moment | "
+                            "failure_mode | dashboard | snapshot | "
+                            "run_report | trend_report | compare_runs"
                         ),
                         "required": False,
                     },
@@ -192,9 +195,9 @@ class VaultLayer:
                     "kind": {
                         "type": "string",
                         "description": (
-                            "Filter by note kind: run_report | trend_report | "
-                            "compare_runs | theme | moment | failure_mode | "
-                            "dashboard"
+                            "Filter by note kind: theme | moment | "
+                            "failure_mode | dashboard | snapshot | "
+                            "run_report | trend_report | compare_runs"
                         ),
                         "required": False,
                     },
@@ -383,6 +386,7 @@ class VaultLayer:
                         "type": "string",
                         "description": (
                             "Provenance: tool that produced the evidence (e.g. "
+                            "'force_cohort_summary', 'csv_summary_report', "
                             "'strava_run_report')."
                         ),
                         "required": False,
@@ -390,7 +394,8 @@ class VaultLayer:
                     "evidence_source_domain": {
                         "type": "string",
                         "description": (
-                            "Provenance: child domain (e.g. 'running')."
+                            "Provenance: child domain (e.g. 'force_csv', "
+                            "'csv_dir', 'redcap_file', 'running')."
                         ),
                         "required": False,
                     },
@@ -1097,17 +1102,40 @@ class VaultLayer:
         ]
 
         if not notes:
-            total = self._storage.count_notes(domain="running")
+            total_running = self._storage.count_notes(domain="running")
+            total_all = self._storage.count_notes()
+            non_running = total_all - total_running
+            if total_running > 0:
+                summary_msg = "No run notes found in the specified period."
+                remediation = (
+                    "Call vault_backfill to generate notes for cached activities, "
+                    "or run strava_sync + strava_run_report to create new ones."
+                )
+            elif non_running > 0:
+                summary_msg = (
+                    "No biosensor run data is registered in this deployment; "
+                    "themes and moments below reflect the current analytical "
+                    "thread."
+                )
+                remediation = (
+                    "Call vault_get_snapshot for hand-written orientation prose "
+                    "(if available) or vault_list_moments / vault_list_themes "
+                    "to browse what's in the vault."
+                )
+            else:
+                summary_msg = "Vault is empty."
+                remediation = (
+                    "Capture a moment with vault_capture_moment, open a "
+                    "theme with vault_upsert_theme, or scaffold a guided "
+                    "walkthrough with `tailor fitting-room`."
+                )
             return {
-                "summary": "No run notes found in the specified period.",
-                "total_notes_in_vault": total,
+                "summary": summary_msg,
+                "total_notes_in_vault": total_all,
                 "weeks_back": weeks_back,
                 "open_themes": theme_rows,
                 "recent_moments": moment_rows,
-                "note": (
-                    "Call vault_backfill to generate notes for cached activities, "
-                    "or run strava_sync + strava_run_report to create new ones."
-                ),
+                "note": remediation,
             }
 
         # Aggregate by ISO week

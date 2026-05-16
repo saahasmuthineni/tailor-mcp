@@ -89,8 +89,11 @@ SUBJECT_ID_SCHEMA = ValidationSchema(
 SUBJECT_ID_PARAM_DOC = {
     "type": "string",
     "description": (
-        "Optional study participant identifier for audit-log scoping. "
-        "Does not filter data. Pattern: ^[A-Za-z0-9_-]{1,64}$."
+        "Optional study participant identifier (e.g. 'S001', 'S004'). "
+        "On biosensor-tier tools this is audit-log scoping only and "
+        "does not filter source data. On vault tools (per ADR 0009) it "
+        "additionally filters returned notes to that subject plus "
+        "cross-subject items. Pattern: ^[A-Za-z0-9_-]{1,64}$."
     ),
     "required": False,
 }

@@ -151,7 +151,7 @@ VALID_PARAMS: dict[str, dict] = {
     "force_file_detail": {"file_id": "S001_trial.csv"},
     "force_summary": {"file_id": "S001_trial.csv"},
     "force_cohort_summary": {
-        "group_field": "sex",
+        "group_by": "sex",
         "value_column": "force",
         "metric": "max",
     },
@@ -551,7 +551,7 @@ class TestCohortSummary:
             force_child.execute(
                 "force_cohort_summary",
                 {
-                    "group_field": "sex",
+                    "group_by": "sex",
                     "value_column": "force",
                     "metric": "max",
                 },
@@ -591,7 +591,7 @@ class TestCohortSummary:
                     child.execute(
                         "force_cohort_summary",
                         {
-                            "group_field": "sex",
+                            "group_by": "sex",
                             "value_column": "force",
                             "metric": "max",
                         },
@@ -717,7 +717,7 @@ class TestBomTransparency:
                 result = asyncio.run(child.execute(
                     "force_cohort_summary",
                     {
-                        "group_field": "sex",
+                        "group_by": "sex",
                         "value_column": "force",
                         "metric": "max",
                     },
@@ -803,7 +803,7 @@ class TestCohortSummaryAliasResolution:
                 result = asyncio.run(child.execute(
                     "force_cohort_summary",
                     {
-                        "group_field": "sex",
+                        "group_by": "sex",
                         "value_column": "force",
                         "metric": "max",
                     },
@@ -834,7 +834,7 @@ class TestCohortSummaryAliasResolution:
                 via_logical = asyncio.run(child.execute(
                     "force_cohort_summary",
                     {
-                        "group_field": "sex",
+                        "group_by": "sex",
                         "value_column": "force",
                         "metric": "max",
                     },
@@ -842,7 +842,7 @@ class TestCohortSummaryAliasResolution:
                 via_physical = asyncio.run(child.execute(
                     "force_cohort_summary",
                     {
-                        "group_field": "sex",
+                        "group_by": "sex",
                         "value_column": "force_N",
                         "metric": "max",
                     },

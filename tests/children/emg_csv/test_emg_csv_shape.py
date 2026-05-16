@@ -143,7 +143,7 @@ VALID_PARAMS: dict[str, dict] = {
     "emg_file_detail": {"file_id": "S001_emg.csv"},
     "emg_envelope_summary": {"file_id": "S001_emg.csv"},
     "emg_cohort_summary": {
-        "group_field": "sex",
+        "group_by": "sex",
         "value_column": "envelope",
         "metric": "max",
     },
@@ -583,7 +583,7 @@ class TestCohortSummary:
             emg_child.execute(
                 "emg_cohort_summary",
                 {
-                    "group_field": "sex",
+                    "group_by": "sex",
                     "value_column": "envelope",
                     "metric": "max",
                 },
@@ -623,7 +623,7 @@ class TestCohortSummary:
                     child.execute(
                         "emg_cohort_summary",
                         {
-                            "group_field": "sex",
+                            "group_by": "sex",
                             "value_column": "envelope",
                             "metric": "max",
                         },
@@ -751,7 +751,7 @@ class TestCohortSummaryAliasResolution:
                 result = asyncio.run(child.execute(
                     "emg_cohort_summary",
                     {
-                        "group_field": "sex",
+                        "group_by": "sex",
                         "value_column": "envelope",
                         "metric": "max",
                     },
@@ -782,7 +782,7 @@ class TestCohortSummaryAliasResolution:
                 via_logical = asyncio.run(child.execute(
                     "emg_cohort_summary",
                     {
-                        "group_field": "sex",
+                        "group_by": "sex",
                         "value_column": "envelope",
                         "metric": "max",
                     },
@@ -790,7 +790,7 @@ class TestCohortSummaryAliasResolution:
                 via_physical = asyncio.run(child.execute(
                     "emg_cohort_summary",
                     {
-                        "group_field": "sex",
+                        "group_by": "sex",
                         "value_column": "envelope_uV",
                         "metric": "max",
                     },

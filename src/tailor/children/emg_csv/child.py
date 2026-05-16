@@ -412,14 +412,18 @@ class EmgCsvChild(ChildMCP):
                 "trial to one scalar via metric, then aggregates by "
                 "group. Requires metadata.json sidecar. ~600 tokens.",
                 {
-                    "group_field": {
+                    "group_by": {
                         "type": "string",
-                        "description": "Metadata field to group by (e.g. 'sex')",
+                        "description": "Metadata field to group by (e.g. 'sex', 'group').",
                         "required": True,
                     },
                     "value_column": {
                         "type": "string",
-                        "description": "Envelope column to reduce per file",
+                        "description": (
+                            "Envelope column to reduce per file. Use the "
+                            "logical name from your emg_csv.value_columns "
+                            "config (e.g. 'envelope')."
+                        ),
                         "required": True,
                     },
                     "metric": {
@@ -578,7 +582,7 @@ class EmgCsvChild(ChildMCP):
                 "subject_id": SUBJECT_ID_SCHEMA,
             },
             "emg_cohort_summary": {
-                "group_field": ValidationSchema(
+                "group_by": ValidationSchema(
                     type=str, required=True, pattern=r"^[A-Za-z0-9_\-]{1,64}$",
                 ),
                 "value_column": ValidationSchema(type=str, required=True),
@@ -719,6 +723,11 @@ class EmgCsvChild(ChildMCP):
         return values
 
     def _extract_timestamps(self, rows: list[dict], headers: list[str]):
+        # Two-path timestamp extraction mirroring force_csv (v7.3.4 D1
+        # closure): ISO-datetime parse first, then float-seconds fallback
+        # for ``t_s``-style numeric offset columns used by the bundled
+        # HIP Lab fixtures and standard biomedical signal exports.
+        from datetime import datetime, timedelta, timezone
         ts_col = (
             self._timestamp_column
             or self._csv_processing.detect_timestamp_column(headers)
@@ -731,8 +740,21 @@ class EmgCsvChild(ChildMCP):
                 (r.get(ts_col) or ""), self._timestamp_format,
             )
             if t is None:
-                return None
+                break
             parsed.append(t)
+        else:
+            return parsed
+        epoch = datetime(2000, 1, 1, tzinfo=timezone.utc)
+        parsed = []
+        for r in rows:
+            v = r.get(ts_col)
+            if v in (None, ""):
+                return None
+            try:
+                offset_s = float(v)
+            except (TypeError, ValueError):
+                return None
+            parsed.append(epoch + timedelta(seconds=offset_s))
         return parsed
 
     def _load_metadata_sidecar(
@@ -978,7 +1000,7 @@ class EmgCsvChild(ChildMCP):
         value_column = self._value_columns.get(
             params["value_column"], params["value_column"],
         )
-        group_field = params["group_field"]
+        group_by = params["group_by"]
         metric = params["metric"]
 
         metadata, meta_err = self._load_metadata_sidecar()
@@ -1012,7 +1034,7 @@ class EmgCsvChild(ChildMCP):
             if file_meta is None:
                 missing_metadata.append(f.name)
                 continue
-            group = file_meta.get(group_field)
+            group = file_meta.get(group_by)
             if group is None:
                 missing_group_field.append(f.name)
                 continue
@@ -1052,7 +1074,7 @@ class EmgCsvChild(ChildMCP):
         result: dict = {
             "value_column": value_column,
             "metric": metric,
-            "group_field": group_field,
+            "group_by": group_by,
             "subject_count": sum(len(s) for s in subjects_by_group.values()),
             "groups": groups,
             "note": (

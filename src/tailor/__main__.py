@@ -56,23 +56,9 @@ def cmd_serve():
     from tailor.children.running import RunningChild
     from tailor.framework.router import RouterMCP
 
-    # Create parent router
-    router = RouterMCP(
-        name="tailor",
-        data_dir=DATA_DIR,
-        cost_threshold=35_000,
-        circuit_threshold=3,
-        circuit_reset=300,
-    )
-
-    # Register running child
-    running = RunningChild(config_dir=CONFIG_DIR, data_dir=DATA_DIR)
-    router.register_child(running)
-
-    # CSV directory child (opt-in — requires csv_dir in user_config.json)
-    csv_child = None
-
-    # Vault integration (opt-in — requires vault_path in user_config.json)
+    # ── user_config.json loading (moved ahead of router construction in
+    # v7.3.4 so per-deployment knobs like `cost_threshold` can shape the
+    # router) ────────────────────────────────────────────────────────────
     _ucfg_path = CONFIG_DIR / "user_config.json"
     _ucfg: dict = {}
     _vault_path = None
@@ -93,7 +79,8 @@ def cmd_serve():
                 f"ERROR: could not parse user_config.json\n"
                 f"  File:   {_ucfg_path}\n"
                 f"  Reason: {exc.msg} (line {exc.lineno}, column {exc.colno})\n"
-                f"  Effect: vault integration is DISABLED.\n"
+                f"  Effect: vault integration is DISABLED; cost_threshold "
+                f"falls back to default (35,000).\n"
                 f"  Fix:    validate the file with `python -m json.tool` "
                 f"and restart the server.\n"
                 f"{_banner}\n\n"
@@ -105,6 +92,41 @@ def cmd_serve():
                 f"Could not read {_ucfg_path}: {exc}. "
                 f"Vault integration disabled until the file is readable."
             )
+
+    # cost_threshold is operator-configurable from user_config.json (v7.3.4).
+    # Default 35,000 tokens preserves pre-v7.3.4 behavior. The fitting-room
+    # scaffold sets a lower threshold so the demo's Tier-3 raw-window call
+    # on bundled HIP Lab fixtures trips the cost gate (per ADR 0005
+    # pre-estimation; ADR 0029 AI-economics demonstration). Coerce to int
+    # defensively — a string in user_config.json shouldn't silently break
+    # the gate; fall back to default and log if coercion fails.
+    _ucfg_cost_threshold = _ucfg.get("cost_threshold", 35_000)
+    try:
+        _cost_threshold = int(_ucfg_cost_threshold)
+        if _cost_threshold < 1:
+            raise ValueError(f"must be >= 1; got {_cost_threshold}")
+    except (TypeError, ValueError) as exc:
+        log.warning(
+            f"user_config.json cost_threshold={_ucfg_cost_threshold!r} is "
+            f"invalid ({exc}); falling back to default 35,000."
+        )
+        _cost_threshold = 35_000
+
+    # Create parent router
+    router = RouterMCP(
+        name="tailor",
+        data_dir=DATA_DIR,
+        cost_threshold=_cost_threshold,
+        circuit_threshold=3,
+        circuit_reset=300,
+    )
+
+    # Register running child
+    running = RunningChild(config_dir=CONFIG_DIR, data_dir=DATA_DIR)
+    router.register_child(running)
+
+    # CSV directory child (opt-in — requires csv_dir in user_config.json)
+    csv_child = None
 
     csv_dir_config = _ucfg.get("csv_dir")
     if csv_dir_config:

@@ -17,13 +17,14 @@ tags:
   - multimodal
 ---
 
-# S004 — atypical EMG/force decoupling under fatigue
+# S004 (subject four) — atypical EMG/force decoupling under fatigue
 
-Reviewed S004's last trial. Force trace looks typical for a trained
-female subject in this protocol — peak around 230 N at 30 % MVC
-sustained, decline rate sits in the female-cohort middle band, the
-MVC probes step down at expected fatigue rates. Nothing notable on
-the force side alone.
+Reviewed S004's last trial — this is the moment to surface when
+anyone asks about *subject four* or *S004* specifically. Force
+trace looks typical for a trained female subject in this protocol
+— peak around 230 N at 30 % MVC sustained, decline rate sits in
+the female-cohort middle band, the MVC probes step down at expected
+fatigue rates. Nothing notable on the force side alone.
 
 What stands out is the EMG envelope amplitude. S004's peak envelope
 window sits around 240 µV — well above the rest of the female

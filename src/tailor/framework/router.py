@@ -41,6 +41,7 @@ from .interfaces import ChildMCP, LLMInstruction, ToolDefinition
 from .security import (
     CircuitBreaker,
     ConsentGate,
+    OperatorActionRequired,
     ParamValidator,
     PHIScrubber,
 )
@@ -738,7 +739,21 @@ class RouterMCP:
 
         except Exception as e:
             duration_ms = int((time.time() - start) * 1000)
-            self._circuit.record_failure(domain)
+            # ADR 0003 § Amendment 2026-05-15 § Typed-exception taxonomy:
+            # OperatorActionRequired signals "operator must act; system
+            # is not flaky." Exempt from breaker accounting so the
+            # recovery hint stays reachable on subsequent calls instead
+            # of being hidden behind a generic "Circuit open" envelope.
+            # Audit row still records outcome=ERROR with the same
+            # provenance columns the W5 invariant covers. Logging level
+            # also splits: programmer-error exceptions get the full
+            # traceback at ERROR; operator-action conditions get the
+            # message at INFO so a tight call loop does not flood
+            # stderr (which on Windows fills the 4KB subprocess pipe
+            # and stalls the server) for an expected condition.
+            is_operator_action = isinstance(e, OperatorActionRequired)
+            if not is_operator_action:
+                self._circuit.record_failure(domain)
             self._audit.record(
                 domain, tool_name, tier, cleaned, 0, "ERROR", duration_ms,
                 error=str(e), subject_id=subject_id,
@@ -746,7 +761,21 @@ class RouterMCP:
                 child_scrubber_id=child.child_scrubber_id,
                 source_metadata_fingerprint=child.child_source_metadata_fingerprint,
             )
-            log.error(f"Tool {tool_name} failed: {e}", exc_info=True)
+            # OperatorActionRequired is structurally an expected
+            # condition (operator must act to resolve); the audit row
+            # and the wire envelope already carry the full event +
+            # recovery hint. Emitting to the logger would write
+            # ~500-byte lines to stderr; on a Windows MCP client that
+            # does not drain stderr, the OS pipe buffer (4KB) fills
+            # after ~8 events and the server stalls on its next write,
+            # hiding the recovery affordance behind a different
+            # failure mode — the exact class the v7.3.3 breaker
+            # exemption was meant to close. The audit log is the
+            # durable trace; live debugging goes through the audit DB,
+            # not the stderr stream. Closes the v7.3.3 red-team-
+            # reviewer OBJECTION (F-G).
+            if not is_operator_action:
+                log.error(f"Tool {tool_name} failed: {e}", exc_info=True)
             return [TextContent(type="text", text=_dumps({"error": str(e)}))]
 
     # ══════════════════════════════════════════════════════════
@@ -1291,7 +1320,17 @@ class RouterMCP:
 
         except Exception as e:
             duration_ms = int((time.time() - start) * 1000)
-            self._circuit.record_failure(domain)
+            # ADR 0003 § Amendment 2026-05-15 § Typed-exception taxonomy:
+            # parity with the public dispatch handler's breaker exemption.
+            # A cross-child internal dispatch hitting an OperatorActionRequired
+            # raise (e.g. an oracle tool grounding a claim against REDCap
+            # while project_metadata.csv drift is in effect) must NOT trip
+            # the breaker on the called child's domain — otherwise breaker
+            # state diverges depending on which dispatch path triggered.
+            # Symmetric log-level split with the public path.
+            is_operator_action = isinstance(e, OperatorActionRequired)
+            if not is_operator_action:
+                self._circuit.record_failure(domain)
             self._audit.record(
                 domain, tool_name, tier, cleaned, 0, "ERROR_INTERNAL", duration_ms,
                 error=str(e), subject_id=subject_id,
@@ -1299,7 +1338,12 @@ class RouterMCP:
                 child_scrubber_id=child.child_scrubber_id,
                 source_metadata_fingerprint=child.child_source_metadata_fingerprint,
             )
-            log.error(f"Internal dispatch {tool_name} failed: {e}", exc_info=True)
+            # Symmetric silence on the internal dispatch path per
+            # the F-G closure rationale above.
+            if not is_operator_action:
+                log.error(
+                    f"Internal dispatch {tool_name} failed: {e}", exc_info=True
+                )
             return {"error": str(e)}
 
     # ── Consent Handler ──

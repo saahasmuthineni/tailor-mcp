@@ -145,6 +145,51 @@ class CircuitBreaker:
 
 
 # ═══════════════════════════════════════════════════════════════
+# OPERATOR-ACTION-REQUIRED TAXONOMY (ADR 0003 § Amendment 2026-05-15)
+# ═══════════════════════════════════════════════════════════════
+
+class OperatorActionRequired(Exception):
+    """Marker exception class for child-raised conditions that require
+    an operator action rather than back-off.
+
+    The ``CircuitBreaker`` exists to back off external systems that are
+    *flaky* (transient network, rate-limit, intermittent failure).
+    Some legitimate runtime conditions are structurally different:
+    the system is fine; the operator must take an out-of-band action
+    (re-attest a trust root, rotate a credential, restart a process)
+    before subsequent calls can succeed. Counting these toward the
+    breaker is a taxonomy mismatch — it hides the recovery affordance
+    behind a generic "Circuit open" envelope for the next 5 minutes,
+    exactly the window the operator most needs guidance.
+
+    Children that raise this class MUST provide a non-empty
+    ``recovery_action`` describing the operator-facing remediation
+    (e.g. ``"tailor redcap reattest"``). The router's exception
+    handler exempts instances from ``CircuitBreaker.record_failure``;
+    the recovery hint stays reachable on subsequent calls.
+
+    Misuse guard: a child author who classifies an *upstream-flaky*
+    exception as ``OperatorActionRequired`` would defeat the breaker
+    for paths that legitimately need it. The required
+    ``recovery_action`` attribute makes the contract self-documenting
+    — if a child author cannot name a remediation command, the
+    exception is not operator-action-required.
+
+    See ADR 0003 § Amendment 2026-05-15 § Typed-exception taxonomy.
+    """
+
+    def __init__(self, *args, recovery_action: str):
+        super().__init__(*args)
+        if not isinstance(recovery_action, str) or not recovery_action.strip():
+            raise TypeError(
+                "OperatorActionRequired requires a non-empty `recovery_action` "
+                "string naming the operator-facing remediation. See "
+                "ADR 0003 § Amendment 2026-05-15."
+            )
+        self.recovery_action = recovery_action
+
+
+# ═══════════════════════════════════════════════════════════════
 # CONSENT GATE
 # ═══════════════════════════════════════════════════════════════
 

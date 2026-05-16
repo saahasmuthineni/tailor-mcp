@@ -53,6 +53,7 @@ import json
 import logging
 from pathlib import Path
 
+from ...framework import OperatorActionRequired
 from ...framework.interfaces import (
     SUBJECT_ID_PARAM_DOC,
     SUBJECT_ID_SCHEMA,
@@ -73,7 +74,7 @@ from .scrubber import RedcapPHIScrubber
 log = logging.getLogger("tailor.redcap")
 
 
-class RedcapMetadataFingerprintMismatch(Exception):
+class RedcapMetadataFingerprintMismatch(OperatorActionRequired):
     """Per ADR 0003 § Amendment 2026-05-15 — trust-root attestation
     drift detected.
 
@@ -85,6 +86,13 @@ class RedcapMetadataFingerprintMismatch(Exception):
     'REDCAP_METADATA_FINGERPRINT_MISMATCH:%'``) — queryable by IRB
     review to correlate any disclosure with the trust-root state
     actually on disk at the moment of detection.
+
+    Inherits from ``OperatorActionRequired`` so the router exempts
+    the breaker from incrementing on this exception class — the
+    recovery affordance (``tailor redcap reattest``) stays reachable
+    on subsequent calls instead of being hidden behind a generic
+    "Circuit open" envelope for 5 minutes. See ADR 0003 § Amendment
+    2026-05-15 § Typed-exception taxonomy.
 
     ``__str__`` returns the operator-facing message including both
     fingerprints in a parseable form so the LLM transcript carries the
@@ -111,7 +119,8 @@ class RedcapMetadataFingerprintMismatch(Exception):
             f"reload the trust root. "
             f"fingerprint_at_boot={fingerprint_at_boot} "
             f"fingerprint_on_disk={fingerprint_on_disk}. "
-            f"See ADR 0003 § Amendment 2026-05-15."
+            f"See ADR 0003 § Amendment 2026-05-15.",
+            recovery_action="tailor redcap reattest",
         )
 
 RECORD_ID_PATTERN = r"^[A-Za-z0-9_\-\.]{1,255}$"
@@ -625,13 +634,19 @@ class RedcapFileChild(ChildMCP):
             # (every field gets stripped fail-closed). Letting it fall
             # through to the handler is the right shape.
             return None
-        try:
-            candidate = RedcapPHIScrubber(
-                project_metadata_path=candidate_path,
-                unknown_field_allowlist=[],
-            )
-        except Exception:
-            return None
+        # RedcapPHIScrubber.__init__ catches (OSError, csv.Error,
+        # ValueError) internally in _load_metadata and stores a warning
+        # rather than raising. A defensive try/except here would have
+        # caught only TypeError from a future signature change — which
+        # is exactly the failure mode the v7.3.3 audit said must NOT be
+        # silenced. If the scrubber's contract ever changes to raise on
+        # malformed input, this site fails loudly via the router
+        # exception handler rather than silently disabling mismatch
+        # detection. See v7.3.3 banner § B2.
+        candidate = RedcapPHIScrubber(
+            project_metadata_path=candidate_path,
+            unknown_field_allowlist=[],
+        )
         if candidate.fingerprint == self._scrubber.fingerprint:
             return None
         raise RedcapMetadataFingerprintMismatch(

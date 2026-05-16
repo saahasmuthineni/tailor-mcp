@@ -1,5 +1,171 @@
 # CLAUDE.md — Tailor
 
+> **v7.3.3 (2026-05-15)** — Closes the two red-team BORDER NOTES the v7.3.2
+> banner explicitly deferred. The patch lands as a *typed-exception-taxonomy*
+> patch rather than two point-fixes — one structural argument covers both
+> defects, future children inherit the seam without re-deciding it, and
+> [ADR 0003 § Amendment 2026-05-15 § Typed-exception taxonomy](docs/adr/0003-phi-scrubber-seam.md)
+> ratifies the contract. Patch bump per the v7.3.1 / v7.3.2 precedent
+> (additive marker class on the public surface; no API breaks; the audit
+> row's provenance kwargs are unchanged on both exempt and non-exempt paths).
+>
+> **The class of failure the patch names.** The framework's `CircuitBreaker`
+> exists to back off external systems that are *flaky* (transient network /
+> rate-limit / intermittent upstream errors). Some legitimate runtime
+> conditions are structurally different: the system is fine; the operator
+> must take an out-of-band action (re-attest a trust root, rotate a
+> credential, edit a config) before subsequent calls can succeed. Counting
+> these conditions toward the breaker is a *taxonomy mismatch* — it hides
+> the recovery affordance behind a generic "Circuit open for redcap_file"
+> envelope for the next 5 minutes, exactly the window the operator most
+> needs guidance. The same shape at the *catching* side is v7.3.2's
+> deferred B2: a blanket `except Exception:` in
+> `RedcapFileChild._detect_fingerprint_mismatch` swallows both "metadata file
+> became unreadable since boot" (legitimate runtime drift) and "scrubber
+> constructor signature changed" (programmer bug) under the same handler.
+>
+> **New framework primitive — `framework.security.OperatorActionRequired`.**
+> Marker exception class co-located with `CircuitBreaker` (the component
+> whose behavior it modifies). Constructor takes a keyword-only
+> `recovery_action: str` and validates it is non-empty + non-whitespace
+> at construction time — a subclass author who cannot name a remediation
+> command gets a `TypeError` at construction, not silent runtime defeat.
+> The required attribute is the *misuse guard*: a child author who reaches
+> for the class for an upstream-flaky exception (defeating the breaker for
+> paths that legitimately need it) either provides a sensible recovery hint
+> or cannot construct the exception at all. Exported from
+> `framework/__init__.py`.
+>
+> **Router exemption — both dispatch sites (B1 closure).**
+> Proposal-mode audit caught a critical defect in the v7.3.3 initial plan:
+> the proposal named only the public `_dispatch` exception handler at
+> `router.py:741`, missing the internal cross-child dispatch handler at
+> `router.py:1294`. A future cross-child REDCap call (an oracle tool
+> grounding a claim against REDCap data, a vault-backfill path) would
+> have tripped the breaker through the internal path while the public path
+> left it closed — breaker state would diverge depending on which dispatch
+> path triggered the mismatch, the same v7.3.1 all-call-sites-sweep lesson
+> reproducing. The shipped patch applies the symmetric
+> `isinstance(e, OperatorActionRequired)` check at BOTH sites; the audit row
+> still records `outcome=ERROR` / `outcome=ERROR_INTERNAL` with the full
+> v7.3.1 W5 invariant kwargs (`subject_id`, `scrubber_id`,
+> `child_scrubber_id`, `source_metadata_fingerprint`). The exemption is
+> *breaker-only*, not *audit-only* — and a new T4 test inspects the SQLite
+> audit row directly to verify this on every exempt path.
+>
+> **B2 closure — drop the defensive try/except entirely.** Proposal-mode
+> audit caught a load-bearing reality check: the initial plan proposed to
+> *narrow* the blanket `except Exception:` to `(OSError, ValueError,
+> UnicodeDecodeError, csv.Error)`. But `RedcapPHIScrubber.__init__` swallows
+> exactly those classes internally (`scrubber.py:148` — `_load_metadata`
+> stores a warning and returns instead of raising); the constructor as
+> shipped raises *essentially nothing* on bad input. The proposed narrowing
+> would have been a no-op against current behavior — catching only the
+> exception class that *must* propagate (`TypeError` from a future signature
+> change), which was the defect's stated motivation. The shipped fix drops
+> the try/except entirely; per CLAUDE.md guidance ("Don't add error
+> handling, fallbacks, or validation for scenarios that can't happen"),
+> defensive code around an exception surface that doesn't exist is
+> precisely the complexity to avoid. A new
+> `test_signature_change_in_scrubber_propagates_loudly` test simulates a
+> future signature change via monkey-patch and asserts the `TypeError`
+> propagates through `child.execute()` rather than being absorbed.
+>
+> **Reparenting — `RedcapMetadataFingerprintMismatch` is-a
+> `OperatorActionRequired`.** The reparent carries
+> `recovery_action="tailor redcap reattest"`; existing v7.3.2 invariants
+> on the exception (both fingerprints in `str(exc)` for IRB queryability;
+> "ADR 0003" + "tailor redcap reattest" substring presence; no absolute
+> on-disk path in the error message) are preserved verbatim. A new T6
+> test class locks the inheritance contract — a future refactor of the
+> REDCap exception that drops the parent class fails this test loudly
+> rather than silently unlinking the breaker exemption.
+>
+> **Proposal-mode audit returned REVISE on the initial plan — 2 BLOCKING +
+> 4 IMPORTANT closed pre-implementation.** B1 (the dual-dispatch-site
+> miss) and B2 (the no-op narrowing) named above. IMPORTANT findings
+> addressed in code: I1 — marker-class placement (`framework/security.py`
+> adjacent to `CircuitBreaker` for semantic honesty, vs the initial plan's
+> `framework/interfaces.py`); I2 — three missing audit-invariant test
+> cases (T4 exempt-path audit row outcome stamp + W5 kwarg threading + the
+> implicit consent-revocation interaction documented as orthogonal in the
+> ADR); I3 — `dispatch_internal`'s `outcome="ERROR_INTERNAL"` outcome
+> shape covered in T3; I4 — `OperatorActionRequired` semantics named
+> explicitly in the ADR amendment (breaker exemption is per-exception-
+> instance, consent state is orthogonal, `subject_id` propagation
+> unchanged). N1 / N2 ratified inline (patch-bump per v7.3.1 / v7.3.2
+> precedent; reversal condition for OperatorActionRequiredTransient named
+> in the amendment).
+>
+> **Most-likely-misbehaviour-path adopted into the design.** Proposal-mode
+> auditor's strongest find: future child authors might misclassify
+> *upstream-flaky* exceptions as `OperatorActionRequired`, defeating the
+> breaker for paths that legitimately need it. The structural fix —
+> require the marker class carry a `recovery_action: str` attribute that
+> surfaces verbatim — makes misclassification a *loud constructor error*
+> rather than a *silent runtime defeat*. Same shape as v7.3.2's W5
+> AST-class contract test replacing the grep-class one: turn structural
+> failure modes into compile/construct-time errors rather than runtime
+> drift.
+>
+> **No public API breaks.** `OperatorActionRequired` is additive (existing
+> exception subclasses inherit by changing their parent class; downstream
+> `except Exception` catches still see the class). No new abstract
+> methods, no new schema, no new audit columns, no router-pipeline /
+> security-pipeline / vault-layer / CLI architecture changes beyond the
+> additive marker class and the symmetric isinstance check at the two
+> exception handlers.
+>
+> **Red-team-reviewer caught a fifth defect all four upstream specialists
+> missed (F-G closure pre-ship).** Adversarial pairing on the four
+> upstream confident verdicts returned **OBJECTION (medium)** on a real
+> defect. The B1 wire test claimed "the LLM keeps seeing the recovery
+> hint on every mismatch call" — but the test passes because the test
+> harness runs a background daemon thread (`_start_stderr_drain`) that
+> actively drains the server's stderr. Production (Claude Desktop) does
+> not run that thread; after ~8 OperatorActionRequired events the
+> Windows OS pipe buffer (4KB) fills with `log.info` lines, the server
+> stalls on its next write, stdin blocks, and the recovery affordance
+> disappears — the **exact failure class v7.3.3 was meant to close**,
+> reachable by a different path. Same structural shape as v7.3.2's W5
+> grep-vs-AST catch: the test passes because adjacent infrastructure
+> provides the property under test, but production has no such
+> infrastructure. **F-G closure**: silence the router's logger output
+> entirely for `OperatorActionRequired` instances at both exception
+> handlers — the audit row + wire envelope already carry the full event
+> + recovery hint; the rotating file handler is the durable debug trace
+> for everything else. Removing the byte source eliminates the failure
+> mode rather than reducing its severity; a structurally stronger fix
+> than the earlier "log.info instead of log.error + exc_info" mitigation.
+> Two new T8 regression tests lock the closure: one asserts zero log
+> records emitted on the OperatorActionRequired path across 10 calls
+> (2× the cited 4KB / 500-byte threshold); a sibling test asserts the
+> RuntimeError path still emits `log.error` to guard against
+> over-silencing. This is precisely the ADR 0010 (adversarial pairing)
+> earning-its-keep moment that v7.3.2's W5, v6.10.4, and v6.4.0 named:
+> the dissent layer catches the failure mode the same model produces in
+> its confirmation-shaped craft persona.
+>
+> Gates: **ci-gate-runner SHIPPABLE** (1297/1297 pytest, 3 scipy-
+> conditional skips, ruff clean, 76/76 security probe, CLI smoke).
+> **mcp-protocol-auditor PROTOCOL OK** (40/40 — 14 new v7.3.3 wire
+> tests at `tests/test_serve_v733_wire_audit.py` added as audit side
+> effect, parallel to v7.3.2's pattern; the wire tests required
+> `PYTHONUNBUFFERED=1 + bufsize=0` on `_spawn` to bypass pytest's
+> stdout-capture buffering — a test-infra fix, separate from the
+> production F-G closure). **reproducibility-provenance-auditor CLEAN**
+> (every touched file HOLDS against ADRs 0001 / 0002 / 0003 / 0008;
+> v7.3.1 all-call-sites-sweep invariant holds on the new exempt path;
+> v7.3.2 W5 AST contract test continues to satisfy 28/28).
+> **phi-irb-risk-reviewer NO RISK** across all six threat-model lenses.
+> **red-team-reviewer OBJECTION (medium) → CLOSED by F-G pre-ship.**
+> cue-card-rehearsal-auditor NOT TRIGGERED (no `CUE_CARD.md` or
+> `ToolDefinition` schema changes). recipient-install-validator SKIPPED
+> per v6.11.x falsification precedent (no install-path globs touched).
+> Net-new tests: 31 (16 in `tests/framework/test_v733_operator_action_required.py`
+> + 14 in `tests/test_serve_v733_wire_audit.py` + 1 in
+> `tests/children/redcap/test_redcap_shape.py`).
+
 > **v7.3.2 (2026-05-15)** — Closes the two remaining v7.3.0 WATCH findings deferred
 > from v7.3.1: (a) `project_metadata.csv` is a trust root — a tampered file with
 > every identifier flag flipped from `Y` to `N` would render `RedcapPHIScrubber`

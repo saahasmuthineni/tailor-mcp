@@ -230,6 +230,8 @@ def _coerce_str(v) -> str | None:
 
 def _infer_note_type(filename: str) -> str:
     """Heuristic: map the vault subdirectory to a note_type."""
+    if filename == "snapshot.md":
+        return "snapshot"
     if filename.startswith("themes/"):
         return "theme"
     if filename.startswith("moments/"):

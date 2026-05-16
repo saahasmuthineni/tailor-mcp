@@ -127,6 +127,16 @@ def _hip_lab_user_config(target_dir: Path) -> dict:
     """
     return {
         "vault_path": str(target_dir / "vault"),
+        # cost_threshold is set below the framework default (35,000) so
+        # the bundled HIP Lab fixtures' Tier-3 raw-window call on a 60s
+        # @ 100 Hz subject trace (estimated ~24,000 tokens; actual
+        # payload ~50,000 tokens per the v7.3.4 mcp-protocol-auditor
+        # wire audit) trips the cost gate — making the AI-economics
+        # claim (ADR 0029) demonstrable in the recipient walkthrough.
+        # Matches the v6.5.0 demo router precedent. v7.4.0 may tune
+        # this once the cost estimator's 2.1× under-estimate is
+        # calibrated.
+        "cost_threshold": 15000,
         "force_csv": {
             "path": str(target_dir / "force"),
             "timestamp_column": "t_s",
@@ -351,34 +361,72 @@ def _print_next_steps(
     else:
         print("  Fitting-room scaffolded; Claude Desktop registration FAILED")
     print("=" * 64)
-    print(f"  Target dir:     {target_dir}")
-    print(f"  user_config:    {target_dir / 'user_config.json'}")
-    print(f"  vault index:    {target_dir / 'data' / 'vault.db'}")
 
+    # ── What to do next (lead with the action, not the paths) ──
     if skipped:
-        print("  Claude Desktop: not registered (--no-claude-desktop)")
-        print(f"  Manual env vars: TAILOR_CONFIG_DIR={target_dir}")
-        print(f"                   TAILOR_DATA_DIR={target_dir / 'data'}")
         print()
+        print("  Claude Desktop registration was skipped (--no-claude-desktop).")
+        print()
+        print("  To use Tailor manually, set these env vars and start the server:")
+        print(f"    TAILOR_CONFIG_DIR={target_dir}")
+        print(f"    TAILOR_DATA_DIR={target_dir / 'data'}")
+        print()
+        _print_fitting_room_paths_block(target_dir)
         return
 
     if not results:
-        print("  Claude Desktop: not registered (Linux, or APPDATA missing)")
-        print(f"  Manual env vars: TAILOR_CONFIG_DIR={target_dir}")
-        print(f"                   TAILOR_DATA_DIR={target_dir / 'data'}")
         print()
+        print("  Claude Desktop registration unavailable on this platform")
+        print("  (Linux, or APPDATA missing on Windows).")
+        print()
+        print("  To use Tailor manually, set these env vars and start the server:")
+        print(f"    TAILOR_CONFIG_DIR={target_dir}")
+        print(f"    TAILOR_DATA_DIR={target_dir / 'data'}")
+        print()
+        _print_fitting_room_paths_block(target_dir)
         return
 
-    if written:
-        if len(written) == 1:
-            verb = "staged" if not claude_desktop_present else "registered"
-            print(f"  Claude Desktop: {verb} as '{server_name}' in")
-            print(f"                  {written[0].path}")
-        else:
-            verb = "staged" if not claude_desktop_present else "registered"
-            print(f"  Claude Desktop: {verb} as '{server_name}' in:")
-            for r in written:
-                print(f"                  {r.path}")
+    if written and claude_desktop_present:
+        print()
+        print("  Next step:")
+        print("    1. Please fully quit Claude Desktop")
+        print("       (Windows: right-click system-tray icon -> Quit;")
+        print("        macOS: Cmd+Q).")
+        print("    2. Re-open Claude Desktop, then in a fresh chat try one")
+        print("       of these prompts:")
+        print()
+        print('      * "Compare male versus female force decline rates in')
+        print('         this cohort."')
+        print('      * "What about subject four?"')
+        print('      * "Show me the recent moments in the vault."')
+        print('      * "Step me through the tier levels for subject four')
+        print('         — what does each one cost?"')
+        print()
+        print("  (Heads-up: don't call `vault_generate_snapshot` mid-")
+        print("   walkthrough — it overwrites the bundled orientation")
+        print("   document with a live-state regenerate.)")
+        print()
+        print("  Heads-up on Claude Desktop's UI: Tailor appears as a")
+        print("  'session-scoped server', not a green connector card.")
+        print("  That's the normal shape for local MCP servers (connector")
+        print("  cards are reserved for OAuth integrations). The full tool")
+        print("  surface is available either way.")
+        print()
+        _print_fitting_room_paths_block(target_dir, written, server_name,
+                                       claude_desktop_present)
+    elif written and not claude_desktop_present:
+        print()
+        print("  Claude Desktop is not installed on this account. Tailor's")
+        print("  config has been staged for a future install — once Claude")
+        print("  Desktop is installed and run for the first time, it will")
+        print("  pick up this config automatically. You cannot use Tailor's")
+        print("  MCP integration until Claude Desktop is installed.")
+        print()
+        print("  Install Claude Desktop:")
+        print("    https://claude.ai/download")
+        print()
+        _print_fitting_room_paths_block(target_dir, written, server_name,
+                                       claude_desktop_present)
     if failed:
         print()
         print("  ERRORS — these Claude Desktop config paths could not be written:")
@@ -388,28 +436,31 @@ def _print_next_steps(
         print()
         print("  Quit Claude Desktop fully (system tray Quit on Windows,")
         print("  Cmd+Q on macOS) and re-run `tailor fitting-room --force`.")
-    print()
-    if written and not claude_desktop_present:
-        print("  Claude Desktop is not installed on this account. Tailor's")
-        print("  config has been staged for a future install — once Claude")
-        print("  Desktop is installed and run for the first time, it will")
-        print("  pick up this config automatically. You cannot use Tailor's")
-        print("  MCP integration until Claude Desktop is installed.")
         print()
-        print("  Install Claude Desktop:")
-        print("    https://claude.ai/download")
-    elif written:
-        print("  Next: fully quit Claude Desktop (system tray Quit on Windows,")
-        print("        Cmd+Q on macOS), then re-open it. Try this prompt:")
-        print()
-        print('    "List the available Tailor tools."')
-        print()
-        print("  Heads-up on Claude Desktop's UI: Tailor will appear as a")
-        print("  'session-scoped server', not a connector card with a green")
-        print("  status indicator. That's normal — Claude Desktop reserves")
-        print("  connector cards for OAuth-based integrations. The full")
-        print("  tool surface is available either way; ask the prompt above")
-        print("  to see it.")
+
+
+def _print_fitting_room_paths_block(
+    target_dir,
+    written: list | None = None,
+    server_name: str = "",
+    claude_desktop_present: bool = False,
+) -> None:
+    """Print the fitting-room paths block (target dir, configs, vault index,
+    Claude Desktop registrations) as a *demoted* power-user reference, after
+    the human-facing 'what to do next' instruction has led."""
+    print("  Files & locations (for reference):")
+    print(f"    target dir:   {target_dir}")
+    print(f"    user_config:  {target_dir / 'user_config.json'}")
+    print(f"    vault index:  {target_dir / 'data' / 'vault.db'}")
+    if written:
+        verb = "staged" if not claude_desktop_present else "registered"
+        if len(written) == 1:
+            print(f"    Claude config ({verb} as '{server_name}'):")
+            print(f"      {written[0].path}")
+        else:
+            print(f"    Claude configs ({verb} as '{server_name}'):")
+            for r in written:
+                print(f"      {r.path}")
     print()
 
 

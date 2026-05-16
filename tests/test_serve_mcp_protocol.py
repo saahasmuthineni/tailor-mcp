@@ -1691,17 +1691,17 @@ def test_tour_force_cohort_summary_round_trip() -> None:
     is the force_csv equivalent of test_csv_cohort_summary_round_trip —
     it closes the gap where force_cohort_summary had no subprocess coverage.
 
-    Note: force_cohort_summary uses 'value_column' + 'group_field' (not
-    'column' + 'group_by' like csv_cohort_summary). This distinction is
-    load-bearing for LLM callers — the cue-card-rehearsal-auditor (ADR 0025)
-    exists precisely because wrong parameter names silently break at runtime.
+    Note: v7.3.4 aligned 'group_field' → 'group_by' across force_cohort_summary
+    and emg_cohort_summary to match csv_cohort_summary (cue-card-rehearsal-auditor
+    D2 closure). 'value_column' name retained for now; align to 'column' is
+    queued for v7.4.0.
     """
     with spawn_tour_server() as (client, _paths):
         client.initialize()
 
         resp = client.call_tool("force_cohort_summary", {
             "value_column": "force",
-            "group_field": "sex",
+            "group_by": "sex",
             "metric": "mean",
         })
         assert "error" not in resp, resp
@@ -1769,16 +1769,17 @@ def test_tour_emg_csv_tier1_round_trip() -> None:
 def test_tour_emg_cohort_summary_round_trip() -> None:
     """T5: emg_cohort_summary returns groups dict with no repr artifacts.
 
-    Mirrors T3 for the EMG child. Uses 'value_column' + 'group_field'
-    (same param vocabulary as force_cohort_summary, different from
-    csv_cohort_summary's 'column' + 'group_by').
+    Mirrors T3 for the EMG child. Uses 'value_column' + 'group_by'
+    after v7.3.4's cue-card-rehearsal-auditor D2 closure; matches
+    force_cohort_summary's vocabulary; 'value_column' rename to 'column'
+    queued for v7.4.0.
     """
     with spawn_tour_server() as (client, _paths):
         client.initialize()
 
         resp = client.call_tool("emg_cohort_summary", {
             "value_column": "envelope",
-            "group_field": "sex",
+            "group_by": "sex",
             "metric": "mean",
         })
         assert "error" not in resp, resp

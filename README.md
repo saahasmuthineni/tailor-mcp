@@ -318,6 +318,22 @@ The recipient install path is what a PI or analyst would use; the
 developer path is for contributors writing code or tests against the
 framework. Most readers want the recipient path.
 
+### Step 0 — install uv (skip if you already have it)
+
+`uv` is the Python package manager that hosts Tailor and provisions
+its own Python interpreter. Copy-paste the command for your OS:
+
+| OS | Command |
+|---|---|
+| Windows (PowerShell) | `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 \| iex"` |
+| Windows (winget) | `winget install --id=astral-sh.uv -e` |
+| macOS | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| Linux | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+
+After install, restart your terminal so `uv` is on `PATH`, then verify
+with `uv --version`. If you prefer reading the official upstream docs
+first, [docs.astral.sh/uv](https://docs.astral.sh/uv/) has the long form.
+
 ### Install
 
 > *The install ritual below is the path that survived [Phase 0](ROADMAP.md#at-a-glance)

@@ -451,14 +451,18 @@ class ForceCsvChild(ChildMCP):
                 "trial to one scalar via metric, then aggregates by "
                 "group. Requires metadata.json sidecar. ~600 tokens.",
                 {
-                    "group_field": {
+                    "group_by": {
                         "type": "string",
-                        "description": "Metadata field to group by (e.g. 'sex')",
+                        "description": "Metadata field to group by (e.g. 'sex', 'group').",
                         "required": True,
                     },
                     "value_column": {
                         "type": "string",
-                        "description": "Column to reduce per file",
+                        "description": (
+                            "Numeric column to reduce per file. Use the "
+                            "logical name from your force_csv.value_columns "
+                            "config (e.g. 'force' for a force-trace column)."
+                        ),
                         "required": True,
                     },
                     "metric": {
@@ -649,7 +653,7 @@ class ForceCsvChild(ChildMCP):
                 "subject_id": SUBJECT_ID_SCHEMA,
             },
             "force_cohort_summary": {
-                "group_field": ValidationSchema(
+                "group_by": ValidationSchema(
                     type=str, required=True, pattern=r"^[A-Za-z0-9_\-]{1,64}$",
                 ),
                 "value_column": ValidationSchema(type=str, required=True),
@@ -816,7 +820,17 @@ class ForceCsvChild(ChildMCP):
 
     def _extract_timestamps(self, rows: list[dict], headers: list[str]):
         """Best-effort timestamp column extraction; returns None if no
-        usable timestamp column or if any row fails to parse."""
+        usable timestamp column or if any row fails to parse.
+
+        Two paths: (1) ISO-datetime strings via parse_timestamp; (2)
+        float-seconds offsets via the v7.3.4 fallback below. The float-
+        seconds path is the standard biomedical signal shape (``t_s``
+        column = elapsed seconds from trial start) that the bundled
+        HIP Lab fixtures use; without it, time-based fatigue metrics
+        like ``time_to_50pct_drop_s`` and ``duration_s`` silently
+        returned null on the cohort thesis hot path (mcp-protocol-
+        auditor D1, v7.3.4)."""
+        from datetime import datetime, timedelta, timezone
         ts_col = (
             self._timestamp_column
             or self._csv_processing.detect_timestamp_column(headers)
@@ -829,8 +843,21 @@ class ForceCsvChild(ChildMCP):
                 (r.get(ts_col) or ""), self._timestamp_format,
             )
             if t is None:
-                return None
+                break
             parsed.append(t)
+        else:
+            return parsed
+        epoch = datetime(2000, 1, 1, tzinfo=timezone.utc)
+        parsed = []
+        for r in rows:
+            v = r.get(ts_col)
+            if v in (None, ""):
+                return None
+            try:
+                offset_s = float(v)
+            except (TypeError, ValueError):
+                return None
+            parsed.append(epoch + timedelta(seconds=offset_s))
         return parsed
 
     def _load_metadata_sidecar(
@@ -1067,7 +1094,7 @@ class ForceCsvChild(ChildMCP):
             "peak": decline.get("peak"),
             "mvc_window_mean_250ms": mvc_window,
             "end_value": decline.get("end_value"),
-            "decline_pct": decline.get("decline_pct"),
+            "decline_pct": decline.get("decline_pct_total"),
             "decline_rate_per_min": decline.get("decline_rate_per_min"),
             "time_to_50pct_drop_s": decline.get("time_to_50pct_drop_s"),
             "duration_s": decline.get("duration_s"),
@@ -1098,7 +1125,7 @@ class ForceCsvChild(ChildMCP):
         value_column = self._value_columns.get(
             params["value_column"], params["value_column"],
         )
-        group_field = params["group_field"]
+        group_by = params["group_by"]
         metric = params["metric"]
 
         metadata, meta_err = self._load_metadata_sidecar()
@@ -1132,7 +1159,7 @@ class ForceCsvChild(ChildMCP):
             if file_meta is None:
                 missing_metadata.append(f.name)
                 continue
-            group = file_meta.get(group_field)
+            group = file_meta.get(group_by)
             if group is None:
                 missing_group_field.append(f.name)
                 continue
@@ -1172,7 +1199,7 @@ class ForceCsvChild(ChildMCP):
         result: dict = {
             "value_column": value_column,
             "metric": metric,
-            "group_field": group_field,
+            "group_by": group_by,
             "subject_count": sum(len(s) for s in subjects_by_group.values()),
             "groups": groups,
             "note": (
@@ -1237,7 +1264,7 @@ class ForceCsvChild(ChildMCP):
                 "sample_rate_hz": sample_rate,
                 "peak": decline.get("peak"),
                 "mvc_window_mean_250ms": mvc_window,
-                "decline_pct": decline.get("decline_pct"),
+                "decline_pct": decline.get("decline_pct_total"),
                 "decline_rate_per_min": decline.get("decline_rate_per_min"),
                 "time_to_50pct_drop_s": decline.get("time_to_50pct_drop_s"),
                 "duration_s": decline.get("duration_s"),

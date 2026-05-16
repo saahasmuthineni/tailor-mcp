@@ -863,10 +863,18 @@ def render_snapshot_note(snapshot: dict) -> tuple[str, str]:
         body_parts.append("*(No recent moments.)*")
     body_parts.append("")
 
-    # Weekly summary
-    body_parts += ["## Weekly Summary (last 4 weeks)", ""]
+    # Weekly summary — only render when we actually have run data.
+    # v7.3.4: a HIP-Lab / cohort-CSV / REDCap deployment has no running
+    # child registered and no `run_report` notes; surfacing an empty
+    # weekly-runs table would Strava-shape the orientation surface and
+    # mislead a recipient on a non-running demo (per ADR 0027 / 0029
+    # + the v7.3.4 mcp-protocol-auditor + integration-auditor F3
+    # finding that the regenerator was overwriting hand-written
+    # orientation prose with a no-run-data table). v7.4.0 closes the
+    # broader vault-layer Strava purge per ADR 0038 (Proposed).
     weekly = snapshot.get("weekly_summary") or []
     if weekly:
+        body_parts += ["## Weekly Summary (last 4 weeks)", ""]
         body_parts.append("| Week | Runs | Miles | Avg HR |")
         body_parts.append("|------|------|-------|--------|")
         for w in weekly:
@@ -875,9 +883,7 @@ def render_snapshot_note(snapshot: dict) -> tuple[str, str]:
             miles = w.get("total_miles", 0)
             avg_hr = w.get("avg_hr", "—") or "—"
             body_parts.append(f"| {week} | {runs} | {miles} | {avg_hr} |")
-    else:
-        body_parts.append("*(No recent run data.)*")
-    body_parts.append("")
+        body_parts.append("")
 
     # Vault health
     body_parts += ["## Vault Health", ""]

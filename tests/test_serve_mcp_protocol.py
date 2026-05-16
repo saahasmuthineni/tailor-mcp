@@ -1525,19 +1525,24 @@ def test_v690_tour_subcommand_not_exposed_as_mcp_tool() -> None:
         assert_no_repr_artifacts(json.dumps(resp))
 
 
-def test_v690_tool_count_unchanged_at_49() -> None:
-    """V690-T2: tools/list count is 49 with full config loaded (unchanged
-    from v6.8.x — tour adds no new MCP tools).
+def test_v740_tool_count_unchanged_at_50() -> None:
+    """V740-T2: tools/list count is 50 with full config loaded.
 
-    Expected composition (full config: running + csv_dir + vault + local_llm):
-      25 vault + 12 running + 7 csv_dir + 1 ask_local_oracle
+    Expected composition (full config: running + csv_dir + vault + local_llm
+    + audit_query):
+      25 vault + 12 running + 7 csv_dir + 1 ask_local_oracle + 1 audit_query
       + 4 auto-generated consent tools (approve/revoke × running/csv_dir)
-      = 49
+      = 50
 
-    If this count changes, it means a tool was added or removed without
-    a corresponding CLAUDE.md tool-surface update. The template child is
-    not registered in the test config (opt-in requires explicit config key),
-    so its 3 tools are excluded from the wire count.
+    Count history:
+      - v6.9.0–v7.3.4: 49 (tour adds no MCP tools)
+      - v7.4.0: 50 (added audit_query framework-tier IRB-reviewer surface
+        per ADR 0039 + ADR 0012 § Amendment v7.4.0)
+
+    If this count changes again, it means a tool was added or removed
+    without a corresponding CLAUDE.md tool-surface update. The template
+    child is not registered in the test config (opt-in requires explicit
+    config key), so its 3 tools are excluded from the wire count.
     """
     with spawn_server() as (client, _paths):
         client.initialize()
@@ -1545,8 +1550,8 @@ def test_v690_tool_count_unchanged_at_49() -> None:
         assert "error" not in resp, f"tools/list error: {resp}"
         tools = resp["result"]["tools"]
         n = len(tools)
-        assert n == 49, (
-            f"tools/list count changed: expected 49, got {n}. "
+        assert n == 50, (
+            f"tools/list count changed: expected 50, got {n}. "
             f"If a new tool was added, update CLAUDE.md tool-surface table "
             f"and change this assertion to the new expected count. "
             f"Current tools: {sorted(t['name'] for t in tools)}"
@@ -1595,16 +1600,22 @@ def test_v690_serve_startup_meta_version_stamp() -> None:
 # ──────────────────────────────────────────────────────────────────
 
 
-def test_tour_tool_count_is_70() -> None:
-    """T1: tools/list on tour config returns exactly 70 tools.
+def test_tour_tool_count_is_71() -> None:
+    """T1: tools/list on tour config returns exactly 71 tools as of v7.4.0.
 
     Expected composition:
       9 force_csv + 8 emg_csv + 7 csv_dir + 25 vault + 12 running
-      + 1 ask_local_oracle + 4 approve_consent + 4 revoke_consent = 70.
+      + 1 ask_local_oracle + 1 audit_query
+      + 4 approve_consent + 4 revoke_consent = 71.
+
+    Count history:
+      - v6.9.0–v7.3.4: 70
+      - v7.4.0: 71 (added audit_query framework-tier IRB-reviewer
+        surface per ADR 0039 + ADR 0012 § Amendment v7.4.0)
 
     If this count changes a tool was added or removed without updating
     the tour surface table in CLAUDE.md. Also pins no-repr on the full
-    70-tool list payload.
+    71-tool list payload.
     """
     with spawn_tour_server() as (client, _paths):
         client.initialize()
@@ -1613,8 +1624,8 @@ def test_tour_tool_count_is_70() -> None:
 
         tools = resp["result"]["tools"]
         n = len(tools)
-        assert n == 70, (
-            f"Tour tools/list count: expected 70, got {n}. "
+        assert n == 71, (
+            f"Tour tools/list count: expected 71, got {n}. "
             f"Tools: {sorted(t['name'] for t in tools)}"
         )
 

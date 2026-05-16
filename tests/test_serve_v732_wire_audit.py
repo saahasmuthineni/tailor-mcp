@@ -906,17 +906,24 @@ class TestW5AllCallSitesSweep:
         content = router_path.read_text(encoding="utf-8")
         return content.splitlines(), content
 
-    def test_total_audit_record_call_count_is_28(self) -> None:
+    def test_total_audit_record_call_count_is_31(self) -> None:
         """
-        28 total ``self._audit.record(`` sites in router.py as of v7.3.2.
-        If this count changes, the all-call-sites sweep has shifted and the
-        auditor must re-verify every new/removed site.
+        31 total ``self._audit.record(`` sites in router.py as of v7.4.0.
+
+        Count history:
+          - v7.3.2: 28 (after the all-call-sites sweep closure)
+          - v7.4.0: 31 (added _dispatch_audit_query — PARAM_INVALID,
+            SUCCESS, ERROR sites for the new IRB-grade query surface
+            per ADR 0012 § Amendment v7.4.0)
+
+        If this count changes again, the all-call-sites sweep has
+        shifted and the auditor must re-verify every new/removed site.
         """
         lines, _ = self._load_router_source()
         sites = [i + 1 for i, line in enumerate(lines)
                  if "self._audit.record(" in line]
-        assert len(sites) == 28, (
-            f"W5 FAIL: expected 28 audit.record() sites, found {len(sites)}. "
+        assert len(sites) == 31, (
+            f"W5 FAIL: expected 31 audit.record() sites, found {len(sites)}. "
             f"Lines: {sites}. "
             f"If router.py changed, re-run the all-call-sites sweep for "
             f"'source_metadata_fingerprint' per the v7.3.1 banner mandate."
@@ -995,17 +1002,18 @@ class TestW5AllCallSitesSweep:
             f"=child.child_source_metadata_fingerprint) at each site."
         )
 
-    def test_5_meta_stamping_sites_carry_source_metadata_fingerprint(
+    def test_6_meta_stamping_sites_carry_source_metadata_fingerprint(
         self,
     ) -> None:
         """
-        Exactly 5 ``_meta`` stamping sites in router.py must carry
-        ``"source_metadata_fingerprint"``:
-          1. Child dispatch (_dispatch, line ~727)
-          2. Vault dispatch (_dispatch_vault, line ~819)
-          3. Local-LLM dispatch (_dispatch_local_llm, line ~1007)
-          4. Setup-help dispatch (_dispatch_setup_help, line ~1099)
-          5. Internal dispatch (dispatch_internal, line ~1271)
+        Exactly 6 ``_meta`` stamping sites in router.py must carry
+        ``"source_metadata_fingerprint"`` as of v7.4.0:
+          1. Child dispatch (_dispatch)
+          2. Vault dispatch (_dispatch_vault)
+          3. Local-LLM dispatch (_dispatch_local_llm)
+          4. Setup-help dispatch (_dispatch_setup_help)
+          5. Audit-query dispatch (_dispatch_audit_query) — NEW v7.4.0
+          6. Internal dispatch (dispatch_internal)
         """
         lines, _ = self._load_router_source()
 
@@ -1016,12 +1024,12 @@ class TestW5AllCallSitesSweep:
             if '"source_metadata_fingerprint":' in line
         ]
 
-        assert len(meta_key_sites) == 5, (
-            f"W5 FAIL: expected 5 _meta stamping sites with "
+        assert len(meta_key_sites) == 6, (
+            f"W5 FAIL: expected 6 _meta stamping sites with "
             f"'\"source_metadata_fingerprint\":', found {len(meta_key_sites)}. "
             f"Lines: {meta_key_sites}. "
             f"Check _dispatch, _dispatch_vault, _dispatch_local_llm, "
-            f"_dispatch_setup_help, dispatch_internal."
+            f"_dispatch_setup_help, _dispatch_audit_query, dispatch_internal."
         )
 
     def test_audit_module_carries_source_metadata_fingerprint_column(

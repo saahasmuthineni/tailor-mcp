@@ -107,6 +107,12 @@ class RouterMCP:
         # no demo scaffold is present in user_config.json. Same
         # (None, tool_def) sentinel + _framework_layer_owner pattern.
         self._setup_help_layer = None
+        # Audit-query layer (framework-level IRB-reviewer surface; not a
+        # ChildMCP). Always registered when audit_log is available.
+        # See ADR 0012 § Amendment v7.4.0 for the bypass invariant +
+        # reversal condition. Closes the v7.3.4 audit-log-over-promise
+        # gap.
+        self._audit_query_layer = None
         self._framework_layer_owner: dict[str, str] = {}
 
         # Middleware stack
@@ -282,6 +288,66 @@ class RouterMCP:
             f"{len(setup_help_layer.tool_definitions)} tools"
         )
 
+    def register_audit_query_layer(self, audit_query_layer) -> None:
+        """
+        Register the framework-level audit-query layer (IRB-reviewer
+        surface over audit_log).
+
+        Tools use the same ``(None, tool_def)`` sentinel as vault,
+        local_llm, and setup_help; ``_framework_layer_owner["audit_query"]``
+        is set to ``"audit_query"`` so ``_dispatch`` routes to
+        ``_dispatch_audit_query()`` — a stripped-down pipeline (param
+        validation + execute + audit) that skips consent, cost, circuit
+        breaker, framework PHI scrub, and post-execute hooks.
+
+        Always registered when an ``AuditLog`` is available — the layer
+        is read-only and the response shape is the B1 column allowlist
+        (no raw ``params``, no raw ``error``) so no privacy gate applies
+        and no cost gate is needed at default ``limit=50``. See
+        ADR 0012 § Amendment v7.4.0 for the bypass invariant +
+        reversal condition.
+        """
+        if self._audit_query_layer is not None:
+            raise ValueError("Audit-query layer already registered")
+
+        self._audit_query_layer = audit_query_layer
+        audit_query_layer._router = self
+
+        for tool_def in audit_query_layer.tool_definitions:
+            if tool_def.name in self._tool_map:
+                existing = self._tool_map[tool_def.name][0]
+                if existing is not None:
+                    existing_domain = existing.domain
+                else:
+                    existing_domain = self._framework_layer_owner.get(
+                        tool_def.name, "framework"
+                    )
+                raise ValueError(
+                    f"Tool '{tool_def.name}' already registered by "
+                    f"'{existing_domain}'"
+                )
+            self._tool_map[tool_def.name] = (None, tool_def)
+            self._framework_layer_owner[tool_def.name] = "audit_query"
+
+        log.info(
+            f"Registered audit-query layer with "
+            f"{len(audit_query_layer.tool_definitions)} tools"
+        )
+
+    @property
+    def audit_log(self) -> AuditLog:
+        """The router's :class:`AuditLog` — public seam for the
+        framework-tier audit-query layer, which needs to read rows
+        the router has been writing.
+
+        Exposed as a property so callers don't reach into the
+        ``_audit`` private attribute; the read-only return type means
+        a future change to internal storage (e.g. moving audit out of
+        SQLite) only needs to keep the ``query()`` / ``record()`` /
+        ``close()`` surface stable.
+        """
+        return self._audit
+
     @property
     def registered_domains(self) -> list[str]:
         return list(self._children.keys())
@@ -416,6 +482,10 @@ class RouterMCP:
                 )
             if owner == "setup_help":
                 return await self._dispatch_setup_help(
+                    tool_name, tool_def, arguments, start,
+                )
+            if owner == "audit_query":
+                return await self._dispatch_audit_query(
                     tool_name, tool_def, arguments, start,
                 )
             log.error(
@@ -1159,6 +1229,105 @@ class RouterMCP:
             )
             log.error(
                 f"Setup-help tool {tool_name} failed: {e}", exc_info=True,
+            )
+            return [TextContent(type="text", text=_dumps({"error": str(e)}))]
+
+    async def _dispatch_audit_query(
+        self,
+        tool_name: str,
+        tool_def: ToolDefinition,
+        arguments: dict,
+        start: float,
+    ) -> list[TextContent]:
+        """
+        Dispatch an audit-query-layer tool (IRB-reviewer surface).
+
+        Stripped-down pipeline:
+
+            param validation -> execute -> audit
+
+        Skipped by design:
+            - Circuit breaker (no external dep; SQLite read only)
+            - Consent gate (no biometric data; analyst-side metadata)
+            - Cost gate (B1 column allowlist bounds response shape;
+              hard cap limit=100 → ~5-15k tokens worst case)
+            - Framework PHI scrubber seam (return shape is structured
+              column allowlist, never raw params/error content; see
+              ADR 0012 § Amendment v7.4.0 invariant)
+            - Post-execute hooks (no vaultable artifacts)
+
+        Audit row uses domain="audit_query"; subject_id passes through
+        from caller params per ADR 0009 — auditing an audit_query call
+        for subject S004 stamps the row with subject_id="S004" so the
+        full all-call-sites-sweep invariant holds.
+        """
+        tier = tool_def.tier
+        sid = arguments.get("subject_id")
+
+        # ── Param validation ──
+        schemas = self._audit_query_layer.param_schemas.get(tool_name, {})
+        ok, err, cleaned = self._validator.validate(schemas, arguments)
+        if not ok:
+            self._audit.record(
+                "audit_query", tool_name, tier, arguments, 0,
+                "PARAM_INVALID", 0,
+                error=err, subject_id=sid,
+                scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
+            )
+            return [TextContent(type="text", text=_dumps({"error": err}))]
+
+        sid_clean = cleaned.get("subject_id")
+
+        # ── Execute ──
+        try:
+            result = await self._audit_query_layer.execute(
+                tool_name, cleaned,
+            )
+            tokens = estimate_tokens(result)
+            duration_ms = int((time.time() - start) * 1000)
+
+            self._ledger.add("audit_query", tool_name, tokens)
+            self._audit.record(
+                "audit_query", tool_name, tier, cleaned, tokens,
+                "SUCCESS", duration_ms,
+                subject_id=sid_clean,
+                scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
+            )
+
+            if isinstance(result, dict):
+                outer_meta: dict = {
+                    "tokens_this_call": tokens,
+                    "session_total_tokens": self._ledger.total,
+                    "domain": "audit_query",
+                    "tier": tier,
+                    "package_version": tailor.__version__,
+                    "tool_name": tool_name,
+                    "called_at": datetime.now(timezone.utc).isoformat(),
+                    "scrubber_id": self._phi_scrubber.scrubber_id,
+                    "child_scrubber_id": None,
+                    "source_metadata_fingerprint": None,
+                }
+                if self._phi_scrubber.scrubber_warning is not None:
+                    outer_meta["scrubber_warning"] = (
+                        self._phi_scrubber.scrubber_warning
+                    )
+                result["_meta"] = outer_meta
+
+            return [TextContent(type="text", text=_dumps(result))]
+
+        except Exception as e:
+            duration_ms = int((time.time() - start) * 1000)
+            self._audit.record(
+                "audit_query", tool_name, tier, cleaned, 0,
+                "ERROR", duration_ms,
+                error=str(e), subject_id=sid_clean,
+                scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
+            )
+            log.error(
+                f"Audit-query tool {tool_name} failed: {e}", exc_info=True,
             )
             return [TextContent(type="text", text=_dumps({"error": str(e)}))]
 

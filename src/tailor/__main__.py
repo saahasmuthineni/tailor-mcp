@@ -361,6 +361,18 @@ def cmd_serve():
             data_dir=DATA_DIR,
         ))
 
+    # Audit-query layer (framework-level IRB-reviewer surface). Always
+    # registered — closes the v7.3.4 audit-log-over-promise gap by
+    # giving the LLM a callable surface to query audit.db without the
+    # researcher having to drop to shell sqlite3. Response shape is the
+    # B1 column allowlist (structured metadata; never raw params or
+    # raw error strings) per ADR 0012 § Amendment v7.4.0; the bypass
+    # of the framework PHI scrubber is safe by construction.
+    from tailor.framework.audit_query import AuditQueryLayer
+    router.register_audit_query_layer(AuditQueryLayer(
+        audit_log=router.audit_log,
+    ))
+
     # Future children (CGM, sleep, ECG, EDF, FHIR) would register here
     # following the same opt-in pattern as csv_dir above.
 

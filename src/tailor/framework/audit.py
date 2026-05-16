@@ -340,3 +340,115 @@ class AuditLog:
             + (f" | scrubber={scrubber_id}" if scrubber_id else "")
             + (f" | oracle_model={oracle_model_id}" if oracle_model_id else "")
         )
+
+    # ── Query (B1 column allowlist) ──
+    #
+    # The audit log is a trust root; a tool that re-egresses its rows to
+    # an LLM transcript widens the IRB-stakes surface. The B1 design
+    # (ADR 0012 § Amendment v7.4.0) restricts the return shape to
+    # *structured* columns — no `params` content, no raw `error`
+    # strings. The error column is reduced to ``has_error`` (bool) so
+    # the v7.3.1 path-redaction posture stays intact: legacy rows that
+    # predate v7.3.1 may carry raw on-disk paths in `error`, and the
+    # framework PHIScrubber default is no-op (ADR 0003) so trusting it
+    # to re-scrub at surface time would be wishful thinking. Researchers
+    # needing full error content drop to ``tailor status`` or
+    # ``sqlite3 audit.db``.
+    #
+    # The allowlist is enforced by explicit SELECT (never SELECT *) so
+    # a future sensitive column added by ALTER TABLE cannot silently
+    # become part of the response shape.
+
+    # Identifier literals only — these names are interpolated into the
+    # SELECT clause of query() via f-string. Adding a caller-controlled
+    # value here would re-open the injection vector the explicit-SELECT
+    # enforcement closes. Defense is structural-by-convention; preserve
+    # the constraint when extending.
+    _QUERY_COLUMNS = (
+        "id", "timestamp", "domain", "tool_name", "tier",
+        "token_estimate", "outcome", "duration_ms",
+        "subject_id", "scrubber_id", "child_scrubber_id",
+        "source_metadata_fingerprint",
+    )
+    _MAX_QUERY_LIMIT = 100
+
+    def query(
+        self,
+        *,
+        since: str,
+        subject_id: str | None = None,
+        domain: str | None = None,
+        tool: str | None = None,
+        outcome: str | None = None,
+        limit: int = 50,
+        include_self: bool = True,
+    ) -> list[dict]:
+        """Read audit rows under the B1 column allowlist.
+
+        Returns a list of dicts ordered by ``timestamp`` descending,
+        each carrying the keys in :data:`_QUERY_COLUMNS` plus a derived
+        ``has_error`` (bool). The raw ``params`` and ``error`` columns
+        are never returned — see the module-level comment above for the
+        IRB-stakes argument.
+
+        Args:
+            since: ISO-8601 timestamp; rows where
+                ``timestamp >= since`` match. The caller is expected
+                to validate/parse relative forms (``"1h"`` etc.) before
+                calling.
+            subject_id: optional. When provided, applies an
+                IS-NULL-or-match filter per ADR 0009 — framework-tier
+                rows that wrote NULL stay visible alongside the
+                requested subject's rows.
+            domain: optional. Exact match.
+            tool: optional. Exact match against ``audit_log.tool_name``.
+            outcome: optional. Exact match against ``audit_log.outcome``.
+            limit: optional. Clamped to :data:`_MAX_QUERY_LIMIT`.
+                Default 50.
+            include_self: optional. When ``False``, excludes rows where
+                ``tool_name == "audit_query"``. Default ``True`` so the
+                tool's own usage is visible by default — closes the
+                ADR 0001 recursion gap an IRB reviewer would otherwise
+                only see by dropping to raw SQL.
+        """
+        limit = min(max(1, int(limit)), self._MAX_QUERY_LIMIT)
+
+        where_clauses = ["timestamp >= ?"]
+        sql_params: list = [since]
+
+        if subject_id is not None:
+            where_clauses.append("(subject_id IS NULL OR subject_id = ?)")
+            sql_params.append(subject_id)
+        if domain is not None:
+            where_clauses.append("domain = ?")
+            sql_params.append(domain)
+        if tool is not None:
+            where_clauses.append("tool_name = ?")
+            sql_params.append(tool)
+        if outcome is not None:
+            where_clauses.append("outcome = ?")
+            sql_params.append(outcome)
+        if not include_self:
+            where_clauses.append("tool_name != ?")
+            sql_params.append("audit_query")
+
+        sql_params.append(limit)
+
+        select_cols = ", ".join(self._QUERY_COLUMNS)
+        sql = (
+            f"SELECT {select_cols}, "
+            "CASE WHEN error IS NULL THEN 0 ELSE 1 END AS has_error "
+            f"FROM audit_log WHERE {' AND '.join(where_clauses)} "
+            "ORDER BY timestamp DESC LIMIT ?"
+        )
+
+        cursor = self._conn.execute(sql, sql_params)
+        keys = list(self._QUERY_COLUMNS) + ["has_error"]
+        rows = []
+        for row in cursor.fetchall():
+            # strict=True: the SELECT explicitly lists _QUERY_COLUMNS;
+            # any length mismatch is a structural bug worth raising.
+            d = dict(zip(keys, row, strict=True))
+            d["has_error"] = bool(d["has_error"])
+            rows.append(d)
+        return rows

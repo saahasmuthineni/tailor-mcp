@@ -313,14 +313,19 @@ def _assert_meta_invariants(
 # ---------------------------------------------------------------------------
 
 # Expected tool count with all children configured but scipy ABSENT.
-# Breakdown:
-#   25 vault + 12 running (strava_*) + 7 csv_dir + 6 redcap + 1 ask_local_oracle
-#   = 51 domain tools
+# Breakdown (v7.4.0):
+#   25 vault + 12 running (strava_*) + 7 csv_dir + 6 redcap
+#   + 1 ask_local_oracle + 1 audit_query (v7.4.0; ADR 0039)
+#   = 52 domain tools
 #   consent pairs: running(2) + csv_dir(2) + redcap_file(2) = 6 consent tools
-#   Total = 57
+#   Total = 58
 # MATLAB: 0 tools (scipy not installed; __main__.py catches ImportError and
 # skips registration, logging a banner to stderr).
-_EXPECTED_WIRE_COUNT_SCIPY_ABSENT = 57
+#
+# Count history:
+#   - v7.3.x: 57 (pre-audit_query)
+#   - v7.4.0: 58 (added audit_query per ADR 0039)
+_EXPECTED_WIRE_COUNT_SCIPY_ABSENT = 58
 
 
 def test_mc1_all_children_tools_list_count_and_no_collisions() -> None:

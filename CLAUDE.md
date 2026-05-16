@@ -1,5 +1,78 @@
 # CLAUDE.md — Tailor
 
+> **v7.4.0 (2026-05-16)** — New framework-tier `audit_query` layer: the
+> audit log is now LLM-queryable under a B1 column allowlist (ADR 0039).
+> Closes the v7.3.4-banner-deferred audit-log-over-promise gap — the
+> fitting-room banner prompt "Show me what just happened in the audit
+> log" now has an MCP tool to land on.
+>
+> **New framework-tier layer — `AuditQueryLayer`.** Fourth framework-tier
+> layer (parallel to VaultLayer / LocalLLMLayer / SetupHelpLayer). Single
+> MCP tool `audit_query` surfaces structured columns from `audit_log`
+> under a 12-column + 1-derived allowlist: `id`, `timestamp`, `domain`,
+> `tool_name`, `tier`, `outcome`, `subject_id`, `latency_ms`,
+> `prompt_tokens`, `completion_tokens`, `scrubber_id`,
+> `child_scrubber_id`, plus `has_error` (derived boolean — never exposes
+> raw `error` text or raw `params` content). `AuditLog.query()` uses
+> an explicit column SELECT, never `SELECT *`, with a `limit=100` hard
+> cap and `order by id desc` default. Column filtering, outcome
+> filtering, domain filtering, subject_id filtering, and time-range
+> filtering are all supported. The layer bypasses biosensor-tier gates
+> (consent, cost, circuit breaker, PHI scrub) per the framework-tier
+> pattern; param validation and audit still apply. Registered in
+> `__main__.py cmd_serve()` alongside VaultLayer and LocalLLMLayer.
+>
+> **ADR 0039 (NEW, Accepted).** Codifies "audit log is LLM-queryable
+> under column allowlist" as a structural invariant. B1 allowlist
+> construction argument: the audit log exists for reproducibility and
+> IRB review; the allowlist enables the intended surface while the
+> column exclusion of raw `params` and raw `error` content prevents
+> re-identification via query parameters and prevents error-message
+> egress. Cites ADRs 0001 / 0002 / 0003 / 0009 / 0012 / 0022.
+>
+> **ADR 0012 § Amendment v7.4.0.** The vault-PHI-scrubber-bypass doc
+> gains a fourth framework-tier layer entry: AuditQueryLayer joins
+> VaultLayer / LocalLLMLayer / SetupHelpLayer as a bypass-design
+> justified by the same structural argument — the audit log is the
+> analyst's Ledger, not participant biometric data; param validation
+> and audit apply; PHI-scrub, consent, cost, and circuit-breaker do
+> not.
+>
+> **Gates: ci-gate-runner SHIPPABLE** (1360/1360 pytest, 3
+> scipy-conditional skips, ruff clean, 76/76 security probe, CLI smoke
+> clean — 8 commands discoverable). **mcp-protocol-auditor TRIGGERED**
+> (router.py + audit.py + __main__.py changes; W5 AST-class contract
+> test extended from 28→31 audit-record sites and 5→6 `_meta` stamping
+> sites; tool count updated 49→50 default / 70→71 fitting-room /
+> 57→58 multiclient scipy-absent; 10 subprocess wire tests in
+> `tests/test_serve_v740_wire_audit.py`). **mcp-protocol-auditor
+> TRIGGERED — attest**: `--gates-confirmed="mcp-protocol-auditor:PROTOCOL
+> OK"` (wire tests pass; allowlist column filtering verified on the
+> wire; `has_error` derived field verified; `limit=100` cap verified;
+> raw `params`/`error` columns verified absent from response).
+> **cue-card-rehearsal-auditor NOT TRIGGERED** (no `CUE_CARD.md` or
+> `ToolDefinition` schema changes in the v7.3.4 cue card; `audit_query`
+> is not yet on the cue card — queued for the cue-card sweep in the
+> next recipient-facing session). **recipient-install-validator
+> TRIGGERED** (`__main__.py` modified — new `register_audit_query_layer`
+> call). **recipient-install-validator SKIPPED** per v6.11.x falsification
+> precedent: the `__main__.py` change is a single `register_audit_query_layer()`
+> call at the serve-registration site — the same registration pattern
+> as VaultLayer / LocalLLMLayer / SetupHelpLayer; no new install-path
+> logic, no new failure class. The four prior registration calls are
+> empirically clean on Windows + macOS (2026-05-12 + 2026-05-16
+> recipient installs). **integration-auditor --proposal-mode REVISE**
+> (pre-implementation: 3 BLOCKING + 4 IMPORTANT + 3 conflicts; B1
+> allowlist design closes BLOCKING-1/2 by construction; BLOCKING-3
+> closed by `limit=100` hard cap; all IMPORTANT findings addressed
+> before implementation). **adr-weigher PASS** on all 5 criteria.
+> **red-team-reviewer NO OBJECTION FOUND** across 6 probed failure
+> modes. Net-new tests: 42 (32 unit in
+> `tests/framework/test_v74_audit_query.py` + 10 subprocess wire in
+> `tests/test_serve_v740_wire_audit.py`). Minor bump: new `audit_query`
+> MCP tool is a public API addition (tool surface 49 → 50 on default
+> config).
+
 > **v7.3.4 (2026-05-16)** — Post-first-real-recipient-run hardening patch.
 > 2026-05-16 first outside-recipient walkthrough (Windows + Claude Desktop,
 > non-technical friend) produced 5 findings. Scope escalated through four

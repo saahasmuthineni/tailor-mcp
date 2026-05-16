@@ -600,13 +600,16 @@ class TestB5W5AstInvariantUnchanged:
         return calls
 
     def test_b5_total_audit_record_call_count_unchanged(self):
-        """28 audit.record calls -- same as v7.3.2."""
+        """31 audit.record calls as of v7.4.0 (was 28 in v7.3.2/v7.3.3;
+        +3 sites in _dispatch_audit_query per ADR 0012 § Amendment
+        v7.4.0)."""
         source = self._load_router_source()
         calls = self._find_audit_record_calls(source)
-        assert len(calls) == 28, (
-            f"Expected 28 self._audit.record() calls in router.py; "
-            f"found {len(calls)}. The v7.3.3 edit may have added/removed "
-            f"an audit call."
+        assert len(calls) == 31, (
+            f"Expected 31 self._audit.record() calls in router.py; "
+            f"found {len(calls)}. If a new framework-tier layer was "
+            f"added, update this count and the W5 sweep test in "
+            f"tests/test_serve_v732_wire_audit.py to match."
         )
 
     def test_b5_child_tier_audit_calls_carry_source_metadata_fingerprint(self):

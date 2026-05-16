@@ -1,8 +1,8 @@
 # ADR 0012: Framework-tier dispatch bypasses the PHI-scrubber seam — invariants and reversal conditions
 
-- **Status:** Accepted (originally vault-only; extended in v6.10.2 to cover local_llm + setup_help)
-- **Date:** 2026-04-30 (original); 2026-05-06 (v6.10.2 amendment extending to LocalLLMLayer + SetupHelpLayer)
-- **Related:** [ADR 0003 (PHI-scrubber seam)](0003-phi-scrubber-seam.md), [ADR 0007 (Rendering-layers policy)](0007-rendering-layers-policy.md), [ADR 0009 (Vault subject-keying)](0009-vault-subject-keying.md), [ADR 0022 (Local-LLM guardian)](0022-local-llm-guardian.md), [CLAUDE.md § Architecture](../../CLAUDE.md#architecture)
+- **Status:** Accepted (originally vault-only; extended in v6.10.2 to cover local_llm + setup_help; extended in v7.4.0 to cover audit_query)
+- **Date:** 2026-04-30 (original); 2026-05-06 (v6.10.2 amendment extending to LocalLLMLayer + SetupHelpLayer); 2026-05-16 (v7.4.0 amendment extending to AuditQueryLayer)
+- **Related:** [ADR 0001 (Audit log as backbone)](0001-audit-log-as-backbone.md), [ADR 0003 (PHI-scrubber seam)](0003-phi-scrubber-seam.md), [ADR 0007 (Rendering-layers policy)](0007-rendering-layers-policy.md), [ADR 0009 (Vault subject-keying)](0009-vault-subject-keying.md), [ADR 0022 (Local-LLM guardian)](0022-local-llm-guardian.md), [ADR 0039 (Audit log queryable under column allowlist)](0039-audit-log-is-llm-queryable-under-column-allowlist.md), [CLAUDE.md § Architecture](../../CLAUDE.md#architecture)
 
 ## Context
 
@@ -276,3 +276,90 @@ invariant + reversal-condition section, in the same shape as the
 v6.6.0 / v6.10.2 amendments. The asymmetry must remain visible at
 the dispatch site (each `_dispatch_<layer>` docstring names the
 bypass as a "skipped by design" item) and grounded here.
+
+## Amendment — v7.4.0 (2026-05-16): extension to AuditQueryLayer
+
+The v7.4.0 release adds the fourth framework-tier dispatch path
+(`_dispatch_audit_query`) that also skips the PHI-scrubber. The
+v7.4.0 work is the closure of the v7.3.4 banner-named audit-log-
+over-promise gap: before this layer the recipient prompt "Show me
+what just happened in the audit log" had no MCP tool to land on, and
+v7.3.4 reworded the fitting-room banner to vault-list-moments as a
+stopgap. The new layer is the structural fix; the bypass discipline
+that ADR 0012 codified for vault / local_llm / setup_help extends to
+it under the standing discipline named in the v6.10.2 amendment's
+final paragraph above.
+
+Per [ADR 0039](0039-audit-log-is-llm-queryable-under-column-allowlist.md),
+the surfacing decision itself (audit log becomes LLM-queryable) lives
+in a sibling ADR. This amendment ratifies *the bypass invariant for
+the new layer* — why running the PHI scrubber on the layer's response
+would be wrong — and the reversal condition under which the
+amendment would have to revisit.
+
+- **AuditQueryLayer invariant.** The audit-query layer returns a
+  fixed *column allowlist* — id, timestamp, domain, tool_name, tier,
+  token_estimate, outcome, duration_ms, subject_id, scrubber_id,
+  child_scrubber_id, source_metadata_fingerprint, plus a derived
+  `has_error: bool`. The raw `params` and `error` columns from
+  `audit_log` are NEVER surfaced; the error column is reduced to
+  `has_error` so the v7.3.1 path-redaction posture (raw on-disk
+  paths in legacy rows) stays intact and the framework
+  PHIScrubber's no-op default (ADR 0003) cannot leak via the
+  surface. The allowlist is enforced by explicit SELECT in
+  `AuditLog.query()` at
+  [`framework/audit.py`](../../src/tailor/framework/audit.py) — never
+  `SELECT *` — so a future ALTER TABLE adding a sensitive column does
+  not silently re-egress to the LLM.
+
+**Why the bypass is correct under this invariant.** Same shape as the
+prior three cases: the scrubber is a content-shape concern designed
+for raw biosensor streams. The audit-query layer's outputs are
+framework-emitted structured metadata (column names, enums, fixed-
+shape timestamps, pseudonymous subject ids per ADR 0009, scrubber
+identity strings). Running the no-op default scrubber would be a
+no-op; running an institutional subclass that rewrites field names
+would corrupt the IRB-grade query response without any privacy
+benefit (no biosensor content is present to scrub).
+
+**Audit visibility is preserved on this path.** Every audit row from
+`_dispatch_audit_query` records `scrubber_id="noop"` plus the full
+v7.3.2 W5 invariant kwargs (`source_metadata_fingerprint=None`,
+threaded explicitly at every PARAM_INVALID / SUCCESS / ERROR site —
+extends the v7.3.1 all-call-sites-sweep rule to the new dispatch
+path; updated AST-class contract at
+[`tests/test_serve_v732_wire_audit.py::TestW5AllCallSitesSweep`](../../tests/test_serve_v732_wire_audit.py)
+locks the invariant at 31 audit-record sites / 6 _meta stamping
+sites). `subject_id` passes through from caller params so an
+audit-query call scoped to S004 stamps that row's `subject_id="S004"`
+— the audit-query call itself participates in the same subject
+trail it queries against.
+
+**Reversal conditions for the audit-query path.**
+
+- *Trust-violating reversal.* If a deployment surfaces real PHI
+  through the column allowlist — e.g., a future child writes PHI
+  into the `tool_name` or `domain` column directly (the validator
+  guards `subject_id` with the ADR 0009 pattern but does not guard
+  other columns), or a child stores MRN-shaped values in
+  `subject_id` despite the pseudonym contract — the invariant
+  breaks and ADR 0012 must be revisited. Concrete shape that would
+  trigger reversal: an audit row written with `tool_name=<MRN
+  embedded>` or `subject_id=<MRN>`. Test coverage at
+  [`tests/test_serve_v740_wire_audit.py::TestA3B1AllowlistOnWire`](../../tests/test_serve_v740_wire_audit.py)
+  exercises the seeded-PHI-in-params path; analogous coverage would
+  need to extend if children start writing PHI into other columns.
+- *Escalation reversal (the more likely path).* If a real researcher
+  need surfaces for raw `params`/`error` content in the LLM
+  transcript, ADR 0039 (the sibling decision) is superseded with B2
+  (per-row scrubber on params/error analogous to `RedcapPHIScrubber`)
+  or B3 (B1 default + opt-in raw flag). When that supersession lands,
+  this ADR 0012 amendment must extend with the per-row scrubber's
+  invariant — the bypass shape changes (scrubber runs on
+  params/error before egress) and the allowlist alone no longer
+  carries the safety claim.
+
+The standing discipline persists: a fifth framework-tier layer added
+in a future release that bypasses the scrubber must amend this ADR
+with its own invariant + reversal-condition section, in the same
+shape as the v6.6.0 / v6.10.2 / v7.4.0 amendments.

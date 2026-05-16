@@ -41,6 +41,7 @@ from .interfaces import (
 from .security import (
     CircuitBreaker,
     ConsentGate,
+    OperatorActionRequired,
     ParamValidator,
     PHIScrubber,
 )
@@ -55,7 +56,8 @@ __all__ = [
     "ConsentInfo", "ConsentScope", "CostContext", "LLMInstruction",
     "SUBJECT_ID_SCHEMA", "SUBJECT_ID_PARAM_DOC",
     # security
-    "CircuitBreaker", "ConsentGate", "ParamValidator", "PHIScrubber",
+    "CircuitBreaker", "ConsentGate", "OperatorActionRequired",
+    "ParamValidator", "PHIScrubber",
     # cost
     "CostGate", "TokenLedger", "estimate_tokens",
     # audit

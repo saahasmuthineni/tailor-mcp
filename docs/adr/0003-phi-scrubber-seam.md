@@ -201,3 +201,63 @@ Per [ADR 0033](0033-complete-tailor-metaphor-workshop-side.md): the fingerprint 
 ### What is unchanged
 
 ADR 0003's original load-bearing claim — *the framework cannot define what PHI means generically* — is the same claim today. The 2026-05-14 amendment's child-level scrubber seam is preserved verbatim. The trust-root fingerprint primitive is policy-aware-by-input (the IRB attested to `project_metadata.csv` at protocol creation; the fingerprint records the state of that attestation); small-cell suppression is policy-aware-by-config (the operator sets the threshold per their IRB's k-anonymity guidance). The framework's authority boundary is unchanged.
+
+---
+
+## Amendment 2026-05-15 — Typed-exception taxonomy (`OperatorActionRequired`)
+
+Triggered by the v7.3.2 release banner's two BORDER NOTES deferred from the red-team-reviewer pass and addressed in v7.3.3.
+
+### What this amends
+
+The 2026-05-15 trust-root-attestation amendment above introduces `RedcapMetadataFingerprintMismatch` as a typed exception raised when `project_metadata.csv` drifts since boot. The amendment named the *recovery* path (`tailor redcap reattest`) but did not name the *circuit-breaker interaction* that hides the recovery hint behind a generic "Circuit open" envelope after three consecutive mismatches in 300 seconds. v7.3.3 closes the gap by introducing a *typed-exception taxonomy* that generalizes beyond REDCap.
+
+### The class of failure this amendment names
+
+The framework's `CircuitBreaker` exists to back off external systems that are *flaky* (transient network failures, rate-limit bursts, intermittent upstream errors). Some legitimate runtime conditions are structurally different: the *system* is fine; the *operator* must take an out-of-band action — re-attest a trust root, rotate a credential, restart a process, edit a config — before subsequent calls can succeed. Counting these conditions toward the breaker is a taxonomy mismatch: it hides the recovery affordance behind a generic envelope for the next 5 minutes, exactly the window the operator most needs guidance.
+
+The same mistake at the *catching* side is the v7.3.3 B2 finding: a blanket `except Exception` in a child's `_detect_fingerprint_mismatch()` swallows both "the metadata file became unreadable since boot" (legitimate runtime drift) and "the scrubber constructor's signature changed in a refactor" (programmer bug) under the same handler, silently disabling the mismatch-detection path. The two failures share a shape: *the wrong exception class is being treated as shorthand for a situation*.
+
+### Decision
+
+- New marker class `framework.security.OperatorActionRequired(Exception)`. Exported from `framework/__init__.py`. Co-located with `CircuitBreaker` (the component whose behavior it modifies) for readability — a contributor reading `CircuitBreaker.record_failure` to ask "what trips this?" sees the exemption contract adjacent.
+- Constructor takes a keyword-only `recovery_action: str` argument and validates it is a non-empty, non-whitespace string at construction time. A subclass author who cannot name a remediation command gets a `TypeError` at construction, not silent runtime defeat. The required attribute is the misuse guard: misclassification (a child author marking an upstream-flaky exception as `OperatorActionRequired` and thereby disabling the breaker for paths that legitimately need it) becomes a constructor error rather than a silent invariant break.
+- Children that already raise typed exceptions for operator-action conditions inherit from `OperatorActionRequired` and pass their remediation command up the `recovery_action` channel. v7.3.3 reparents `RedcapMetadataFingerprintMismatch` (`recovery_action="tailor redcap reattest"`); future children with the same shape (FHIR scope-expired, EDF channel-manifest drift, vendor calibration mismatch) inherit the contract without re-deciding it.
+- The router's exception handler at both dispatch sites (`_dispatch` public path and `dispatch_internal` cross-child path) skips `CircuitBreaker.record_failure` when `isinstance(exc, OperatorActionRequired)`. The audit row still records `outcome=ERROR` with the full provenance kwargs (`scrubber_id`, `child_scrubber_id`, `source_metadata_fingerprint`, `subject_id`) — the exemption is breaker-only, not audit-only. The wire error envelope still carries the exception's `str()` so the LLM transcript shows the recovery hint.
+- Children that need to *detect* an operator-action condition by speculative work (e.g. `RedcapFileChild._detect_fingerprint_mismatch` constructing a candidate `RedcapPHIScrubber` to compare fingerprints) do **not** wrap the speculative work in a blanket `except Exception`. If the speculative construction has no documented raise surface, no try/except is added; future programmer-error exceptions propagate through the router's exception handler rather than silently disabling detection. The B2 fix at `children/redcap/child.py:_detect_fingerprint_mismatch` drops the previously-wrapped try/except for exactly this reason — `RedcapPHIScrubber.__init__` already handles its documented failure classes internally and raises essentially nothing on bad input; the previous defensive wrapper caught only `TypeError` from signature changes, which is precisely the class that must propagate.
+
+### Consequences
+
+**Positive.**
+
+- The recovery affordance stays reachable. An operator who hits three consecutive mismatches — e.g. by running `tailor redcap reattest` while a Claude Desktop session is mid-call — sees the `tailor redcap reattest` hint on call N+1, not a 5-minute generic-envelope window.
+- The seam generalizes across children. The next child whose execute path legitimately needs to signal "operator must act" inherits the breaker exemption + the wire-envelope contract by raising a subclass; no per-child router edits, no per-child reasoning about which exception classes the breaker should ignore.
+- Misclassification fails loudly. A child author who reaches for `OperatorActionRequired` for an *upstream-flaky* exception either provides a sensible `recovery_action` (and the operator gets a working hint on the next call) or cannot provide one and is forced to re-examine the classification. The required attribute is the contract enforcement.
+- The all-call-sites-sweep invariant (v7.3.1) extends naturally: the audit row carries the same provenance kwargs on the exempt path, so the AST-class W5 contract test continues to enforce one rule across both `record_failure`-counted and `record_failure`-exempt exception classes.
+
+**Negative.**
+
+- One new public API class. Downstream child-authors who already define typed exceptions can opt in by changing the parent class; the marker is additive and does not break existing children.
+- A child author who deliberately misclassifies (passes a syntactically valid `recovery_action` that is operationally bogus) defeats the breaker for that path. The constructor cannot validate that the named command actually exists; the contract is honor-bound the same way the `ADR 0003` PHI-scrubber seam is. Future tightening would require the marker class to verify the command resolves via the CLI registry, which is a level of self-knowledge the framework does not currently maintain.
+
+**Neutral.**
+
+- The marker class lives in `framework/security.py` next to `CircuitBreaker` rather than `framework/interfaces.py` next to `ChildMCP`. The semantically honest home is the file that defines the *behavior* the class modifies; the alternative placement was considered and rejected during proposal-mode audit.
+
+### Reversal condition
+
+If a future child raises `OperatorActionRequired` for a transient state that *should* trip a breaker — e.g. an upstream API saying "re-authenticate" where the right behavior is back-off-then-retry rather than recovery-hint-always-reachable — the class hierarchy needs a finer split (`OperatorActionRequired` vs `OperatorActionRequiredTransient`). The split would land in a superseding amendment naming the specific child and the specific re-authentication semantics that drove the requirement.
+
+If the misclassification-as-non-issue holds across the next three child additions (FHIR + EDF + vendor sensor), retire the misuse-guard `recovery_action` requirement to a recommended-but-not-enforced docstring convention — same shape as ADR 0011's reversal condition for the promotion bar.
+
+### Promotion condition
+
+Per [ADR 0011](0011-promotion-policy.md): if a **second** child outside REDCap raises `OperatorActionRequired` as part of normal operation, the seam is generalized enough to belong in `framework/interfaces.py` next to `ChildMCP` rather than in `framework/security.py`. Until then, the marker stays in `security.py` because its only consumer is the router's breaker exemption logic.
+
+### Workshop-vs-lifestyle invariant adherence
+
+Per [ADR 0033](0033-complete-tailor-metaphor-workshop-side.md): the marker class is **workshop-shaped** — the tailor distinguishes "the mill (upstream API) is having a bad day" (breaker territory) from "the customer (operator) needs to bring fresh fabric" (recovery-hint territory). The vocabulary stays in the workshop register; `recovery_action` names a workshop ritual, not a lifestyle suggestion.
+
+### What is unchanged
+
+ADR 0003's original PHI-scrubber-seam claim, the 2026-05-14 child-level scrubber amendment, the 2026-05-15 trust-root-attestation amendment, and the small-cell-suppression posture are all preserved verbatim. The typed-exception taxonomy is additive to the router's existing exception-handling shape; the audit-row provenance, the wire-error-envelope shape, and the post-execute-hook contract are unchanged.

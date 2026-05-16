@@ -899,6 +899,43 @@ class TestFingerprintMismatchOnExecute:
         assert "fingerprint_at_boot=" in error
         assert "fingerprint_on_disk=" in error
 
+    def test_signature_change_in_scrubber_propagates_loudly(
+        self, tmp_path: Path,
+    ):
+        """v7.3.3 B2 regression. The defensive ``except Exception:
+        return None`` previously wrapping the candidate-scrubber
+        construction at ``child.py:633`` would have silently swallowed a
+        TypeError from a future signature change to
+        ``RedcapPHIScrubber.__init__`` — disabling mismatch detection
+        with no test failing. The audit-mandated fix dropped the
+        try/except entirely so this failure mode now propagates through
+        the router's exception handler. This test simulates the
+        signature-change scenario by monkey-patching the scrubber
+        constructor to raise TypeError and asserts the TypeError reaches
+        the test (rather than being absorbed)."""
+        original_body = (
+            "field_name,form_name,field_type,identifier\n"
+            "sex,demographics,radio,\n"
+        )
+        child = self._build_child(tmp_path, original_body)
+        # Simulate a future signature change by replacing the class
+        # reference _detect_fingerprint_mismatch uses with a stub that
+        # raises TypeError.
+        import tailor.children.redcap.child as redcap_child_module
+
+        def _signature_changed_stub(*args, **kwargs):
+            raise TypeError(
+                "RedcapPHIScrubber.__init__() missing 1 required keyword "
+                "argument: 'audit_callback'"
+            )
+        original = redcap_child_module.RedcapPHIScrubber
+        redcap_child_module.RedcapPHIScrubber = _signature_changed_stub
+        try:
+            with pytest.raises(TypeError, match="audit_callback"):
+                asyncio.run(child.execute("redcap_list_records", {}))
+        finally:
+            redcap_child_module.RedcapPHIScrubber = original
+
 
 # ═══════════════════════════════════════════════════════════════
 # SMALL-CELL SUPPRESSION ON HANDLERS (ADR 0003 § Amendment 2026-05-15)

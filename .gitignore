@@ -48,6 +48,11 @@ Thumbs.db
 # ── Installer backups (install.sh / install.ps1 write these) ─
 *.backup.*
 
+# ── Generated outreach artifacts (regenerable via scripts/) ──
+# The generator (scripts/build_demo_install_pdf.py) is committed;
+# the rendered PDF is treated as a build artifact, not source.
+/Tailor-Windows-Demo-Install.pdf
+
 # ── Phase 0 diagnosis captures (raw transcripts, screenshots, ─
 # recipient ~/.tailor snapshots, raw Claude Desktop configs).
 # The friction-log markdown lives one level up and IS committed.

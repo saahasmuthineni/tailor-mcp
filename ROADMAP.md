@@ -671,6 +671,19 @@ prior roadmap revisions per the same historical-preservation principle
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
 
+### Shipped in v7.5.0 (2026-05-18)
+
+- **`tailor pilot --source={csv,matlab,redcap}` argparse dispatch** — PI with mixed-modal data can configure CSV, MATLAB, and REDCap sources through the same wizard, one command per source. No-arg `tailor pilot` keeps the v6.2.1 CSV-default backward-compat behaviour.
+- **F1 deep-merge `_write_user_config` with AST-class all-call-sites-sweep regression** — multi-source coexistence by construction; re-running `tailor pilot --source=matlab` after `tailor pilot --source=csv` preserves the `csv_dir` block. AST-class enforcement test at `tests/test_pilot_wizard.py::test_user_config_json_write_sites_are_canonical` closes the grep-class false-positive trap.
+- **MATLAB handler** — lazy `scipy.io` import with friendly install hint and rc=1 on missing scipy (F2); HDF5 magic-byte check per file before `scipy.io.loadmat` (F6, per ADR 0036); variable inventory across first 32 parseable files drives optional `variable_filter` prompt.
+- **REDCap handler** — `RedcapPHIScrubber.fingerprint` reuse (F4, no parallel canonical-form implementation drift); `utf-8-sig` BOM-safe reads per v6.9.2 precedent; full per-field identifier listing display at first config; fail-closed `unknown_field_allowlist` with explicit wizard prose (F7); `ATTEST_INITIAL` audit row via `AuditLog.record()` (NOT hand-rolled INSERT — v7.3.2 F-A precedent).
+- **New `ATTEST_INITIAL` audit outcome** — distinct from `REATTEST`; threads `child_scrubber_id="redcap_metadata_flags"` and `source_metadata_fingerprint=<sha256>` so IRB reviewers can reconstruct trust-root state at first configuration. `audit_query` outcome-filter description updated with `ATTEST_INITIAL` in common-values list.
+- **L1/L2 onboarding-surface split codified** — new `docs/guides/build-your-own-child.md` (RSE-shaped L2 path: copy → rename → four abstract surfaces → register); CLAUDE.md § "Adding a New ChildMCP" gains L1/L2 split paragraphs + ADR 0022 conductor-mode argument as load-bearing WHY against wizard-child MCP surface and LocalLLMLayer-folded wizard alternatives.
+- **ADR 0001 § Amendment 2026-05-18** — CLI-helper audit-row exemption: narrow five-precondition carve-out for operator-action provenance rows (CLI subcommand helper; provenance-only row; primary purpose is something else; operator-reachable recovery; stderr surface on failure). Closes WATCH-3.
+- **23 net new pytest tests in `test_pilot_wizard.py`** — F1 multi-source helper + dispatch + MATLAB scipy-missing / HDF5 magic-byte / scan partition + REDCap fingerprint reuse / ATTEST_INITIAL audit row / completion-field detection / BOM round-trip + AST-class all-call-sites-sweep.
+- **16 net new pytest tests in `test_serve_v750_wire_audit.py`** — 15 from mcp-protocol-auditor side-effect (B1–B6) + 1 B7 red-team OBJECTION closure (`TestB7PilotWriteAttestInitialEndToEnd` asserts `scrubber_id == PHIScrubber().scrubber_id` dynamically).
+- **Documentation** — `docs/guides/multi-subject-pilot.md` § "Source axes"; `README.md` pilot wizard table + install-command block; `__main__.py` pilot summary line updated for multi-source dispatch.
+
 ### Shipped in v7.4.0 (2026-05-16)
 
 - **New `audit_query` MCP tool** — closes the v7.3.4 audit-log-over-promise gap (the fitting-room banner prompt "Show me what just happened in the audit log" now has an MCP tool to land on). The audit log is now LLM-queryable under a B1 column allowlist (12 columns + 1 derived `has_error`); raw `params` and raw `error` content never egress. `AuditLog.query()` uses explicit `SELECT`, never `SELECT *`, with `limit=100` hard cap.

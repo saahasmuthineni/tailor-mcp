@@ -54,7 +54,6 @@ from tests._mcp_client import (
     extract_text_result,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures / helpers shared across this module
 # ---------------------------------------------------------------------------

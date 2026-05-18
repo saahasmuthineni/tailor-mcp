@@ -3,7 +3,7 @@ CLI for Tailor.
 
 Usage:
     tailor serve            # Start MCP server (Claude Desktop calls this)
-    tailor pilot            # Configure CSV-based multi-subject pilot (start here for the v6.2 use case)
+    tailor pilot            # Multi-source pilot wizard: csv (default), --source=matlab, or --source=redcap (start here for any local-data deployment; v7.5+)
     tailor fitting-room     # Scaffold a guided walkthrough you can drive from Claude Desktop (HIP Lab realistic by default); recipient tries on bundled work-in-progress (ADR 0024)
     tailor walkthrough      # Watch the framework's architectural claims in 5 sections on bundled HIP Lab fixtures (ADRs 0027 + 0029); pass --save-shareable for an emailable markdown transcript
     tailor setup            # Run Strava OAuth setup wizard
@@ -388,7 +388,14 @@ def cmd_setup():
 
 
 def cmd_pilot():
-    """Run the CSV-based multi-subject pilot setup wizard."""
+    """Run the multi-source pilot setup wizard.
+
+    Accepts --source={csv,matlab,redcap} (csv default for v6.2.x
+    backward-compat). Each invocation configures one source axis;
+    the deep-merge writer at pilot._write_user_config preserves
+    every other source block + top-level key in user_config.json
+    so multi-source deployments coexist across re-runs (v7.5+).
+    """
     from tailor.pilot import main as pilot_main
     sys.exit(pilot_main())
 

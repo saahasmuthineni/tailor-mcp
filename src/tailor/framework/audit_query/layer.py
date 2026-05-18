@@ -129,9 +129,13 @@ class AuditQueryLayer:
                             "outcome. Common values: 'SUCCESS', "
                             "'ERROR', 'PARAM_INVALID', 'CIRCUIT_OPEN', "
                             "'CONSENT_BLOCKED', 'COST_BLOCKED', "
-                            "'PURGE_CACHE', 'PURGE_FAILED', 'REATTEST', "
-                            "plus the *_INTERNAL variants from "
-                            "cross-child dispatch."
+                            "'PURGE_CACHE', 'PURGE_FAILED', 'REATTEST' "
+                            "(re-attestation against drift via "
+                            "`tailor redcap reattest`), "
+                            "'ATTEST_INITIAL' (first-config "
+                            "attestation via `tailor pilot "
+                            "--source=redcap`), plus the *_INTERNAL "
+                            "variants from cross-child dispatch."
                         ),
                         "required": False,
                     },

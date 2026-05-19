@@ -52,22 +52,26 @@ _SECTION_PAYLOADS: dict[int, dict] = {
             "question. Raw biometric streams never enter the LLM's "
             "context. On bundled HIP Lab fixtures (16 synthetic "
             "subjects, 8M/8F, intermittent isometric force task to "
-            "volitional failure), `csv_cohort_summary` reduces ~100 "
-            "Hz force traces to per-group mean/std/min/max in ~310 "
-            "tokens — the same question via Tier-3 raw streams "
-            "would cost ~50,000 tokens."
+            "volitional failure), `force_cohort_summary` reduces "
+            "100 Hz force traces to per-group mean/std/min/max in "
+            "~310 tokens — the same question via Tier-3 raw streams "
+            "would cost ~50,000 tokens. The example values below "
+            "are wire-verified against the bundled fixtures (per "
+            "red-team-reviewer 2026-05-19) — call the tool yourself "
+            "to reproduce them."
         ),
         "worked_example": {
-            "tool": "csv_cohort_summary",
+            "tool": "force_cohort_summary",
             "params": {
-                "metric": "peak_force_N",
+                "metric": "mean",
+                "value_column": "force_N",
                 "group_by": "sex",
             },
             "approximate_token_cost": 310,
             "example_result_shape": {
                 "groups": [
-                    {"sex": "F", "n": 8, "mean": 65.3, "std": 12.1},
-                    {"sex": "M", "n": 8, "mean": 87.6, "std": 15.4},
+                    {"sex": "F", "n": 8, "mean": 65.28, "std": 6.62},
+                    {"sex": "M", "n": 8, "mean": 87.62, "std": 6.46},
                 ],
             },
         },
@@ -77,10 +81,10 @@ _SECTION_PAYLOADS: dict[int, dict] = {
             "ADR 0029 (token reduction as analytical quality)",
         ],
         "next_step": (
-            "Try `csv_cohort_summary` with metric='peak_force_N' and "
-            "group_by='sex' against the bundled HIP Lab fixtures, or "
-            "ask Claude to walk through section 2 for the router "
-            "pipeline view."
+            "Try `force_cohort_summary` with metric='mean', "
+            "value_column='force_N', and group_by='sex' against the "
+            "bundled HIP Lab fixtures, or ask Claude to walk through "
+            "section 2 for the router pipeline view."
         ),
     },
     2: {
@@ -116,7 +120,8 @@ _SECTION_PAYLOADS: dict[int, dict] = {
                 "session_total_tokens": 102,
                 "domain": "csv_dir",
                 "tier": 1,
-                "package_version": "8.0.0",
+                "package_version": "<read from tailor.__version__ at "
+                "call time; this string is illustrative only>",
                 "tool_name": "csv_summary_report",
                 "called_at": "2026-05-19T04:46:14Z",
                 "scrubber_id": "noop",

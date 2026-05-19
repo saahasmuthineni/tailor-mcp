@@ -340,6 +340,32 @@ class ChildMCP(ABC):
         """
 
     @property
+    def vault_note_kinds(self) -> tuple[str, ...]:
+        """Vault note kinds this child contributes to the vault layer.
+
+        Example: the running child returns
+        ``("run_report", "trend_report", "compare_runs")`` because it
+        writes per-activity reports under those frontmatter
+        ``note_type`` values. A child that does not author per-activity
+        vault notes (csv_dir, matlab_file, redcap_file, force_csv,
+        emg_csv, template) returns the empty tuple.
+
+        Default: ``()`` — child does not contribute child-specific
+        vault note kinds. The framework-tier kinds (``theme``,
+        ``moment``, ``failure_mode``, ``dashboard``, ``snapshot``) are
+        owned by the vault layer and are not declared here.
+
+        ``VaultLayer`` reads this property at registration time to
+        compute the union of allowed kinds for ``vault_list_notes``
+        filtering and the ``_kind_to_domain`` mapping used by
+        ``vault_traverse_links``. See ADR 0038 § Amendment 2026-05-19
+        for the contract-surface rationale (why optional with empty
+        default rather than required, and why owned by the child
+        rather than parameterised at the wiring site).
+        """
+        return ()
+
+    @property
     def child_scrubber_id(self) -> str | None:
         """
         Identity of the child-level PHI scrubber, if any.

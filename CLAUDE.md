@@ -1,5 +1,171 @@
 # CLAUDE.md — Tailor
 
+> **v7.6.0 (2026-05-19)** — ADR 0038 structural sweep ships. Closes
+> the data-source-agnostic vault-layer commitment that v7.3.4 partial-
+> closed and v7.4.0 / v7.5.0 deferred. Minor bump: new
+> `ChildMCP.vault_note_kinds` optional property + `value_column`
+> parameter rename on `csv_cohort_summary` and `csv_force_decline`
+> are public-API additions. The rename ships **without a deprecation
+> alias** under the 2026-05-19 → 2026-05-20 pre-outreach window
+> (recipient population for v7.4.0 / v7.5.0 cohort tools as of
+> 2026-05-19 is the boss + Phase 0 family-testers; the v7.3.4
+> `group_field → group_by` no-alias precedent applies cleanly until
+> tomorrow's colleague outreach). If the merge slips past 2026-05-20,
+> a v7.6.1 patch adds the alias per ADR 0038 § Amendment 2026-05-19
+> § "Sub-item 6 — timing".
+>
+> **`ChildMCP.vault_note_kinds` — option (a) of the contract-surface
+> menu (ADR 0038 § Amendment 2026-05-19, sub-item 1).** New optional
+> property on the `ChildMCP` ABC defaulting to `()`. The running child
+> overrides to return `("run_report", "trend_report", "compare_runs")`
+> — the worked example of declaring child-specific vault note kinds.
+> Other shipped children (csv_dir, matlab_file, redcap_file, force_csv,
+> emg_csv, template) inherit the empty default without modification.
+> `VaultLayer._compute_kind_metadata()` (new) walks
+> `self._router._children` at `register_vault_layer()` time, unions
+> child-declared kinds with the framework-tier base
+> (`theme`, `moment`, `failure_mode`, `dashboard`, `snapshot`), and
+> populates `self._allowed_kinds` + `self._kind_to_domain_map`. The
+> hardcoded module-level `_ALLOWED_KINDS` tuple is replaced by
+> `_FRAMEWORK_KIND_BASE` (framework-tier only). The module-level
+> `_domain_for_kind` helper migrates to `VaultLayer._domain_for_kind`
+> (instance method, consults the dynamic map). `param_schemas` for
+> `vault_list_notes` / `vault_search_notes` now use
+> `self._allowed_kinds` — the kind filter accepts any child-contributed
+> kind without further code changes in the vault layer.
+>
+> **`value_column ↔ column` API parity reconciled.**
+> `csv_cohort_summary` and `csv_force_decline` rename `column` →
+> `value_column` to match `force_cohort_summary` / `emg_cohort_summary`
+> (which use `value_column`). Param schema + handler + tool description
+> + result envelope key all updated. The v7.3.4 D2 rename
+> (`group_field → group_by`) closed half this asymmetry; v7.6.0 closes
+> the other half. No alias per the timing argument above.
+>
+> **`vault_get_fitness_summary` deprecation hint lands.** The v6.0-era
+> orientation tool gains a `DEPRECATED in v7.6.0` prefix in its
+> ToolDefinition description + a one-shot `log.warning` on first call
+> per VaultLayer instance. Audit row unchanged: normal
+> `outcome="SUCCESS"` with `scrubber_id` threaded per the v7.3.1 all-
+> call-sites-sweep rule — does NOT inherit ADR 0001 § Amendment
+> 2026-05-18's CLI-helper carve-out (this is a router-tier audit
+> surface, not a CLI helper). Removal target: future v7.7.x+ when
+> BOTH conditions hold — (i) cue-card-rehearsal-auditor reports zero
+> references across deployed cue cards, (ii) zero third-party children
+> declare dependencies on the tool. Named-trigger pattern matches
+> [ADR 0036](docs/adr/0036-matlab-child-scope-v72-only-with-deferred-hdf5.md)'s
+> beachhead-lab condition; closes the indefinite-deferral failure
+> shape ADR 0038's original § Alternatives named.
+>
+> **Internal helpers data-source-aware.**
+> `_handle_fitness_summary`'s strava-remediation branch derives
+> `strava_sync` / `strava_run_report` from `self._backfill_config`
+> (new `sync_tool` key) with a generic fallback for non-running
+> deployments. `_build_snapshot_payload`'s weekly running summary
+> query is gated on `"run_report" in self._kind_to_domain_map` —
+> closes the integration-auditor's I2 finding. The remaining
+> running-domain queries in `_handle_fitness_summary` and
+> `_find_run_note_by_activity_id` are correctly running-specific by
+> contract (the former counts running notes to detect deployment
+> shape; the latter resolves activity_ids that only running has);
+> both are documented in the AST invariant test's allowlist.
+>
+> **Pre-implementation auditor pass — REVISE → PROCEED via amendment.**
+> `integration-auditor --proposal-mode` on the initial v7.6.0 plan
+> returned REVISE with 3 BLOCKING (B1 contract mechanism / B2 alias /
+> B3 AST gate) + 4 IMPORTANT + 3 prior-decision conflicts. ADR 0038 §
+> Amendment 2026-05-19 closed B1 (mechanism: option a), B2-timing
+> (no alias on the 2026-05-19→2026-05-20 window), B3 (AST-class
+> invariant test committed), I1 (deprecation-hint audit-row
+> inheritance clarified), I4 (tighten direction; metric param already
+> runtime-pinned to COHORT_METRICS on all three cohort tools — sweep
+> ratification, no new constraint). Re-audit returned PROCEED with
+> 3 carry-forward concerns (N1 build-your-own-child doc threading, N2
+> AST-test allowlist precision, N3 removal-target named-trigger) —
+> all three addressed in the implementation pass. N3 closed inline in
+> the amendment with the cue-card-zero + zero-third-party-dependency
+> trigger condition.
+>
+> **AST-class invariant test ships** (`tests/framework/vault/test_v76_vault_is_data_source_agnostic.py`).
+> Parallel to v7.5.0's `test_user_config_json_write_sites_are_canonical`
+> — walks `framework/vault/layer.py` AST and asserts (1) zero
+> `domain="running"` keyword args outside an allowlist of structurally
+> running-specific functions, (2) zero `strava_*` string literals
+> outside `backfill_config`-derived sites, (3) `_ALLOWED_KINDS`
+> module constant is gone (replaced by `_FRAMEWORK_KIND_BASE`), (4)
+> module-level `_domain_for_kind` is gone (migrated to instance
+> method). AST-class detection per the v7.3.2 W5 lesson — textual-
+> window grep false-positives on adjacent comments and dict keys.
+> Future regressions to v7.3.4-shape Strava coupling fail this test
+> loudly rather than silently shipping.
+>
+> Net-new tests: AST invariant test + behavioral contract test
+> covering default `vault_note_kinds`, RunningChild override,
+> `_compute_kind_metadata` extension, dynamic `vault_list_notes`
+> kind-schema, and one-shot deprecation log. Plus
+> `tests/test_serve_v760_wire_audit.py` (21 wire tests, added by
+> mcp-protocol-auditor as audit side effect). No router / security /
+> child / CLI architecture changes beyond the new optional
+> `ChildMCP.vault_note_kinds` property, `_compute_kind_metadata`
+> registration hook, the cohort-tool API rename, and the
+> `ParamValidator` D1 fix (3-line addition; see below). Minor bump.
+>
+> **mcp-protocol-auditor D1 closure — `ParamValidator.validate()`
+> enforces `allowed_values` on scalar `str` types.** The auditor
+> surfaced a pre-existing structural defect that v7.6.0's dynamic
+> `_allowed_kinds` surface depended on: the validator enforced
+> `allowed_values` only inside the `elif schema.type is list` branch,
+> leaving every `ValidationSchema(type=str, allowed_values=[...])`
+> site as a dead constraint. A `kind: "not_a_real_kind"` argument
+> silently returned empty results instead of PARAM_INVALID. Fix:
+> three lines added to the `elif schema.type is str` branch in
+> `framework/security.py` reading `schema.allowed_values` and
+> returning a validator error envelope on mismatch. Auditor's
+> strict-xfail regression anchor at `tests/test_serve_v760_wire_audit.py::
+> TestV2DynamicAllowedKinds::test_unknown_kind_rejected_param_invalid`
+> flipped from XFAIL to PASS. Suite-wide impact: 1426/1426 pytest
+> pass after the fix; no other test was silently passing because the
+> constraint was dead. Audit-row outcome continues to record
+> `outcome="PARAM_INVALID"` per `router.py:892`.
+>
+> **`→` → `--` ASCII fallback** in the deprecation hint description
+> + stderr `log.warning` per the v6.10.1 cp1252 precedent. Prevents
+> Windows recipient terminal-render corruption on the stderr surface
+> that the `_make_cli_stdout_resilient()` shim doesn't cover.
+>
+> **Red-team OBJECTION (medium) → CLOSED.** `red-team-reviewer`
+> caught what the four upstream specialists could not: the live
+> operator-facing guide `docs/guides/local-llm-guardian.md:226`
+> documented the worked example with the OLD `column:` parameter
+> verbatim — a colleague following the published guide post-rename
+> would hit PARAM_INVALID on the first cohort call. Same v6.9.1
+> failure class the cue-card-rehearsal-auditor was promoted against,
+> reached via the docs/guides surface (which the cue-card auditor's
+> remit does not cover). Closed by a one-line edit to
+> `docs/guides/local-llm-guardian.md:226` plus a forward-cite to
+> ADR 0038 § Amendment 2026-05-19. Historical screenshot transcripts
+> at `docs/diagnosis/captures/2026-05-09-*` preserved per the
+> doc-truth principle. This is the ADR 0010 (adversarial pairing)
+> earning-its-keep moment.
+>
+> **Gates: ci-gate-runner SHIPPABLE** (1426/1426 pytest, 3
+> scipy-conditional skips, ruff clean, 76/76 security probe, CLI
+> smoke clean — 9 commands discoverable). **mcp-protocol-auditor
+> PROTOCOL OK** post-D1 closure (21 wire tests in
+> `test_serve_v760_wire_audit.py`; D1 regression anchor flipped to
+> PASS). **reproducibility-provenance-auditor CLEAN** (every touched
+> file HOLDS against ADRs 0001 / 0002 / 0008 / 0009; two soft BORDER
+> NOTES, one closed inline). **cue-card-rehearsal-auditor REHEARSAL
+> OK** (all 5 tool-call prompts PASS; non-running deployment
+> simulation confirms `_compute_kind_metadata()` correctly excludes
+> running-child kinds when no running child registers). **red-team-
+> reviewer OBJECTION (medium) → CLOSED** (`docs/guides/local-llm-
+> guardian.md:226` rename closure + forward-cite). **recipient-install-
+> validator SKIPPED** per v6.11.x falsification precedent (no
+> `_fixtures/`, no `pyproject.toml` package-data globs, no `__main__.py`
+> install-path logic touched beyond the additive `sync_tool` key in
+> `backfill_config`).
+
 > **v7.5.0 (2026-05-18)** — `tailor pilot --source={csv,matlab,redcap}`
 > dispatch + multi-source coexistence + L1/L2 onboarding-surface split.
 > First product surface in Tailor's history where the external researcher
@@ -3053,7 +3219,7 @@ Orientation & browse:
 |------|-------------|
 | `vault_get_snapshot` | Read `snapshot.md` — fastest session-start orientation. Falls back to `vault_get_fitness_summary` when no snapshot exists. |
 | `vault_generate_snapshot` | (Re)write `snapshot.md` with open themes, recent moments, weekly run aggregates, and vault health. Call at session end. |
-| `vault_get_fitness_summary` | Older orientation tool: aggregate weekly fitness + open themes + recent moments by scanning the index. |
+| `vault_get_fitness_summary` | **Deprecated v7.6.0** (per [ADR 0038 § Amendment 2026-05-19](docs/adr/0038-vault-layer-is-data-source-agnostic.md)). Older orientation tool: aggregate weekly fitness + open themes + recent moments by scanning the index. Prefer `vault_get_snapshot`. Removal target: future v7.7.x+ when cue-card and child-dependency conditions are met. |
 | `vault_list_notes` / `vault_read_note` / `vault_search_notes` | Browse, read, full-text search. Kind filter accepts `failure_mode` and `dashboard` in v6.1. |
 | `vault_list_anomalies` | Runs with `anomaly_count > 0`. |
 | `vault_traverse_links` | Wikilink neighbourhood of a note (no bodies). |

@@ -287,6 +287,7 @@ def cmd_serve():
             backfill_config={
                 "list_tool": "strava_list_runs",
                 "report_tool": "strava_run_report",
+                "sync_tool": "strava_sync",
             },
         ))
 

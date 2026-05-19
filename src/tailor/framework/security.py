@@ -76,6 +76,19 @@ class ParamValidator:
                 value = str(value)
                 if schema.pattern and not re.match(schema.pattern, value):
                     return False, f"Parameter {key} format invalid (expected {schema.pattern})", {}
+                # Enforce allowed_values for scalar str params. Closes the
+                # mcp-protocol-auditor v7.6.0 D1 finding: the validator
+                # previously enforced allowed_values only inside the list
+                # branch, leaving every ValidationSchema(type=str,
+                # allowed_values=[...]) site as dead code. ADR 0038's
+                # dynamic _allowed_kinds surface depends on this gate
+                # firing — without it, a kind value outside the registered
+                # union silently returns empty rather than PARAM_INVALID.
+                if schema.allowed_values and value not in schema.allowed_values:
+                    return False, (
+                        f"Parameter {key} must be one of "
+                        f"{schema.allowed_values}"
+                    ), {}
 
             elif schema.type is list:
                 if not isinstance(value, list):

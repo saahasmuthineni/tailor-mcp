@@ -186,6 +186,12 @@ class RouterMCP:
 
         self._vault_layer = vault_layer
         vault_layer._router = self  # Needed for backfill's dispatch_internal calls
+        # Extend vault layer's kind metadata from registered children's
+        # ``vault_note_kinds`` per ADR 0038 § Amendment 2026-05-19.
+        # Children register before vault layer in ``cmd_serve()``, so the
+        # iteration sees the full set.
+        if hasattr(vault_layer, "_compute_kind_metadata"):
+            vault_layer._compute_kind_metadata()
 
         for tool_def in vault_layer.tool_definitions:
             if tool_def.name in self._tool_map:

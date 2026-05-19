@@ -117,7 +117,7 @@ def test_csv_force_decline_round_trip() -> None:
 
         resp = client.call_tool(
             "csv_force_decline",
-            {"file_id": "P001.csv", "column": "heart_rate"},
+            {"file_id": "P001.csv", "value_column": "heart_rate"},
         )
         assert "error" not in resp, resp
 
@@ -127,7 +127,7 @@ def test_csv_force_decline_round_trip() -> None:
         body = json.loads(text)
         assert "_meta" in body
         assert body.get("filename") == "P001.csv"
-        assert body.get("column") == "heart_rate"
+        assert body.get("value_column") == "heart_rate"
 
 
 def test_csv_cohort_summary_round_trip() -> None:
@@ -138,7 +138,7 @@ def test_csv_cohort_summary_round_trip() -> None:
 
         resp = client.call_tool(
             "csv_cohort_summary",
-            {"column": "heart_rate", "group_by": "sex", "metric": "mean"},
+            {"value_column": "heart_rate", "group_by": "sex", "metric": "mean"},
         )
         assert "error" not in resp, resp
 

@@ -223,7 +223,7 @@ tools (`csv_cohort_summary`, `csv_force_decline`), Claude can call
 `ask_local_oracle` after first calling the deterministic tool(s).
 The pattern is:
 
-1. **Claude calls** `csv_cohort_summary({"column": "force", "group_by": "sex", "metric": "max"})`.
+1. **Claude calls** `csv_cohort_summary({"value_column": "force", "group_by": "sex", "metric": "max"})` — parameter renamed from `column` in v7.6.0 to match `force_cohort_summary` / `emg_cohort_summary` per [ADR 0038 § Amendment 2026-05-19](../adr/0038-vault-layer-is-data-source-agnostic.md).
 2. **Claude calls** `ask_local_oracle({"question": "compare male vs female peak force", "resolved_context": {"csv_cohort_summary": <result_from_step_1>}})`.
 3. **Local LLM composes** a structured response with cited claims and narrative.
 4. **Claude consumes** the response and presents it to you.

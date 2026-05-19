@@ -671,6 +671,19 @@ prior roadmap revisions per the same historical-preservation principle
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
 
+### Shipped in v7.6.0 (2026-05-19)
+
+- **ADR 0038 structural sweep complete** — vault layer is data-source-agnostic. Closes the commitment v7.3.4 partial-closed and v7.4.0 / v7.5.0 deferred. See [Shipped in v7.6.0 banner in CLAUDE.md](CLAUDE.md) for the seven sub-item closure detail.
+- **`ChildMCP.vault_note_kinds` optional property** — child-owned declaration of which vault note kinds the child contributes (default `()`). Running child is the worked example, returning `("run_report", "trend_report", "compare_runs")`. ADR 0038 § Amendment 2026-05-19 option (a) — backward-compatible by construction.
+- **`VaultLayer._compute_kind_metadata()` at registration time** — `_ALLOWED_KINDS` module constant retired; replaced by `_FRAMEWORK_KIND_BASE` (framework-tier only) + instance `_allowed_kinds` unioned from registered children. Module-level `_domain_for_kind` migrates to `VaultLayer._domain_for_kind`.
+- **`column → value_column` API parity** — `csv_cohort_summary` and `csv_force_decline` rename `column` to match `force_cohort_summary` / `emg_cohort_summary`. Param schema + handler + tool description + result envelope key updated. No deprecation alias under the 2026-05-19 → 2026-05-20 pre-outreach window per the v7.3.4 `group_field → group_by` precedent. Fallback if merge slips: v7.6.1 patch ships the alias.
+- **`vault_get_fitness_summary` deprecation hint** — ToolDefinition description gains `DEPRECATED in v7.6.0` prefix; one-shot `log.warning` on first call per VaultLayer instance. Audit row unchanged. Named removal trigger per ADR 0038 § Amendment 2026-05-19 sub-item 7 (cue-card-zero + zero-third-party-dependency, same shape as ADR 0036 beachhead-lab pattern).
+- **Internal helpers data-source-aware** — `_handle_fitness_summary` derives `strava_sync` / `strava_run_report` from `self._backfill_config` (new `sync_tool` key in `__main__.py`'s wiring) with generic fallback. `_build_snapshot_payload`'s weekly running summary query gated on `"run_report" in self._kind_to_domain_map` (closes auditor's I2).
+- **AST-class invariant test** — `tests/framework/vault/test_v76_vault_is_data_source_agnostic.py` parallel to v7.5.0's `test_user_config_json_write_sites_are_canonical`. Walks `framework/vault/layer.py` AST and asserts four invariants (allowlisted `domain="running"` sites; `strava_*` literals only at backfill_config-derived sites; `_ALLOWED_KINDS` module constant gone; module-level `_domain_for_kind` gone). AST-class detection per v7.3.2 W5 lesson.
+- **Behavioral contract test** — `tests/framework/vault/test_v76_vault_note_kinds_contract.py` covers default `vault_note_kinds`, RunningChild override, `_compute_kind_metadata` extension, dynamic `vault_list_notes` kind schema, one-shot deprecation log idempotency.
+- **Doc fan-out** — `docs/guides/build-your-own-child.md` gains "Optional vault contribution" section naming the `vault_note_kinds` property; CLAUDE.md "Orientation & browse" table flags `vault_get_fitness_summary` as deprecated; ADR 0038 § Amendment 2026-05-19 ratified inline with B1/B2-timing/B3/I1/I4/N3 closures cited.
+- **Pre-implementation gates** — `integration-auditor --proposal-mode` REVISE → PROCEED after amendment; 3 BLOCKING + 4 IMPORTANT + 3 prior-decision conflicts closed in the ADR amendment + the implementation pass.
+
 ### Shipped in v7.5.0 (2026-05-18)
 
 - **`tailor pilot --source={csv,matlab,redcap}` argparse dispatch** — PI with mixed-modal data can configure CSV, MATLAB, and REDCap sources through the same wizard, one command per source. No-arg `tailor pilot` keeps the v6.2.1 CSV-default backward-compat behaviour.

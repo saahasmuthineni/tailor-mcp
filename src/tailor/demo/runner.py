@@ -706,15 +706,15 @@ def run_demo(
             section1_calls: list[tuple[str, dict]] = [
                 (
                     "csv_cohort_summary",
-                    {"column": "force_N", "group_by": "sex", "metric": "max"},
+                    {"value_column": "force_N", "group_by": "sex", "metric": "max"},
                 ),
                 (
                     "csv_cohort_summary",
-                    {"column": "force_N", "group_by": "group", "metric": "max"},
+                    {"value_column": "force_N", "group_by": "group", "metric": "max"},
                 ),
                 (
                     "csv_force_decline",
-                    {"file_id": _REPRESENTATIVE_FILE, "column": "force_N"},
+                    {"file_id": _REPRESENTATIVE_FILE, "value_column": "force_N"},
                 ),
             ]
             cohort_result_for_moment: dict | None = None
@@ -782,7 +782,7 @@ def run_demo(
             )
             tier1_params = {
                 "file_id": _REPRESENTATIVE_FILE,
-                "column": "force_N",
+                "value_column": "force_N",
                 "subject_id": _REPRESENTATIVE_SUBJECT,
             }
             tier1_result = asyncio.run(

@@ -287,6 +287,20 @@ class RunningChild(ChildMCP):
         return ["strava_run_report", "strava_trend_report", "strava_compare_runs"]
 
     @property
+    def vault_note_kinds(self) -> tuple[str, ...]:
+        """Vault note kinds the running child contributes to ``VaultLayer``.
+
+        The frontmatter ``note_type`` values that ``RunningChild``'s
+        ``vaultable_tools`` emit are ``run_report`` (from
+        ``strava_run_report``), ``trend_report`` (from
+        ``strava_trend_report``), and ``compare_runs`` (from
+        ``strava_compare_runs``). The running child is the worked
+        example of declaring child-specific vault note kinds per
+        ADR 0038 § Amendment 2026-05-19.
+        """
+        return ("run_report", "trend_report", "compare_runs")
+
+    @property
     def consent_info(self) -> ConsentInfo:
         return ConsentInfo(
             data_types=["heart rate", "GPS location", "pace", "elevation"],

@@ -67,11 +67,24 @@ log = logging.getLogger("tailor.vault")
 # Max chars for vault_annotate_run notes
 _MAX_NOTES_CHARS = 2000
 
-# Allowed note kinds surfaced to users of the kind filter
-_ALLOWED_KINDS = (
-    "run_report", "trend_report", "compare_runs",
+# Framework-tier vault note kinds — owned by VaultLayer itself.
+# Child-specific kinds (e.g. run_report from RunningChild) are
+# contributed via each child's ``vault_note_kinds`` property and
+# unioned at ``register_vault_layer()`` time. See ADR 0038 §
+# Amendment 2026-05-19.
+_FRAMEWORK_KIND_BASE: tuple[str, ...] = (
     "theme", "moment", "failure_mode", "dashboard", "snapshot",
 )
+
+# Framework-tier kind → storage domain mapping. Child-contributed
+# kinds are added to ``VaultLayer._kind_to_domain_map`` at
+# registration time. ``failure_mode``, ``dashboard``, and
+# ``snapshot`` intentionally absent — they span domains and resolve
+# to None ("all domains") in ``VaultLayer._domain_for_kind``.
+_FRAMEWORK_KIND_TO_DOMAIN: dict[str, str] = {
+    "theme": "vault",
+    "moment": "vault",
+}
 
 # Max nodes returned by vault_traverse_links (prevents runaway traversal)
 _TRAVERSE_MAX_NODES = 40
@@ -90,10 +103,16 @@ class VaultLayer:
         vault_writer:     Shared VaultWriter instance (owns storage + rendering).
         backfill_config:  Maps generic roles to sibling tool names,
                           decoupling backfill from hardcoded domain knowledge.
-                          Example:
-                              {"list_tool":   "strava_list_runs",
-                               "report_tool": "strava_run_report"}
+                          Example (generic shape — wiring site supplies
+                          actual tool names per registered child):
+                              {"list_tool":   "<child>_list",
+                               "report_tool": "<child>_report",
+                               "sync_tool":   "<child>_sync"}
                           When None, vault_backfill returns a configuration error.
+                          ``sync_tool`` is optional; the vault layer's
+                          remediation prose falls back to generic
+                          "your biosensor sync tool" framing when
+                          ``sync_tool`` is absent.
     """
 
     def __init__(
@@ -107,18 +126,70 @@ class VaultLayer:
         self._storage: VaultStorage = vault_writer._storage
         self._backfill_config = backfill_config or {}
         self._router = None  # Set by RouterMCP.register_vault_layer()
+        # Kind metadata: starts framework-tier-only; ``_compute_kind_metadata()``
+        # extends with child-contributed kinds at registration time. See
+        # ADR 0038 § Amendment 2026-05-19.
+        self._allowed_kinds: tuple[str, ...] = _FRAMEWORK_KIND_BASE
+        self._kind_to_domain_map: dict[str, str] = dict(_FRAMEWORK_KIND_TO_DOMAIN)
+        # Per-instance one-shot deprecation flag for vault_get_fitness_summary
+        # (sub-item 7 of ADR 0038 § Amendment 2026-05-19). Declared here
+        # explicitly rather than via setattr to close the
+        # reproducibility-provenance-auditor BORDER NOTE on instance-state
+        # drift; does not feed any analytical numeric result.
+        self._fitness_summary_deprecation_logged: bool = False
+
+    def _compute_kind_metadata(self) -> None:
+        """Extend allowed kinds + kind→domain map from registered children.
+
+        Called by ``RouterMCP.register_vault_layer()`` immediately after
+        ``self._router`` is wired. Iterates ``self._router._children``,
+        reads each child's ``vault_note_kinds``, and extends the
+        framework-tier base. See ADR 0038 § Amendment 2026-05-19 for
+        the rationale (child-owned contract surface, not wiring-site
+        parameterisation).
+        """
+        if self._router is None:
+            return
+        child_kinds: list[str] = []
+        for child in self._router._children.values():
+            kinds = getattr(child, "vault_note_kinds", ())
+            for kind in kinds:
+                if kind in self._kind_to_domain_map:
+                    continue  # Framework-tier or earlier-registered child wins.
+                child_kinds.append(kind)
+                self._kind_to_domain_map[kind] = child.domain
+        # Preserve framework base ordering, then append child kinds.
+        self._allowed_kinds = (*_FRAMEWORK_KIND_BASE, *child_kinds)
+
+    def _domain_for_kind(self, kind: str | None) -> str | None:
+        """Map a note kind to its storage domain via the instance map.
+
+        Framework-tier kinds resolve via ``_FRAMEWORK_KIND_TO_DOMAIN``;
+        child-contributed kinds resolve via the map populated at
+        ``_compute_kind_metadata()`` time. Unknown kinds return None
+        ("all domains") — same fallthrough as the v6.0-era module helper.
+        """
+        if kind is None:
+            return None
+        return self._kind_to_domain_map.get(kind)
 
     @property
     def tool_definitions(self) -> list[ToolDefinition]:
         defs = [
             ToolDefinition(
                 "vault_get_fitness_summary", 1,
-                "Session orientation tool. Surfaces open themes and recent moments "
-                "so you can resume prior analytical threads, plus a weekly "
-                "aggregate table for any registered biosensor children (e.g. a "
-                "weekly run summary if a running child is registered; skipped on "
-                "deployments without one). Call vault_get_snapshot first when a "
-                "snapshot.md exists; this is the fallback. ~600–800 tokens.",
+                "DEPRECATED in v7.6.0 -- prefer ``vault_get_snapshot`` for fast "
+                "session orientation. This v6.0-era tool remains callable but "
+                "will be removed in a future v7.7.x+ release when the cue-card-"
+                "rehearsal-auditor reports zero references to it across any "
+                "deployed cue card AND no third-party child declares "
+                "dependencies on it (see ADR 0038 § Amendment 2026-05-19, "
+                "sub-item 7). Behaviour unchanged: surfaces open themes and "
+                "recent moments so you can resume prior analytical threads, "
+                "plus a weekly aggregate table for any registered biosensor "
+                "child (skipped on deployments without one). Call "
+                "vault_get_snapshot first when a snapshot.md exists; this is "
+                "the fallback. ~600–800 tokens.",
                 {
                     "weeks_back": {
                         "type": "integer",
@@ -130,16 +201,22 @@ class VaultLayer:
             ToolDefinition(
                 "vault_list_notes", 1,
                 "Browse vault notes with optional filters. Shows filename, date, "
-                "kind, and whether insight notes exist. Covers themes, moments, "
-                "failure modes, dashboards, and (when a biosensor child is "
-                "registered) per-activity reports like run / trend / compare notes.",
+                "kind, and whether insight notes exist. Covers framework-tier "
+                "kinds (themes, moments, failure modes, dashboards, snapshots) "
+                "and any per-activity report kinds contributed by registered "
+                "biosensor children — call ``vault_list_notes`` with no kind "
+                "filter to see everything in the vault.",
                 {
                     "kind": {
                         "type": "string",
                         "description": (
-                            "Filter by note kind: theme | moment | "
-                            "failure_mode | dashboard | snapshot | "
-                            "run_report | trend_report | compare_runs"
+                            "Filter by note kind. Framework-tier kinds: "
+                            "theme | moment | failure_mode | dashboard | "
+                            "snapshot. Additional kinds contributed by "
+                            "registered biosensor children (e.g. run_report, "
+                            "trend_report, compare_runs from the running "
+                            "child) are also accepted; the full allowed set "
+                            "is validated at param-check time."
                         ),
                         "required": False,
                     },
@@ -195,9 +272,13 @@ class VaultLayer:
                     "kind": {
                         "type": "string",
                         "description": (
-                            "Filter by note kind: theme | moment | "
-                            "failure_mode | dashboard | snapshot | "
-                            "run_report | trend_report | compare_runs"
+                            "Filter by note kind. Framework-tier kinds: "
+                            "theme | moment | failure_mode | dashboard | "
+                            "snapshot. Additional kinds contributed by "
+                            "registered biosensor children (e.g. run_report, "
+                            "trend_report, compare_runs from the running "
+                            "child) are also accepted; the full allowed set "
+                            "is validated at param-check time."
                         ),
                         "required": False,
                     },
@@ -825,10 +906,10 @@ class VaultLayer:
             },
             "vault_list_notes": {
                 "kind": ValidationSchema(
-                    type=str, allowed_values=list(_ALLOWED_KINDS),
+                    type=str, allowed_values=list(self._allowed_kinds),
                 ),
                 "note_type": ValidationSchema(
-                    type=str, allowed_values=list(_ALLOWED_KINDS),
+                    type=str, allowed_values=list(self._allowed_kinds),
                 ),
                 "date_from": ValidationSchema(type=str, pattern=r"^\d{4}-\d{2}-\d{2}$"),
                 "date_to": ValidationSchema(type=str, pattern=r"^\d{4}-\d{2}-\d{2}$"),
@@ -841,10 +922,10 @@ class VaultLayer:
             "vault_search_notes": {
                 "query": ValidationSchema(type=str, required=True),
                 "kind": ValidationSchema(
-                    type=str, allowed_values=list(_ALLOWED_KINDS),
+                    type=str, allowed_values=list(self._allowed_kinds),
                 ),
                 "note_type": ValidationSchema(
-                    type=str, allowed_values=list(_ALLOWED_KINDS),
+                    type=str, allowed_values=list(self._allowed_kinds),
                 ),
                 "limit": ValidationSchema(type=int, min=1, max=50, default=10),
                 # subject_id is intentionally not listed here. The
@@ -1056,10 +1137,27 @@ class VaultLayer:
 
     async def _handle_fitness_summary(self, params: dict) -> dict:
         """
-        Primary session orientation: aggregate fitness snapshot from vault notes,
-        plus open themes and recent moments so the LLM can resume prior
-        analytical threads.  No Strava sync required.
+        Primary session orientation: aggregate fitness snapshot from vault
+        notes, plus open themes and recent moments so the LLM can resume
+        prior analytical threads.
+
+        DEPRECATED in v7.6.0 per ADR 0038 § Amendment 2026-05-19: prefer
+        ``vault_get_snapshot``. One-time stderr log on first call per
+        process surfaces the deprecation without flooding the audit log.
         """
+        # One-shot deprecation warning per process (not per call).
+        # Surfaces on stderr only — the audit row carries the call
+        # normally (router-tier audit, not CLI-helper carve-out per
+        # ADR 0001 § Amendment 2026-05-18; see ADR 0038 § Amendment
+        # 2026-05-19 sub-item 7).
+        if not self._fitness_summary_deprecation_logged:
+            log.warning(
+                "vault_get_fitness_summary is DEPRECATED in v7.6.0 -- "
+                "prefer vault_get_snapshot. Removal target: future "
+                "v7.7.x+ when cue-card and child-dependency conditions "
+                "are met per ADR 0038 Amendment 2026-05-19."
+            )
+            self._fitness_summary_deprecation_logged = True
         weeks_back = params.get("weeks_back", 8)
         from datetime import datetime, timedelta, timezone
         cutoff = (datetime.now(timezone.utc) - timedelta(weeks=weeks_back)).strftime("%Y-%m-%d")
@@ -1107,10 +1205,23 @@ class VaultLayer:
             non_running = total_all - total_running
             if total_running > 0:
                 summary_msg = "No run notes found in the specified period."
-                remediation = (
-                    "Call vault_backfill to generate notes for cached activities, "
-                    "or run strava_sync + strava_run_report to create new ones."
-                )
+                # Tool names derived from ``backfill_config`` per ADR 0038 §
+                # Amendment 2026-05-19 — wiring site supplies the actual
+                # per-child names; vault layer falls back to generic prose.
+                sync_tool = self._backfill_config.get("sync_tool")
+                report_tool = self._backfill_config.get("report_tool")
+                if sync_tool and report_tool:
+                    remediation = (
+                        "Call vault_backfill to generate notes for cached "
+                        f"activities, or run {sync_tool} + {report_tool} "
+                        "to create new ones."
+                    )
+                else:
+                    remediation = (
+                        "Call vault_backfill to generate notes for cached "
+                        "activities, or run your biosensor sync + report "
+                        "tools to create new ones."
+                    )
             elif non_running > 0:
                 summary_msg = (
                     "No biosensor run data is registered in this deployment; "
@@ -1188,7 +1299,7 @@ class VaultLayer:
 
     async def _handle_list_notes(self, params: dict) -> dict:
         kind = params.get("kind") or params.get("note_type")
-        domain = _domain_for_kind(kind)
+        domain = self._domain_for_kind(kind)
         notes = self._storage.list_notes(
             domain=domain,
             note_type=kind,
@@ -1257,7 +1368,7 @@ class VaultLayer:
 
         # Search across running + vault domains (themes and moments included)
         candidates = self._storage.list_notes(
-            domain=_domain_for_kind(kind),
+            domain=self._domain_for_kind(kind),
             note_type=kind,
             subject_id=params.get("subject_id"),
             limit=500,
@@ -2148,11 +2259,21 @@ class VaultLayer:
             for n in recent_note_rows
         ]
 
-        # Weekly summary (last 4 weeks of run notes)
-        run_rows = self._storage.list_notes(
-            domain="running", note_type="run_report",
-            date_from=week_cutoff, limit=500,
-        )
+        # Weekly summary (last 4 weeks of run notes). Data-source-aware
+        # per ADR 0038 § Amendment 2026-05-19: the running-specific
+        # query fires only when a registered child contributes the
+        # ``run_report`` kind. On deployments without a running child
+        # (HIP Lab demo, REDCap-only, MATLAB-only), the query short-
+        # circuits to empty and the renderer drops the Weekly Summary
+        # section per v7.3.4's F3 partial closure.
+        if "run_report" in self._kind_to_domain_map:
+            run_rows = self._storage.list_notes(
+                domain=self._kind_to_domain_map["run_report"],
+                note_type="run_report",
+                date_from=week_cutoff, limit=500,
+            )
+        else:
+            run_rows = []
         weeks: dict = defaultdict(lambda: {
             "runs": 0, "total_miles": 0.0, "hrs": [],
         })
@@ -2823,13 +2944,11 @@ class VaultLayer:
 # MODULE-LEVEL HELPERS
 # ══════════════════════════════════════════════════════════
 
-def _domain_for_kind(kind: str | None) -> str | None:
-    """Map a note kind to its storage domain; None means 'all domains'."""
-    if kind in ("theme", "moment"):
-        return "vault"
-    if kind in ("run_report", "trend_report", "compare_runs"):
-        return "running"
-    return None
+# Note: ``_domain_for_kind`` migrated to ``VaultLayer._domain_for_kind``
+# in v7.6.0 (ADR 0038 § Amendment 2026-05-19). The instance method
+# consults ``self._kind_to_domain_map`` which is populated from
+# registered children's ``vault_note_kinds`` at registration time,
+# rather than hardcoding ``run_report → running``.
 
 
 def _title_from_filename(filename: str) -> str:

@@ -26,6 +26,22 @@ participant exports when you're ready.
 - An audit row per call, attachable to a protocol amendment if your
   IRB asks how the analyst accessed the data
 
+## Source axes
+
+`tailor pilot` configures one source axis per invocation. v7.5 adds a
+`--source={csv,matlab,redcap}` flag; the rest of this guide walks
+through the CSV path (the default) as the worked example.
+
+| `--source=` | What you have | Extra dependency | Trust-root |
+|---|---|---|---|
+| `csv` *(default)* | A directory of per-subject `.csv` files (CGM, sleep, ECG patch — anything tabular). | None — base install. | Operator confirms the auto-detected timestamp/value-column schema. |
+| `matlab` | A directory of MATLAB `.mat` v5/v6/v7.2 binary files. v7.3 HDF5 detected via magic byte and rejected per [ADR 0036](../adr/0036-matlab-child-scope-v72-only-with-deferred-hdf5.md). | `tailor-mcp[matlab]` extra (`pip install tailor-mcp[matlab]` or `uv tool install tailor-mcp[matlab]`). The wizard surfaces a clean install hint and exits cleanly if scipy is missing. | Operator confirms the variable inventory across files; optional `variable_filter` narrows to named variables. |
+| `redcap` | A REDCap export directory containing `project_metadata.csv` (the data dictionary) per [ADR 0037](../adr/0037-redcap-child-scope-export-directory-only-with-deferred-live-api.md). Live REDCap REST API is deferred behind a reversal condition. | None — base install. | Wizard computes a SHA-256 over `(field_name, identifier_flag)` tuples per [ADR 0003 § Amendment 2026-05-15](../adr/0003-phi-scrubber-seam.md) and displays the full per-field identifier listing. Operator visually confirms the trust-root state before write. `unknown_field_allowlist` defaults to empty (fail-closed). An `ATTEST_INITIAL` row lands in `audit.db` recording the fingerprint at first config. |
+
+Multi-source coexistence is the default. Running `tailor pilot --source=matlab` after a prior `tailor pilot --source=csv` adds the `matlab_file` block to `user_config.json` and **preserves** the existing `csv_dir` block (and every other top-level key). The pre-v7.5 full-overwrite behaviour is gone; the deep-merge writer is the canonical writer site (enforced by the all-call-sites-sweep regression test on every PR).
+
+To author a new source axis your shipped children don't cover (EDF, FHIR, a vendor format), see [`build-your-own-child.md`](build-your-own-child.md) — the RSE-shaped path. Wizard support extends to your new source once it lands in the v7.5+ shipped-children list.
+
 ## Recommended path — `tailor pilot`
 
 Two terminal commands, three prompts. No Python install, no virtual
@@ -65,10 +81,12 @@ tailor --help
 ### Step 2 — Run the pilot wizard
 
 ```bash
-tailor pilot
+tailor pilot                  # defaults to --source=csv
+tailor pilot --source=matlab  # for MATLAB `.mat` v5/v6/v7.2 directories
+tailor pilot --source=redcap  # for REDCap export directories
 ```
 
-The wizard does what Steps 3–6 of the old quickstart did manually:
+The CSV path is the default for backward compatibility with v6.2.x. The wizard does what Steps 3–6 of the old quickstart did manually:
 
 1. **Prompts for a CSV directory** — accept the default to use the
    bundled synthetic fixtures (P001/P002/P003), or paste the path to

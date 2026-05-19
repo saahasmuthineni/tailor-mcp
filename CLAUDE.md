@@ -1,5 +1,244 @@
 # CLAUDE.md — Tailor
 
+> **v7.5.0 (2026-05-18)** — `tailor pilot --source={csv,matlab,redcap}`
+> dispatch + multi-source coexistence + L1/L2 onboarding-surface split.
+> First product surface in Tailor's history where the external researcher
+> population is the explicit primary audience: a PI with mixed-modal
+> data (biometric CSVs + REDCap survey + MATLAB force-plate exports)
+> can now configure all three through the same wizard, one command per
+> source, no manual JSON editing, no clobbering of sibling source
+> blocks on re-runs. Targets the 2026-05-16 colleague/peer outreach
+> authorization. Minor bump: new `--source` flag is a public-API
+> addition; CSV path is the v6.2.1 backward-compat default; no shipped
+> CLI surface breaks.
+>
+> **F1 deep-merge `_write_user_config` — multi-source coexistence by
+> construction.** The proposal-mode auditor's catastrophic-misbehaviour-
+> path was a researcher running `tailor pilot --source=matlab` two
+> weeks after `tailor pilot --source=csv` and losing their `csv_dir`
+> block — the pre-v7.5 full-overwrite writer would have eaten it. The
+> v7.5 writer reads existing config with `utf-8-sig` (BOM-safe per the
+> v6.9.2 precedent across 12 child sites), sets only the named source
+> key, atomic tmp-then-replace. The `FileExistsError`-on-overwrite
+> prompt shifted from "any user_config.json content present" to "this
+> specific source_key conflicts" — sibling blocks survive by
+> construction either way. AST-class all-call-sites-sweep regression
+> test at `tests/test_pilot_wizard.py::test_user_config_json_write_sites_are_canonical`
+> enforces the contract: any future user_config.json writer must
+> either route through `pilot._write_user_config` (the canonical
+> deep-merge seam) or appear in `KNOWN_WRITERS` with a citation
+> explaining why fresh-write is correct for the target. Three known
+> writers documented: `pilot._write_user_config` (deep-merge seam),
+> `fitting_room._write_user_config` (post-rmtree demo-dir scope), and
+> `runner._write_demo_user_config` (tempdir scope). The predicate is
+> AST-class — write-target resolution through local + module name
+> graphs — per the v7.3.2 W5 textual-window false-positive lesson;
+> grep-class detection would false-positive on `cmd_serve` (which
+> READS user_config.json while writing elsewhere).
+>
+> **`tailor pilot --source={csv,matlab,redcap}` argparse dispatch.**
+> Backward-compat: no-arg `tailor pilot` keeps the v6.2.1 CSV-default
+> behaviour. The MATLAB handler reuses
+> [ADR 0036](docs/adr/0036-matlab-child-scope-v72-only-with-deferred-hdf5.md)'s
+> scope-bound posture: lazy `scipy.io` import surfaces a friendly
+> install hint and exits rc=1 on missing scipy (F2 closure — the
+> v6.10.2 silent-failure trap class the proposal-mode auditor named);
+> HDF5 magic-byte check on every `.mat` file BEFORE any
+> `scipy.io.loadmat` call (F6 closure — v7.3 files get rejected
+> inline with the ADR 0036 remediation hint instead of crashing
+> variable enumeration with `NotImplementedError`); variable
+> inventory across the first 32 parseable files drives an optional
+> `variable_filter` prompt. The REDCap handler reuses
+> `RedcapPHIScrubber.fingerprint` directly (F4 closure — no parallel
+> canonical-form implementation in the wizard that could drift from
+> the production seam) and displays the full per-field identifier
+> listing at first config (boss decision 2026-05-18 — compact
+> summary considered + rejected; first impression IS the trust root,
+> and a flag-flip attack on `project_metadata.csv` must be visible
+> at the moment of operator confirmation). `unknown_field_allowlist`
+> defaults to empty (fail-closed per
+> [ADR 0037](docs/adr/0037-redcap-child-scope-export-directory-only-with-deferred-live-api.md));
+> wizard prose makes the fail-closed posture explicit (F7).
+>
+> **New `ATTEST_INITIAL` audit outcome — distinct from `REATTEST`.**
+> First-config attestation has no cached fingerprint to compare
+> against, so stretching `REATTEST`'s semantics (which is the
+> drift-detected re-attestation ritual at `__main__.py:cmd_redcap_reattest`)
+> would break audit-log honesty per ADR 0001. F5 closure introduces
+> `ATTEST_INITIAL` as the operator-action outcome for first
+> configuration. The wizard's `_write_attest_initial_audit_row`
+> routes through `AuditLog.record()` (NOT a hand-rolled INSERT —
+> v7.3.2 F-A precedent honored), threading
+> `child_scrubber_id="redcap_metadata_flags"` and
+> `source_metadata_fingerprint=<sha256>` so an IRB reviewer
+> querying audit.db can reconstruct the trust-root state in effect
+> at first configuration via
+> `WHERE outcome='ATTEST_INITIAL' AND domain='redcap_file'`. The
+> `audit_query` tool's outcome-filter description gains
+> `ATTEST_INITIAL` in its common-values list; the schema
+> validation is unconstrained `type=str` so the new value flows
+> through without an allowlist amendment.
+>
+> **L1 / L2 product-split codified.** ChildMCP onboarding now has
+> two distinct product surfaces: configured ingest of a shipped
+> source axis (the L1 wizard, researcher-accessible) vs. authoring
+> a new source axis (the L2 path, RSE-accessible). New
+> `docs/guides/build-your-own-child.md` walks an RSE through copy →
+> rename → implement the four abstract surfaces → register; CLAUDE.md
+> § "Adding a New ChildMCP" updated with two paragraphs naming the
+> split + the rejected alternatives. **Wizard-child MCP surface**
+> deferred behind a reversal condition (first institutional ask for
+> "add a source mid-conversation" ergonomics in an already-running
+> install) — fails chicken-and-egg on first install and conflicts
+> with [ADR 0022 § Out of scope](docs/adr/0022-local-llm-guardian.md)
+> conductor-mode-deferred. **LocalLLMLayer-folded wizard** deferred
+> behind a stricter reversal condition (`OracleResponse` schema
+> extended to model file-mutation actions AND a 7B+ model
+> demonstrably outperforms hand-coded heuristics on cross-source
+> pattern matching) — wizard work is configuration authoring, a
+> third category beyond numerical claims and analytical prose that
+> the schema-as-contract invariant from ADR 0022 does not model.
+> The boss adopted the (b) "two CLAUDE.md paragraphs with the
+> ADR 0022 conflict argument as load-bearing WHY" answer per
+> `adr-weigher`'s DEFER-NEEDS-BOSS-INPUT recommendation —
+> reproposal-prevention preserved without ADR ceremony for a
+> structural commitment that's already de facto in the codebase.
+>
+> **Gate composition pre-ship.** `integration-auditor --proposal-mode`
+> REVISE (3 BLOCKING — F1 deep-merge, F2 lazy scipy, F3 utf-8-sig —
+> all closed pre-implementation; 5 IMPORTANT including F4 scrubber
+> reuse / F5 ATTEST_INITIAL semantics / F6 HDF5 pre-check / F7
+> fail-closed prose / F8 smoke scope-cut — all addressed in code;
+> 3 prior-decision conflicts addressed inline — **C1** kept the
+> L1/L2 ADR out of this PR via a separate `adr-weigher` dispatch;
+> **C2** verified the wizard does not read or modify the
+> `local_llm` block in user_config.json, preserving the ADR 0022
+> conductor-mode-deferred surface, and reused that exact argument
+> as the load-bearing WHY for the L1/L2 split; **C3**
+> recipient-install-validator posture resolved as the hybrid
+> self-validation per the boss decision 2026-05-18 — fresh-venv
+> install smoke this end, fresh-user-account install boss's end).
+> `adr-weigher` DEFER-NEEDS-BOSS-INPUT on the L1/L2 product-split
+> ADR candidate; boss chose option (b) CLAUDE.md paragraphs. **ci-
+> gate-runner SHIPPABLE after a fix-and-rerun**: first pass returned
+> BLOCKED on 3 ruff I001 import-order violations (one in the new
+> ATTEST_INITIAL test, two pre-existing in `tests/smoke/` and
+> `tests/test_serve_v740_wire_audit.py`); closed via
+> `ruff check --fix`; re-run clean (1380/1380 pytest, 3
+> scipy-conditional skips, ruff clean on src/+tests/, 76/76
+> security probe, CLI smoke clean — `--source` flag visible,
+> `--source=junk` cleanly rc=2, all 8 commands discoverable).
+> **Fresh-venv install smoke (my end of C3) SHIPPABLE**: wheel at
+> `dist/tailor_mcp-7.4.0-py3-none-any.whl` (filename version label
+> not yet bumped — that's `release-shipper`'s job; the content is
+> v7.5 feature surface) installed cleanly into a fresh venv in a
+> tempdir; `tailor --help` enumerates all 8 commands;
+> `tailor pilot --help` shows the new `--source` flag with the
+> updated multi-source summary line; `tailor pilot --source=junk`
+> exits rc=2 with argparse validation error. Boss's end of C3
+> (fresh-user-account install + Claude Desktop registration on his
+> own machine) NOT YET DONE — pending after this banner ships.
+> **mcp-protocol-auditor PROTOCOL OK** (15 new wire tests in
+> `tests/test_serve_v750_wire_audit.py` covering B1 ATTEST_INITIAL
+> outcome filter + B2 row shape on the wire + B3 multi-source
+> tools/list + B4 deep-merge preservation + B5 _meta correctness +
+> B6 v7.4.0 regression; 3 non-blocking BORDER NOTES — version label
+> on the wheel not yet bumped to 7.5.0, a Windows SQLite WAL
+> teardown pattern worth replicating in
+> `tests/_mcp_client.py:spawn_server`, and one assertion in B2 that
+> reads awkwardly under empty-rows). **reproducibility-
+> provenance-auditor CLEAN** (every touched file HOLDS against
+> ADRs 0001 / 0002 / 0003 § Amendment 2026-05-15 / 0008 / 0009;
+> NEEDS REVIEW on `audit.close()` discipline closed in code via
+> `try/finally` mirroring the `__main__.py:cmd_redcap_reattest`
+> sibling). **phi-irb-risk-reviewer WATCH** with WATCH-1
+> (`scrubber_id` hardcode) closed in code
+> (`_write_attest_initial_audit_row` now queries
+> `PHIScrubber().scrubber_id` dynamically, mirroring the
+> `__main__.py:cmd_redcap_reattest` sibling). **researcher-utility-
+> reviewer ALIGNED** (PI LOAD-BEARING HIGH, Analyst/RSE
+> LOAD-BEARING MEDIUM, IRB LOAD-BEARING HIGH; one BORDER on the
+> `docs/guides/multi-subject-pilot.md:189-205` "What's still your
+> responsibility" section being pre-v7.5 + not mentioning that
+> ATTEST_INITIAL materially improves the IRB story — queued as
+> doc-debt for the next doc-pass, not ship-blocking).
+>
+> **Red-team-reviewer caught a structural defect all five upstream
+> specialists missed — OBJECTION (medium) closed pre-ship.** The
+> 15 new wire tests in `tests/test_serve_v750_wire_audit.py`
+> pre-seeded `ATTEST_INITIAL` rows via a test-local `_seed_audit_row`
+> helper that hardcoded `scrubber_id="noop"` — the literal value
+> the WATCH-1 fix was meant to eliminate. A future regression that
+> re-hardcoded `"noop"` in `pilot._write_attest_initial_audit_row`
+> would still pass every B1/B2 wire test because the test bypassed
+> pilot.py entirely. **Same structural class as v7.3.2's F-F W5
+> textual-window false-positive** — tests pass for adjacent reasons
+> (the seed helper happens to produce the same string the WATCH-1
+> fix produces under the default scrubber) rather than because the
+> production code path is exercised. Closure: new B7 integration
+> test class (`TestB7PilotWriteAttestInitialEndToEnd`) calls
+> `pilot._write_attest_initial_audit_row` directly via a
+> `pre_seed_fn` hook, queries `audit_query` on the wire, and asserts
+> the row's `scrubber_id == PHIScrubber().scrubber_id` dynamically.
+> A future regression that re-hardcodes `"noop"` would now break
+> this test under any institutional subclass of the framework
+> scrubber. This is the ADR 0010 (adversarial pairing) earning-its-
+> keep moment that v7.3.2 W5, v7.3.3 F-G, and v6.10.4 named: the
+> dissent layer catches the failure mode the same model produces
+> in its confirmation-shaped craft persona.
+>
+> **WATCH-3 closed in this release via ADR 0001 § Amendment
+> 2026-05-18 (NEW).** The wizard's audit-row-write failure policy
+> (continue + stderr warn on `_write_attest_initial_audit_row`
+> failure) sat in direct tension with ADR 0001 § Negative
+> consequences "a missing row is worse than a failed call." Boss
+> chose option (a) — ratify the wizard exemption — over option (b)
+> refuse to commit a config the wizard could not audit. The
+> amendment codifies a narrow five-precondition CLI-helper exemption
+> applying ONLY to operator-action provenance rows (not router-tier
+> dispatch audits, not child execute() writes, not participant-data
+> audits): (1) CLI subcommand helper, (2) provenance-only row, (3)
+> the helper's primary purpose is something else (config write,
+> Claude Desktop registration, attestation ritual), (4) operator-
+> reachable recovery path (re-running the subcommand writes a fresh
+> row), (5) plain-language stderr surface on failure. Reversal
+> condition named: if a second non-tool-call audit site adopts the
+> pattern, promote to a framework primitive (`AuditLog.record_best_effort()`
+> or similar) — same shape as ADR 0013's
+> "third-domain-promotes-to-framework-registry" precedent.
+>
+> **Deferred WATCH finding (named with reversal condition; not
+> ship-blocker).** WATCH-2: re-running `tailor pilot --source=redcap`
+> against a different directory writes a second `ATTEST_INITIAL` row
+> rather than a `REATTEST` — phi-irb classified as institutional-
+> clarification territory. An IRB reviewer reconstructing
+> trust-root transitions cannot tell from outcome alone whether
+> row N+1 was a clean re-install (legitimate) or a tampered swap
+> (incident). Deferred to v7.5.1; reversal condition is the first
+> real-world deployment that re-configures REDCap against a new
+> export directory and surfaces the ambiguity.
+>
+> **What did not change.** No router-pipeline / security-pipeline /
+> child / vault-layer / CLI architecture changes beyond the
+> argparse dispatch and the new audit-outcome value. No new ADRs
+> (per the (b) two-CLAUDE.md-paragraphs decision); no new
+> framework-tier components; no new ChildMCP subclasses; no schema
+> changes (`audit_query`'s outcome filter accepted arbitrary
+> strings before this release and still does). The L1 wizard
+> extension is product-surface work atop existing children, not
+> framework deepening. Net-new tests: 23 in `test_pilot_wizard.py`
+> (F1 multi-source helper + dispatch + MATLAB scipy-missing /
+> HDF5 magic-byte / scan partition + REDCap fingerprint reuse /
+> ATTEST_INITIAL audit row / completion-field detection / BOM
+> round-trip + AST-class all-call-sites-sweep) + 16 in
+> `test_serve_v750_wire_audit.py` (15 from the
+> mcp-protocol-auditor side-effect + 1 in the new B7 integration
+> class closing red-team's OBJECTION). Patch quartet shape
+> familiar from v7.3.x: each ship-blocker found by a pre-implementation
+> gate; the implementation closed it before the next gate fired;
+> the red-team gate caught the one all the others missed.
+> Includes pending governance edits per L1/L2 onboarding split (ADR 0022 conductor-mode conflict + CLAUDE.md paragraph additions) and README.md pilot wizard table updates (v7.5.0 --source dispatch docs).
+
 > **v7.4.0 (2026-05-16)** — New framework-tier `audit_query` layer: the
 > audit log is now LLM-queryable under a B1 column allowlist (ADR 0039).
 > Closes the v7.3.4-banner-deferred audit-log-over-promise gap — the
@@ -2734,7 +2973,11 @@ User config at `~/.tailor/user_config.json`:
 
 ## Adding a New ChildMCP (new data source)
 
-Children are the framework's extension point. Each one wraps one data source (CSV directory, EDF file, FHIR bundle, REDCap export, vendor API) and exposes tiered tools; the router handles everything else uniformly.
+ChildMCP onboarding has two distinct product surfaces. **Configured ingest of a *shipped* source axis** — a researcher with `.csv`, `.mat`, or REDCap-export files whose shape one of the shipped children already understands — is served by the [`tailor pilot --source={csv,matlab,redcap}`](src/tailor/pilot.py) CLI wizard. **New-axis ingest** — a vendor format, an EDF recording, a FHIR bundle, a custom binary, or another shape no shipped child understands — is served by the template child at [`src/tailor/children/template/`](src/tailor/children/template/) and the RSE-shaped guide at [`docs/guides/build-your-own-child.md`](docs/guides/build-your-own-child.md). The split is intentional: the wizard targets researchers (single command, prompts, smoke check, atomic config write); the template + guide target the RSE supporting them (~1–2 days of focused Python work). The rest of this section covers the second path (L2); for L1 reach for the wizard.
+
+Two alternative onboarding surfaces were considered and rejected for v7.5 with named reversal conditions. **Wizard-child MCP surface** — an `MCPWizardChild` exposing `wizard_configure_*` tools the hosted LLM calls during a conversation — fails on first install (chicken-and-egg: MCP must be running to configure MCP), opens a new write-authority surface on `user_config.json` from the hosted AI, and conflicts with [ADR 0022 § Out of scope](docs/adr/0022-local-llm-guardian.md), which explicitly defers conductor-mode (LLM-driven structural action on the framework's own state) behind a future superseding ADR. *Reversal condition:* first real institutional ask for "add a source mid-conversation" ergonomics on an already-running install. **Folding wizard governance into `LocalLLMLayer`** — the local-LLM guardian composes configuration via the oracle pipeline — conflicts with [ADR 0022's `OracleResponse` schema-as-contract invariant](docs/adr/0022-local-llm-guardian.md): wizard work is *configuration authoring*, a third category beyond numerical claims and analytical prose that the schema does not model. The contract is doing real work as a structural commitment; weakening it for ergonomics is a Chesterton's-fence violation. Wizard work is also deterministic data inspection + operator confirmation + atomic write — none of those benefit from generative inference. *Reversal condition:* `OracleResponse` schema extended to model file-mutation actions AND a 7B+ model demonstrably outperforms hand-coded heuristics on cross-source pattern matching against the bundled-child shapes.
+
+Children are the framework's extension point. Each one wraps one data source (today: CSV directories, MATLAB `.mat` v5/v6/v7.2 files, REDCap exports; on the deferred queue: EDF recordings, FHIR bundles, vendor sensor exports) and exposes tiered tools; the router handles everything else uniformly.
 
 Implement 4 abstract items and register:
 

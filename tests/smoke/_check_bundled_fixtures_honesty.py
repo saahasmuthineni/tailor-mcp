@@ -14,6 +14,7 @@ import re
 import sys
 from pathlib import Path
 
+
 def check(label: str, cond: bool, detail: str = ""):
     print(f"{'PASS' if cond else 'FAIL'}  {label}{('  -- ' + detail) if not cond else ''}")
     if not cond:

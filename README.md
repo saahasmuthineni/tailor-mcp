@@ -48,11 +48,14 @@ sends any of it to a service you didn't choose.
 
 > *Phase 0 closed 2026-05-12 under the lenient read of the exit criterion — the install ritual below has been completed end-to-end by outside recipients on both Windows (Microsoft Store Claude Desktop) and macOS. The strict read (two clean outside-recipient installs on different OSes, project author untouched at every step) is still open. See [Status](#status). If you hit any friction installing cold, please open an issue — that's the highest-leverage diagnostic right now.*
 
-For a PI or analyst running a multi-subject CSV pilot:
+For a PI or analyst running a multi-subject pilot — CSV, MATLAB, or REDCap:
 
 ```bash
 uv tool install tailor-mcp
-tailor pilot          # three prompts, end-to-end smoke check
+tailor pilot                       # defaults to CSV — three prompts, end-to-end smoke check
+# Other source axes (multi-source coexistence preserved across runs):
+tailor pilot --source=matlab       # .mat v5/v6/v7.2 directories (requires tailor-mcp[matlab])
+tailor pilot --source=redcap       # REDCap export directories with project_metadata.csv data dictionary
 ```
 
 For a developer exploring the framework:
@@ -350,11 +353,17 @@ first, [docs.astral.sh/uv](https://docs.astral.sh/uv/) has the long form.
 uv tool install tailor-mcp
 tailor fitting-room  # walkthrough scaffold — registers with Claude Desktop automatically
 # or:
-tailor pilot         # multi-subject CSV pilot wizard — three prompts
+tailor pilot                  # multi-subject CSV pilot wizard — three prompts
+tailor pilot --source=matlab  # MATLAB `.mat` directory pilot (requires tailor-mcp[matlab])
+tailor pilot --source=redcap  # REDCap export directory pilot (project_metadata.csv as trust root)
 ```
 
 Both `tailor fitting-room` and `tailor pilot` write (or merge with) the
 recipient's Claude Desktop config; no manual JSON editing required.
+v7.5+ `tailor pilot` deep-merges into existing `user_config.json` so
+multi-source deployments (CSV + MATLAB, REDCap + CSV, all three) survive
+re-runs — see [docs/guides/multi-subject-pilot.md](docs/guides/multi-subject-pilot.md)
+§ "Source axes".
 
 > The verb was `tailor tour` through v7.0.x; renamed to `tailor
 > fitting-room` in v7.1.0 per [ADR 0035](docs/adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md).
@@ -431,7 +440,7 @@ interpreter.
 
 | Command | Description |
 |---|---|
-| `tailor pilot` | Multi-subject CSV pilot wizard — three prompts, end-to-end smoke check |
+| `tailor pilot` | Multi-subject pilot wizard for CSV (default), MATLAB (`--source=matlab`), or REDCap (`--source=redcap`) — three prompts, end-to-end smoke check, deep-merge into `user_config.json` so multi-source deployments coexist (v7.5+) |
 | `tailor fitting-room` | Recipient-driven walkthrough — scaffolds bundled HIP Lab fixtures + registers with Claude Desktop (ADRs [0024](docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md) + [0035](docs/adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md)) |
 | `tailor serve` | Start the MCP server (invoked by the LLM client) |
 | `tailor walkthrough` | Five-section architectural showcase on bundled HIP Lab fixtures: cohort thesis, router pipeline + audit row, three-tier resolution-appropriateness walk, vault moment write, local-LLM oracle call. ADRs [0027](docs/adr/0027-demo-as-researcher-first-look.md) (researcher first-look framing) + [0029](docs/adr/0029-token-reduction-as-analytical-quality.md) (architectural showcase reshape) + [0035](docs/adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md) (rename). Pass `--save-shareable` for an emailable markdown transcript. |

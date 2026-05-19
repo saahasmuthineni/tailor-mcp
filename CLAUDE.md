@@ -1,5 +1,231 @@
 # CLAUDE.md — Tailor
 
+> **v8.0.0 (2026-05-19)** — A' (recipient-experience MCP-offload). Major
+> bump. Three new framework-tier layers (`SetupLayer`,
+> `WalkthroughLayer`, `FittingRoomLayer`) per [ADR 0040](docs/adr/0040-bounded-setup-time-conductor-surface.md);
+> four CLI commands hard-removed (`tailor walkthrough`, `tailor
+> fitting-room`, `tailor tour`, `tailor demo`). Codifies a bounded
+> setup-time conductor surface — a carve-out from [ADR 0022's](docs/adr/0022-local-llm-guardian.md)
+> conductor-mode deferral scoped to setup-time-only via a hard-coded
+> source-key allowlist. Driven by Taylor's 2026-05-19 macOS install
+> friction: a non-technical recipient typed `--help` at a path prompt
+> because terminals weren't a familiar interface — the architectural
+> response is to move recipient-facing surfaces (walkthrough,
+> fitting-room, source-config setup) off the CLI into MCP tools that
+> Claude orchestrates conversationally.
+>
+> **Three new framework-tier layers — parallel to VaultLayer /
+> LocalLLMLayer / SetupHelpLayer / AuditQueryLayer.** All bypass
+> biosensor-tier gates (consent, cost, circuit breaker, framework
+> PHI scrub) per [ADR 0012 § Amendment v7.4.0](docs/adr/0012-vault-phi-scrubber-bypass.md);
+> only param validation + audit apply. Same `(None, tool_def)` sentinel
+> in `_tool_map` + `_framework_layer_owner` routing pattern as the four
+> existing layers.
+>
+> **`SetupLayer`** (`framework/setup/`) exposes four MCP tools for
+> source-config setup: `tailor_setup_status` (read-only configured /
+> awaiting state), `tailor_setup_detect_schema(source_type, path)`
+> (read-only schema detection wrapping the v7.5.0 `pilot.py` helpers),
+> `tailor_setup_confirm_schema(source_type, path, schema)` (pure
+> compute confirmation), and `tailor_setup_write_source_block(
+> source_type, path, validated_schema)` (the bounded write tool).
+> `source_type` uses `allowed_values=["csv","matlab","redcap"]` against
+> the v7.6.0 D1 closure in `ParamValidator`. Each tool's description
+> is tuned for natural-language inference so terminal-averse recipients
+> drive setup by saying *"Hi Claude, I have CSV data at ~/data/cohort/
+> — set Tailor up to use it"*.
+>
+> **Bounded-write authority is the load-bearing invariant.**
+> `tailor_setup_write_source_block` writes ONLY the source-config keys
+> named in `SETUP_WRITE_KEY_ALLOWLIST = ("csv_dir", "matlab_file",
+> "redcap_file")` — a hard-coded module-level constant at
+> `framework/setup/sources.py`. Three layers of defense: (1)
+> `ParamValidator.allowed_values` on `source_type` rejects unknown
+> tokens; (2) `build_source_block` raises `UnknownSourceType` on any
+> mismatched token; (3) the dispatch site in `_tool_write_source_block`
+> re-checks the source_key against the allowlist before invoking the
+> canonical writer. A bug in (2) cannot widen the surface because (3)
+> independently refuses. The canonical writer is the v7.5.0 multi-
+> source coexistence deep-merge `pilot._write_user_config` — no
+> hand-rolled writer in the new tier.
+>
+> **`WalkthroughLayer`** (`framework/walkthrough/`) exposes a single
+> tool `tailor_walkthrough_section(section: int)` with `min=1, max=5`.
+> Replaces the v6.10.5 `tailor walkthrough` CLI showcase. Five sections
+> return structured payloads Claude narrates conversationally to the
+> recipient: (1) Tier-1 cohort thesis; (2) router pipeline + audit row;
+> (3) three-tier consent + cost model; (4) vault layer cross-session
+> memory; (5) local-LLM guardian + deterministic processing. Each
+> payload carries narrative prose, a worked-example call shape +
+> wire-verified result preview, ADR citations, and a next-step prompt.
+>
+> **`FittingRoomLayer`** (`framework/fitting_room/`) exposes three
+> tools (`tailor_fitting_room_status` / `_scaffold` / `_index_vault`)
+> that wrap the pure helpers in the preserved `tailor.fitting_room`
+> library module. Replaces the v6.9.0 `tailor fitting-room` CLI
+> command. Notably the new MCP path does NOT write Claude Desktop
+> config — `tailor pilot` is now the sole CLI surface that does that,
+> and the v7.5.0 Taylor-class orphan-cleanup defect (pilot wipes
+> fitting-room's Claude Desktop registration) self-retires
+> structurally under A' because fitting-room no longer registers with
+> Claude Desktop at all.
+>
+> **CLI surface contracts from 8 commands to 6.** Four commands hard-
+> removed: `tailor walkthrough` / `tailor fitting-room` / `tailor tour`
+> / `tailor demo`. No deprecation shim. The remaining six —
+> `serve / pilot / setup / redcap / status / uninstall` — are the
+> operator/RSE surface. Recipients touch the terminal exactly once
+> (`tailor pilot` for Claude Desktop registration + first source
+> config); everything else happens through Claude Desktop chat.
+> `src/tailor/tour.py` (the v7.1.x re-export shim) deleted. Examples
+> migrated to import from `tailor.fitting_room.main` directly.
+> `wizard.py` PRESERVED — load-bearing for `cmd_setup`'s Strava OAuth
+> wizard.
+>
+> **New `SETUP_CONFIG_WRITE` audit-log outcome.** Every successful
+> `tailor_setup_write_source_block` call emits a row with
+> `outcome="SETUP_CONFIG_WRITE"` (not `"SUCCESS"`), `domain="setup"`,
+> the framework `scrubber_id`, and `subject_id=NULL` (configuration is
+> not subject-scoped per [ADR 0009](docs/adr/0009-vault-subject-keying.md)).
+> An IRB reviewer querying `audit.db` reconstructs *"when did Claude
+> write configuration on this machine"* via
+> `SELECT * FROM audit_log WHERE outcome='SETUP_CONFIG_WRITE'`. The
+> `audit_query` tool's outcome-filter description carries the new
+> value in its common-values list; the schema is unconstrained
+> `type=str` so the new value flows through without an allowlist
+> amendment (same precedent as `ATTEST_INITIAL` per v7.5.0).
+>
+> **`_redact_home()` wire-egress defense (phi-irb WATCH-1 closure).**
+> SetupLayer wire-response paths (`written_path`, `user_config_path`,
+> echoed `path` on detect/confirm) collapse `Path.home()` to `~` per
+> HIPAA Safe Harbor §164.514(b)(2)(i)(R) — extends the v6.10.2
+> SetupHelpLayer redaction pattern to the SetupLayer surface so
+> username-bearing path strings stay off the hosted-LLM chat
+> transcript. On-disk artifacts (`~/.tailor/user_config.json`,
+> `audit_log.params`) carry the un-redacted operator intent; the
+> operator owns retention there per the ADR 0040 § Amendment retention
+> contract.
+>
+> **ADR 0040 § Amendment 2026-05-19 — operator-managed retention
+> contract (phi-irb VIOLATION Lens 6 closure).** Scope-bounds
+> [ADR 0013's](docs/adr/0013-cache-only-purge-on-consent-revocation.md)
+> *"revocation = no cache"* invariant to biosensor-cache tables
+> (unchanged from ADR 0013), and explicitly names *"configuration
+> written by SetupLayer is operator-managed retention"* as the
+> SetupLayer retention contract. The biosensor-cache purge and the
+> SetupLayer config write are separate retention surfaces by design.
+> `docs/design/research-framing.md` § "Consent withdrawal under this
+> profile" gains a fifth retention category (SetupLayer-written
+> configuration) alongside biometric cache / analyst-authored notes /
+> oracle audit rows / trust-root attestation rows. Reversal condition
+> named: first real-world deployment that surfaces the configuration-
+> retention-on-revocation problem during an IRB inquiry, OR an
+> operator who needs an automated revocation-and-purge ritual to
+> satisfy an institutional policy — either triggers a follow-on ADR.
+>
+> **Bug self-retirement.** The v7.5.0 orphan-cleanup defect Taylor's
+> 2026-05-19 macOS run surfaced (pilot's `_is_orphan_entry_key`
+> wipes fitting-room's `tailor-fitting-room-hip-lab` Claude Desktop
+> entry as a "stale orphan") becomes structurally moot under A'.
+> Fitting-room is no longer a CLI command writing Claude Desktop
+> config; pilot is the sole CLI writer of Claude Desktop config.
+> No siblings, no orphan-cleanup-too-greedy, no bug. Skipped the
+> v7.5.1 patch entirely — architecture closes the defect class.
+>
+> **L1/L2 paragraph in CLAUDE.md § "Adding a New ChildMCP" amended.**
+> The v7.5.0 paragraph deferred two wizard surfaces with named
+> reversal conditions (Wizard-child MCP surface; LocalLLMLayer-folded
+> wizard). Both reversal conditions remain accurate; A' is a sibling
+> resolution scoped to setup-time-only via the bounded-write
+> allowlist + retire-after-restart conditional-on-boot lifecycle. The
+> paragraph now carries a "Partial sibling-resolution by ADR 0040
+> (v8.0.0)" subsection naming the distinction.
+>
+> **Always-registered lifecycle.** The framework has no runtime
+> un-register convention as of v7.6.0; `SetupHelpLayer` is
+> conditionally REGISTERED at boot but no layer un-registers itself
+> at runtime once a condition is met. ADR 0040 explicitly weighed
+> conditional registration (SetupHelpLayer pattern) and rejected it:
+> always-registered preserves the mid-session add-source path
+> (`tailor_setup_write_source_block` after the first source is
+> configured) that the v7.5.0 multi-source coexistence deep-merge
+> writer was designed to enable. Tool-list bloat (4 setup tools
+> always visible on configured deployments) is the small cost; the
+> alternative would force a Claude Desktop restart for every
+> additional source.
+>
+> **Gates: ci-gate-runner SHIPPABLE** (1548/1548 pytest, 3
+> scipy-conditional skips, ruff clean, 76/76 security probe, CLI
+> smoke clean — 6 commands discoverable, hard-removed verbs absent).
+> **mcp-protocol-auditor PROTOCOL OK** (40 new subprocess wire tests
+> at `tests/test_serve_v8_wire_audit.py` — all 8 new tools verified
+> end-to-end, SETUP_CONFIG_WRITE outcome stamping verified, PARAM_INVALID
+> gate confirmed on the source-type allowlist). **reproducibility-
+> provenance-auditor CLEAN** (every touched in-scope file HOLDS;
+> W5 AST contract updated 31→40 audit-record sites + 6→9 _meta
+> stamping sites; SetupLayer routes through `pilot._write_user_config`
+> canonical seam — no hand-rolled writer). **phi-irb-risk-reviewer
+> VIOLATION + 2 WATCH → CLOSED** (Lens 6 retention CLOSED via ADR 0040
+> § Amendment retention contract + research-framing.md fifth
+> retention category; WATCH-1 Lens 1 Safe Harbor CLOSED via
+> `_redact_home()` extension to SetupLayer wire surface; WATCH-2 Lens
+> 2 consent re-prompt DEFERRED with named reversal condition).
+> **red-team-reviewer OBJECTION (MEDIUM) → CLOSED** (walkthrough
+> section 1 worked_example used invalid `metric="peak_force_N"` not
+> in COHORT_METRICS, omitted required `value_column`, and carried
+> fabricated std values 12.1/15.4 against real fixture stds 6.62/6.46
+> — closed via valid `force_cohort_summary` params + wire-verified
+> stats + AST-class regression guard test that asserts the
+> worked_example would actually succeed if called). **coverage-
+> criticality-mapper REGRESSION → CLOSED** (26 new tests at
+> `tests/framework/test_setup_coverage_gaps.py` covering every
+> CRITICAL + HIGH uncovered path including bounded-write defense-in-
+> depth allowlist violation, REDCap source-block branch, all detector
+> edge branches, register_*_layer collision detection, fitting-room
+> scaffold + index_vault success + force + exception paths).
+> **adr-weigher PASS** on ADR 0040 against all five criteria.
+> **cue-card-rehearsal-auditor NOT TRIGGERED** (no CUE_CARD.md or
+> ToolDefinition schema changes affecting an existing cue card — the
+> 8 new tools are MCP-tool surfaces not yet on the bundled HIP Lab
+> cue card). **recipient-install-validator SKIPPED** per v6.11.x
+> falsification precedent.
+>
+> **Red-team-earning-its-keep moment.** Four upstream specialists
+> (mcp-protocol-auditor, reproducibility-provenance-auditor, phi-irb-
+> risk-reviewer, coverage-criticality-mapper) all returned confident
+> verdicts before red-team-reviewer fired. Red-team caught a real
+> defect none of the four named: the walkthrough section 1 worked-
+> example was structurally broken on the wire (invalid params +
+> fabricated stats) while pytest was green because the test envelope
+> shape was correct. Same v7.3.4 D1 + audit-log-over-promise defect
+> class — a load-bearing analytical claim broken on the wire while
+> automated gates were green because the gates measure envelope
+> correctness, not payload semantics. AST-class regression guard at
+> `tests/framework/test_setup_coverage_gaps.py::test_walkthrough_section_1_worked_example_is_callable_against_real_tool`
+> prevents the regression: it imports `COHORT_METRICS` from the actual
+> tool and asserts the worked-example params are valid against the
+> real schema. ADR 0010 (adversarial pairing) demonstrably earning its
+> keep again.
+>
+> **Net-new test count: 128.** 62 initial layer tests (test_setup_layer,
+> test_setup_source_allowlist, test_walkthrough_layer,
+> test_fitting_room_layer) + 40 subprocess wire tests
+> (test_serve_v8_wire_audit, added during mcp-protocol-auditor's
+> audit) + 26 coverage-gap closers (test_setup_coverage_gaps, added
+> during the red-team + coverage release-pass).
+>
+> **What did not change.** No router-pipeline / security-pipeline /
+> child / vault-layer architecture changes beyond the three new
+> framework-tier register hooks + three dispatch methods + the new
+> `SETUP_CONFIG_WRITE` audit outcome value. Pilot CLI surface
+> (`tailor pilot`) preserved unchanged. wizard.py preserved
+> (load-bearing for Strava OAuth). fitting_room.py + demo/runner.py
+> preserved as library modules (CLI dispatch deleted; pure helpers
+> remain and are imported by the new MCP layers + the example
+> scripts). The L1 wizard CLI surface is the operator/RSE path; the
+> SetupLayer MCP surface adds a parallel recipient path. Both paths
+> converge on the same `pilot._write_user_config` canonical writer.
+
 > **v7.6.0 (2026-05-19)** — ADR 0038 structural sweep ships. Closes
 > the data-source-agnostic vault-layer commitment that v7.3.4 partial-
 > closed and v7.4.0 / v7.5.0 deferred. Minor bump: new

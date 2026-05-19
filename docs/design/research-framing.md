@@ -289,6 +289,31 @@ framework does not erase trust-root rows on consent revocation and
 does not pre-empt that decision; studies whose IRB language requires
 attestation-log erasure on withdrawal would need a fifth disposition.
 
+A fifth retention category, codified by [ADR 0040 § Amendment
+2026-05-19](../adr/0040-bounded-setup-time-conductor-surface.md),
+sits alongside the four above: **SetupLayer-written configuration**.
+Every successful `tailor_setup_write_source_block` MCP call writes a
+source-config block (`csv_dir` / `matlab_file` / `redcap_file`) to
+`~/.tailor/user_config.json` and lands a `SETUP_CONFIG_WRITE` audit
+row. The written block may carry path strings with Safe-Harbor-class
+identifiers (usernames in directory components, geographic markers
+in path segments). Per ADR 0040 § Amendment 2026-05-19, this category
+is **operator-managed retention** — neither the on-disk
+`user_config.json` block nor the `SETUP_CONFIG_WRITE` audit row is
+purged by `revoke_consent_<domain>`. The biometric-cache purge
+(ADR 0013) and the SetupLayer config write are separate retention
+surfaces: revoking consent purges the biosensor cache *for the
+configured child* (per ADR 0013), but the configuration that points
+at the child remains until the operator explicitly removes it
+(re-running `tailor pilot --source=<type>` with `force=True`, or
+editing `user_config.json` directly). Wire surfaces carrying
+SetupLayer responses (the `_redact_home`-redacted `written_path`,
+`user_config_path`, and echoed `path` fields) collapse `Path.home()`
+to `~` so username-bearing components stay off the hosted-LLM chat
+transcript. Studies whose IRB language requires
+configuration-erasure-on-withdrawal would need a sixth disposition;
+the framework does not pre-empt that decision today.
+
 ## Other framings explicitly out of scope today
 
 Two larger framings remain open and will be addressed in a later

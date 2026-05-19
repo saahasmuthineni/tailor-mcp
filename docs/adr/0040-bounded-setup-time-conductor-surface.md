@@ -409,3 +409,92 @@ forces *some* CLI touch on first install regardless, and `tailor
 pilot` is the existing surface that does it well. A future ADR may
 revisit if recipient testing surfaces the `tailor pilot` step as
 unnecessary even for first-install.
+
+## Amendment 2026-05-19 — Retention scope (phi-irb-risk-reviewer Lens 6 closure)
+
+**Context.** The pre-merge phi-irb-risk-reviewer pass on this ADR
+returned VIOLATION on Lens 6 (retention). The defect named: a config
+block written by `tailor_setup_write_source_block` persists in
+`~/.tailor/user_config.json` indefinitely, including after a
+participant withdraws consent and the operator runs
+`revoke_consent_<domain>`. The ADR 0013 § Decision *"revocation =
+no cache"* invariant is biometric-cache-table-only and does not
+extend to setup-time configuration writes. The path string written
+by SetupLayer — which may itself carry Safe-Harbor identifiers
+(usernames in `/Users/jane-smith/cohort-2026-IRB-1234/`, geographic
+markers in directory names) — survives consent revocation in:
+
+1. `~/.tailor/user_config.json` on disk (no purge hook).
+2. `audit_log.params` for every `SETUP_CONFIG_WRITE` row (50 KB
+   bounded; no TTL; no purge hook).
+3. `audit_log.params` for every subsequent biosensor-tier call against
+   the configured child (the cleaned-params dict echoes the
+   path-bearing schema).
+
+The reviewer named two options: (a) add a
+`purge_user_config_block(source_key)` companion on the consent-
+revocation path; (b) explicitly accept the retention profile in this
+ADR + amend `docs/design/research-framing.md`.
+
+**Decision.** This amendment accepts option (b): scope-bound the ADR
+0013 *"revocation = no cache"* invariant to biosensor-cache tables
+(unchanged from ADR 0013), and explicitly name *"configuration
+written by SetupLayer is operator-managed retention"* as the SetupLayer
+retention contract. Three structural commitments follow:
+
+1. **Operator-managed configuration retention.** A successful
+   `tailor_setup_write_source_block` call writes to
+   `~/.tailor/user_config.json` and lands a `SETUP_CONFIG_WRITE`
+   audit row. Neither artifact is purged by `revoke_consent_<domain>`.
+   The operator removes a written source block by editing
+   `user_config.json` directly OR by running
+   `tailor pilot --source=<type>` with `force=True` to overwrite. The
+   audit log row remains for IRB reconstruction.
+
+2. **Lens-1 path-redaction defense-in-depth.** The wire response from
+   SetupLayer tools (`written_path`, `user_config_path`, `path` echo
+   on detect/confirm) is redacted through `_redact_home` so
+   username-bearing path strings collapse to `~` on the surface the
+   hosted LLM (and the Claude Desktop chat transcript) sees. The
+   on-disk artifacts (`~/.tailor/user_config.json`, `audit_log.params`)
+   carry the un-redacted path — the operator's intent — and the
+   operator owns retention there. Closes the WATCH-1 finding in the
+   same release.
+
+3. **Plain-language operator surface.** `docs/design/research-framing.md`
+   § "Consent withdrawal under this profile" gains a fourth paragraph
+   naming SetupLayer-written configuration as an *operator-managed
+   retention category alongside the analyst notes (vault) and the
+   oracle audit rows*. The biosensor-cache table is the only ADR 0013
+   purge-on-revocation site; SetupLayer-written config is an operator
+   responsibility on revocation, identified by the
+   `SETUP_CONFIG_WRITE` audit-log outcome filter.
+
+**What this does NOT do.** It does NOT add a `purge_user_config_block`
+tool to the framework. It does NOT extend ADR 0013's purge contract
+to non-cache surfaces. It does NOT touch the existing
+`_handle_consent_revocation` path in `framework/router.py`. The
+deferral is symmetric to the v6.3.1 / v7.5.0 / ADR 0013 narrow-scope
+precedent: a future ADR may codify a setup-config-purge tool if
+recipient deployments need it (e.g. a future IRB context where the
+configuration itself counts as PHI), but the v8.0 surface explicitly
+declines to bundle that.
+
+**Reversal condition.** First real-world deployment that surfaces the
+configuration-retention-on-revocation problem during an IRB inquiry,
+OR an operator who needs an automated revocation-and-purge ritual to
+satisfy an institutional policy. Either triggers a follow-on ADR
+extending the ADR 0013 purge surface. Until that signal arrives, the
+scope-bound posture matches the framework's overall
+local-first / operator-managed retention story.
+
+**Lens-2 (consent re-prompt asymmetry) — deferred.** The reviewer's
+WATCH-2 finding (`tailor_setup_write_source_block` with `force=true`
+re-points a previously-revoked child without consent re-prompt) is
+acknowledged as institutional-clarification territory. The current
+behaviour: re-pointing the path silently succeeds at config-write
+time, and the NEXT biosensor-tier call against the affected child
+will hit the in-memory `ConsentGate` and force consent re-approval.
+That gate is the structural defense. Deferred to a future ADR if
+recipient deployments surface a need for write-time consent re-prompt
+(matching the WATCH-2 reversal condition).

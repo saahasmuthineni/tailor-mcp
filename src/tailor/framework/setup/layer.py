@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from ..interfaces import ToolDefinition, ValidationSchema
+from ..setup_help import _redact_home
 from .sources import (
     SETUP_WRITE_KEY_ALLOWLIST,
     SOURCE_TYPE_ALLOWLIST,
@@ -123,7 +124,7 @@ def _detect_csv(path: Path) -> dict[str, Any]:
     return {
         "ok": True,
         "source_type": "csv",
-        "path": str(path),
+        "path": _redact_home(str(path)),
         "csv_count": csv_count,
         "schema": schema_dict,
     }
@@ -163,7 +164,7 @@ def _detect_matlab(path: Path) -> dict[str, Any]:
     return {
         "ok": True,
         "source_type": "matlab",
-        "path": str(path),
+        "path": _redact_home(str(path)),
         "mat_file_count": len(mat_files),
         "mat_files_preview": [p.name for p in mat_files[:10]],
         "schema": {
@@ -214,7 +215,7 @@ def _detect_redcap(path: Path) -> dict[str, Any]:
     return {
         "ok": True,
         "source_type": "redcap",
-        "path": str(path),
+        "path": _redact_home(str(path)),
         "schema": {
             "records_file": "records.csv" if records.exists() else None,
             "project_metadata_file": (
@@ -447,13 +448,21 @@ class SetupLayer:
     # ── Tool implementations ──
 
     def _tool_status(self) -> dict[str, Any]:
-        """Read user_config.json and report which sources are configured."""
+        """Read user_config.json and report which sources are configured.
+
+        Path fields applied through ``_redact_home`` to collapse
+        ``Path.home()`` to ``~`` per HIPAA Safe Harbor
+        §164.514(b)(2)(i)(R) — closes phi-irb-risk-reviewer WATCH-1
+        (Lens 1) by extending the v6.10.2 SetupHelpLayer redaction
+        pattern to the SetupLayer wire surface.
+        """
         cfg_path = self.config_path
+        redacted_path = _redact_home(str(cfg_path))
         if not cfg_path.exists():
             return {
                 "status": "awaiting_setup",
                 "configured_sources": [],
-                "user_config_path": str(cfg_path),
+                "user_config_path": redacted_path,
                 "user_config_exists": False,
                 "available_source_types": list(SOURCE_TYPE_ALLOWLIST),
             }
@@ -462,14 +471,14 @@ class SetupLayer:
         except (json.JSONDecodeError, OSError) as exc:
             return {
                 "status": "config_unreadable",
-                "user_config_path": str(cfg_path),
+                "user_config_path": redacted_path,
                 "error": str(exc),
                 "available_source_types": list(SOURCE_TYPE_ALLOWLIST),
             }
         if not isinstance(cfg, dict):
             return {
                 "status": "config_malformed",
-                "user_config_path": str(cfg_path),
+                "user_config_path": redacted_path,
                 "error": "user_config.json top-level is not an object",
                 "available_source_types": list(SOURCE_TYPE_ALLOWLIST),
             }
@@ -479,7 +488,7 @@ class SetupLayer:
         return {
             "status": "configured" if configured else "awaiting_setup",
             "configured_sources": configured,
-            "user_config_path": str(cfg_path),
+            "user_config_path": redacted_path,
             "user_config_exists": True,
             "available_source_types": list(SOURCE_TYPE_ALLOWLIST),
         }
@@ -522,7 +531,7 @@ class SetupLayer:
         return {
             "ok": True,
             "source_type": source_type,
-            "path": path,
+            "path": _redact_home(path),
             "schema": schema,
             "confirmed": True,
         }
@@ -599,11 +608,16 @@ class SetupLayer:
                 "error_class": "OSError",
             }
 
+        # ``written_path`` redacted through ``_redact_home`` to keep
+        # username-bearing paths off the wire — same Lens 1 closure
+        # as ``_tool_status``. The on-disk write itself uses the
+        # un-redacted ``written_path`` (canonical writer's return);
+        # only the wire response is redacted.
         return {
             "ok": True,
             "source_type": source_type,
             "source_key": source_key,
-            "written_path": str(written_path),
+            "written_path": _redact_home(str(written_path)),
             "restart_required": True,
             "restart_message": (
                 "Restart Claude Desktop to load the new source. "

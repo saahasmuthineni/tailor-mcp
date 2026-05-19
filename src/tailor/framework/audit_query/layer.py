@@ -109,7 +109,11 @@ class AuditQueryLayer:
                             "domain. Examples: 'running', 'csv_dir', "
                             "'force_csv', 'emg_csv', 'matlab_file', "
                             "'redcap_file', 'vault', 'local_llm', "
-                            "'setup_help', 'audit_query'."
+                            "'setup_help', 'audit_query', 'setup' "
+                            "(SetupLayer per ADR 0040), 'walkthrough' "
+                            "(WalkthroughLayer per ADR 0040), "
+                            "'fitting_room' (FittingRoomLayer per "
+                            "ADR 0040)."
                         ),
                         "required": False,
                     },

@@ -16,7 +16,7 @@ Your **Wardrobe** is what Tailor governs on your behalf: the structured collecti
 uv tool install tailor-mcp
 ```
 
-Bootstrap your first project with `tailor pilot` (multi-subject CSV setup wizard) or `tailor fitting-room` (a guided walkthrough on bundled synthetic fixtures from the HIP Lab realistic demo). No data leaves your machine at any point. The bundled HIP Lab CSV fixtures (`S001`–`S016`) shipped inside the wheel are synthetic by construction — random-walk traces sized to mimic real cohort shapes, not real participant data.
+Bootstrap your first project with `tailor pilot` (multi-source setup wizard — CSV / MATLAB / REDCap; also registers Claude Desktop). Then ask Claude in the Desktop app to walk you through Tailor or scaffold the bundled HIP Lab demo — both flows moved into MCP tools in v8.0.0 per ADR 0040 so terminal-averse recipients drive them conversationally rather than from the command line. No data leaves your machine at any point. The bundled HIP Lab CSV fixtures (`S001`–`S016`) shipped inside the wheel are synthetic by construction — random-walk traces sized to mimic real cohort shapes, not real participant data.
 
 ## Architecture
 

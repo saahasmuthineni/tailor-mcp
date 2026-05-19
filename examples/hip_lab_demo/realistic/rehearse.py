@@ -29,8 +29,9 @@ demo's wow.
 
 Per ADR 0024 the fitting-room fixtures live in the bundled package
 tree (``src/tailor/_fixtures/hip_lab_demo_realistic/``); this script
-scaffolds them into a temp dir via ``tailor.tour`` (the v6.9.0 module
-path retained as a re-export shim through v7.1.x per ADR 0035; the
+scaffolds them into a temp dir via ``tailor.fitting_room.main()`` (the
+canonical library entry point; the v6.9.0 ``tailor.tour`` shim retired
+in v8.0.0 per ADR 0040; the ``tailor fitting-room`` CLI verb was
 canonical module is now ``tailor.fitting_room``) the same way mom or
 Senefeld would in a real install. That makes the rehearsal exercise
 the *recipient* code path, not a back-channel.
@@ -305,12 +306,12 @@ async def main() -> int:
         # Scaffold a fresh fitting-room into the temp dir.
         # --no-claude-desktop so the dev's Claude Desktop config
         # stays untouched.
-        # NOTE: ``tailor.tour`` is the v6.9.0 module path retained as
-        # a re-export shim through v7.1.x per ADR 0035; canonical
-        # module is now ``tailor.fitting_room``. Import flips in
-        # v7.2.0 when the shim retires.
-        from tailor.tour import main as tour_main
-        rc = tour_main([
+        # v8.0.0 (ADR 0040): tailor.tour re-export shim retired;
+        # tailor.fitting_room.main() is the canonical library entry
+        # point.  CLI verb hard-removed; the rehearsal calls the
+        # library function directly.
+        from tailor.fitting_room import main as fitting_room_main
+        rc = fitting_room_main([
             "--variant=hip-lab",
             "--no-claude-desktop",
             "--target", str(target),

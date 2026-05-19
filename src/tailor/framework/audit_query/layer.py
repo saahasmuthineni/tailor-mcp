@@ -109,7 +109,11 @@ class AuditQueryLayer:
                             "domain. Examples: 'running', 'csv_dir', "
                             "'force_csv', 'emg_csv', 'matlab_file', "
                             "'redcap_file', 'vault', 'local_llm', "
-                            "'setup_help', 'audit_query'."
+                            "'setup_help', 'audit_query', 'setup' "
+                            "(SetupLayer per ADR 0040), 'walkthrough' "
+                            "(WalkthroughLayer per ADR 0040), "
+                            "'fitting_room' (FittingRoomLayer per "
+                            "ADR 0040)."
                         ),
                         "required": False,
                     },
@@ -134,7 +138,10 @@ class AuditQueryLayer:
                             "`tailor redcap reattest`), "
                             "'ATTEST_INITIAL' (first-config "
                             "attestation via `tailor pilot "
-                            "--source=redcap`), plus the *_INTERNAL "
+                            "--source=redcap`), 'SETUP_CONFIG_WRITE' "
+                            "(SetupLayer bounded source-block write via "
+                            "`tailor_setup_write_source_block` per "
+                            "ADR 0040), plus the *_INTERNAL "
                             "variants from cross-child dispatch."
                         ),
                         "required": False,

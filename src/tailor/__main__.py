@@ -3,17 +3,17 @@ CLI for Tailor.
 
 Usage:
     tailor serve            # Start MCP server (Claude Desktop calls this)
-    tailor pilot            # Multi-source pilot wizard: csv (default), --source=matlab, or --source=redcap (start here for any local-data deployment; v7.5+)
-    tailor fitting-room     # Scaffold a guided walkthrough you can drive from Claude Desktop (HIP Lab realistic by default); recipient tries on bundled work-in-progress (ADR 0024)
-    tailor walkthrough      # Watch the framework's architectural claims in 5 sections on bundled HIP Lab fixtures (ADRs 0027 + 0029); pass --save-shareable for an emailable markdown transcript
+    tailor pilot            # Multi-source pilot wizard: csv (default), --source=matlab, or --source=redcap (start here for any local-data deployment; v7.5+). Also bootstraps Claude Desktop registration.
     tailor setup            # Run Strava OAuth setup wizard
     tailor redcap reattest  # Re-attest the REDCap trust-root metadata after legitimate edits to project_metadata.csv (ADR 0003 § Amendment 2026-05-15)
     tailor status           # Diagnostic check
     tailor uninstall        # Clean removal
 
-Deprecated (removal deferred to a future minor):
-    tailor demo             # Renamed to `tailor walkthrough` in v7.1.0 per ADR 0035
-    tailor tour             # Renamed to `tailor fitting-room` in v7.1.0 per ADR 0035
+Removed in v8.0.0 (per ADR 0040 — recipient-facing surfaces moved to MCP tools):
+    tailor fitting-room     # Now available as `tailor_fitting_room_scaffold` MCP tool — ask Claude to scaffold the demo
+    tailor walkthrough      # Now available as `tailor_walkthrough_section` MCP tool — ask Claude to walk you through Tailor
+    tailor tour             # (v7.1.0 alias for fitting-room) — see above
+    tailor demo             # (v7.1.0 alias for walkthrough) — see above
 """
 
 import json
@@ -374,6 +374,27 @@ def cmd_serve():
         audit_log=router.audit_log,
     ))
 
+    # Setup layer (framework-level bounded conductor surface per
+    # ADR 0040). Always-registered; bounded-write authority gated by
+    # source-key allowlist. Replaces the recipient-facing portion of
+    # `tailor pilot` for terminal-averse users — recipients configure
+    # data sources by talking to Claude in the desktop app.
+    from tailor.framework.setup import SetupLayer
+    router.register_setup_layer(SetupLayer(config_dir=CONFIG_DIR))
+
+    # Walkthrough layer (framework-level architectural showcase per
+    # ADR 0040). Always-registered; read-only; replaces the v6.10.5
+    # `tailor walkthrough` CLI command.
+    from tailor.framework.walkthrough import WalkthroughLayer
+    router.register_walkthrough_layer(WalkthroughLayer())
+
+    # Fitting-room layer (framework-level bundled-demo scaffold surface
+    # per ADR 0040). Always-registered; replaces the v6.9.0 `tailor
+    # fitting-room` CLI command. Does NOT write Claude Desktop config
+    # (that's `tailor pilot`'s one-time bootstrap job).
+    from tailor.framework.fitting_room import FittingRoomLayer
+    router.register_fitting_room_layer(FittingRoomLayer())
+
     # Future children (CGM, sleep, ECG, EDF, FHIR) would register here
     # following the same opt-in pattern as csv_dir above.
 
@@ -399,42 +420,6 @@ def cmd_pilot():
     """
     from tailor.pilot import main as pilot_main
     sys.exit(pilot_main())
-
-
-def cmd_fitting_room():
-    """Scaffold a guided walkthrough you can drive from Claude Desktop.
-
-    Companion to ``cmd_walkthrough``: ``walkthrough`` is the
-    terminal-only architectural showcase you watch (ADR 0027);
-    ``fitting-room`` is the active surface where you put on the
-    bundled work-in-progress — copies bundled fixtures into a
-    recipient-visible directory, writes ``user_config.json``,
-    indexes the vault, and registers with Claude Desktop. See ADRs
-    0024 and 0035.
-    """
-    from tailor.fitting_room import main as fitting_room_main
-    sys.exit(fitting_room_main())
-
-
-def cmd_tour():
-    """Deprecated alias for ``cmd_fitting_room``. Removed in v7.2.0.
-
-    Per ADR 0035: ``tailor tour`` was renamed to ``tailor
-    fitting-room`` in v7.1.0 to match the recipient-experience-shaped
-    naming principle (commands named after what the recipient is
-    doing, not what the system is making). Both verbs continue to
-    work; removal of the deprecation shim is deferred to a future
-    minor (v7.2.0 release scope was re-aimed at Move 3 / MATLAB).
-    """
-    print(
-        "[deprecation] `tailor tour` has been renamed to "
-        "`tailor fitting-room` in v7.1.0 (per ADR 0035).\n"
-        "              Both verbs work in this release; "
-        "the alias removal target has been bumped to a "
-        "future minor.\n",
-        file=sys.stderr,
-    )
-    cmd_fitting_room()
 
 
 def cmd_status():
@@ -607,105 +592,6 @@ def cmd_status():
 
     print("\n" + "=" * 40)
     print("Done.")
-
-
-def cmd_walkthrough():
-    """Researcher first-look — five-section walk through the framework's
-    architectural claims against bundled HIP Lab fixtures. See ADRs
-    0027, 0029, and 0035.
-
-    Optional flags:
-        --save-shareable [PATH]   Capture the walkthrough's stdout into
-            a self-contained markdown file suitable for emailing or
-            hosting at a static URL. PATH is optional; defaults to
-            ``~/.tailor/shareable-walkthrough-vX.Y.Z.md``.
-        --audience=<developer|public>   Default ``developer``. In
-            ``public`` mode (per ADR 0030) the saved markdown gets
-            per-persona reading panels + attribution-only footer + a
-            render-time URL-allowlist hard-fail; suitable for the
-            public mirror page. In ``developer`` mode the saved
-            markdown carries ADR breadcrumbs for a co-developer
-            reader (existing v6.12.0 behaviour). Has no effect when
-            ``--save-shareable`` is not also passed.
-    """
-    from tailor import __version__ as _pkg_version
-    from tailor.demo import run_demo
-
-    args = sys.argv[2:]
-    save_shareable: Path | None = None
-    audience: str = "developer"
-    i = 0
-    while i < len(args):
-        arg = args[i]
-        if arg == "--save-shareable":
-            # `--save-shareable <path>` or `--save-shareable` (no path
-            # -> default versioned path under CONFIG_DIR).
-            if i + 1 < len(args) and not args[i + 1].startswith("--"):
-                save_shareable = Path(args[i + 1]).expanduser().resolve()
-                i += 2
-                continue
-            save_shareable = (
-                CONFIG_DIR / f"shareable-walkthrough-v{_pkg_version}.md"
-            )
-            i += 1
-            continue
-        if arg.startswith("--save-shareable="):
-            save_shareable = (
-                Path(arg.split("=", 1)[1]).expanduser().resolve()
-            )
-            i += 1
-            continue
-        if arg == "--audience":
-            if i + 1 < len(args) and not args[i + 1].startswith("--"):
-                audience = args[i + 1]
-                i += 2
-                continue
-            print(
-                "Error: --audience requires a value (developer|public).",
-                file=sys.stderr,
-            )
-            sys.exit(2)
-        if arg.startswith("--audience="):
-            audience = arg.split("=", 1)[1]
-            i += 1
-            continue
-        i += 1
-
-    if audience not in ("developer", "public"):
-        print(
-            f"Error: --audience must be 'developer' or 'public'; "
-            f"got {audience!r}.",
-            file=sys.stderr,
-        )
-        sys.exit(2)
-
-    run_demo(save_shareable_path=save_shareable, audience=audience)
-
-
-def cmd_demo():
-    """Deprecated alias for ``cmd_walkthrough``. Removal deferred.
-
-    Per ADR 0035: ``tailor demo`` was renamed to ``tailor walkthrough``
-    in v7.1.0 to match the recipient-experience-shaped naming
-    principle (commands named after what the recipient is doing, not
-    what the system is making). Both verbs continue to work; removal
-    of the deprecation shim is deferred to a future minor (v7.2.0
-    release scope was re-aimed at Move 3 / MATLAB).
-
-    Forwards every ``sys.argv`` argument transparently to
-    ``cmd_walkthrough`` — flag parsing reads ``sys.argv[2:]`` so the
-    deprecated invocation produces identical behavior to the new
-    verb.
-    """
-    print(
-        "[deprecation] `tailor demo` has been renamed to "
-        "`tailor walkthrough` in v7.1.0 (per ADR 0035).\n"
-        "              Both verbs work in this release; "
-        "the alias removal target has been bumped to a "
-        "future minor.\n",
-        file=sys.stderr,
-    )
-    cmd_walkthrough()
 
 
 def _is_orphan_entry_key(key: str) -> bool:
@@ -1057,8 +943,6 @@ def main():
     commands = {
         "serve": cmd_serve,
         "pilot": cmd_pilot,
-        "fitting-room": cmd_fitting_room,
-        "walkthrough": cmd_walkthrough,
         "setup": cmd_setup,
         # `redcap` is a parent verb that dispatches its own subcommand
         # from sys.argv[2] (currently only `reattest`). Per ADR 0003
@@ -1066,13 +950,13 @@ def main():
         "redcap": cmd_redcap,
         "status": cmd_status,
         "uninstall": cmd_uninstall,
-        # Deprecated aliases — one-cycle shim per ADR 0035; removal target
-        # bumped from v7.2.0 to a future minor (v7.2.0 scope = Move 3 / MATLAB).
-        # Each maps to a wrapper function that prints a stderr deprecation
-        # hint then calls the new verb's handler. Listed last so the --help
-        # output groups them visually.
-        "tour": cmd_tour,
-        "demo": cmd_demo,
+        # NOTE: `tailor walkthrough` / `tailor fitting-room` / `tailor
+        # tour` / `tailor demo` were hard-removed in v8.0.0 per ADR 0040.
+        # The walkthrough is now `tailor_walkthrough_section` MCP tool;
+        # the fitting-room demo scaffold is now
+        # `tailor_fitting_room_scaffold` MCP tool. Recipients ask Claude
+        # to invoke them; no terminal interaction needed beyond the
+        # one-time `tailor pilot` bootstrap.
     }
 
     if len(sys.argv) < 2 or sys.argv[1] in ("--help", "-h", "help"):

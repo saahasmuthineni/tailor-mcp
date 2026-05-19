@@ -113,6 +113,20 @@ class RouterMCP:
         # reversal condition. Closes the v7.3.4 audit-log-over-promise
         # gap.
         self._audit_query_layer = None
+        # SetupLayer — bounded setup-time conductor surface per ADR 0040.
+        # Always-registered; bounded-write authority via source-key
+        # allowlist in framework.setup.sources. New SETUP_CONFIG_WRITE
+        # audit outcome for the write tool's success path.
+        self._setup_layer = None
+        # WalkthroughLayer — MCP-tool version of the v6.12.0 architectural
+        # showcase. Single tool, 5 sections. Replaces the v6.10.5
+        # `tailor walkthrough` CLI command (ADR 0040).
+        self._walkthrough_layer = None
+        # FittingRoomLayer — MCP-tool version of v6.9.0 fitting-room
+        # scaffolding. Three tools: status + scaffold + index_vault.
+        # Does NOT write Claude Desktop config (that's `tailor pilot`).
+        # Replaces the v6.9.0 `tailor fitting-room` CLI command (ADR 0040).
+        self._fitting_room_layer = None
         self._framework_layer_owner: dict[str, str] = {}
 
         # Middleware stack
@@ -340,6 +354,122 @@ class RouterMCP:
             f"{len(audit_query_layer.tool_definitions)} tools"
         )
 
+    def register_setup_layer(self, setup_layer) -> None:
+        """
+        Register the framework-level setup layer (bounded conductor
+        surface per ADR 0040).
+
+        Always-registered (no runtime un-register convention; tools no-op
+        with ``status="configured"`` when sources already exist).  Bounded
+        write authority on ``tailor_setup_write_source_block`` is gated
+        by the ``SETUP_WRITE_KEY_ALLOWLIST`` in ``framework.setup.sources``.
+
+        Tools use the ``(None, tool_def)`` sentinel as other framework-tier
+        layers; ``_framework_layer_owner[name] = "setup"`` routes dispatch
+        to ``_dispatch_setup()`` — stripped-down pipeline (param validation
+        + execute + audit) skipping consent / cost / circuit breaker /
+        framework PHI scrub / post-execute hooks.
+        """
+        if self._setup_layer is not None:
+            raise ValueError("Setup layer already registered")
+
+        self._setup_layer = setup_layer
+        setup_layer._router = self
+
+        for tool_def in setup_layer.tool_definitions:
+            if tool_def.name in self._tool_map:
+                existing = self._tool_map[tool_def.name][0]
+                if existing is not None:
+                    existing_domain = existing.domain
+                else:
+                    existing_domain = self._framework_layer_owner.get(
+                        tool_def.name, "framework"
+                    )
+                raise ValueError(
+                    f"Tool '{tool_def.name}' already registered by "
+                    f"'{existing_domain}'"
+                )
+            self._tool_map[tool_def.name] = (None, tool_def)
+            self._framework_layer_owner[tool_def.name] = "setup"
+
+        log.info(
+            f"Registered setup layer with "
+            f"{len(setup_layer.tool_definitions)} tools"
+        )
+
+    def register_walkthrough_layer(self, walkthrough_layer) -> None:
+        """
+        Register the framework-level walkthrough layer (MCP-tool
+        version of the v6.12.0 architectural showcase, per ADR 0040).
+
+        Always-registered; read-only; surfaces structured narrative +
+        worked-example payloads for the framework's five architectural
+        sections. Replaces the v6.10.5 ``tailor walkthrough`` CLI.
+        """
+        if self._walkthrough_layer is not None:
+            raise ValueError("Walkthrough layer already registered")
+
+        self._walkthrough_layer = walkthrough_layer
+        walkthrough_layer._router = self
+
+        for tool_def in walkthrough_layer.tool_definitions:
+            if tool_def.name in self._tool_map:
+                existing = self._tool_map[tool_def.name][0]
+                if existing is not None:
+                    existing_domain = existing.domain
+                else:
+                    existing_domain = self._framework_layer_owner.get(
+                        tool_def.name, "framework"
+                    )
+                raise ValueError(
+                    f"Tool '{tool_def.name}' already registered by "
+                    f"'{existing_domain}'"
+                )
+            self._tool_map[tool_def.name] = (None, tool_def)
+            self._framework_layer_owner[tool_def.name] = "walkthrough"
+
+        log.info(
+            f"Registered walkthrough layer with "
+            f"{len(walkthrough_layer.tool_definitions)} tools"
+        )
+
+    def register_fitting_room_layer(self, fitting_room_layer) -> None:
+        """
+        Register the framework-level fitting-room layer (MCP-tool
+        version of v6.9.0 fitting-room scaffolding, per ADR 0040).
+
+        Always-registered; surfaces status + scaffold + index_vault
+        MCP tools that wrap the pure helpers in ``tailor.fitting_room``.
+        Replaces the v6.9.0 ``tailor fitting-room`` CLI. Does NOT write
+        Claude Desktop config — that's ``tailor pilot``'s job under A'.
+        """
+        if self._fitting_room_layer is not None:
+            raise ValueError("Fitting-room layer already registered")
+
+        self._fitting_room_layer = fitting_room_layer
+        fitting_room_layer._router = self
+
+        for tool_def in fitting_room_layer.tool_definitions:
+            if tool_def.name in self._tool_map:
+                existing = self._tool_map[tool_def.name][0]
+                if existing is not None:
+                    existing_domain = existing.domain
+                else:
+                    existing_domain = self._framework_layer_owner.get(
+                        tool_def.name, "framework"
+                    )
+                raise ValueError(
+                    f"Tool '{tool_def.name}' already registered by "
+                    f"'{existing_domain}'"
+                )
+            self._tool_map[tool_def.name] = (None, tool_def)
+            self._framework_layer_owner[tool_def.name] = "fitting_room"
+
+        log.info(
+            f"Registered fitting-room layer with "
+            f"{len(fitting_room_layer.tool_definitions)} tools"
+        )
+
     @property
     def audit_log(self) -> AuditLog:
         """The router's :class:`AuditLog` — public seam for the
@@ -492,6 +622,18 @@ class RouterMCP:
                 )
             if owner == "audit_query":
                 return await self._dispatch_audit_query(
+                    tool_name, tool_def, arguments, start,
+                )
+            if owner == "setup":
+                return await self._dispatch_setup(
+                    tool_name, tool_def, arguments, start,
+                )
+            if owner == "walkthrough":
+                return await self._dispatch_walkthrough(
+                    tool_name, tool_def, arguments, start,
+                )
+            if owner == "fitting_room":
+                return await self._dispatch_fitting_room(
                     tool_name, tool_def, arguments, start,
                 )
             log.error(
@@ -1334,6 +1476,274 @@ class RouterMCP:
             )
             log.error(
                 f"Audit-query tool {tool_name} failed: {e}", exc_info=True,
+            )
+            return [TextContent(type="text", text=_dumps({"error": str(e)}))]
+
+    async def _dispatch_setup(
+        self,
+        tool_name: str,
+        tool_def: ToolDefinition,
+        arguments: dict,
+        start: float,
+    ) -> list[TextContent]:
+        """
+        Dispatch a setup-layer tool (bounded conductor surface per ADR 0040).
+
+        Stripped-down pipeline:
+
+            param validation -> execute -> audit
+
+        Skipped by design (same posture as VaultLayer / LocalLLMLayer /
+        SetupHelpLayer / AuditQueryLayer per ADR 0012 § Amendment v7.4.0):
+
+            - Circuit breaker (no external dep; local SQLite + filesystem)
+            - Consent gate (no biometric data; analyst-side config)
+            - Cost gate (deterministic small responses)
+            - Framework PHI scrubber seam (no biosensor stream content;
+              source-block writes carry path strings only)
+            - Post-execute hooks (no vaultable artifacts)
+
+        Audit-row outcome: ``SETUP_CONFIG_WRITE`` for a successful
+        ``tailor_setup_write_source_block`` call (per ADR 0040 §
+        "New audit outcome"); ``SUCCESS`` for the read-only tools;
+        standard ``PARAM_INVALID`` / ``ERROR`` on the respective
+        failure paths.
+        """
+        tier = tool_def.tier
+        sid = arguments.get("subject_id")
+
+        # ── Param validation ──
+        schemas = self._setup_layer.param_schemas.get(tool_name, {})
+        ok, err, cleaned = self._validator.validate(schemas, arguments)
+        if not ok:
+            self._audit.record(
+                "setup", tool_name, tier, arguments, 0,
+                "PARAM_INVALID", 0,
+                error=err, subject_id=sid,
+                scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
+            )
+            return [TextContent(type="text", text=_dumps({"error": err}))]
+
+        sid_clean = cleaned.get("subject_id")
+
+        # ── Execute ──
+        try:
+            result = await self._setup_layer.execute(tool_name, cleaned)
+            tokens = estimate_tokens(result)
+            duration_ms = int((time.time() - start) * 1000)
+
+            # SETUP_CONFIG_WRITE outcome on the bounded write tool's
+            # success path; SUCCESS otherwise. The audit-row outcome
+            # is the durable provenance signal IRB reviewers query.
+            if (
+                tool_name == "tailor_setup_write_source_block"
+                and isinstance(result, dict)
+                and result.get("ok") is True
+            ):
+                outcome = "SETUP_CONFIG_WRITE"
+            else:
+                outcome = "SUCCESS"
+
+            self._ledger.add("setup", tool_name, tokens)
+            self._audit.record(
+                "setup", tool_name, tier, cleaned, tokens,
+                outcome, duration_ms,
+                subject_id=sid_clean,
+                scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
+            )
+
+            if isinstance(result, dict):
+                outer_meta: dict = {
+                    "tokens_this_call": tokens,
+                    "session_total_tokens": self._ledger.total,
+                    "domain": "setup",
+                    "tier": tier,
+                    "package_version": tailor.__version__,
+                    "tool_name": tool_name,
+                    "called_at": datetime.now(timezone.utc).isoformat(),
+                    "scrubber_id": self._phi_scrubber.scrubber_id,
+                    "child_scrubber_id": None,
+                    "source_metadata_fingerprint": None,
+                }
+                if self._phi_scrubber.scrubber_warning is not None:
+                    outer_meta["scrubber_warning"] = (
+                        self._phi_scrubber.scrubber_warning
+                    )
+                result["_meta"] = outer_meta
+
+            return [TextContent(type="text", text=_dumps(result))]
+
+        except Exception as e:
+            duration_ms = int((time.time() - start) * 1000)
+            self._audit.record(
+                "setup", tool_name, tier, cleaned, 0,
+                "ERROR", duration_ms,
+                error=str(e), subject_id=sid_clean,
+                scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
+            )
+            log.error(
+                f"Setup tool {tool_name} failed: {e}", exc_info=True,
+            )
+            return [TextContent(type="text", text=_dumps({"error": str(e)}))]
+
+    async def _dispatch_walkthrough(
+        self,
+        tool_name: str,
+        tool_def: ToolDefinition,
+        arguments: dict,
+        start: float,
+    ) -> list[TextContent]:
+        """Dispatch a walkthrough-layer tool (read-only conducted tour)."""
+        tier = tool_def.tier
+        sid = arguments.get("subject_id")
+
+        # ── Param validation ──
+        schemas = self._walkthrough_layer.param_schemas.get(tool_name, {})
+        ok, err, cleaned = self._validator.validate(schemas, arguments)
+        if not ok:
+            self._audit.record(
+                "walkthrough", tool_name, tier, arguments, 0,
+                "PARAM_INVALID", 0,
+                error=err, subject_id=sid,
+                scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
+            )
+            return [TextContent(type="text", text=_dumps({"error": err}))]
+
+        sid_clean = cleaned.get("subject_id")
+
+        # ── Execute ──
+        try:
+            result = await self._walkthrough_layer.execute(
+                tool_name, cleaned,
+            )
+            tokens = estimate_tokens(result)
+            duration_ms = int((time.time() - start) * 1000)
+
+            self._ledger.add("walkthrough", tool_name, tokens)
+            self._audit.record(
+                "walkthrough", tool_name, tier, cleaned, tokens,
+                "SUCCESS", duration_ms,
+                subject_id=sid_clean,
+                scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
+            )
+
+            if isinstance(result, dict):
+                outer_meta: dict = {
+                    "tokens_this_call": tokens,
+                    "session_total_tokens": self._ledger.total,
+                    "domain": "walkthrough",
+                    "tier": tier,
+                    "package_version": tailor.__version__,
+                    "tool_name": tool_name,
+                    "called_at": datetime.now(timezone.utc).isoformat(),
+                    "scrubber_id": self._phi_scrubber.scrubber_id,
+                    "child_scrubber_id": None,
+                    "source_metadata_fingerprint": None,
+                }
+                if self._phi_scrubber.scrubber_warning is not None:
+                    outer_meta["scrubber_warning"] = (
+                        self._phi_scrubber.scrubber_warning
+                    )
+                result["_meta"] = outer_meta
+
+            return [TextContent(type="text", text=_dumps(result))]
+
+        except Exception as e:
+            duration_ms = int((time.time() - start) * 1000)
+            self._audit.record(
+                "walkthrough", tool_name, tier, cleaned, 0,
+                "ERROR", duration_ms,
+                error=str(e), subject_id=sid_clean,
+                scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
+            )
+            log.error(
+                f"Walkthrough tool {tool_name} failed: {e}",
+                exc_info=True,
+            )
+            return [TextContent(type="text", text=_dumps({"error": str(e)}))]
+
+    async def _dispatch_fitting_room(
+        self,
+        tool_name: str,
+        tool_def: ToolDefinition,
+        arguments: dict,
+        start: float,
+    ) -> list[TextContent]:
+        """Dispatch a fitting-room-layer tool (scaffold + index)."""
+        tier = tool_def.tier
+        sid = arguments.get("subject_id")
+
+        # ── Param validation ──
+        schemas = self._fitting_room_layer.param_schemas.get(tool_name, {})
+        ok, err, cleaned = self._validator.validate(schemas, arguments)
+        if not ok:
+            self._audit.record(
+                "fitting_room", tool_name, tier, arguments, 0,
+                "PARAM_INVALID", 0,
+                error=err, subject_id=sid,
+                scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
+            )
+            return [TextContent(type="text", text=_dumps({"error": err}))]
+
+        sid_clean = cleaned.get("subject_id")
+
+        # ── Execute ──
+        try:
+            result = await self._fitting_room_layer.execute(
+                tool_name, cleaned,
+            )
+            tokens = estimate_tokens(result)
+            duration_ms = int((time.time() - start) * 1000)
+
+            self._ledger.add("fitting_room", tool_name, tokens)
+            self._audit.record(
+                "fitting_room", tool_name, tier, cleaned, tokens,
+                "SUCCESS", duration_ms,
+                subject_id=sid_clean,
+                scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
+            )
+
+            if isinstance(result, dict):
+                outer_meta: dict = {
+                    "tokens_this_call": tokens,
+                    "session_total_tokens": self._ledger.total,
+                    "domain": "fitting_room",
+                    "tier": tier,
+                    "package_version": tailor.__version__,
+                    "tool_name": tool_name,
+                    "called_at": datetime.now(timezone.utc).isoformat(),
+                    "scrubber_id": self._phi_scrubber.scrubber_id,
+                    "child_scrubber_id": None,
+                    "source_metadata_fingerprint": None,
+                }
+                if self._phi_scrubber.scrubber_warning is not None:
+                    outer_meta["scrubber_warning"] = (
+                        self._phi_scrubber.scrubber_warning
+                    )
+                result["_meta"] = outer_meta
+
+            return [TextContent(type="text", text=_dumps(result))]
+
+        except Exception as e:
+            duration_ms = int((time.time() - start) * 1000)
+            self._audit.record(
+                "fitting_room", tool_name, tier, cleaned, 0,
+                "ERROR", duration_ms,
+                error=str(e), subject_id=sid_clean,
+                scrubber_id=self._phi_scrubber.scrubber_id,
+                source_metadata_fingerprint=None,
+            )
+            log.error(
+                f"Fitting-room tool {tool_name} failed: {e}",
+                exc_info=True,
             )
             return [TextContent(type="text", text=_dumps({"error": str(e)}))]
 

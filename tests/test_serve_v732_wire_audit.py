@@ -906,15 +906,20 @@ class TestW5AllCallSitesSweep:
         content = router_path.read_text(encoding="utf-8")
         return content.splitlines(), content
 
-    def test_total_audit_record_call_count_is_31(self) -> None:
+    def test_total_audit_record_call_count_is_40(self) -> None:
         """
-        31 total ``self._audit.record(`` sites in router.py as of v7.4.0.
+        40 total ``self._audit.record(`` sites in router.py as of v8.0.0.
 
         Count history:
           - v7.3.2: 28 (after the all-call-sites sweep closure)
           - v7.4.0: 31 (added _dispatch_audit_query — PARAM_INVALID,
             SUCCESS, ERROR sites for the new IRB-grade query surface
             per ADR 0012 § Amendment v7.4.0)
+          - v7.5.0 / v7.6.0: 31 (no new dispatch paths)
+          - v8.0.0: 40 (added _dispatch_setup + _dispatch_walkthrough +
+            _dispatch_fitting_room — each contributes PARAM_INVALID,
+            SUCCESS, ERROR audit-record sites per ADR 0040; 3 paths ×
+            3 sites = 9 net-new audit-record calls)
 
         If this count changes again, the all-call-sites sweep has
         shifted and the auditor must re-verify every new/removed site.
@@ -922,8 +927,8 @@ class TestW5AllCallSitesSweep:
         lines, _ = self._load_router_source()
         sites = [i + 1 for i, line in enumerate(lines)
                  if "self._audit.record(" in line]
-        assert len(sites) == 31, (
-            f"W5 FAIL: expected 31 audit.record() sites, found {len(sites)}. "
+        assert len(sites) == 40, (
+            f"W5 FAIL: expected 40 audit.record() sites, found {len(sites)}. "
             f"Lines: {sites}. "
             f"If router.py changed, re-run the all-call-sites sweep for "
             f"'source_metadata_fingerprint' per the v7.3.1 banner mandate."
@@ -1024,12 +1029,16 @@ class TestW5AllCallSitesSweep:
             if '"source_metadata_fingerprint":' in line
         ]
 
-        assert len(meta_key_sites) == 6, (
-            f"W5 FAIL: expected 6 _meta stamping sites with "
+        assert len(meta_key_sites) == 9, (
+            f"W5 FAIL: expected 9 _meta stamping sites with "
             f"'\"source_metadata_fingerprint\":', found {len(meta_key_sites)}. "
             f"Lines: {meta_key_sites}. "
             f"Check _dispatch, _dispatch_vault, _dispatch_local_llm, "
-            f"_dispatch_setup_help, _dispatch_audit_query, dispatch_internal."
+            f"_dispatch_setup_help, _dispatch_audit_query, "
+            f"_dispatch_setup, _dispatch_walkthrough, "
+            f"_dispatch_fitting_room, dispatch_internal. "
+            f"v8.0.0 added three new framework-tier layers (ADR 0040), "
+            f"each with a _meta stamping site."
         )
 
     def test_audit_module_carries_source_metadata_fingerprint_column(

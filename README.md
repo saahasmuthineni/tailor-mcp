@@ -64,8 +64,11 @@ For a developer exploring the framework:
 git clone https://github.com/saahasmuthineni/tailor-mcp.git
 cd tailor-mcp
 pip install -e ".[dev]"
-tailor walkthrough    # five-section architectural showcase on bundled HIP Lab fixtures (ADRs 0027 + 0029)
 tailor --help         # see all commands
+# Recipient-facing surfaces (walkthrough + fitting-room demo)
+# moved to MCP tools in v8.0 per ADR 0040 — ask Claude in the
+# Desktop app to "walk me through Tailor" or "scaffold the
+# bundled demo" once `tailor pilot` has registered Tailor.
 ```
 
 > **Bundled fixtures are synthetic by construction** per [ADR 0024 § "Synthetic-by-construction precondition"](docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md): the HIP Lab CSV files (`S001`–`S016`) shipped inside the wheel are random-walk traces sized to mimic real cohort shapes — not real participant data. The same precondition is what makes the wheel safe to share via PyPI or hand-deliver.
@@ -351,27 +354,35 @@ first, [docs.astral.sh/uv](https://docs.astral.sh/uv/) has the long form.
 
 ```bash
 uv tool install tailor-mcp
-tailor fitting-room  # walkthrough scaffold — registers with Claude Desktop automatically
-# or:
-tailor pilot                  # multi-subject CSV pilot wizard — three prompts
+tailor pilot                  # multi-subject CSV pilot wizard — three prompts (also bootstraps Claude Desktop registration)
 tailor pilot --source=matlab  # MATLAB `.mat` directory pilot (requires tailor-mcp[matlab])
 tailor pilot --source=redcap  # REDCap export directory pilot (project_metadata.csv as trust root)
 ```
 
-Both `tailor fitting-room` and `tailor pilot` write (or merge with) the
-recipient's Claude Desktop config; no manual JSON editing required.
-v7.5+ `tailor pilot` deep-merges into existing `user_config.json` so
-multi-source deployments (CSV + MATLAB, REDCap + CSV, all three) survive
-re-runs — see [docs/guides/multi-subject-pilot.md](docs/guides/multi-subject-pilot.md)
-§ "Source axes".
+`tailor pilot` is the operator/RSE bootstrap path: it writes (or
+merges with) the recipient's Claude Desktop config and writes the
+data-source block to `user_config.json`. v7.5+ deep-merges into
+existing `user_config.json` so multi-source deployments (CSV +
+MATLAB, REDCap + CSV, all three) survive re-runs — see
+[docs/guides/multi-subject-pilot.md](docs/guides/multi-subject-pilot.md)
+§ "Source axes". After this single terminal step, no more terminal
+interactions are required: every other recipient-facing surface
+moved into MCP tools (per [ADR 0040](docs/adr/0040-bounded-setup-time-conductor-surface.md)).
 
-> The verb was `tailor tour` through v7.0.x; renamed to `tailor
-> fitting-room` in v7.1.0 per [ADR 0035](docs/adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md).
-> The old verb still works in v7.1.0 with a stderr deprecation hint and
-> is removed in v7.2.0.
+**Recipient path — conversational setup via Claude Desktop.**
+Terminal-averse recipients (PIs, analysts who don't run command-line
+tools) can finish setup through chat after the one-time `tailor pilot`
+bootstrap. The recipient says something like *"Hi Claude, I have CSV
+data at ~/Downloads/cohort-2026/ — can you set Tailor up to use it?"*
+and Claude calls the bounded `tailor_setup_*` MCP tools (detect →
+confirm → write) per ADR 0040's bounded-write contract. The
+walkthrough (*"show me what Tailor can do"*) and the bundled HIP Lab
+demo scaffold (*"set up the practice data so I can try it"*) are
+similarly available as MCP tools — `tailor_walkthrough_section` and
+`tailor_fitting_room_scaffold`.
 
 > **Install Claude Desktop first.** Tailor's MCP integration runs *inside*
-> Claude Desktop — `tailor fitting-room` registers the server in Claude
+> Claude Desktop — `tailor pilot` registers the server in Claude
 > Desktop's config, but the recipient still needs Claude Desktop installed
 > to talk to it. As of v7.0.4 the scaffolder detects whether Claude Desktop
 > is installed on the user account and prints a different success banner
@@ -381,7 +392,7 @@ re-runs — see [docs/guides/multi-subject-pilot.md](docs/guides/multi-subject-p
 
 #### What success looks like
 
-After `tailor fitting-room` completes and Claude Desktop is restarted, ask
+After `tailor pilot` completes and Claude Desktop is restarted, ask
 Claude Desktop *"What MCP servers are connected?"*.
 
 - **Tailor will appear as a *session-scoped server*, not a connector
@@ -390,11 +401,12 @@ Claude Desktop *"What MCP servers are connected?"*.
   (Spotify, Google Drive, etc.). Local MCP servers like Tailor render
   in prose. The full tool surface is available either way.
 - To verify the tool surface, ask *"List the tools you have available
-  from tailor"*. You should see vault tools, CSV tools, EMG/force
-  tools, and the local oracle tool grouped by area. If Tailor is
-  listed in the prose answer to "what MCP servers are connected", the
-  install worked even if the visual surface looks asymmetric vs.
-  connector cards.
+  from tailor"*. You should see vault tools, CSV tools, the audit-query
+  tool, setup tools (`tailor_setup_*`), walkthrough + fitting-room
+  tools (`tailor_walkthrough_section`, `tailor_fitting_room_*`), and
+  the local-oracle tool grouped by area. If Tailor is listed in the
+  prose answer to "what MCP servers are connected", the install worked
+  even if the visual surface looks asymmetric vs. connector cards.
 
 **Developer / contributor install** — editable source tree:
 
@@ -438,17 +450,24 @@ interpreter.
 
 ### Commands
 
+CLI commands contracted in v8.0.0 per [ADR 0040](docs/adr/0040-bounded-setup-time-conductor-surface.md) — recipient-facing surfaces (walkthrough, fitting-room) moved into MCP tools so terminal-averse recipients drive them through Claude Desktop. The operator/RSE-facing CLI is six commands.
+
 | Command | Description |
 |---|---|
-| `tailor pilot` | Multi-subject pilot wizard for CSV (default), MATLAB (`--source=matlab`), or REDCap (`--source=redcap`) — three prompts, end-to-end smoke check, deep-merge into `user_config.json` so multi-source deployments coexist (v7.5+) |
-| `tailor fitting-room` | Recipient-driven walkthrough — scaffolds bundled HIP Lab fixtures + registers with Claude Desktop (ADRs [0024](docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md) + [0035](docs/adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md)) |
+| `tailor pilot` | Multi-subject pilot wizard for CSV (default), MATLAB (`--source=matlab`), or REDCap (`--source=redcap`) — three prompts, end-to-end smoke check, deep-merge into `user_config.json` so multi-source deployments coexist (v7.5+). Also bootstraps Claude Desktop registration on first run. |
 | `tailor serve` | Start the MCP server (invoked by the LLM client) |
-| `tailor walkthrough` | Five-section architectural showcase on bundled HIP Lab fixtures: cohort thesis, router pipeline + audit row, three-tier resolution-appropriateness walk, vault moment write, local-LLM oracle call. ADRs [0027](docs/adr/0027-demo-as-researcher-first-look.md) (researcher first-look framing) + [0029](docs/adr/0029-token-reduction-as-analytical-quality.md) (architectural showcase reshape) + [0035](docs/adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md) (rename). Pass `--save-shareable` for an emailable markdown transcript. |
 | `tailor setup` | Strava OAuth wizard (for the running child only) |
+| `tailor redcap reattest` | Re-attest REDCap trust-root metadata after legitimate edits to `project_metadata.csv` (ADR 0003 § Amendment 2026-05-15) |
 | `tailor status` | Diagnostic check: tokens, DB state, Wardrobe config |
 | `tailor uninstall` | Clean removal |
-| `tailor demo` *(deprecated)* | One-cycle shim aliasing `tailor walkthrough` per [ADR 0035](docs/adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md); prints a stderr hint and dispatches to the new verb. Removed in v7.2.0. |
-| `tailor tour` *(deprecated)* | One-cycle shim aliasing `tailor fitting-room` per [ADR 0035](docs/adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md); prints a stderr hint and dispatches to the new verb. Removed in v7.2.0. |
+
+MCP tools that replaced removed CLI commands (per ADR 0040):
+
+| MCP Tool | Replaces | Description |
+|---|---|---|
+| `tailor_setup_status` / `_detect_schema` / `_confirm_schema` / `_write_source_block` | recipient half of `tailor pilot` | Bounded conductor surface — Claude detects, confirms, and writes source-config blocks to `user_config.json` under a hard-coded `csv_dir` / `matlab_file` / `redcap_file` allowlist (ADR 0040). |
+| `tailor_walkthrough_section(section: int)` | `tailor walkthrough` | Five-section architectural showcase on bundled HIP Lab fixtures: (1) cohort thesis; (2) router pipeline + audit row; (3) three-tier model; (4) vault capture; (5) local-LLM oracle. Returns structured payloads Claude narrates conversationally. |
+| `tailor_fitting_room_status` / `_scaffold` / `_index_vault` | `tailor fitting-room` | Scaffolds the bundled HIP Lab realistic demo into `~/.tailor/demos/hip-lab/`. Recipient invokes by asking Claude to "set up the practice data" / "scaffold the bundled demo". |
 
 ---
 

@@ -1525,19 +1525,27 @@ def test_v690_tour_subcommand_not_exposed_as_mcp_tool() -> None:
         assert_no_repr_artifacts(json.dumps(resp))
 
 
-def test_v740_tool_count_unchanged_at_50() -> None:
-    """V740-T2: tools/list count is 50 with full config loaded.
+def test_v800_tool_count_unchanged_at_58() -> None:
+    """V800-T2: tools/list count is 58 with full config loaded.
 
     Expected composition (full config: running + csv_dir + vault + local_llm
-    + audit_query):
+    + audit_query + setup + walkthrough + fitting_room):
       25 vault + 12 running + 7 csv_dir + 1 ask_local_oracle + 1 audit_query
+      + 4 setup (status/detect_schema/confirm_schema/write_source_block)
+      + 1 walkthrough (tailor_walkthrough_section)
+      + 3 fitting_room (status/scaffold/index_vault)
       + 4 auto-generated consent tools (approve/revoke × running/csv_dir)
-      = 50
+      = 58
 
     Count history:
       - v6.9.0–v7.3.4: 49 (tour adds no MCP tools)
       - v7.4.0: 50 (added audit_query framework-tier IRB-reviewer surface
         per ADR 0039 + ADR 0012 § Amendment v7.4.0)
+      - v7.5.0: 50 (no new tools; v7.5.0 was pilot --source dispatch)
+      - v7.6.0: 50 (no new tools; v7.6.0 was vault-data-source-agnostic
+        structural sweep per ADR 0038)
+      - v8.0.0: 58 (added SetupLayer + WalkthroughLayer + FittingRoomLayer
+        per ADR 0040 — recipient-facing surfaces moved from CLI to MCP)
 
     If this count changes again, it means a tool was added or removed
     without a corresponding CLAUDE.md tool-surface update. The template
@@ -1550,8 +1558,8 @@ def test_v740_tool_count_unchanged_at_50() -> None:
         assert "error" not in resp, f"tools/list error: {resp}"
         tools = resp["result"]["tools"]
         n = len(tools)
-        assert n == 50, (
-            f"tools/list count changed: expected 50, got {n}. "
+        assert n == 58, (
+            f"tools/list count changed: expected 58, got {n}. "
             f"If a new tool was added, update CLAUDE.md tool-surface table "
             f"and change this assertion to the new expected count. "
             f"Current tools: {sorted(t['name'] for t in tools)}"
@@ -1600,22 +1608,26 @@ def test_v690_serve_startup_meta_version_stamp() -> None:
 # ──────────────────────────────────────────────────────────────────
 
 
-def test_tour_tool_count_is_71() -> None:
-    """T1: tools/list on tour config returns exactly 71 tools as of v7.4.0.
+def test_tour_tool_count_is_79() -> None:
+    """T1: tools/list on fitting-room-scaffolded config returns 79 tools as of v8.0.0.
 
     Expected composition:
       9 force_csv + 8 emg_csv + 7 csv_dir + 25 vault + 12 running
       + 1 ask_local_oracle + 1 audit_query
-      + 4 approve_consent + 4 revoke_consent = 71.
+      + 4 setup + 1 walkthrough + 3 fitting_room
+      + 4 approve_consent + 4 revoke_consent = 79.
 
     Count history:
       - v6.9.0–v7.3.4: 70
       - v7.4.0: 71 (added audit_query framework-tier IRB-reviewer
         surface per ADR 0039 + ADR 0012 § Amendment v7.4.0)
+      - v7.5.0 / v7.6.0: 71 (no new tools)
+      - v8.0.0: 79 (added SetupLayer + WalkthroughLayer + FittingRoomLayer
+        per ADR 0040 — recipient-facing surfaces moved from CLI to MCP)
 
     If this count changes a tool was added or removed without updating
-    the tour surface table in CLAUDE.md. Also pins no-repr on the full
-    71-tool list payload.
+    the fitting-room surface table in CLAUDE.md. Also pins no-repr on
+    the full tool list payload.
     """
     with spawn_tour_server() as (client, _paths):
         client.initialize()
@@ -1624,8 +1636,8 @@ def test_tour_tool_count_is_71() -> None:
 
         tools = resp["result"]["tools"]
         n = len(tools)
-        assert n == 71, (
-            f"Tour tools/list count: expected 71, got {n}. "
+        assert n == 79, (
+            f"Fitting-room tools/list count: expected 79, got {n}. "
             f"Tools: {sorted(t['name'] for t in tools)}"
         )
 

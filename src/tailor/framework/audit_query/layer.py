@@ -134,7 +134,10 @@ class AuditQueryLayer:
                             "`tailor redcap reattest`), "
                             "'ATTEST_INITIAL' (first-config "
                             "attestation via `tailor pilot "
-                            "--source=redcap`), plus the *_INTERNAL "
+                            "--source=redcap`), 'SETUP_CONFIG_WRITE' "
+                            "(SetupLayer bounded source-block write via "
+                            "`tailor_setup_write_source_block` per "
+                            "ADR 0040), plus the *_INTERNAL "
                             "variants from cross-child dispatch."
                         ),
                         "required": False,

@@ -325,7 +325,10 @@ def _assert_meta_invariants(
 # Count history:
 #   - v7.3.x: 57 (pre-audit_query)
 #   - v7.4.0: 58 (added audit_query per ADR 0039)
-_EXPECTED_WIRE_COUNT_SCIPY_ABSENT = 58
+#   - v7.5.0 / v7.6.0: 58 (no new tools)
+#   - v8.0.0: 66 (added SetupLayer + WalkthroughLayer + FittingRoomLayer
+#     per ADR 0040; 4 + 1 + 3 = 8 new tools)
+_EXPECTED_WIRE_COUNT_SCIPY_ABSENT = 66
 
 
 def test_mc1_all_children_tools_list_count_and_no_collisions() -> None:

@@ -63,12 +63,15 @@ class TestNoNonCp1252InCliPrints:
     that print will raise ``UnicodeEncodeError`` on Windows PowerShell 5,
     aborting the command for any recipient on that platform.
 
-    This guard scans the five user-facing print-bearing CLI modules
-    (``__main__.py``, ``pilot.py``, ``wizard.py``, ``tour.py``, and
+    This guard scans the four user-facing print-bearing CLI modules
+    (``__main__.py``, ``pilot.py``, ``wizard.py``, and
     ``demo/runner.py``) and asserts every ``print()`` line round-trips
-    through cp1252 encoding. Children have zero ``print()`` calls
-    (they emit through the MCP wire, not stdout) and framework modules
-    have zero — so the parametrize is the complete user-facing surface.
+    through cp1252 encoding. The v6.9.0 ``tour.py`` re-export shim was
+    retired in v8.0.0 (ADR 0040); the fitting-room scaffold now emits
+    via the MCP wire (``framework/fitting_room/layer.py``), not stdout.
+    Children have zero ``print()`` calls (they emit through the MCP
+    wire, not stdout) and framework modules have zero — so the
+    parametrize is the complete user-facing surface.
     """
 
     @pytest.mark.parametrize(
@@ -77,10 +80,9 @@ class TestNoNonCp1252InCliPrints:
             SRC_ROOT / "__main__.py",
             SRC_ROOT / "pilot.py",
             SRC_ROOT / "wizard.py",
-            SRC_ROOT / "tour.py",
             SRC_ROOT / "demo" / "runner.py",
         ],
-        ids=["main", "pilot", "wizard", "tour", "demo_runner"],
+        ids=["main", "pilot", "wizard", "demo_runner"],
     )
     def test_print_lines_encode_to_cp1252(self, src_path: Path):
         offenders: list[str] = []

@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-05-16
+- **Amended:** 2026-05-19 (sub-item 1 mechanism + sub-item 5 direction + sub-item 6 alias-timing — see § Amendment 2026-05-19)
 - **Related:** [ADR 0007 (Rendering-layers policy)](0007-rendering-layers-policy.md), [ADR 0008 (Deterministic-by-construction processing)](0008-deterministic-by-construction-processing.md), [ADR 0009 (Vault subject-keying)](0009-vault-subject-keying.md), [ADR 0011 (Promotion policy)](0011-promotion-policy.md), [ADR 0024 (Wheel-distributed tour and fixture bundling)](0024-wheel-distributed-tour-and-fixture-bundling.md), [ADR 0025 (Cue-card rehearsal as release gate)](0025-cue-card-rehearsal-as-release-gate.md), [ADR 0027 (Demo as researcher first-look)](0027-demo-as-researcher-first-look.md), [ADR 0029 (Token reduction as analytical quality)](0029-token-reduction-as-analytical-quality.md)
 
 ## Context
@@ -152,6 +153,180 @@ v7.3.4 ships does not drift indefinitely. v7.4.0's cycle accepts
 this ADR (or revises it under recipient evidence per the reversal
 condition below) on full implementation; v7.3.4 lands the partial
 closure plus this ADR as the visible commitment.
+
+## Amendment 2026-05-19 — sub-item mechanism, direction, and timing
+
+v7.4.0 (2026-05-16) shipped `audit_query` instead of the structural
+sweep; v7.5.0 (2026-05-18) shipped `tailor pilot --source={csv,matlab,redcap}`
+dispatch instead. The structural sweep is now slated for **v7.6.0**
+(minor bump confirmed by boss 2026-05-19; the `value_column ↔ column`
+rename is the SemVer-relevant change). An `integration-auditor
+--proposal-mode` pass on the v7.6.0 plan returned REVISE with three
+BLOCKING findings; this amendment closes B1, I4, and the timing
+half of B2 before implementation begins.
+
+### Sub-item 1 — mechanism: optional `ChildMCP.vault_note_kinds` property
+
+The original Decision section (2026-05-16) said the constant
+`("run_report", "trend_report", "compare_runs")` "is derived from
+registered children rather than hardcoded" without naming the
+*mechanism* by which a child declares its contribution. The
+proposal-mode audit flagged this as a contract-surface decision
+that must precede code. The chosen mechanism:
+
+```python
+class ChildMCP(ABC):
+    @property
+    def vault_note_kinds(self) -> tuple[str, ...]:
+        """Vault note kinds this child contributes (e.g. 'run_report',
+        'cohort_summary'). Default: () — child does not contribute
+        child-specific vault note kinds. The running child overrides
+        to return ('run_report', 'trend_report', 'compare_runs');
+        other children inherit the empty default until they choose
+        to participate in vault snapshot rendering."""
+        return ()
+```
+
+`VaultLayer._ALLOWED_KINDS` becomes the union of three sources
+computed at `register_vault_layer()` time: the framework-tier kinds
+(`theme`, `moment`, `failure_mode`, `dashboard`, `snapshot`), the
+child-declared kinds collected by iterating `self._registered_children`
+and reading each child's `vault_note_kinds`, and any explicit
+allowlist the framework owns. The module-level `_kind_to_domain`
+helper (currently hardcoding `run_report → running`) is rebuilt
+from the same child iteration: each child contributes
+`(kind, child.domain)` pairs for every kind in its `vault_note_kinds`.
+
+#### Why option (a) over the alternatives
+
+- **Option (b) — per-child registration hook with description fragments.**
+  Explicitly rejected by this ADR's § Alternatives at lines 281-290.
+  The hook generalises data-source-agnostic into a registration contract;
+  v7.6.0 ships the simpler intervention and waits for a third structural
+  pressure before promoting to a hook (same shape as ADR 0011's
+  promotion bar).
+- **Option (c) — parameterize at `register_vault_layer()` call site
+  (matching v7.5.0's `backfill_config` indirection pattern).** Rejected
+  because `backfill_config` is *wiring-site cross-child knowledge*
+  that doesn't belong inside any one child; `vault_note_kinds` is
+  *child-owned knowledge* (the child knows which kinds it writes;
+  the wiring site does not). The right home is the child contract
+  surface.
+- **Option (a) — optional property with empty default.** Chosen.
+  Backward-compatible by construction: csv_dir / matlab_file /
+  redcap_file / force_csv / emg_csv / template inherit `()` without
+  modification. The running child becomes the worked example.
+  Contract surface expansion is bounded: exactly one new optional
+  property with a sensible default.
+
+#### Why this isn't `ChildMCP.tool_definitions`-style required
+
+Required declaration would force every existing child to acknowledge
+the vault layer in its abstract surface — a contract expansion the
+v7.6.0 sweep does not earn. None of the non-running children
+currently write per-activity vault notes; declaring `()` is the
+honest answer. Promoting to required is a future option if multiple
+children start writing per-activity reports.
+
+### Sub-item 5 — direction: tighten, not loosen
+
+The original Decision named the asymmetric param-validation strictness
+across cohort tools (`csv_cohort_summary` runtime-pinned `allowed_values`
+vs `force_cohort_summary` / `emg_cohort_summary` free-form `str`) as
+"reconciled" without direction. The audit pass surfaced this as
+IMPORTANT (I4). v7.6.0 **tightens**: runtime-pin all three cohort
+tools' allowed metric values to the canonical `COHORT_METRICS`
+vocabulary
+([ADR 0015 — Tier-1 cohort surface](0015-tier-1-cohort-surface-and-metadata-sidecar.md)).
+The looser pair was an oversight, not a design choice — runtime-pinned
+errors carry actionable remediation back to the LLM (the framework
+returns "unknown metric X; supported: mean, max, ..."), while loosened
+acceptance produces silent quality regressions on misspelled or
+unsupported metric names. Recipients currently passing a canonical
+metric name (`mean`, `max`, `peak`, `min`, `std`, `first`, `last`,
+`duration_s`, `time_to_50pct_drop_s`) are behaviorally unchanged;
+recipients passing an unsupported metric currently hit a silent
+unknown-metric path which an LLM cannot recover from.
+
+### Sub-item 6 — timing: no alias on the 2026-05-20 outreach window
+
+The `value_column ↔ column` rename across `force_csv` / `emg_csv` /
+`csv_dir` is the SemVer-relevant public-API change. The audit pass
+returned BLOCKING (B2) noting that *post-PyPI* renames without a
+deprecation alias are a soft API break and would justify a v8.0.0
+stamp rather than minor.
+
+Boss confirmed 2026-05-19 that the colleague outreach (authorized
+2026-05-16, scheduled 2026-05-20) has not yet sent. The recipient
+population for v7.4.0 / v7.5.0 cohort tools as of 2026-05-19 is the
+boss + Phase 0 family-testers; PyPI traffic is incidental rather
+than directed. The v7.3.4 `group_field → group_by` rename precedent
+(rename without alias because no recipient had seen the old name)
+applies cleanly to the next ~24-hour window.
+
+**v7.6.0 ships the rename without alias.** The window between merge
+and 2026-05-20 outreach is the binding constraint. If the sweep
+slips past 2026-05-20, the alias becomes load-bearing and a v7.6.1
+patch adds it (alias for one cycle + deprecation hint on the old
+name) — same shape as the existing `note_type ↔ kind` alias in
+`vault_list_notes`. The alias is the structural fallback for the
+timing miss; the rename without alias is the v7.6.0 path.
+
+### Sub-item 7 — `vault_get_fitness_summary` deprecation hint (clarification)
+
+The original Decision named "v7.4.0 adds the deprecation hint; a
+future v7.5.x removes the tool." Both version stamps moved: the
+hint now lands in v7.6.0; removal target shifts to a future v7.7.x
+or later. The hint surfaces in the tool description prose and
+(optionally) as a one-time stderr log on first call per session;
+the audit-row emission for the hint is NOT a CLI-helper audit row
+and does NOT inherit
+[ADR 0001 § Amendment 2026-05-18](0001-audit-log-as-backbone.md)'s
+narrow five-precondition carve-out — it is a router-tier audit
+surface and records as a normal `outcome="SUCCESS"` row with
+`scrubber_id` threaded per the v7.3.1 all-call-sites-sweep rule.
+
+**Named removal trigger** (closing the indefinite-deferral failure
+mode the original ADR's § Alternatives at lines 426-434 names):
+removal lands in the next minor release where BOTH conditions
+hold — (i) `cue-card-rehearsal-auditor` reports zero references to
+`vault_get_fitness_summary` across any deployed cue card on the
+release branch, and (ii) zero third-party children in the registry
+declare tool dependencies on the legacy orientation surface (a
+grep over `children/*/child.py` against the tool name suffices).
+Absent both, defer one minor cycle and re-check. Same shape as
+[ADR 0036](0036-matlab-child-scope-v72-only-with-deferred-hdf5.md)'s
+beachhead-lab reversal-condition pattern — the trigger is
+recipient-evidence-shaped, not maintainer-intuition-shaped.
+
+### Sub-item structural backstop — AST-class invariant test
+
+The proposal-mode audit's BLOCKING-3 noted that the
+cue-card-rehearsal-auditor alone is necessary but not sufficient
+as the regression defense for this sweep (it reads tool *descriptions*
+against prompts on the cue card, not internal helper sites or
+hardcoded constants). v7.6.0 ships an AST-class invariant test at
+`tests/framework/vault/test_v76_vault_is_data_source_agnostic.py`
+parallel to v7.5.0's `test_user_config_json_write_sites_are_canonical`.
+The test walks `framework/vault/layer.py` and asserts:
+
+- zero `domain="running"` string literals outside an explicit
+  allowlist (the legacy v6.1 fallback paths are the only allowed sites);
+- zero string-literal `"strava_*"` outside `backfill_config` default
+  removal sites;
+- the `_ALLOWED_KINDS` constant is computed from
+  `self._registered_children`, not hardcoded.
+
+The test is AST-class per the v7.3.2 W5 lesson (textual-window
+false-positives produced the W5 fix in v7.3.2; grep-class detection
+would false-positive on `_meta` block keys and adjacent comment text).
+
+### Status
+
+ADR 0038 remains **Proposed** pending v7.6.0 closure. v7.6.0
+acceptance ratifies this amendment alongside the original
+2026-05-16 decision; the reversal condition at this ADR's
+§ "Reversal condition" applies to both unchanged.
 
 ## Consequences
 

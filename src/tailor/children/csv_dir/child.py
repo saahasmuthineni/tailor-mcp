@@ -304,7 +304,7 @@ class CSVDirectoryChild(ChildMCP):
                 "machine, pass the result as resolved_context to "
                 "ask_local_oracle (per ADR 0022).",
                 {
-                    "column": {"type": "string", "description": "Numeric column to aggregate", "required": True},
+                    "value_column": {"type": "string", "description": "Numeric column header to aggregate (e.g. 'force', 'envelope'). Renamed from 'column' in v7.6.0 to match force_cohort_summary + emg_cohort_summary per ADR 0038 § Amendment 2026-05-19.", "required": True},
                     "group_by": {"type": "string", "description": "Metadata field name (e.g. 'sex', 'group')", "required": True},
                     "metric": {
                         "type": "string",
@@ -328,7 +328,7 @@ class CSVDirectoryChild(ChildMCP):
                 "resolved_context to ask_local_oracle (per ADR 0022).",
                 {
                     "file_id": {"type": "string", "description": "CSV filename", "required": True},
-                    "column": {"type": "string", "description": "Numeric column to analyse", "required": True},
+                    "value_column": {"type": "string", "description": "Numeric column header to analyse (e.g. 'force', 'envelope'). Renamed from 'column' in v7.6.0 to match force_csv + emg_csv per ADR 0038 § Amendment 2026-05-19.", "required": True},
                     "subject_id": SUBJECT_ID_PARAM_DOC,
                 },
             ),
@@ -389,7 +389,7 @@ class CSVDirectoryChild(ChildMCP):
                 "subject_id": SUBJECT_ID_SCHEMA,
             },
             "csv_cohort_summary": {
-                "column": ValidationSchema(
+                "value_column": ValidationSchema(
                     type=str,
                     required=True,
                     allowed_values=self._column_names,
@@ -409,7 +409,7 @@ class CSVDirectoryChild(ChildMCP):
                 "file_id": ValidationSchema(
                     type=str, required=True, pattern=FILE_ID_PATTERN,
                 ),
-                "column": ValidationSchema(
+                "value_column": ValidationSchema(
                     type=str,
                     required=True,
                     allowed_values=self._column_names,
@@ -771,7 +771,7 @@ class CSVDirectoryChild(ChildMCP):
         if not self._csv_path.is_dir():
             return {"error": f"CSV directory not found: {self._csv_path}"}
 
-        column = params["column"]
+        value_column = params["value_column"]
         group_by = params["group_by"]
         metric = params.get("metric", "mean")
 
@@ -819,14 +819,14 @@ class CSVDirectoryChild(ChildMCP):
                 load_errors.append({"filename": f.name, "error": str(exc)})
                 continue
 
-            if column not in headers:
+            if value_column not in headers:
                 load_errors.append({
                     "filename": f.name,
-                    "error": f"column {column!r} not found",
+                    "error": f"value_column {value_column!r} not found",
                 })
                 continue
 
-            values = self._numeric_values(rows, column)
+            values = self._numeric_values(rows, value_column)
             timestamps = self._extract_timestamps(rows, headers)
 
             try:
@@ -849,7 +849,7 @@ class CSVDirectoryChild(ChildMCP):
             groups[group_label] = stats
 
         result: dict = {
-            "column": column,
+            "value_column": value_column,
             "metric": metric,
             "group_by": group_by,
             "subject_count": sum(len(s) for s in subjects_by_group.values()),
@@ -873,21 +873,21 @@ class CSVDirectoryChild(ChildMCP):
         if not filepath:
             return {"error": f"File not found: {params['file_id']}"}
 
-        column = params["column"]
+        value_column = params["value_column"]
 
         try:
             headers, rows = self._read_csv(filepath, max_bytes=MAX_CSV_BYTES)
         except OSError as exc:
             return {"error": str(exc)}
 
-        if column not in headers:
-            return {"error": f"column {column!r} not found in {filepath.name}"}
+        if value_column not in headers:
+            return {"error": f"value_column {value_column!r} not found in {filepath.name}"}
 
-        values = self._numeric_values(rows, column)
+        values = self._numeric_values(rows, value_column)
         timestamps = self._extract_timestamps(rows, headers)
         summary = self._processing.force_decline_summary(values, timestamps)
         summary["filename"] = filepath.name
-        summary["column"] = column
+        summary["value_column"] = value_column
         return summary
 
     def _extract_timestamps(self, rows: list[dict], headers: list[str]):

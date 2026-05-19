@@ -122,9 +122,9 @@ VALID_PARAMS = {
     "csv_file_detail": {"file_id": "fixture_a.csv"},
     "csv_summary_report": {"file_id": "fixture_a.csv"},
     "csv_cohort_summary": {
-        "column": "heart_rate", "group_by": "sex", "metric": "mean",
+        "value_column": "heart_rate", "group_by": "sex", "metric": "mean",
     },
-    "csv_force_decline": {"file_id": "fixture_a.csv", "column": "heart_rate"},
+    "csv_force_decline": {"file_id": "fixture_a.csv", "value_column": "heart_rate"},
     "csv_downsampled": {"file_id": "fixture_a.csv", "interval": 2, "columns": ["heart_rate"]},
     "csv_raw_stream": {"file_id": "fixture_a.csv", "columns": ["heart_rate"]},
 }
@@ -484,11 +484,11 @@ class TestCohortSummaryHandler:
     ):
         result = asyncio.run(csv_child.execute(
             "csv_cohort_summary",
-            {"column": "heart_rate", "group_by": "sex", "metric": "mean"},
+            {"value_column": "heart_rate", "group_by": "sex", "metric": "mean"},
         ))
         assert isinstance(result, dict)
         assert "error" not in result
-        assert result["column"] == "heart_rate"
+        assert result["value_column"] == "heart_rate"
         assert result["metric"] == "mean"
         assert result["group_by"] == "sex"
         assert result["subject_count"] == 2
@@ -518,7 +518,7 @@ class TestCohortSummaryHandler:
             child = CSVDirectoryChild(config_dir, data_dir)
             result = asyncio.run(child.execute(
                 "csv_cohort_summary",
-                {"column": "heart_rate", "group_by": "sex"},
+                {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" in result
             assert "metadata.json" in result["error"]
@@ -545,7 +545,7 @@ class TestCohortSummaryHandler:
             child = CSVDirectoryChild(config_dir, data_dir)
             result = asyncio.run(child.execute(
                 "csv_cohort_summary",
-                {"column": "heart_rate", "group_by": "sex"},
+                {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" in result
             assert "object" in result["error"].lower()
@@ -575,7 +575,7 @@ class TestCohortSummaryHandler:
             child = CSVDirectoryChild(config_dir, data_dir)
             result = asyncio.run(child.execute(
                 "csv_cohort_summary",
-                {"column": "heart_rate", "group_by": "sex"},
+                {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" not in result
             assert result["missing_metadata"] == ["b.csv"]
@@ -587,26 +587,26 @@ class TestForceDeclineHandler:
     def test_returns_decline_summary(self, csv_child: CSVDirectoryChild):
         result = asyncio.run(csv_child.execute(
             "csv_force_decline",
-            {"file_id": "fixture_a.csv", "column": "heart_rate"},
+            {"file_id": "fixture_a.csv", "value_column": "heart_rate"},
         ))
         assert isinstance(result, dict)
         assert "error" not in result
         assert result["filename"] == "fixture_a.csv"
-        assert result["column"] == "heart_rate"
+        assert result["value_column"] == "heart_rate"
         assert "peak" in result
         assert "decline_pct_total" in result
 
     def test_missing_file_returns_error(self, csv_child: CSVDirectoryChild):
         result = asyncio.run(csv_child.execute(
             "csv_force_decline",
-            {"file_id": "does-not-exist.csv", "column": "heart_rate"},
+            {"file_id": "does-not-exist.csv", "value_column": "heart_rate"},
         ))
         assert "error" in result
 
     def test_unknown_column_returns_error(self, csv_child: CSVDirectoryChild):
         result = asyncio.run(csv_child.execute(
             "csv_force_decline",
-            {"file_id": "fixture_a.csv", "column": "no_such_column"},
+            {"file_id": "fixture_a.csv", "value_column": "no_such_column"},
         ))
         # The validator filters allowed_values; the handler is the
         # second guard. Either layer surfaces an error dict.
@@ -625,7 +625,7 @@ class TestForceDeclineHandler:
         monkeypatch.setattr(child_mod, "MAX_CSV_BYTES", 10)  # tiny
         result = asyncio.run(csv_child.execute(
             "csv_force_decline",
-            {"file_id": "fixture_a.csv", "column": "heart_rate"},
+            {"file_id": "fixture_a.csv", "value_column": "heart_rate"},
         ))
         assert "error" in result
         assert "too large" in result["error"].lower()
@@ -691,7 +691,7 @@ class TestCohortSummaryFailureBranches:
             )
             result = asyncio.run(child.execute(
                 "csv_cohort_summary",
-                {"column": "heart_rate", "group_by": "sex"},
+                {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" in result
             assert "could not read metadata.json" in result["error"]
@@ -705,7 +705,7 @@ class TestCohortSummaryFailureBranches:
             )
             result = asyncio.run(child.execute(
                 "csv_cohort_summary",
-                {"column": "heart_rate", "group_by": "sex"},
+                {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" in result
             assert "must be a JSON object of fields" in result["error"]
@@ -724,7 +724,7 @@ class TestCohortSummaryFailureBranches:
             child._csv_path = Path(tmp) / "nonexistent_dir"
             result = asyncio.run(child.execute(
                 "csv_cohort_summary",
-                {"column": "heart_rate", "group_by": "sex"},
+                {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" in result
             assert "CSV directory not found" in result["error"]
@@ -746,7 +746,7 @@ class TestCohortSummaryFailureBranches:
             monkeypatch.setattr(child_mod, "MAX_COHORT_FILES", 3)
             result = asyncio.run(child.execute(
                 "csv_cohort_summary",
-                {"column": "heart_rate", "group_by": "sex"},
+                {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" in result
             assert "too many files" in result["error"]
@@ -766,7 +766,7 @@ class TestCohortSummaryFailureBranches:
             )
             result = asyncio.run(child.execute(
                 "csv_cohort_summary",
-                {"column": "heart_rate", "group_by": "sex"},
+                {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" not in result
             assert result["missing_group_field"] == ["b.csv"]
@@ -790,7 +790,7 @@ class TestCohortSummaryFailureBranches:
             monkeypatch.setattr(child_mod, "MAX_CSV_BYTES", 10)
             result = asyncio.run(child.execute(
                 "csv_cohort_summary",
-                {"column": "heart_rate", "group_by": "sex"},
+                {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" not in result
             assert "load_errors" in result
@@ -831,7 +831,7 @@ class TestCohortSummaryFailureBranches:
 
             result = asyncio.run(child.execute(
                 "csv_cohort_summary",
-                {"column": "heart_rate", "group_by": "sex"},
+                {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" not in result
             assert "load_errors" in result
@@ -854,7 +854,7 @@ class TestCohortSummaryFailureBranches:
             result = asyncio.run(child.execute(
                 "csv_cohort_summary",
                 {
-                    "column": "heart_rate",
+                    "value_column": "heart_rate",
                     "group_by": "sex",
                     "metric": "frobnicate",
                 },
@@ -897,7 +897,7 @@ class TestExtractTimestamps:
 
             result = asyncio.run(child.execute(
                 "csv_force_decline",
-                {"file_id": "a.csv", "column": "heart_rate"},
+                {"file_id": "a.csv", "value_column": "heart_rate"},
             ))
             assert "error" not in result
             # Without timestamps the temporal fields are absent.
@@ -933,7 +933,7 @@ class TestExtractTimestamps:
 
             result = asyncio.run(child.execute(
                 "csv_force_decline",
-                {"file_id": "a.csv", "column": "heart_rate"},
+                {"file_id": "a.csv", "value_column": "heart_rate"},
             ))
             assert "error" not in result
             # Unparseable timestamps → no temporal fields.

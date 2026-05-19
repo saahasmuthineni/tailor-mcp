@@ -105,6 +105,19 @@ class YourSourceChild(ChildMCP):
 
 The template child at [`src/tailor/children/template/`](../../src/tailor/children/template/) is a runnable starting point that already passes shape tests. Read it before reading any of the production children — it's the smallest complete example.
 
+## Optional vault contribution
+
+If your child writes per-activity reports to the Obsidian vault (the running child's pattern — `strava_run_report` writes `note_type: run_report` frontmatter), declare which kinds you contribute via the optional `vault_note_kinds` property added in v7.6.0 per [ADR 0038 § Amendment 2026-05-19](../adr/0038-vault-layer-is-data-source-agnostic.md):
+
+```python
+@property
+def vault_note_kinds(self) -> tuple[str, ...]:
+    """Vault note kinds this child contributes (frontmatter ``note_type`` values)."""
+    return ("your_report",)
+```
+
+Default is `()` — children that don't author per-activity vault notes (csv_dir, matlab_file, redcap_file, force_csv, emg_csv, template) inherit the empty default and need do nothing. `VaultLayer` reads this property at registration time and unions it with the framework-tier kinds (`theme`, `moment`, `failure_mode`, `dashboard`, `snapshot`) so the `vault_list_notes` / `vault_search_notes` kind filter accepts your contributed kinds without code changes in the vault layer.
+
 ## What the framework gives you for free
 
 Every child you author inherits:

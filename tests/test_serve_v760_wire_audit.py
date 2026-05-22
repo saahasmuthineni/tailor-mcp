@@ -65,6 +65,15 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+# Read the live package version rather than pinning a literal: the
+# original "7.6.0" literal here silently went stale when v8.0.0 shipped
+# — the _meta.package_version assertions below began failing on main.
+# Mirrors the dynamic check in test_serve_mcp_protocol.py::
+# test_v690_serve_startup_meta_version_stamp, which never had this bug.
+from tailor import __version__ as EXPECTED_VERSION
 from tests._mcp_client import (
     MCPClient,
     assert_no_repr_artifacts,
@@ -73,11 +82,6 @@ from tests._mcp_client import (
     spawn_server,
 )
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-EXPECTED_VERSION = "7.6.0"
 DEPRECATED_PREFIX = "DEPRECATED in v7.6.0"
 
 

@@ -10,7 +10,11 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from tailor.children.csv_dir.processing import COHORT_METRICS, CSVProcessing
+from tailor.children.csv_dir.processing import (
+    COHORT_METRICS,
+    WINDOW_METRICS,
+    CSVProcessing,
+)
 
 # ═══════════════════════════════════════════════════════════════
 # summarize_column
@@ -416,3 +420,180 @@ class TestForceDeclineSummary:
         result = CSVProcessing.force_decline_summary(values, ts)
         assert result["peak_index"] == 2
         assert result["peak_time_s"] == 20.0
+
+
+# ═══════════════════════════════════════════════════════════════
+# detect_contraction_peaks (csv_synchronized_windows — demo tool)
+# ═══════════════════════════════════════════════════════════════
+
+
+def _burst_signal(
+    n_bursts: int,
+    rest: int = 6,
+    burst: int = 8,
+    high: float = 10.0,
+    low: float = 0.0,
+) -> list[float]:
+    """Build a clean rest/contraction/rest signal with `n_bursts`
+    identical bursts. With sample_rate_hz=10 a burst of 8 samples is
+    0.8 s — comfortably above the 0.5 s min-run filter."""
+    sig: list[float] = []
+    for _ in range(n_bursts):
+        sig += [low] * rest
+        sig += [high] * burst
+    sig += [low] * rest
+    return sig
+
+
+class TestDetectContractionPeaks:
+    """Deterministic threshold + contiguous-run contraction detection."""
+
+    def test_clean_six_burst_yields_six_ordered_reps(self):
+        sig = _burst_signal(6)
+        reps = CSVProcessing.detect_contraction_peaks(sig, 10.0)
+        assert len(reps) == 6
+        peaks = [r["peak_idx"] for r in reps]
+        assert peaks == sorted(peaks), "reps must be ordered by index"
+        assert len(set(peaks)) == 6, "peaks must be distinct"
+        # Every rep is a well-formed inclusive span.
+        for r in reps:
+            assert r["onset_idx"] <= r["peak_idx"] <= r["offset_idx"]
+
+    def test_flat_signal_yields_no_reps(self):
+        assert CSVProcessing.detect_contraction_peaks([5.0] * 40, 10.0) == []
+
+    def test_empty_signal_yields_no_reps(self):
+        assert CSVProcessing.detect_contraction_peaks([], 10.0) == []
+
+    def test_non_positive_sample_rate_yields_no_reps(self):
+        assert CSVProcessing.detect_contraction_peaks([0.0, 10.0, 0.0], 0.0) == []
+
+    def test_single_contraction_yields_one_rep(self):
+        sig = _burst_signal(1)
+        reps = CSVProcessing.detect_contraction_peaks(sig, 10.0)
+        assert len(reps) == 1
+
+    def test_runs_shorter_than_min_run_are_dropped(self):
+        # First burst is 3 samples (0.3 s at 10 Hz — below the 0.5 s
+        # / 5-sample floor); second is 8. Only the second survives.
+        sig = [0.0] * 8 + [10.0] * 3 + [0.0] * 8 + [10.0] * 8 + [0.0] * 8
+        reps = CSVProcessing.detect_contraction_peaks(sig, 10.0)
+        assert len(reps) == 1
+        # The surviving rep is the long second burst (onset >= 19).
+        assert reps[0]["onset_idx"] >= 19
+
+    def test_explicit_threshold_is_honoured(self):
+        # Low burst at 18, high burst at 30. Auto threshold (40% of
+        # 0..30 = 12) catches both → 2 reps; an explicit threshold of
+        # 25 excludes the low burst → 1 rep.
+        sig = [0.0] * 6 + [18.0] * 8 + [0.0] * 6 + [30.0] * 8 + [0.0] * 6
+        auto = CSVProcessing.detect_contraction_peaks(sig, 10.0)
+        assert len(auto) == 2
+        explicit = CSVProcessing.detect_contraction_peaks(
+            sig, 10.0, threshold=25.0,
+        )
+        assert len(explicit) == 1
+
+    def test_tie_at_peak_resolves_to_last_index(self):
+        # A run with a flat plateau at its maximum: peak_idx must be
+        # the LAST index at the max, per _last_peak_index.
+        sig = [0.0] * 8 + [5.0, 9.0, 9.0, 9.0, 5.0] + [0.0] * 8
+        reps = CSVProcessing.detect_contraction_peaks(sig, 10.0)
+        assert len(reps) == 1
+        # The 9.0 plateau sits at indices 9, 10, 11 → last is 11.
+        assert reps[0]["peak_idx"] == 11
+
+    def test_too_close_peaks_collapse_keeping_higher(self):
+        # Two bursts 12 samples apart at 10 Hz (1.2 s); min_spacing_s=2.0
+        # collapses them. The second burst is taller, so it survives.
+        sig = (
+            [0.0] * 5 + [10.0] * 8 + [0.0] * 4 + [20.0] * 8 + [0.0] * 5
+        )
+        reps = CSVProcessing.detect_contraction_peaks(
+            sig, 10.0, min_spacing_s=2.0,
+        )
+        assert len(reps) == 1
+        # Surviving peak is in the taller (second) burst.
+        assert sig[reps[0]["peak_idx"]] == 20.0
+
+    def test_min_spacing_zero_keeps_all_reps(self):
+        sig = _burst_signal(6)
+        reps = CSVProcessing.detect_contraction_peaks(
+            sig, 10.0, min_spacing_s=0.0,
+        )
+        assert len(reps) == 6
+
+
+# ═══════════════════════════════════════════════════════════════
+# window_bounds / slice_window
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestWindowBounds:
+    def test_peak_anchored_window(self):
+        # 2 s lead, 3 s window at 10 Hz around peak index 100.
+        start, end = CSVProcessing.window_bounds(100, 10.0, 2.0, 3.0)
+        assert start == 80
+        assert end == 110
+
+    def test_window_can_run_off_the_start(self):
+        start, end = CSVProcessing.window_bounds(5, 10.0, 2.0, 1.0)
+        assert start == -15
+        assert end == -5  # slice_window clamps these
+
+
+class TestSliceWindow:
+    def test_basic_half_open_slice(self):
+        assert CSVProcessing.slice_window(list(range(10)), 2, 5) == [2, 3, 4]
+
+    def test_clamps_negative_start(self):
+        assert CSVProcessing.slice_window(list(range(10)), -3, 4) == [0, 1, 2, 3]
+
+    def test_clamps_end_past_array(self):
+        assert CSVProcessing.slice_window(list(range(10)), 7, 30) == [7, 8, 9]
+
+    def test_empty_window_when_start_equals_end(self):
+        assert CSVProcessing.slice_window(list(range(10)), 5, 5) == []
+
+    def test_empty_window_entirely_past_array(self):
+        assert CSVProcessing.slice_window(list(range(10)), 20, 30) == []
+
+    def test_empty_input_array(self):
+        assert CSVProcessing.slice_window([], 0, 5) == []
+
+
+# ═══════════════════════════════════════════════════════════════
+# channel_metric
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestChannelMetric:
+    def test_rms(self):
+        # sqrt((9 + 16) / 2) = sqrt(12.5) = 3.53553... → 3.5355.
+        assert CSVProcessing.channel_metric([3.0, 4.0], "rms") == 3.5355
+
+    def test_mean(self):
+        assert CSVProcessing.channel_metric([1.0, 2.0, 3.0, 4.0, 5.0], "mean") == 3.0
+
+    def test_peak_and_max_alias(self):
+        assert CSVProcessing.channel_metric([10.0, 50.0, 30.0], "peak") == 50.0
+        assert CSVProcessing.channel_metric([10.0, 50.0, 30.0], "max") == 50.0
+
+    def test_min(self):
+        assert CSVProcessing.channel_metric([10.0, 50.0, 30.0], "min") == 10.0
+
+    def test_empty_returns_none(self):
+        assert CSVProcessing.channel_metric([], "rms") is None
+        assert CSVProcessing.channel_metric([], "mean") is None
+
+    def test_unknown_metric_raises(self):
+        with pytest.raises(ValueError, match="Unknown channel metric"):
+            CSVProcessing.channel_metric([1.0], "frobnicate")
+
+    def test_window_metrics_constant_is_complete(self):
+        # Every declared metric must be implemented and accept input.
+        for metric in WINDOW_METRICS:
+            result = CSVProcessing.channel_metric([2.0, 4.0, 6.0], metric)
+            assert result is not None
+            # And every metric returns None on empty input.
+            assert CSVProcessing.channel_metric([], metric) is None

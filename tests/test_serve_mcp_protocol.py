@@ -1525,17 +1525,17 @@ def test_v690_tour_subcommand_not_exposed_as_mcp_tool() -> None:
         assert_no_repr_artifacts(json.dumps(resp))
 
 
-def test_v800_tool_count_unchanged_at_58() -> None:
-    """V800-T2: tools/list count is 58 with full config loaded.
+def test_v800_tool_count_at_59_with_demo_tool() -> None:
+    """V800-T2: tools/list count is 59 with full config loaded.
 
     Expected composition (full config: running + csv_dir + vault + local_llm
     + audit_query + setup + walkthrough + fitting_room):
-      25 vault + 12 running + 7 csv_dir + 1 ask_local_oracle + 1 audit_query
+      25 vault + 12 running + 8 csv_dir + 1 ask_local_oracle + 1 audit_query
       + 4 setup (status/detect_schema/confirm_schema/write_source_block)
       + 1 walkthrough (tailor_walkthrough_section)
       + 3 fitting_room (status/scaffold/index_vault)
       + 4 auto-generated consent tools (approve/revoke × running/csv_dir)
-      = 58
+      = 59
 
     Count history:
       - v6.9.0–v7.3.4: 49 (tour adds no MCP tools)
@@ -1546,11 +1546,14 @@ def test_v800_tool_count_unchanged_at_58() -> None:
         structural sweep per ADR 0038)
       - v8.0.0: 58 (added SetupLayer + WalkthroughLayer + FittingRoomLayer
         per ADR 0040 — recipient-facing surfaces moved from CLI to MCP)
+      - feature/csv-synchronized-windows: 59 (demo-branch tool —
+        csv_synchronized_windows added to the csv_dir child; csv_dir
+        7 -> 8. Demo-grade, not merged to main, no CLAUDE.md bump.)
 
-    If this count changes again, it means a tool was added or removed
-    without a corresponding CLAUDE.md tool-surface update. The template
-    child is not registered in the test config (opt-in requires explicit
-    config key), so its 3 tools are excluded from the wire count.
+    If this count changes again on main, it means a tool was added or
+    removed without a corresponding CLAUDE.md tool-surface update. The
+    template child is not registered in the test config (opt-in requires
+    explicit config key), so its 3 tools are excluded from the wire count.
     """
     with spawn_server() as (client, _paths):
         client.initialize()
@@ -1558,8 +1561,8 @@ def test_v800_tool_count_unchanged_at_58() -> None:
         assert "error" not in resp, f"tools/list error: {resp}"
         tools = resp["result"]["tools"]
         n = len(tools)
-        assert n == 58, (
-            f"tools/list count changed: expected 58, got {n}. "
+        assert n == 59, (
+            f"tools/list count changed: expected 59, got {n}. "
             f"If a new tool was added, update CLAUDE.md tool-surface table "
             f"and change this assertion to the new expected count. "
             f"Current tools: {sorted(t['name'] for t in tools)}"
@@ -1608,14 +1611,14 @@ def test_v690_serve_startup_meta_version_stamp() -> None:
 # ──────────────────────────────────────────────────────────────────
 
 
-def test_tour_tool_count_is_79() -> None:
-    """T1: tools/list on fitting-room-scaffolded config returns 79 tools as of v8.0.0.
+def test_tour_tool_count_is_80() -> None:
+    """T1: tools/list on fitting-room-scaffolded config returns 80 tools.
 
     Expected composition:
-      9 force_csv + 8 emg_csv + 7 csv_dir + 25 vault + 12 running
+      9 force_csv + 8 emg_csv + 8 csv_dir + 25 vault + 12 running
       + 1 ask_local_oracle + 1 audit_query
       + 4 setup + 1 walkthrough + 3 fitting_room
-      + 4 approve_consent + 4 revoke_consent = 79.
+      + 4 approve_consent + 4 revoke_consent = 80.
 
     Count history:
       - v6.9.0–v7.3.4: 70
@@ -1624,10 +1627,13 @@ def test_tour_tool_count_is_79() -> None:
       - v7.5.0 / v7.6.0: 71 (no new tools)
       - v8.0.0: 79 (added SetupLayer + WalkthroughLayer + FittingRoomLayer
         per ADR 0040 — recipient-facing surfaces moved from CLI to MCP)
+      - feature/csv-synchronized-windows: 80 (demo-branch tool —
+        csv_synchronized_windows added to the csv_dir child; csv_dir
+        7 -> 8. Demo-grade, not merged to main, no CLAUDE.md bump.)
 
-    If this count changes a tool was added or removed without updating
-    the fitting-room surface table in CLAUDE.md. Also pins no-repr on
-    the full tool list payload.
+    If this count changes again on main a tool was added or removed
+    without updating the fitting-room surface table in CLAUDE.md. Also
+    pins no-repr on the full tool list payload.
     """
     with spawn_tour_server() as (client, _paths):
         client.initialize()
@@ -1636,8 +1642,8 @@ def test_tour_tool_count_is_79() -> None:
 
         tools = resp["result"]["tools"]
         n = len(tools)
-        assert n == 79, (
-            f"Fitting-room tools/list count: expected 79, got {n}. "
+        assert n == 80, (
+            f"Fitting-room tools/list count: expected 80, got {n}. "
             f"Tools: {sorted(t['name'] for t in tools)}"
         )
 

@@ -79,7 +79,7 @@ Then open [**docs/guides/worked-example.ipynb**](docs/guides/worked-example.ipyn
 
 - **PI evaluating for a study** → [Why this exists](#why-this-exists) · [How data minimization works](#how-data-minimization-works) · [10-minute worked example notebook](docs/guides/worked-example.ipynb) · [Status & retention](#status)
 - **Analyst / research-software engineer wiring this up** → [Install & run](#install--run) · [Children that ship today](#children-that-ship-today) · [Architecture](#architecture)
-- **IRB reviewer evaluating risk** → [How data minimization works](#how-data-minimization-works) · [Status & retention](#status) · [ADR 0001 — audit log](docs/adr/0001-audit-log-as-backbone.md) · [ADR 0003 — PHI scrubber seam](docs/adr/0003-phi-scrubber-seam.md) · [ADR 0009 — `subject_id` integrity](docs/adr/0009-vault-subject-keying.md) · [ADR 0013 — cache purge on consent revocation](docs/adr/0013-cache-only-purge-on-consent-revocation.md)
+- **IRB reviewer evaluating risk** → [How data minimization works](#how-data-minimization-works) · [Status & retention](#status) · [ADR 0001 — audit log](docs/adr/0001-audit-log-as-backbone.md) · [ADR 0003 — PHI scrubber seam](docs/adr/0003-phi-scrubber-seam.md) · [ADR 0009 — `entity_id` integrity](docs/adr/0009-vault-subject-keying.md) · [ADR 0013 — cache purge on consent revocation](docs/adr/0013-cache-only-purge-on-consent-revocation.md)
 - **Quantified-self / future-recipe explorer** → [Your Wardrobe](#your-wardrobe) · [What This Project Is](CLAUDE.md#what-this-project-is) · [ROADMAP Phase 4 — platform-shape proof](ROADMAP.md#phase-4--platform-shape-proof-direction)
 - **Developer trying the demo** → [Install & run](#install--run)
 - **Architect / integrator** → [Architecture](#architecture) · [Adding a new child data source](CLAUDE.md#adding-a-new-childmcp-new-data-source)
@@ -108,7 +108,7 @@ rather than a platform you can extend.
 | **Local-first router** | Runs next to your data. Only what the active tier permits crosses the boundary; tiers are declared per-tool, per-data-source. With the optional [local-LLM guardian](docs/guides/local-llm-guardian.md) opted in (per [ADR 0022](docs/adr/0022-local-llm-guardian.md)), your data stays on your machine at every tier — including from the hosted LLM. |
 | **Tiered access** | Every tool declares an access tier: 1 returns computed summaries, 2 returns downsampled views behind an analyst-side consent gate, 3 returns raw streams behind that gate plus cost approval. Data minimization, implemented. |
 | **PHI-scrubber seam** | A documented institutional override point. **Default is a no-op** — institutions subclass to wire their IRB-approved policy. The default surfaces a `scrubber_warning` field in every successful `_meta` block so a misconfigured deployment is visible inside the LLM transcript. See [ADR 0003](docs/adr/0003-phi-scrubber-seam.md). |
-| **Durable audit log** | Every call lands in SQLite: timestamp, tool, tier, parameters, outcome, latency, `scrubber_id`, optional `subject_id`. Attachable to a protocol amendment or replication package. |
+| **Durable audit log** | Every call lands in SQLite: timestamp, tool, tier, parameters, outcome, latency, `scrubber_id`, optional `entity_id`. Attachable to a protocol amendment or replication package. |
 | **Provenance stamps** | Every result carries a `_meta` block — package version, tool name, domain, tier, UTC timestamp, per-call + session token counts, `scrubber_id`, plus `scrubber_warning` when the no-op default is active and `hook_warnings` when a post-execute hook raised. Any output in a paper is traceable to the code that produced it. |
 | **Local-LLM guardian** *(opt-in)* | A framework-tier component that runs an LLM on your machine to compose structured natural-language responses over deterministic processing output. Cited numerical claims come from `processing.py` and stay deterministic; LLM-generated narrative is explicitly labelled non-citable in `_meta`. Four tiers (Scout/Sentinel/Guardian/Titan) span 4 GB laptops to 32 GB workstations. See [ADR 0022](docs/adr/0022-local-llm-guardian.md) and the [setup guide](docs/guides/local-llm-guardian.md). |
 | **Wardrobe** *(Obsidian-readable)* | Cross-session analytical memory: themes (persistent questions), moments (observations), evidence logs, failure modes. Markdown is the source of truth; SQLite makes it queryable. See [Your Wardrobe](#your-wardrobe). |
@@ -130,7 +130,7 @@ Tool:   {"summary": "6.2 mi · 48:12 · avg HR 152",
                    "tool_name":         "strava_run_report",
                    "called_at":         "2026-04-13T15:42:11Z",
                    "scrubber_id":       "noop",
-                   "scrubber_warning":  "PHIScrubber is a no-op default; subclass and wire your institution's policy before processing real PHI"}}
+                   "scrubber_warning":  "DataScrubber is a no-op default; subclass and wire your institution's policy before processing real PHI"}}
 
 Claude: Your last run was 6.2 miles in 48:12 with 3.2 % HR drift and
         an efficiency factor of 1.71 — aerobic base looks solid.
@@ -156,7 +156,7 @@ when they use LLMs as analytical assistants:
 | Problem | Response |
 |---|---|
 | **Data governance** — hosted LLMs are the wrong home for participant biometric data. Pasting streams into web chats is usually against policy, sometimes against law, and always leaves no defensible trace. | Tier model + local-first processing. Raw data never leaves the machine; only server-computed summaries do. |
-| **Reproducibility** — analyses in chat windows don't replay six months later. No log of which tool saw which data, no hook for a replication package. | Audit log (every call in SQLite with optional `subject_id`) + `_meta` provenance stamps on every result. |
+| **Reproducibility** — analyses in chat windows don't replay six months later. No log of which tool saw which data, no hook for a replication package. | Audit log (every call in SQLite with optional `entity_id`) + `_meta` provenance stamps on every result. |
 | **Longitudinal memory** — observations get dropped at session end. The note an analyst made about a participant in April is exactly what the analyst in September needs. | Vault layer: themes, moments, evidence logs — append-only, Obsidian-backed, queryable across sessions. |
 
 Tailor is a local MCP server that sits between any MCP-speaking
@@ -171,7 +171,7 @@ conversation-scoped. Tailor's vault is governance
 infrastructure: append-only markdown that survives the LLM client,
 human-readable in Obsidian or any text editor, supersession-tracked
 via [`vault_correct_evidence`](CLAUDE.md#vaultlayer--25-tools-v61),
-study-scoped via `subject_id`, and inspectable down to the SQLite
+study-scoped via `entity_id`, and inspectable down to the SQLite
 index. Same word, different artifact category. For a chat assistant
 remembering your name across conversations, Hosted Memory is the right
 tool. For an analytical record an IRB or PI can attach to a protocol
@@ -200,7 +200,7 @@ It accumulates:
 
 Wardrobe lives entirely on your machine as **plain markdown files plus a SQLite index**. Markdown is the source of truth; the index makes it queryable. Open the same files in Obsidian, in VS Code, or in `cat` — they're yours, append-only, and inspectable down to the row. That's the difference from Hosted Memory: governance infrastructure, not chat-convenience.
 
-Alongside the Wardrobe, Tailor maintains a separate **Ledger** — the audit log. Every action Tailor took on your behalf is recorded in SQLite (timestamp, tool, tier, parameters, outcome, `scrubber_id`, optional `subject_id`). The Ledger is the tailor's own record of work; the Wardrobe is yours. Both live on your machine and accumulate on your behalf, but they are accounted separately per [ADR 0033](docs/adr/0033-complete-tailor-metaphor-workshop-side.md) — the audit-log backbone (per [ADR 0001](docs/adr/0001-audit-log-as-backbone.md)) is what the Ledger names. Attachable to a protocol amendment, an IRB review, or a replication package.
+Alongside the Wardrobe, Tailor maintains a separate **Ledger** — the audit log. Every action Tailor took on your behalf is recorded in SQLite (timestamp, tool, tier, parameters, outcome, `scrubber_id`, optional `entity_id`). The Ledger is the tailor's own record of work; the Wardrobe is yours. Both live on your machine and accumulate on your behalf, but they are accounted separately per [ADR 0033](docs/adr/0033-complete-tailor-metaphor-workshop-side.md) — the audit-log backbone (per [ADR 0001](docs/adr/0001-audit-log-as-backbone.md)) is what the Ledger names. Attachable to a protocol amendment, an IRB review, or a replication package.
 
 <p align="center">
   <img src="docs/assets/vault-insights.svg" alt="Themes, moments, and evidence inside the Wardrobe — rendered as plain markdown viewable in Obsidian or any text editor" width="760">
@@ -240,7 +240,7 @@ what happened:
   "token_estimate": 1180,
   "outcome":        "ok",
   "duration_ms":    142,
-  "subject_id":     "P-017",
+  "entity_id":     "P-017",
   "scrubber_id":    "noop"
 }
 ```
@@ -254,7 +254,7 @@ Every successful result carries a `_meta` provenance stamp:
     "tool_name":        "strava_run_report",
     "called_at":        "2026-04-13T15:42:11.345Z",
     "scrubber_id":      "noop",
-    "scrubber_warning": "PHIScrubber is a no-op default; subclass and wire your institution's policy before processing real PHI"
+    "scrubber_warning": "DataScrubber is a no-op default; subclass and wire your institution's policy before processing real PHI"
   }
 }
 ```
@@ -272,14 +272,14 @@ For the durable-memory side of the picture (themes, moments, evidence — the *W
   in every successful result's `_meta` block so a no-op deployment
   cannot silently masquerade as a scrubbed one.
 - Per-subject **audit-log scoping** is first-class for every child.
-  `RunningChild` declares `subject_id` on all 12 `strava_*` tools;
+  `RunningChild` declares `entity_id` on all 12 `strava_*` tools;
   `csv_dir` declares it on all 7 tools. This is caller-asserted scoping
   for the audit log; it does **not** filter source data, since one
   authenticated upstream account may legitimately cover multiple study
   participants.
 - Per-subject **vault-tier keying** is first-class
   ([ADR 0009](docs/adr/0009-vault-subject-keying.md)). Themes carry
-  an optional, set-once `subject_id` (promotion `None → P004`
+  an optional, set-once `entity_id` (promotion `None → P004`
   permitted; reassignment `P003 → P007` is a hard error). Evidence
   and moments stamp the writing call's subject. List/search filters
   use the IS-NULL branch so cross-subject themes and pre-keying
@@ -545,7 +545,7 @@ Detailed notes in [CLAUDE.md](CLAUDE.md).
 |---|---|
 | OAuth "address already in use" on port 8189 | Another process is bound to that port. Kill it or wait for it to release. |
 | `rate_limit.json` corruption warning | Delete the file — it will be rebuilt on next API call. |
-| `subject_id` not appearing in audit rows | Pass `subject_id` as a parameter in the tool call, not as a header. |
+| `entity_id` not appearing in audit rows | Pass `entity_id` as a parameter in the tool call, not as a header. |
 | Vault disabled silently | Check `~/.tailor/logs/` for a `user_config.json` parse warning. |
 
 ---

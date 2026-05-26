@@ -122,7 +122,7 @@ Default is `()` — children that don't author per-activity vault notes (csv_dir
 
 Every child you author inherits:
 
-- **Audit log row per call** — domain, tool, tier, params, outcome, latency, `subject_id`, `scrubber_id` (ADR 0001 / ADR 0002).
+- **Audit log row per call** — domain, tool, tier, params, outcome, latency, `entity_id`, `scrubber_id` (ADR 0001 / ADR 0002).
 - **Param validation** — `ParamValidator` checks types, ranges, regex patterns from `param_schemas` before `execute()` runs.
 - **Circuit breaker** — three consecutive failures on the domain → 5-minute back-off.
 - **Consent gate** — Tier 2 tools require operator-granted consent; Tier 3 requires consent + cost approval.
@@ -167,7 +167,7 @@ If your data needs HDF5-based `.mat` v7.3, live REDCap REST API access, or anoth
 ## Cited decisions
 
 - [ADR 0001](../adr/0001-audit-log-as-backbone.md) — every call writes an audit row; the framework owns this.
-- [ADR 0002](../adr/0002-subject-id-scoping.md) + [ADR 0009](../adr/0009-vault-subject-keying.md) — `subject_id` scoping across audit + vault.
+- [ADR 0002](../adr/0002-subject-id-scoping.md) + [ADR 0009](../adr/0009-vault-subject-keying.md) — `entity_id` scoping across audit + vault.
 - [ADR 0003](../adr/0003-phi-scrubber-seam.md) — framework-level PHI seam (no-op default); ADR 0003 § Amendment 2026-05-14 — child-level scrubber pattern.
 - [ADR 0008](../adr/0008-deterministic-by-construction-processing.md) — `@staticmethod` pure-function invariant on processing modules.
 - [ADR 0011](../adr/0011-promotion-policy.md) — promotion policy that produced this guide as the answer to the L1/L2 split.

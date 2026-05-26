@@ -1,48 +1,61 @@
-# Tailor — your AI works with your data, on your machine
+# Tailor — local data preprocessing for AI
 
 [![Python 3.10 | 3.11 | 3.12](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/downloads/)
 [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows-lightgrey)](.github/workflows/ci.yml)
 [![License: AGPL 3.0](https://img.shields.io/badge/license-AGPL%203.0-blue)](LICENSE)
 
-**Tailor is a personal AI server with research-grade trust — and
-turns a $200/month AI bill into a $2/month one while making the AI
-materially better at your question.** A local-first MCP framework
-that lets any MCP-speaking AI (Claude Desktop, Cline, Cursor, local
-models via Ollama) work with your own data, with every action
-recorded in a durable audit log and every result stamped for
-reproducibility. **Daily analyst workflows that would burn hundreds
-of dollars a month dumping raw cohort streams into a hosted LLM run
-for single digits through Tailor — because the AI gets a structured
-answer instead of your raw data, its context window goes to
-reasoning over your question, your prior work, and your audit
-trail, rather than to shuffling streams it then has to re-aggregate
-itself.** **The same architecture works on whatever shape your
-data is already in — CSV directories, MATLAB binary exports, and
-REDCap exports today; EDF recordings, FHIR bundles, vendor sensor
-exports, or any other source through a small `ChildMCP` extension that inherits the full
-pipeline (tier model, audit, scrubber seam, Wardrobe).** Every
-shape you wrap inherits the same 10-100× cost-per-question collapse
-and the same provenance discipline, without any of it leaving your
-machine. Today the worked-out recipe is
-health research — *that's the **first recipe shipped end-to-end, not
-the platform's identity***. Future recipes (knowledge work, quantified
-self, household, creative archives) compose on the same engine; see
-[ROADMAP.md](ROADMAP.md) for the phased path from "researcher
-first-look on a hand-delivered wheel" to canonical *personal AI
-server*. [Phase 0 — install-path validation](ROADMAP.md#at-a-glance)
-closed 2026-05-12 under the lenient read of its exit criterion (one
-Windows + one macOS install proven cross-OS); Phase 1 ship-quality
-housekeeping is now active.
+**Structured summaries, governed access, auditable answers.**
 
-Your **Wardrobe** is what Tailor governs on your behalf: the
-structured collection of your data and prior analytical work that
-lives entirely on your machine. *Not clothes — your stuff.* Your
-Wardrobe accumulates themes (questions you keep returning to), moments
-(observations worth remembering), evidence (data that grounds your
-themes), audit history (every action your AI took on your behalf), and
-the source data itself. Tailor curates your Wardrobe — adds to it,
-retrieves from it, governs how the AI reaches into it — and never
-sends any of it to a service you didn't choose.
+Dumping your raw data into a hosted LLM is expensive, unsafe, and
+produces worse answers. **Expensive** because cohort-scale CSV at
+$3–10 per million input tokens burns hundreds of dollars a month.
+**Unsafe** because your data crosses to a vendor — and into whatever
+logs, retention, or training pipelines you didn't tick the right
+box to opt out of. **Worse answers** because the LLM's context window
+goes to parsing 6,000 raw CSV rows it then has to re-aggregate by
+hand, instead of reasoning over your actual question.
+
+Tailor is a local-first MCP framework that preprocesses your data on
+your machine and exposes only the structured summary the LLM needs.
+Every call passes through a three-tier governance pipeline (free /
+consent-gated / cost-gated), and every result lands in a durable
+audit log next to the data. The framework is data-agnostic — CSV,
+MATLAB binary, and REDCap exports ship today; EDF recordings, FHIR
+bundles, and vendor sensor exports compose on the same engine
+through a small `ChildMCP` extension. The first shipped end-to-end
+recipe is health research; that's not the platform's identity.
+
+## How much cheaper, exactly?
+
+Two reproducible benchmarks in
+[`benchmarks/token_efficiency.md`](benchmarks/token_efficiency.md):
+
+| Scenario | Baseline (raw → LLM) | Tailor (Tier-1 → LLM) | Ratio |
+|---|---:|---:|---:|
+| Single subject — 60-second fatigue diagnostic | 48,006 tokens | 73 tokens | **657.6×** |
+| 16-subject cohort comparison by sex | 769,311 tokens | 820 tokens | **938.2×** |
+| Multi-session analytical-thread resume | 771,743 tokens | 2,427 tokens | **318.0×** |
+
+The cohort baseline at 769,311 tokens exceeds Claude Sonnet's 200K
+context window — at cohort scale the raw-data approach is not just
+expensive, it is *structurally impossible* without a hand-engineered
+chunking pipeline. The "at least 100× cheaper" claim in
+[ADR 0029](docs/adr/0029-token-reduction-as-analytical-quality.md) is
+a conservative floor; observed ratios run 3.2× to 9.4× the floor
+depending on scenario.
+
+All measurements use `tiktoken cl100k_base` (industry-standard proxy
+for Claude's tokenizer), against synthetic-by-construction HIP-Lab
+fixtures shipped in the wheel. The benchmark markdown carries an
+Assumptions table, a quantitative prompt-caching counter-factual
+(even optimal Anthropic prefix caching does not close the gap), and
+a Limitations section naming where the gap is smaller. Methodology
+is calibrated for a skeptical engineer, not for marketing.
+Reproduce from a fresh clone:
+
+```bash
+pip install tiktoken && python benchmarks/token_efficiency.py
+```
 
 ## 30-second quickstart
 

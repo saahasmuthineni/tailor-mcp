@@ -9,7 +9,7 @@ canonical.
 
 This child is the first node in a planned data-source family
 (``force_csv``, future ``emg_csv``, future ``mrs_*``) that
-composes via shared ``subject_id`` (ADR 0009), shared audit log
+composes via shared ``entity_id`` (ADR 0009), shared audit log
 (ADR 0001), and the existing ``dispatch_internal`` cross-child
 seam.  Composition is the load-bearing architectural argument
 for the broader Senefeld-meeting demo.
@@ -56,8 +56,8 @@ from pathlib import Path
 
 from ...framework.audit import _loads
 from ...framework.interfaces import (
-    SUBJECT_ID_PARAM_DOC,
-    SUBJECT_ID_SCHEMA,
+    ENTITY_ID_PARAM_DOC,
+    ENTITY_ID_SCHEMA,
     ChildMCP,
     ConsentInfo,
     ConsentScope,
@@ -142,7 +142,7 @@ class ForceCsvStorage(BaseStorage):
                 label TEXT NOT NULL,
                 notes TEXT,
                 labeled_at TEXT NOT NULL,
-                subject_id TEXT,
+                entity_id TEXT,
                 PRIMARY KEY (file_id, t_seconds, event_type)
             );
         """
@@ -154,11 +154,11 @@ class ForceCsvStorage(BaseStorage):
         event_type: str,
         label: str,
         notes: str | None = None,
-        subject_id: str | None = None,
+        entity_id: str | None = None,
     ) -> None:
         self.execute(
             "INSERT OR REPLACE INTO force_event_labels"
-            " (file_id, t_seconds, event_type, label, notes, labeled_at, subject_id)"
+            " (file_id, t_seconds, event_type, label, notes, labeled_at, entity_id)"
             " VALUES (?,?,?,?,?,?,?)",
             (
                 file_id,
@@ -167,17 +167,17 @@ class ForceCsvStorage(BaseStorage):
                 label,
                 notes,
                 datetime.now(timezone.utc).isoformat(),
-                subject_id,
+                entity_id,
             ),
         )
         self.commit()
 
     def get_labels(
-        self, file_id: str, subject_id: str | None = None,
+        self, file_id: str, entity_id: str | None = None,
     ) -> list[dict]:
-        if subject_id is None:
+        if entity_id is None:
             rows = self.fetchall(
-                "SELECT t_seconds, event_type, label, notes, labeled_at, subject_id"
+                "SELECT t_seconds, event_type, label, notes, labeled_at, entity_id"
                 " FROM force_event_labels WHERE file_id = ?"
                 " ORDER BY t_seconds",
                 (file_id,),
@@ -186,11 +186,11 @@ class ForceCsvStorage(BaseStorage):
             # ADR 0009 IS-NULL-or-match filter so cross-subject
             # legacy rows stay visible.
             rows = self.fetchall(
-                "SELECT t_seconds, event_type, label, notes, labeled_at, subject_id"
+                "SELECT t_seconds, event_type, label, notes, labeled_at, entity_id"
                 " FROM force_event_labels"
-                " WHERE file_id = ? AND (subject_id IS NULL OR subject_id = ?)"
+                " WHERE file_id = ? AND (entity_id IS NULL OR entity_id = ?)"
                 " ORDER BY t_seconds",
-                (file_id, subject_id),
+                (file_id, entity_id),
             )
         return [
             {
@@ -199,7 +199,7 @@ class ForceCsvStorage(BaseStorage):
                 "label": r[2],
                 "notes": r[3],
                 "labeled_at": r[4],
-                "subject_id": r[5],
+                "entity_id": r[5],
             }
             for r in rows
         ]
@@ -405,7 +405,7 @@ class ForceCsvChild(ChildMCP):
                         "description": "Max results (default 50)",
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -419,7 +419,7 @@ class ForceCsvChild(ChildMCP):
                         "description": "Filename within force_csv.path",
                         "required": True,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -441,13 +441,13 @@ class ForceCsvChild(ChildMCP):
                         ),
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
                 "force_cohort_summary", 1,
                 "Cross-file aggregation by metadata-sidecar group "
-                "(matches csv_cohort_summary, ADR 0015). Reduces each "
+                "(matches csv_group_summary, ADR 0015). Reduces each "
                 "trial to one scalar via metric, then aggregates by "
                 "group. Requires metadata.json sidecar. ~600 tokens.",
                 {
@@ -472,7 +472,7 @@ class ForceCsvChild(ChildMCP):
                         ),
                         "required": True,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -490,7 +490,7 @@ class ForceCsvChild(ChildMCP):
                         "description": "Column carrying force values",
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -527,7 +527,7 @@ class ForceCsvChild(ChildMCP):
                         "description": "What's being compared (e.g. 'baseline MVC', 'time to task failure')",
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -565,7 +565,7 @@ class ForceCsvChild(ChildMCP):
                         "description": "Optional details",
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             # ── Tier 2: Consent-gated (downsampled streams) ──
@@ -591,7 +591,7 @@ class ForceCsvChild(ChildMCP):
                         ),
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             # ── Tier 3: Cost-gated (raw windowed streams) ──
@@ -627,7 +627,7 @@ class ForceCsvChild(ChildMCP):
                         ),
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
         ]
@@ -637,20 +637,20 @@ class ForceCsvChild(ChildMCP):
         return {
             "force_list_files": {
                 "limit": ValidationSchema(type=int, min=1, max=500, default=50),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "force_file_detail": {
                 "file_id": ValidationSchema(
                     type=str, required=True, pattern=FILE_ID_PATTERN,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "force_summary": {
                 "file_id": ValidationSchema(
                     type=str, required=True, pattern=FILE_ID_PATTERN,
                 ),
                 "force_column": ValidationSchema(type=str),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "force_cohort_summary": {
                 "group_by": ValidationSchema(
@@ -660,14 +660,14 @@ class ForceCsvChild(ChildMCP):
                 "metric": ValidationSchema(
                     type=str, required=True, allowed_values=list(COHORT_METRICS),
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "force_compare_trials": {
                 "file_ids": ValidationSchema(
                     type=list, min_len=2, max_len=5, required=True,
                 ),
                 "force_column": ValidationSchema(type=str),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "force_device_agreement": {
                 "device_a_values": ValidationSchema(
@@ -679,7 +679,7 @@ class ForceCsvChild(ChildMCP):
                 "device_a_label": ValidationSchema(type=str),
                 "device_b_label": ValidationSchema(type=str),
                 "metric_name": ValidationSchema(type=str),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "force_label_event": {
                 "file_id": ValidationSchema(
@@ -689,7 +689,7 @@ class ForceCsvChild(ChildMCP):
                 "event_type": ValidationSchema(type=str, required=True),
                 "label": ValidationSchema(type=str, required=True),
                 "notes": ValidationSchema(type=str),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "force_downsampled": {
                 "file_id": ValidationSchema(
@@ -697,7 +697,7 @@ class ForceCsvChild(ChildMCP):
                 ),
                 "interval": ValidationSchema(type=int, min=1, max=10000, default=10),
                 "columns": ValidationSchema(type=list, allowed_values=ALL_STREAM_TYPES),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "force_raw_window": {
                 "file_id": ValidationSchema(
@@ -706,7 +706,7 @@ class ForceCsvChild(ChildMCP):
                 "start_seconds": ValidationSchema(type=float, min=0.0, required=True),
                 "end_seconds": ValidationSchema(type=float, min=0.0, required=True),
                 "columns": ValidationSchema(type=list, allowed_values=ALL_STREAM_TYPES),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
         }
 
@@ -1016,7 +1016,7 @@ class ForceCsvChild(ChildMCP):
         sample_rate = self._derive_sample_rate(timestamps, self._sample_rate_hz)
 
         labels = self._storage.get_labels(
-            params["file_id"], subject_id=params.get("subject_id"),
+            params["file_id"], entity_id=params.get("entity_id"),
         )
         result: dict = {
             "filename": filepath.name,
@@ -1310,7 +1310,7 @@ class ForceCsvChild(ChildMCP):
                 event_type=params["event_type"],
                 label=params["label"],
                 notes=params.get("notes"),
-                subject_id=params.get("subject_id"),
+                entity_id=params.get("entity_id"),
             )
         except Exception as exc:
             log.error(f"force_label_event save failed: {exc}", exc_info=True)

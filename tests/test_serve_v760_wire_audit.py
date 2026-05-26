@@ -19,7 +19,7 @@ Verifies 7 surfaces touched by v7.6.0:
       The test for unknown-kind REJECTION is marked xfail with
       ``strict=True`` so it turns RED immediately when D1 is fixed.
 
-  V3  ``tools/call csv_cohort_summary``: NEW ``value_column`` parameter
+  V3  ``tools/call csv_group_summary``: NEW ``value_column`` parameter
       round-trips cleanly; OLD ``column`` parameter returns a validation
       error (``isError: true`` in the MCP envelope with plain-text content
       "Input validation error: 'value_column' is a required property").
@@ -255,7 +255,7 @@ class TestV2DynamicAllowedKinds:
 
 
 # ---------------------------------------------------------------------------
-# V3 -- csv_cohort_summary value_column rename
+# V3 -- csv_group_summary value_column rename
 # ---------------------------------------------------------------------------
 
 class TestV3CsvCohortSummaryParamRename:
@@ -265,7 +265,7 @@ class TestV3CsvCohortSummaryParamRename:
         with spawn_server() as (client, paths):
             _handshake(client)
             resp = client.call_tool(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {
                     "value_column": "heart_rate",
                     "group_by": "sex",
@@ -286,7 +286,7 @@ class TestV3CsvCohortSummaryParamRename:
         with spawn_server() as (client, paths):
             _handshake(client)
             resp = client.call_tool(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {
                     "column": "heart_rate",   # OLD name -- must be rejected
                     "group_by": "sex",
@@ -316,7 +316,7 @@ class TestV3CsvCohortSummaryParamRename:
         with spawn_server() as (client, paths):
             _handshake(client)
             resp = client.call_tool(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex", "metric": "mean"},
                 timeout_s=15,
             )

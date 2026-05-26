@@ -11,7 +11,7 @@ What's covered:
 * The ChildMCP ABC surface (``domain``, ``display_name``,
   ``tool_definitions``, ``param_schemas``) is non-empty and
   correctly typed.
-* Every tool declares ``subject_id`` in both ``tool_definitions``
+* Every tool declares ``entity_id`` in both ``tool_definitions``
   (MCP discoverability) and ``param_schemas`` (validator-side
   pattern enforcement). See ADR 0002.
 * The router's ``register_child`` accepts the child without
@@ -35,7 +35,7 @@ import pytest
 
 from tailor.children.csv_dir import CSVDirectoryChild
 from tailor.children.csv_dir.child import (
-    SUBJECT_ID_SCHEMA,
+    ENTITY_ID_SCHEMA,
 )
 from tailor.framework.interfaces import (
     CostEstimate,
@@ -44,7 +44,7 @@ from tailor.framework.interfaces import (
 )
 from tailor.framework.router import RouterMCP
 
-SUBJECT_ID_PATTERN = r"^[A-Za-z0-9_\-]{1,64}$"
+ENTITY_ID_PATTERN = r"^[A-Za-z0-9_\-]{1,64}$"
 
 # Fixture CSV content
 FIXTURE_CSV_A = """\
@@ -89,7 +89,7 @@ def csv_child() -> CSVDirectoryChild:
         (csv_dir / "fixture_a.csv").write_text(FIXTURE_CSV_A, encoding="utf-8")
         (csv_dir / "fixture_b.csv").write_text(FIXTURE_CSV_B, encoding="utf-8")
 
-        # Write metadata sidecar (ADR 0015) so csv_cohort_summary works.
+        # Write metadata sidecar (ADR 0015) so csv_group_summary works.
         (csv_dir / "metadata.json").write_text(
             json.dumps({
                 "fixture_a.csv": {"sex": "F", "group": "control"},
@@ -121,7 +121,7 @@ VALID_PARAMS = {
     "csv_list_files": {"limit": 10},
     "csv_file_detail": {"file_id": "fixture_a.csv"},
     "csv_summary_report": {"file_id": "fixture_a.csv"},
-    "csv_cohort_summary": {
+    "csv_group_summary": {
         "value_column": "heart_rate", "group_by": "sex", "metric": "mean",
     },
     "csv_force_decline": {"file_id": "fixture_a.csv", "value_column": "heart_rate"},
@@ -175,43 +175,43 @@ class TestRequiredAbstractSurface:
 # ═══════════════════════════════════════════════════════════════
 
 
-class TestSubjectIdConsistency:
-    """Every CSV tool declares subject_id in both surfaces."""
+class TestEntityIdConsistency:
+    """Every CSV tool declares entity_id in both surfaces."""
 
-    def test_every_tool_declares_subject_id_in_param_schemas(
+    def test_every_tool_declares_entity_id_in_param_schemas(
         self, csv_child: CSVDirectoryChild,
     ):
         schemas = csv_child.param_schemas
         assert schemas, "param_schemas should not be empty"
         for tool_name, tool_schema in schemas.items():
-            assert "subject_id" in tool_schema, (
-                f"{tool_name} missing subject_id in param_schemas"
+            assert "entity_id" in tool_schema, (
+                f"{tool_name} missing entity_id in param_schemas"
             )
-            entry = tool_schema["subject_id"]
+            entry = tool_schema["entity_id"]
             assert isinstance(entry, ValidationSchema)
             assert entry.type is str
             assert entry.required is False
-            assert entry.pattern == SUBJECT_ID_PATTERN
+            assert entry.pattern == ENTITY_ID_PATTERN
 
-    def test_every_tool_declares_subject_id_in_tool_definitions(
+    def test_every_tool_declares_entity_id_in_tool_definitions(
         self, csv_child: CSVDirectoryChild,
     ):
         defs = csv_child.tool_definitions
         assert defs, "tool_definitions should not be empty"
         for tool_def in defs:
-            assert "subject_id" in tool_def.params, (
-                f"{tool_def.name} missing subject_id in tool_definitions.params"
+            assert "entity_id" in tool_def.params, (
+                f"{tool_def.name} missing entity_id in tool_definitions.params"
             )
-            entry = tool_def.params["subject_id"]
+            entry = tool_def.params["entity_id"]
             assert entry["type"] == "string"
             assert entry["required"] is False
             assert isinstance(entry["description"], str)
             assert entry["description"].strip()
 
-    def test_exported_subject_id_schema_matches_canonical_pattern(self):
-        assert SUBJECT_ID_SCHEMA.type is str
-        assert SUBJECT_ID_SCHEMA.required is False
-        assert SUBJECT_ID_SCHEMA.pattern == SUBJECT_ID_PATTERN
+    def test_exported_entity_id_schema_matches_canonical_pattern(self):
+        assert ENTITY_ID_SCHEMA.type is str
+        assert ENTITY_ID_SCHEMA.required is False
+        assert ENTITY_ID_SCHEMA.pattern == ENTITY_ID_PATTERN
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -250,7 +250,7 @@ class TestRouterCanRegister:
                     "csv_list_files",
                     "csv_file_detail",
                     "csv_summary_report",
-                    "csv_cohort_summary",
+                    "csv_group_summary",
                     "csv_force_decline",
                     "csv_synchronized_windows",
                     "csv_downsampled",
@@ -478,13 +478,13 @@ class TestMalformedCsvHandling:
 
 
 class TestCohortSummaryHandler:
-    """csv_cohort_summary handler — metadata sidecar contract (ADR 0015)."""
+    """csv_group_summary handler — metadata sidecar contract (ADR 0015)."""
 
     def test_returns_per_group_stats_with_metadata(
         self, csv_child: CSVDirectoryChild,
     ):
         result = asyncio.run(csv_child.execute(
-            "csv_cohort_summary",
+            "csv_group_summary",
             {"value_column": "heart_rate", "group_by": "sex", "metric": "mean"},
         ))
         assert isinstance(result, dict)
@@ -518,7 +518,7 @@ class TestCohortSummaryHandler:
             }), encoding="utf-8")
             child = CSVDirectoryChild(config_dir, data_dir)
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" in result
@@ -545,7 +545,7 @@ class TestCohortSummaryHandler:
             }), encoding="utf-8")
             child = CSVDirectoryChild(config_dir, data_dir)
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" in result
@@ -575,7 +575,7 @@ class TestCohortSummaryHandler:
             }), encoding="utf-8")
             child = CSVDirectoryChild(config_dir, data_dir)
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" not in result
@@ -633,7 +633,7 @@ class TestForceDeclineHandler:
 
 
 class TestCohortSummaryFailureBranches:
-    """csv_cohort_summary fail-closed branches (ADR 0015 § Criticality
+    """csv_group_summary fail-closed branches (ADR 0015 § Criticality
     classification — HIGH region per ADR 0014).
 
     These tests cover the newly-uncovered HIGH lines flagged by
@@ -691,7 +691,7 @@ class TestCohortSummaryFailureBranches:
                 Path(tmp), metadata_raw="this is not json {{{",
             )
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" in result
@@ -705,7 +705,7 @@ class TestCohortSummaryFailureBranches:
                 metadata={"a.csv": 42, "b.csv": {"sex": "M"}},
             )
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" in result
@@ -724,7 +724,7 @@ class TestCohortSummaryFailureBranches:
             # Point the child at a nonexistent directory after init.
             child._csv_path = Path(tmp) / "nonexistent_dir"
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" in result
@@ -746,7 +746,7 @@ class TestCohortSummaryFailureBranches:
             )
             monkeypatch.setattr(child_mod, "MAX_COHORT_FILES", 3)
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" in result
@@ -766,7 +766,7 @@ class TestCohortSummaryFailureBranches:
                 },
             )
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" not in result
@@ -790,7 +790,7 @@ class TestCohortSummaryFailureBranches:
             )
             monkeypatch.setattr(child_mod, "MAX_CSV_BYTES", 10)
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" not in result
@@ -831,7 +831,7 @@ class TestCohortSummaryFailureBranches:
             child = CSVDirectoryChild(config_dir, data_dir)
 
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" not in result
@@ -853,7 +853,7 @@ class TestCohortSummaryFailureBranches:
                 metadata={"a.csv": {"sex": "F"}, "b.csv": {"sex": "M"}},
             )
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {
                     "value_column": "heart_rate",
                     "group_by": "sex",

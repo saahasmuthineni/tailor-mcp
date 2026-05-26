@@ -79,7 +79,7 @@ def _flatten_claims(resolved_context: dict) -> list[NumericalClaim]:
 
     * ``{processing_call: {metric: value}}`` — flat per-call results
       (e.g. ``csv_force_decline`` returns one dict per file).
-    * ``{processing_call: {subject_id: {metric: value}}}`` — per-subject
+    * ``{processing_call: {entity_id: {metric: value}}}`` — per-subject
       grouped results (e.g. cohort comparisons).
 
     Non-numeric values (strings, None, lists, nested dicts beyond two
@@ -114,7 +114,7 @@ def _flatten_claims(resolved_context: dict) -> list[NumericalClaim]:
                     )
                 )
             elif isinstance(value, dict):
-                # Per-subject shape: {subject_id: {metric: value}}
+                # Per-subject shape: {entity_id: {metric: value}}
                 for sub_metric, sub_val in value.items():
                     if isinstance(sub_val, bool):
                         continue
@@ -123,7 +123,7 @@ def _flatten_claims(resolved_context: dict) -> list[NumericalClaim]:
                             NumericalClaim(
                                 metric=sub_metric,
                                 value=sub_val,
-                                subject_id=str(key),
+                                entity_id=str(key),
                                 processing_call=proc_call,
                             )
                         )

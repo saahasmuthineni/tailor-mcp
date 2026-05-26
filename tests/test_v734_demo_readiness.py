@@ -17,7 +17,7 @@ Defect map (each test cites the audit-tier finding it locks):
   cohort thesis null-on-the-wire on the science-person demo).
 * D2 — ``group_field`` → ``group_by`` rename on
   ``force_cohort_summary`` + ``emg_cohort_summary`` for API parity
-  with ``csv_cohort_summary`` (cue-card-rehearsal-auditor).
+  with ``csv_group_summary`` (cue-card-rehearsal-auditor).
 * Fix 1 — bundled ``snapshot.md`` scaffolds + is returned by
   ``vault_get_snapshot`` on the recipient demo path
   (integration-auditor F3 closure).
@@ -113,10 +113,10 @@ class TestBundledFixtureInvariants:
         content = snapshot.read_text(encoding="utf-8")
         assert "domain: vault" in content
         assert "note_type: snapshot" in content
-        # The seed is cross-subject — must NOT declare subject_id in
+        # The seed is cross-subject — must NOT declare entity_id in
         # frontmatter (integration-auditor C3 conflict guard).
-        assert "subject_id" not in content.split("---", 2)[1], (
-            "snapshot.md must not declare subject_id in frontmatter — "
+        assert "entity_id" not in content.split("---", 2)[1], (
+            "snapshot.md must not declare entity_id in frontmatter — "
             "the snapshot is cross-subject by construction (ADR 0009 "
             "+ integration-auditor C3)."
         )
@@ -379,7 +379,7 @@ class TestD1FloatSecondsTimestampFallback:
 
 class TestD2GroupByParameterRename:
     """Force + EMG cohort tools must accept ``group_by`` (matching
-    csv_cohort_summary). The old ``group_field`` name must not appear
+    csv_group_summary). The old ``group_field`` name must not appear
     in any ToolDefinition or param_schema — leaving it would re-create
     the API-parity drift the cue-card-rehearsal-auditor flagged."""
 
@@ -403,7 +403,7 @@ class TestD2GroupByParameterRename:
         )
         assert "group_by" in td.params, (
             "force_cohort_summary must declare 'group_by' "
-            "(matching csv_cohort_summary). v7.3.4 / D2."
+            "(matching csv_group_summary). v7.3.4 / D2."
         )
         assert "group_field" not in td.params, (
             "force_cohort_summary must not declare legacy 'group_field' "

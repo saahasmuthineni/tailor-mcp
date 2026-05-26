@@ -15,7 +15,7 @@ server).
 
 Built-in PHI scrubbing per ADR 0003 § Amendment 2026-05-14: the child
 ships ``RedcapPHIScrubber``, a parallel seam to the framework-level
-``PHIScrubber``. The child-level scrubber reads ``project_metadata.csv``
+``DataScrubber``. The child-level scrubber reads ``project_metadata.csv``
 identifier flags set by the IRB at protocol creation and strips
 identifier-flagged fields from every Tier-1+ result before return.
 Unknown-field default is identifier-positive (fail-closed) so a

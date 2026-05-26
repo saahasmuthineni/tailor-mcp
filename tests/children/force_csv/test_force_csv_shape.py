@@ -3,7 +3,7 @@ Shape + behaviour tests for ForceCsvChild — the load-cell force
 trace ChildMCP (off-blueprint Senefeld-meeting detour, 2026-05-04).
 
 Mirrors ``tests/children/csv_dir/test_csv_shape.py`` for the parts
-that are common (ABC surface, subject_id consistency per ADR 0002,
+that are common (ABC surface, entity_id consistency per ADR 0002,
 router registration, execute/estimate_cost shape, file_id traversal
 defense). Adds force-domain coverage:
 
@@ -35,14 +35,14 @@ from tailor.children.force_csv.child import (
     PROTOCOL_EVENT_TYPES,
 )
 from tailor.framework.interfaces import (
-    SUBJECT_ID_SCHEMA,
+    ENTITY_ID_SCHEMA,
     CostEstimate,
     ToolDefinition,
     ValidationSchema,
 )
 from tailor.framework.router import RouterMCP
 
-SUBJECT_ID_PATTERN = r"^[A-Za-z0-9_\-]{1,64}$"
+ENTITY_ID_PATTERN = r"^[A-Za-z0-9_\-]{1,64}$"
 
 # ═══════════════════════════════════════════════════════════════
 # FIXTURE BUILDERS
@@ -224,36 +224,36 @@ class TestRequiredAbstractSurface:
 # ═══════════════════════════════════════════════════════════════
 
 
-class TestSubjectIdConsistency:
+class TestEntityIdConsistency:
 
-    def test_every_tool_declares_subject_id_in_param_schemas(
+    def test_every_tool_declares_entity_id_in_param_schemas(
         self, force_child: ForceCsvChild,
     ):
         for tool_name, tool_schema in force_child.param_schemas.items():
-            assert "subject_id" in tool_schema, (
-                f"{tool_name} missing subject_id in param_schemas"
+            assert "entity_id" in tool_schema, (
+                f"{tool_name} missing entity_id in param_schemas"
             )
-            entry = tool_schema["subject_id"]
+            entry = tool_schema["entity_id"]
             assert isinstance(entry, ValidationSchema)
             assert entry.type is str
             assert entry.required is False
-            assert entry.pattern == SUBJECT_ID_PATTERN
+            assert entry.pattern == ENTITY_ID_PATTERN
 
-    def test_every_tool_declares_subject_id_in_tool_definitions(
+    def test_every_tool_declares_entity_id_in_tool_definitions(
         self, force_child: ForceCsvChild,
     ):
         for tool_def in force_child.tool_definitions:
-            assert "subject_id" in tool_def.params
-            entry = tool_def.params["subject_id"]
+            assert "entity_id" in tool_def.params
+            entry = tool_def.params["entity_id"]
             assert entry["type"] == "string"
             assert entry["required"] is False
             assert isinstance(entry["description"], str)
             assert entry["description"].strip()
 
-    def test_exported_subject_id_schema_matches_canonical_pattern(self):
-        assert SUBJECT_ID_SCHEMA.type is str
-        assert SUBJECT_ID_SCHEMA.required is False
-        assert SUBJECT_ID_SCHEMA.pattern == SUBJECT_ID_PATTERN
+    def test_exported_entity_id_schema_matches_canonical_pattern(self):
+        assert ENTITY_ID_SCHEMA.type is str
+        assert ENTITY_ID_SCHEMA.required is False
+        assert ENTITY_ID_SCHEMA.pattern == ENTITY_ID_PATTERN
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -487,7 +487,7 @@ class TestLabelPersistenceAndPurge:
                     "t_seconds": 12.5,
                     "event_type": "mvc_probe",
                     "label": "First MVC probe",
-                    "subject_id": "S001",
+                    "entity_id": "S001",
                 },
             )
         )

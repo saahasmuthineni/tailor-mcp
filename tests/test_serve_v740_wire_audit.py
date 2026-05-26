@@ -109,7 +109,7 @@ def _seed_audit_row_with_phi(
         conn.execute(
             "INSERT INTO audit_log (timestamp, domain, tool_name, tier, "
             "params, token_estimate, outcome, duration_ms, error, "
-            "subject_id, scrubber_id, source_metadata_fingerprint) "
+            "entity_id, scrubber_id, source_metadata_fingerprint) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 "2026-05-16T14:00:00+00:00",
@@ -442,18 +442,18 @@ class TestA6AuditRowProvenance:
                 client.initialize()
                 client.call_tool(
                     "audit_query",
-                    {"since": "1h", "subject_id": "S004"},
+                    {"since": "1h", "entity_id": "S004"},
                 )
             finally:
                 _teardown(proc)
 
             # Inspect audit.db directly to verify the row was written
-            # with the correct kwargs (subject_id threaded, scrubber_id
+            # with the correct kwargs (entity_id threaded, scrubber_id
             # = noop, source_metadata_fingerprint = NULL).
             conn = sqlite3.connect(str(dat / "audit.db"))
             try:
                 row = conn.execute(
-                    "SELECT domain, tool_name, outcome, subject_id, "
+                    "SELECT domain, tool_name, outcome, entity_id, "
                     "scrubber_id, source_metadata_fingerprint "
                     "FROM audit_log WHERE tool_name='audit_query' "
                     "ORDER BY id DESC LIMIT 1"

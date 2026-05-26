@@ -14,7 +14,7 @@ the router.
 
 Module layout (since v5.0.0):
 - ``framework.security``  — ParamValidator, CircuitBreaker,
-                            ConsentGate, PHIScrubber
+                            ConsentGate, DataScrubber
 - ``framework.cost``      — CostGate, TokenLedger, estimate_tokens
 - ``framework.audit``     — AuditLog (and the JSON helpers used
                             across the framework)
@@ -27,8 +27,8 @@ Module layout (since v5.0.0):
 from .audit import AuditLog
 from .cost import CostGate, TokenLedger, estimate_tokens
 from .interfaces import (
-    SUBJECT_ID_PARAM_DOC,
-    SUBJECT_ID_SCHEMA,
+    ENTITY_ID_PARAM_DOC,
+    ENTITY_ID_SCHEMA,
     ChildMCP,
     ConsentInfo,
     ConsentScope,
@@ -43,7 +43,7 @@ from .security import (
     ConsentGate,
     OperatorActionRequired,
     ParamValidator,
-    PHIScrubber,
+    DataScrubber,
 )
 from .storage import BaseStorage
 
@@ -54,10 +54,10 @@ __all__ = [
     # interfaces
     "ChildMCP", "ToolDefinition", "CostEstimate", "ValidationSchema",
     "ConsentInfo", "ConsentScope", "CostContext", "LLMInstruction",
-    "SUBJECT_ID_SCHEMA", "SUBJECT_ID_PARAM_DOC",
+    "ENTITY_ID_SCHEMA", "ENTITY_ID_PARAM_DOC",
     # security
     "CircuitBreaker", "ConsentGate", "OperatorActionRequired",
-    "ParamValidator", "PHIScrubber",
+    "ParamValidator", "DataScrubber",
     # cost
     "CostGate", "TokenLedger", "estimate_tokens",
     # audit

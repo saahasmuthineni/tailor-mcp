@@ -26,14 +26,14 @@ from tailor.children.redcap import (
     RedcapPHIScrubber,
 )
 from tailor.framework.interfaces import (
-    SUBJECT_ID_SCHEMA,
+    ENTITY_ID_SCHEMA,
     CostEstimate,
     ToolDefinition,
     ValidationSchema,
 )
 from tailor.framework.router import RouterMCP
 
-SUBJECT_ID_PATTERN = r"^[A-Za-z0-9_\-]{1,64}$"
+ENTITY_ID_PATTERN = r"^[A-Za-z0-9_\-]{1,64}$"
 
 FIXTURE_DIR = (
     Path(__file__).parent.parent.parent.parent
@@ -136,33 +136,33 @@ class TestToolSurface:
 # ═══════════════════════════════════════════════════════════════
 
 
-class TestSubjectIdConsistency:
-    def test_every_tool_declares_subject_id_in_param_schemas(
+class TestEntityIdConsistency:
+    def test_every_tool_declares_entity_id_in_param_schemas(
         self, redcap_child: RedcapFileChild,
     ):
         for tool_name, tool_schema in redcap_child.param_schemas.items():
-            assert "subject_id" in tool_schema, (
-                f"{tool_name} missing subject_id in param_schemas"
+            assert "entity_id" in tool_schema, (
+                f"{tool_name} missing entity_id in param_schemas"
             )
-            entry = tool_schema["subject_id"]
+            entry = tool_schema["entity_id"]
             assert isinstance(entry, ValidationSchema)
             assert entry.type is str
             assert entry.required is False
-            assert entry.pattern == SUBJECT_ID_PATTERN
+            assert entry.pattern == ENTITY_ID_PATTERN
 
-    def test_every_tool_declares_subject_id_in_tool_definitions(
+    def test_every_tool_declares_entity_id_in_tool_definitions(
         self, redcap_child: RedcapFileChild,
     ):
         for td in redcap_child.tool_definitions:
-            assert "subject_id" in td.params
-            entry = td.params["subject_id"]
+            assert "entity_id" in td.params
+            entry = td.params["entity_id"]
             assert entry["type"] == "string"
             assert entry["required"] is False
 
-    def test_canonical_subject_id_schema_pattern(self):
-        assert SUBJECT_ID_SCHEMA.type is str
-        assert SUBJECT_ID_SCHEMA.required is False
-        assert SUBJECT_ID_SCHEMA.pattern == SUBJECT_ID_PATTERN
+    def test_canonical_entity_id_schema_pattern(self):
+        assert ENTITY_ID_SCHEMA.type is str
+        assert ENTITY_ID_SCHEMA.required is False
+        assert ENTITY_ID_SCHEMA.pattern == ENTITY_ID_PATTERN
 
 
 # ═══════════════════════════════════════════════════════════════

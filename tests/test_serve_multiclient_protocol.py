@@ -381,7 +381,7 @@ def test_mc1_all_children_tools_list_count_and_no_collisions() -> None:
             # running
             "strava_list_runs", "strava_run_report", "strava_full_streams",
             # csv_dir
-            "csv_list_files", "csv_cohort_summary", "csv_raw_stream",
+            "csv_list_files", "csv_group_summary", "csv_raw_stream",
             # redcap
             "redcap_list_records", "redcap_records", "redcap_raw_records",
             # local_llm
@@ -725,7 +725,7 @@ def test_mc7_matlab_scipy_absent_coexists_with_other_children() -> None:
             )
 
         # csv_dir tools must be present.
-        for t in ("csv_list_files", "csv_cohort_summary"):
+        for t in ("csv_list_files", "csv_group_summary"):
             assert t in names, (
                 f"csv_dir tool {t!r} absent in co-resident config."
             )

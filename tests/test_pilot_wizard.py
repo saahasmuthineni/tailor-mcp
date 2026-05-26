@@ -631,13 +631,13 @@ def test_attest_initial_audit_row_uses_auditlog_record_with_child_scrubber_id(
     # assertion catches any future regression to that pattern.
     # WATCH-1 closure (phi-irb-risk-reviewer 2026-05-18): the row
     # threads the framework scrubber's identity dynamically rather
-    # than hardcoding "noop". Under the default PHIScrubber the
+    # than hardcoding "noop". Under the default DataScrubber the
     # identity IS "noop", but a subclassed framework scrubber would
     # surface its own identity here AND on the matching REATTEST row
     # — without this contract, the rows would disagree on
     # scrubber_id for the same logical event.
-    from tailor.framework.security import PHIScrubber
-    assert scrubber_id == PHIScrubber().scrubber_id
+    from tailor.framework.security import DataScrubber
+    assert scrubber_id == DataScrubber().scrubber_id
     assert child_scrubber_id == "redcap_metadata_flags"
     assert source_meta_fp == fingerprint
     # Parse params as JSON (Windows backslashes are double-escaped in

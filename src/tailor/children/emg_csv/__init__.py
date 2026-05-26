@@ -10,7 +10,7 @@ custom MR-conditional EMG hardware.
 This is the **second** node in the planned data-source family — see
 ``children/force_csv/__init__.py`` for the multimodal-composition
 framing.  Sibling pattern, not a fork.  Composition with force_csv
-via shared ``subject_id`` (ADR 0009), shared audit log (ADR 0001),
+via shared ``entity_id`` (ADR 0009), shared audit log (ADR 0001),
 and the existing ``dispatch_internal`` cross-child seam lets an
 analyst query *"show me subject S004's EMG fatigue progression
 alongside their force decline across this trial"* without further

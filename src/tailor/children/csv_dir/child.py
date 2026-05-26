@@ -34,8 +34,8 @@ import logging
 from pathlib import Path
 
 from ...framework.interfaces import (
-    SUBJECT_ID_PARAM_DOC,
-    SUBJECT_ID_SCHEMA,
+    ENTITY_ID_PARAM_DOC,
+    ENTITY_ID_SCHEMA,
     ChildMCP,
     ConsentInfo,
     ConsentScope,
@@ -47,7 +47,7 @@ from .processing import COHORT_METRICS, CSVProcessing
 
 log = logging.getLogger("tailor.csv_dir")
 
-# SUBJECT_ID_SCHEMA / SUBJECT_ID_PARAM_DOC are framework-level constants
+# ENTITY_ID_SCHEMA / ENTITY_ID_PARAM_DOC are framework-level constants
 # (see ADR 0002) — csv_* tools reference them via the import above.
 
 # Filename-safe pattern for file_id parameter — rejects path
@@ -58,14 +58,14 @@ FILE_ID_PATTERN = r"^[A-Za-z0-9_\-\.]{1,255}$"
 # Files larger than this return an error suggesting csv_downsampled.
 MAX_CSV_BYTES = 100 * 1024 * 1024  # 100 MB
 
-# Upper bound on number of CSVs csv_cohort_summary will scan in a single
+# Upper bound on number of CSVs csv_group_summary will scan in a single
 # call. Keeps the Tier-1 cost predictable and bounded; a directory with
 # more than this many files yields a clear error rather than silently
 # scanning a few hundred files. Tuned for typical pilot-study scale (the
 # project's stated audience: 5–20 participants, see ADR 0009).
 MAX_COHORT_FILES = 64
 
-# Sidecar metadata filename. Optional; csv_cohort_summary requires it
+# Sidecar metadata filename. Optional; csv_group_summary requires it
 # (see ADR 0015). Schema: ``{"<csv_filename>": {"<field>": <value>, ...}}``.
 METADATA_FILENAME = "metadata.json"
 
@@ -79,7 +79,7 @@ class CSVDirectoryChild(ChildMCP):
     | ``csv_list_files``       | 1    | List CSV files with metadata           |
     | ``csv_file_detail``      | 1    | Single-file stats                      |
     | ``csv_summary_report``   | 1    | Server-computed report (vaultable)     |
-    | ``csv_cohort_summary``   | 1    | Cross-file cohort aggregation by group |
+    | ``csv_group_summary``   | 1    | Cross-file cohort aggregation by group |
     | ``csv_force_decline``    | 1    | Per-file fatigue diagnostic            |
     | ``csv_downsampled``      | 2    | Decimated rows (consent-gated)         |
     | ``csv_raw_stream``       | 3    | Full rows, reduced (cost-gated)        |
@@ -271,7 +271,7 @@ class CSVDirectoryChild(ChildMCP):
                 "List CSV files in the configured directory with size and column names. ~200 tokens.",
                 {
                     "limit": {"type": "integer", "description": "Max results (default 20)", "required": False},
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -279,7 +279,7 @@ class CSVDirectoryChild(ChildMCP):
                 "Single-file metadata and per-column summary statistics.",
                 {
                     "file_id": {"type": "string", "description": "CSV filename", "required": True},
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -288,11 +288,11 @@ class CSVDirectoryChild(ChildMCP):
                 "data completeness. No raw data leaves the server. ~800 tokens.",
                 {
                     "file_id": {"type": "string", "description": "CSV filename", "required": True},
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
-                "csv_cohort_summary", 1,
+                "csv_group_summary", 1,
                 "Cross-file cohort aggregation. Groups every CSV in the "
                 "directory by a metadata field declared in metadata.json, "
                 "reduces the named column to a per-file scalar by metric, "
@@ -314,7 +314,7 @@ class CSVDirectoryChild(ChildMCP):
                         ),
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -329,7 +329,7 @@ class CSVDirectoryChild(ChildMCP):
                 {
                     "file_id": {"type": "string", "description": "CSV filename", "required": True},
                     "value_column": {"type": "string", "description": "Numeric column header to analyse (e.g. 'force', 'envelope'). Renamed from 'column' in v7.6.0 to match force_csv + emg_csv per ADR 0038 § Amendment 2026-05-19.", "required": True},
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -359,7 +359,7 @@ class CSVDirectoryChild(ChildMCP):
                     "min_spacing_s": {"type": "number", "description": "Minimum seconds between detected contractions; closer peaks collapse to the higher one. Default 1.0.", "required": False},
                     "lead_s": {"type": "number", "description": "Optional: seconds before each detected peak to start a fixed analysis window. Pair with window_s.", "required": False},
                     "window_s": {"type": "number", "description": "Optional: length in seconds of a fixed analysis window anchored at each peak. Pair with lead_s.", "required": False},
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             # ── Tier 2: Consent-gated (downsampled) ──
@@ -379,7 +379,7 @@ class CSVDirectoryChild(ChildMCP):
                         "description": col_desc,
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             # ── Tier 3: Cost-gated (full rows) ──
@@ -394,7 +394,7 @@ class CSVDirectoryChild(ChildMCP):
                         "description": col_desc,
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
         ]
@@ -404,21 +404,21 @@ class CSVDirectoryChild(ChildMCP):
         return {
             "csv_list_files": {
                 "limit": ValidationSchema(type=int, min=1, max=100, default=20),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "csv_file_detail": {
                 "file_id": ValidationSchema(
                     type=str, required=True, pattern=FILE_ID_PATTERN,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "csv_summary_report": {
                 "file_id": ValidationSchema(
                     type=str, required=True, pattern=FILE_ID_PATTERN,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
-            "csv_cohort_summary": {
+            "csv_group_summary": {
                 "value_column": ValidationSchema(
                     type=str,
                     required=True,
@@ -433,7 +433,7 @@ class CSVDirectoryChild(ChildMCP):
                     allowed_values=list(COHORT_METRICS),
                     default="mean",
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "csv_force_decline": {
                 "file_id": ValidationSchema(
@@ -444,7 +444,7 @@ class CSVDirectoryChild(ChildMCP):
                     required=True,
                     allowed_values=self._column_names,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "csv_synchronized_windows": {
                 # file_id optional — absent means cohort mode (scan
@@ -474,7 +474,7 @@ class CSVDirectoryChild(ChildMCP):
                 "min_spacing_s": ValidationSchema(type=float, required=False),
                 "lead_s": ValidationSchema(type=float, required=False),
                 "window_s": ValidationSchema(type=float, required=False),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "csv_downsampled": {
                 "file_id": ValidationSchema(
@@ -484,7 +484,7 @@ class CSVDirectoryChild(ChildMCP):
                 "columns": ValidationSchema(
                     type=list, allowed_values=self._column_names,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "csv_raw_stream": {
                 "file_id": ValidationSchema(
@@ -493,7 +493,7 @@ class CSVDirectoryChild(ChildMCP):
                 "columns": ValidationSchema(
                     type=list, allowed_values=self._column_names,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
         }
 
@@ -564,7 +564,7 @@ class CSVDirectoryChild(ChildMCP):
             "csv_list_files": self._handle_list_files,
             "csv_file_detail": self._handle_file_detail,
             "csv_summary_report": self._handle_summary_report,
-            "csv_cohort_summary": self._handle_cohort_summary,
+            "csv_group_summary": self._handle_cohort_summary,
             "csv_force_decline": self._handle_force_decline,
             "csv_synchronized_windows": self._handle_synchronized_windows,
             "csv_downsampled": self._handle_downsampled,
@@ -791,7 +791,7 @@ class CSVDirectoryChild(ChildMCP):
         maps ``filename → {field: value, ...}``. ``error_message`` is
         non-None only when the sidecar exists but is malformed; missing
         is not an error (the caller decides whether the absence is
-        fatal — csv_cohort_summary requires it, others ignore it).
+        fatal — csv_group_summary requires it, others ignore it).
 
         ``utf-8-sig`` mirrors the CSV-read paths for BOM transparency
         (v6.9.2 — a sidecar saved by Excel / PowerShell-default
@@ -842,7 +842,7 @@ class CSVDirectoryChild(ChildMCP):
         if not metadata:
             return {
                 "error": (
-                    f"csv_cohort_summary requires {METADATA_FILENAME} in "
+                    f"csv_group_summary requires {METADATA_FILENAME} in "
                     f"{self._csv_path} (see ADR 0015 for schema)"
                 ),
             }

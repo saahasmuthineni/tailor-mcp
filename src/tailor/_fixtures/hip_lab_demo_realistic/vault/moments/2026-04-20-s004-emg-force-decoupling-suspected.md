@@ -7,7 +7,7 @@ slug: "s004-emg-force-decoupling-suspected"
 date: "2026-04-20"
 linked_runs: []
 linked_themes: []
-subject_id: "S004"
+entity_id: "S004"
 generated_at: "2026-04-20T15:42:00Z"
 tags:
   - moment

@@ -52,32 +52,32 @@ def audit_log(tmp_path: Path) -> AuditLog:
 def seeded_audit_log(audit_log: AuditLog) -> AuditLog:
     """AuditLog with a handful of representative rows across paths."""
     audit_log.record(
-        "csv_dir", "csv_cohort_summary", 1, {"value_column": "force"},
-        500, "SUCCESS", 12, subject_id="S001",
+        "csv_dir", "csv_group_summary", 1, {"value_column": "force"},
+        500, "SUCCESS", 12, entity_id="S001",
         scrubber_id="noop",
     )
     audit_log.record(
         "redcap_file", "redcap_record_detail", 1,
         {"record_id": "MRN-12345"},  # Tests must verify this never egresses
-        420, "SUCCESS", 18, subject_id="S004",
+        420, "SUCCESS", 18, entity_id="S004",
         scrubber_id="noop", child_scrubber_id="redcap_metadata_flags",
         source_metadata_fingerprint="a1b2c3d4",
     )
     audit_log.record(
         "running", "strava_run_report", 3, {"activity_id": 42},
-        45_000, "COST_BLOCKED", 8, subject_id=None,
+        45_000, "COST_BLOCKED", 8, entity_id=None,
         scrubber_id="noop",
         # Raw on-disk path simulating a pre-v7.3.1 row
         error="ERROR at /home/saahas/secret/path: cost exceeded",
     )
     audit_log.record(
         "audit_query", "audit_query", 1, {"since": "1h"},
-        2_400, "SUCCESS", 5, subject_id=None,
+        2_400, "SUCCESS", 5, entity_id=None,
         scrubber_id="noop",
     )
     audit_log.record(
         "vault", "vault_upsert_theme", 1, {"slug": "fatigue-decline"},
-        1_200, "SUCCESS", 22, subject_id="S004",
+        1_200, "SUCCESS", 22, entity_id="S004",
         scrubber_id="noop",
     )
     return audit_log
@@ -187,7 +187,7 @@ class TestAuditLogQueryAllowlist:
         expected_keys = {
             "id", "timestamp", "domain", "tool_name", "tier",
             "token_estimate", "outcome", "duration_ms",
-            "subject_id", "scrubber_id", "child_scrubber_id",
+            "entity_id", "scrubber_id", "child_scrubber_id",
             "source_metadata_fingerprint", "has_error",
         }
         assert set(row.keys()) == expected_keys
@@ -227,23 +227,23 @@ class TestAuditLogQueryAllowlist:
         success_rows = [r for r in rows if r["outcome"] == "SUCCESS"]
         assert success_rows and all(r["has_error"] is False for r in success_rows)
 
-    def test_subject_id_is_null_or_match_filter(self, seeded_audit_log):
-        """ADR 0009 IS-NULL-or-match: a subject_id filter must surface
-        framework-tier rows (NULL subject_id) alongside the requested
+    def test_entity_id_is_null_or_match_filter(self, seeded_audit_log):
+        """ADR 0009 IS-NULL-or-match: a entity_id filter must surface
+        framework-tier rows (NULL entity_id) alongside the requested
         subject's rows. From the v7.4.0 audit NICE-TO-HAVE-1."""
         rows = seeded_audit_log.query(
-            since="2020-01-01T00:00:00+00:00", subject_id="S004",
+            since="2020-01-01T00:00:00+00:00", entity_id="S004",
         )
-        sids = {row["subject_id"] for row in rows}
+        sids = {row["entity_id"] for row in rows}
         # Both the explicit S004 rows AND the NULL-subject rows surface
         assert "S004" in sids
         assert None in sids
         # The S001 row (different subject) does NOT surface
         assert "S001" not in sids
 
-    def test_subject_id_none_returns_all(self, seeded_audit_log):
+    def test_entity_id_none_returns_all(self, seeded_audit_log):
         rows = seeded_audit_log.query(since="2020-01-01T00:00:00+00:00")
-        sids = {row["subject_id"] for row in rows}
+        sids = {row["entity_id"] for row in rows}
         # All seeded subjects + NULL
         assert sids == {"S001", "S004", None}
 
@@ -322,7 +322,7 @@ class TestAuditQueryLayerExecute:
                 "audit_query",
                 {
                     "since": "1h",
-                    "subject_id": "S004",
+                    "entity_id": "S004",
                     "domain": "redcap_file",
                     "limit": 10,
                 },
@@ -330,7 +330,7 @@ class TestAuditQueryLayerExecute:
         )
         scope = result["scope_statement"]
         assert "since=" in scope
-        assert "subject_id=S004" in scope
+        assert "entity_id=S004" in scope
         assert "domain=redcap_file" in scope
         assert "limit=10" in scope
 
@@ -343,14 +343,14 @@ class TestAuditQueryLayerExecute:
         assert td.tier == 1
         assert "since" in td.params
         assert td.params["since"]["required"] is True
-        assert "subject_id" in td.params
+        assert "entity_id" in td.params
         assert "domain" in td.params
 
     def test_param_schemas_covers_all_declared_params(self, audit_log):
         layer = AuditQueryLayer(audit_log=audit_log)
         schemas = layer.param_schemas["audit_query"]
         for key in (
-            "since", "subject_id", "domain", "tool", "outcome",
+            "since", "entity_id", "domain", "tool", "outcome",
             "limit", "include_self",
         ):
             assert key in schemas

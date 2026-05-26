@@ -14,21 +14,21 @@ import pytest
 from tailor.framework.audit import JSON_BACKEND, AuditLog, _dumps, _loads
 
 
-class TestAuditLogSubjectId:
+class TestAuditLogEntityId:
     """
-    ``subject_id`` is the research-framing hook that lets audit rows be
+    ``entity_id`` is the research-framing hook that lets audit rows be
     scoped to a study participant or cohort. The column is nullable, so
     existing children that don't pass one keep working unchanged.
     """
 
-    def test_record_with_subject_id_round_trips(self):
+    def test_record_with_entity_id_round_trips(self):
         with TemporaryDirectory() as tmpdir:
             db = Path(tmpdir) / "audit.db"
             audit = AuditLog(db)
             try:
                 audit.record(
                     "cgm", "cgm_daily_report", 1, {"date": "2026-04-10"},
-                    400, "SUCCESS", 12, subject_id="P042",
+                    400, "SUCCESS", 12, entity_id="P042",
                 )
                 audit.record(
                     "running", "strava_run_report", 1, {}, 800, "SUCCESS", 15,
@@ -39,7 +39,7 @@ class TestAuditLogSubjectId:
             conn = sqlite3.connect(str(db))
             try:
                 rows = conn.execute(
-                    "SELECT tool_name, subject_id FROM audit_log ORDER BY id"
+                    "SELECT tool_name, entity_id FROM audit_log ORDER BY id"
                 ).fetchall()
             finally:
                 conn.close()
@@ -49,12 +49,12 @@ class TestAuditLogSubjectId:
             ("strava_run_report", None),
         ]
 
-    def test_migrates_legacy_audit_db_without_subject_id(self):
+    def test_migrates_legacy_audit_db_without_entity_id(self):
         """An audit.db created before the reframe must still open."""
         with TemporaryDirectory() as tmpdir:
             db = Path(tmpdir) / "audit.db"
 
-            # Simulate a legacy schema: no subject_id column, one row.
+            # Simulate a legacy schema: no entity_id column, one row.
             legacy = sqlite3.connect(str(db))
             legacy.execute("""
                 CREATE TABLE audit_log (
@@ -83,7 +83,7 @@ class TestAuditLogSubjectId:
             try:
                 audit.record(
                     "running", "new_tool", 1, {}, 100, "SUCCESS", 5,
-                    subject_id="P007",
+                    entity_id="P007",
                 )
             finally:
                 audit.close()
@@ -91,7 +91,7 @@ class TestAuditLogSubjectId:
             conn = sqlite3.connect(str(db))
             try:
                 rows = conn.execute(
-                    "SELECT tool_name, subject_id FROM audit_log ORDER BY id"
+                    "SELECT tool_name, entity_id FROM audit_log ORDER BY id"
                 ).fetchall()
             finally:
                 conn.close()
@@ -145,7 +145,7 @@ class TestAuditLogScrubberId:
         ]
 
     def test_migrates_legacy_audit_db_without_scrubber_id(self):
-        """A v6.1 audit.db (subject_id present, scrubber_id absent) must still open."""
+        """A v6.1 audit.db (entity_id present, scrubber_id absent) must still open."""
         with TemporaryDirectory() as tmpdir:
             db = Path(tmpdir) / "audit.db"
 
@@ -162,11 +162,11 @@ class TestAuditLogScrubberId:
                     outcome TEXT NOT NULL,
                     duration_ms INTEGER,
                     error TEXT,
-                    subject_id TEXT
+                    entity_id TEXT
                 )
             """)
             legacy.execute(
-                "INSERT INTO audit_log (timestamp, domain, tool_name, tier, outcome, subject_id)"
+                "INSERT INTO audit_log (timestamp, domain, tool_name, tier, outcome, entity_id)"
                 " VALUES (?,?,?,?,?,?)",
                 ("2024-01-01T00:00:00Z", "running", "legacy_tool", 1, "SUCCESS", "P001"),
             )
@@ -177,7 +177,7 @@ class TestAuditLogScrubberId:
             try:
                 audit.record(
                     "running", "new_tool", 1, {}, 100, "SUCCESS", 5,
-                    subject_id="P007", scrubber_id="noop",
+                    entity_id="P007", scrubber_id="noop",
                 )
             finally:
                 audit.close()
@@ -185,7 +185,7 @@ class TestAuditLogScrubberId:
             conn = sqlite3.connect(str(db))
             try:
                 rows = conn.execute(
-                    "SELECT tool_name, subject_id, scrubber_id FROM audit_log ORDER BY id"
+                    "SELECT tool_name, entity_id, scrubber_id FROM audit_log ORDER BY id"
                 ).fetchall()
             finally:
                 conn.close()
@@ -207,7 +207,7 @@ class TestAuditLogScrubberId:
         with TemporaryDirectory() as tmpdir:
             db = Path(tmpdir) / "audit.db"
 
-            # Simulate a v7.2.0 schema: subject_id + scrubber_id + all
+            # Simulate a v7.2.0 schema: entity_id + scrubber_id + all
             # oracle_* columns present; child_scrubber_id absent.
             legacy = sqlite3.connect(str(db))
             legacy.execute("""
@@ -222,7 +222,7 @@ class TestAuditLogScrubberId:
                     outcome TEXT NOT NULL,
                     duration_ms INTEGER,
                     error TEXT,
-                    subject_id TEXT,
+                    entity_id TEXT,
                     scrubber_id TEXT,
                     oracle_model_id TEXT,
                     oracle_model_version_hash TEXT,
@@ -238,7 +238,7 @@ class TestAuditLogScrubberId:
             legacy.execute(
                 "INSERT INTO audit_log"
                 " (timestamp, domain, tool_name, tier, outcome,"
-                "  subject_id, scrubber_id)"
+                "  entity_id, scrubber_id)"
                 " VALUES (?,?,?,?,?,?,?)",
                 (
                     "2025-12-01T00:00:00Z",
@@ -275,7 +275,7 @@ class TestAuditLogScrubberId:
                 audit.record(
                     "redcap", "redcap_summary_report", 1, {}, 100,
                     "SUCCESS", 5,
-                    subject_id="P007", scrubber_id="noop",
+                    entity_id="P007", scrubber_id="noop",
                     child_scrubber_id="redcap_metadata_flags",
                 )
             finally:
@@ -284,7 +284,7 @@ class TestAuditLogScrubberId:
             conn = sqlite3.connect(str(db))
             try:
                 rows = conn.execute(
-                    "SELECT tool_name, subject_id, scrubber_id,"
+                    "SELECT tool_name, entity_id, scrubber_id,"
                     " child_scrubber_id FROM audit_log ORDER BY id"
                 ).fetchall()
             finally:

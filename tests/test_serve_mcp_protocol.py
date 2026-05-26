@@ -131,13 +131,13 @@ def test_csv_force_decline_round_trip() -> None:
 
 
 def test_csv_cohort_summary_round_trip() -> None:
-    """csv_cohort_summary (new in v6.5.0) round-trips cleanly with
+    """csv_group_summary (new in v6.5.0) round-trips cleanly with
     metadata.json sidecar."""
     with spawn_server() as (client, _paths):
         client.initialize()
 
         resp = client.call_tool(
-            "csv_cohort_summary",
+            "csv_group_summary",
             {"value_column": "heart_rate", "group_by": "sex", "metric": "mean"},
         )
         assert "error" not in resp, resp
@@ -546,7 +546,7 @@ def test_tools_list_includes_ask_local_oracle() -> None:
     Covers:
     - Tool is present at all (registration didn't crash or collide).
     - inputSchema has the three documented properties: question (string,
-      required), resolved_context (object, required), subject_id (string,
+      required), resolved_context (object, required), entity_id (string,
       optional).
     - No extra ``required`` entries that would break callers passing
       only {question, resolved_context}.
@@ -572,20 +572,20 @@ def test_tools_list_includes_ask_local_oracle() -> None:
         assert "resolved_context" in props, (
             f"'resolved_context' missing from inputSchema: {props}"
         )
-        assert "subject_id" in props, (
-            f"'subject_id' missing from inputSchema: {props}"
+        assert "entity_id" in props, (
+            f"'entity_id' missing from inputSchema: {props}"
         )
 
         # Type fidelity
         assert props["question"]["type"] == "string"
         assert props["resolved_context"]["type"] == "object"
-        assert props["subject_id"]["type"] == "string"
+        assert props["entity_id"]["type"] == "string"
 
-        # Required: question + resolved_context; subject_id is optional
+        # Required: question + resolved_context; entity_id is optional
         assert "question" in required
         assert "resolved_context" in required
-        assert "subject_id" not in required, (
-            "subject_id is optional — it must NOT be in required[]"
+        assert "entity_id" not in required, (
+            "entity_id is optional — it must NOT be in required[]"
         )
 
 
@@ -618,7 +618,7 @@ def test_ask_local_oracle_tools_call_happy_path() -> None:
                     "n_samples": 5,
                 }
             },
-            "subject_id": "P003",
+            "entity_id": "P003",
         })
 
         assert "error" not in resp, f"tools/call returned error: {resp}"
@@ -692,7 +692,7 @@ def test_ask_local_oracle_wire_serialization_no_repr() -> None:
         resp = client.call_tool("ask_local_oracle", {
             "question": "Wire serialization stress test",
             "resolved_context": {
-                "csv_cohort_summary": {
+                "csv_group_summary": {
                     "P001": {"mean_hr": 76.0, "n": 5},
                     "P002": {"mean_hr": 86.0, "n": 5},
                 }
@@ -794,7 +794,7 @@ def test_ask_local_oracle_audit_db_oracle_columns() -> None:
                 "resolved_context": {
                     "csv_force_decline": {"peak": 50.0},
                 },
-                "subject_id": "P_audit_test",
+                "entity_id": "P_audit_test",
             })
 
             import time
@@ -942,7 +942,7 @@ def test_ask_local_oracle_related_substrate_top_level_field() -> None:
             "resolved_context": {
                 "csv_force_decline": {"peak": 100.0, "decline_pct_total": 5.0},
             },
-            "subject_id": "P001",
+            "entity_id": "P001",
         })
 
         assert "error" not in resp, f"tools/call error: {resp}"
@@ -975,7 +975,7 @@ def test_ask_local_oracle_related_substrate_top_level_field() -> None:
 def test_ask_local_oracle_related_substrate_no_repr_artifacts() -> None:
     """S2: Wire serialization of related_substrate entries is clean JSON.
 
-    Substrate entries carry {kind, slug, title, subject_id, status,
+    Substrate entries carry {kind, slug, title, entity_id, status,
     last_updated} — all str or None. The _dumps seam must not coerce
     None values into 'None' strings via default=str, and must not
     produce Python repr on any field.
@@ -991,7 +991,7 @@ def test_ask_local_oracle_related_substrate_no_repr_artifacts() -> None:
         resp = client.call_tool("ask_local_oracle", {
             "question": "serialization stress: substrate with nested dicts",
             "resolved_context": {
-                "csv_cohort_summary": {
+                "csv_group_summary": {
                     "groups": {
                         "F": {"mean": 76.0, "n": 5},
                         "M": {"mean": 86.0, "n": 5},
@@ -1072,7 +1072,7 @@ def test_oracle_substrate_count_audit_column_present_and_correct() -> None:
             client.call_tool("ask_local_oracle", {
                 "question": "substrate count audit test",
                 "resolved_context": {"csv_force_decline": {"peak": 60.0}},
-                "subject_id": "P_sc_test",
+                "entity_id": "P_sc_test",
             })
             import time
             time.sleep(0.5)
@@ -1295,7 +1295,7 @@ def test_ask_local_oracle_response_has_gap_reasoning_fields_at_top_level() -> No
                     "n_samples": 5,
                 },
             },
-            "subject_id": "P003",
+            "entity_id": "P003",
         })
 
         assert "error" not in resp, f"tools/call returned error: {resp}"
@@ -1388,7 +1388,7 @@ def test_gap_reasoning_fields_wire_serialization_no_repr() -> None:
         narrative="P003 showed a 15% decline.",
         ambiguity_axes=["Which muscle group is primary?"],
         confidence=0.72,
-        next_best_calls=["csv_cohort_summary", "csv_force_decline"],
+        next_best_calls=["csv_group_summary", "csv_force_decline"],
         unresolved_intent=["Which group does P003 belong to?"],
         meta=meta,
     )
@@ -1402,8 +1402,8 @@ def test_gap_reasoning_fields_wire_serialization_no_repr() -> None:
 
     # The two new list fields must appear as JSON arrays, not stringified
     # Python reprs. The smoking-gun signature of the bug would be the
-    # literal string "['csv_cohort_summary'" appearing in the wire payload.
-    assert "['csv_cohort_summary'" not in encoded, (
+    # literal string "['csv_group_summary'" appearing in the wire payload.
+    assert "['csv_group_summary'" not in encoded, (
         "next_best_calls was serialized as a Python repr string instead "
         "of a JSON array — this is a default=str coercion bug. "
         f"Wire payload excerpt: {encoded[:400]}"
@@ -1417,7 +1417,7 @@ def test_gap_reasoning_fields_wire_serialization_no_repr() -> None:
     # Full round-trip: parse back and verify structural integrity.
     decoded = json.loads(encoded)
     assert decoded["next_best_calls"] == [
-        "csv_cohort_summary", "csv_force_decline",
+        "csv_group_summary", "csv_force_decline",
     ], (
         f"next_best_calls round-trip failed: {decoded['next_best_calls']!r}"
     )
@@ -1427,8 +1427,8 @@ def test_gap_reasoning_fields_wire_serialization_no_repr() -> None:
         f"unresolved_intent round-trip failed: {decoded['unresolved_intent']!r}"
     )
     # Verify the values are genuine JSON arrays in the raw encoded string.
-    assert '"next_best_calls": ["csv_cohort_summary"' in encoded or \
-           '"next_best_calls":["csv_cohort_summary"' in encoded, (
+    assert '"next_best_calls": ["csv_group_summary"' in encoded or \
+           '"next_best_calls":["csv_group_summary"' in encoded, (
         "next_best_calls not serialized as a JSON array in raw wire bytes. "
         f"Wire payload: {encoded[:400]}"
     )
@@ -1721,7 +1721,7 @@ def test_tour_force_cohort_summary_round_trip() -> None:
     it closes the gap where force_cohort_summary had no subprocess coverage.
 
     Note: v7.3.4 aligned 'group_field' → 'group_by' across force_cohort_summary
-    and emg_cohort_summary to match csv_cohort_summary (cue-card-rehearsal-auditor
+    and emg_cohort_summary to match csv_group_summary (cue-card-rehearsal-auditor
     D2 closure). 'value_column' name retained for now; align to 'column' is
     queued for v7.4.0.
     """
@@ -2214,7 +2214,7 @@ def test_sh4_setup_help_path_redaction_on_wire() -> None:
 def test_sh5_setup_help_audit_row_provenance() -> None:
     """SH5: After tools/call tailor_setup_help, audit.db contains a
     row with correct provenance: domain='setup_help', outcome='SUCCESS',
-    tool_name='tailor_setup_help', subject_id=NULL, scrubber_id stamped.
+    tool_name='tailor_setup_help', entity_id=NULL, scrubber_id stamped.
 
     This is the subprocess-level complement to the router-unit test
     ``test_dispatch_setup_help_writes_audit_row`` in
@@ -2269,7 +2269,7 @@ def test_sh5_setup_help_audit_row_provenance() -> None:
         )
         with sqlite3.connect(str(audit_db)) as conn:
             rows = conn.execute(
-                "SELECT domain, tool_name, outcome, subject_id, scrubber_id "
+                "SELECT domain, tool_name, outcome, entity_id, scrubber_id "
                 "FROM audit_log WHERE tool_name = 'tailor_setup_help'"
             ).fetchall()
 
@@ -2277,7 +2277,7 @@ def test_sh5_setup_help_audit_row_provenance() -> None:
             "No audit row for tailor_setup_help found in audit.db. "
             "The setup_help dispatch pipeline must write a SUCCESS row."
         )
-        domain, tool_name, outcome, subject_id, scrubber_id = rows[0]
+        domain, tool_name, outcome, entity_id, scrubber_id = rows[0]
         assert domain == "setup_help", (
             f"audit row domain={domain!r} != 'setup_help'"
         )
@@ -2287,8 +2287,8 @@ def test_sh5_setup_help_audit_row_provenance() -> None:
         assert outcome == "SUCCESS", (
             f"audit row outcome={outcome!r} — expected 'SUCCESS'"
         )
-        assert subject_id is None, (
-            f"audit row subject_id={subject_id!r} — must be NULL "
+        assert entity_id is None, (
+            f"audit row entity_id={entity_id!r} — must be NULL "
             "(setup_help is a server-state diagnostic, not per-subject)"
         )
         assert scrubber_id, (
@@ -2307,7 +2307,7 @@ def test_sh6_setup_help_extra_params_do_not_error() -> None:
     be stripped or passed through without triggering a validation error.
 
     This pins the invariant: an LLM that passes extra params (e.g. a
-    leftover 'subject_id' from an adjacent tool call) must not receive
+    leftover 'entity_id' from an adjacent tool call) must not receive
     a hard error from a zero-schema tool.
     """
     with _spawn_empty_config_server() as (client, _cfg, _data):

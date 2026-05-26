@@ -3,7 +3,7 @@ Shape + behaviour tests for EmgCsvChild — surface-EMG envelope
 ChildMCP (off-blueprint Senefeld-meeting detour Phase 2, 2026-05-04).
 
 Mirrors ``tests/children/force_csv/test_force_csv_shape.py`` for
-the parts that are common (ABC surface, subject_id consistency
+the parts that are common (ABC surface, entity_id consistency
 per ADR 0002, router registration, execute/estimate_cost shape,
 file_id traversal defense, ADR 0013 label preservation, ADR 0015
 cohort sidecar). Adds EMG-domain coverage:
@@ -32,14 +32,14 @@ from tailor.children.emg_csv.child import (
     PROTOCOL_EVENT_TYPES,
 )
 from tailor.framework.interfaces import (
-    SUBJECT_ID_SCHEMA,
+    ENTITY_ID_SCHEMA,
     CostEstimate,
     ToolDefinition,
     ValidationSchema,
 )
 from tailor.framework.router import RouterMCP
 
-SUBJECT_ID_PATTERN = r"^[A-Za-z0-9_\-]{1,64}$"
+ENTITY_ID_PATTERN = r"^[A-Za-z0-9_\-]{1,64}$"
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -218,35 +218,35 @@ class TestRequiredAbstractSurface:
 # ═══════════════════════════════════════════════════════════════
 
 
-class TestSubjectIdConsistency:
+class TestEntityIdConsistency:
 
-    def test_every_tool_declares_subject_id_in_param_schemas(
+    def test_every_tool_declares_entity_id_in_param_schemas(
         self, emg_child: EmgCsvChild,
     ):
         for tool_name, tool_schema in emg_child.param_schemas.items():
-            assert "subject_id" in tool_schema, (
-                f"{tool_name} missing subject_id in param_schemas"
+            assert "entity_id" in tool_schema, (
+                f"{tool_name} missing entity_id in param_schemas"
             )
-            entry = tool_schema["subject_id"]
+            entry = tool_schema["entity_id"]
             assert isinstance(entry, ValidationSchema)
             assert entry.type is str
             assert entry.required is False
-            assert entry.pattern == SUBJECT_ID_PATTERN
+            assert entry.pattern == ENTITY_ID_PATTERN
 
-    def test_every_tool_declares_subject_id_in_tool_definitions(
+    def test_every_tool_declares_entity_id_in_tool_definitions(
         self, emg_child: EmgCsvChild,
     ):
         for tool_def in emg_child.tool_definitions:
-            assert "subject_id" in tool_def.params
-            entry = tool_def.params["subject_id"]
+            assert "entity_id" in tool_def.params
+            entry = tool_def.params["entity_id"]
             assert entry["type"] == "string"
             assert entry["required"] is False
             assert isinstance(entry["description"], str)
 
-    def test_exported_subject_id_schema_matches_canonical_pattern(self):
-        assert SUBJECT_ID_SCHEMA.type is str
-        assert SUBJECT_ID_SCHEMA.required is False
-        assert SUBJECT_ID_SCHEMA.pattern == SUBJECT_ID_PATTERN
+    def test_exported_entity_id_schema_matches_canonical_pattern(self):
+        assert ENTITY_ID_SCHEMA.type is str
+        assert ENTITY_ID_SCHEMA.required is False
+        assert ENTITY_ID_SCHEMA.pattern == ENTITY_ID_PATTERN
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -523,7 +523,7 @@ class TestLabelPersistenceAndPurge:
                     "t_seconds": 12.5,
                     "event_type": "mvc_probe",
                     "label": "EMG burst at probe",
-                    "subject_id": "S001",
+                    "entity_id": "S001",
                 },
             )
         )

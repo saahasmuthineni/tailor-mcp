@@ -536,30 +536,30 @@ class TestVaultCaptureSessionIntegration:
 
 class TestSubjectIdAuditScoping:
     """
-    ``subject_id`` lifted into the audit log lets any analysis scope rows
+    ``entity_id`` lifted into the audit log lets any analysis scope rows
     to a study participant or cohort. Existing children that don't pass
     one still work (the column stays NULL).
     """
 
-    def test_subject_id_threaded_through_to_audit_row(self):
+    def test_entity_id_threaded_through_to_audit_row(self):
         import sqlite3
         with TemporaryDirectory() as tmpdir:
             router = RouterMCP("test", Path(tmpdir))
             router.register_child(MockChild("alpha"))
             _run(router._dispatch(
-                "alpha_free_tool", {"value": 7, "subject_id": "P042"}
+                "alpha_free_tool", {"value": 7, "entity_id": "P042"}
             ))
             router.close()
             conn = sqlite3.connect(str(Path(tmpdir) / "audit.db"))
             try:
                 rows = conn.execute(
-                    "SELECT tool_name, outcome, subject_id FROM audit_log"
+                    "SELECT tool_name, outcome, entity_id FROM audit_log"
                 ).fetchall()
             finally:
                 conn.close()
         assert rows == [("alpha_free_tool", "SUCCESS", "P042")]
 
-    def test_subject_id_absent_leaves_column_null(self):
+    def test_entity_id_absent_leaves_column_null(self):
         import sqlite3
         with TemporaryDirectory() as tmpdir:
             router = RouterMCP("test", Path(tmpdir))
@@ -569,20 +569,20 @@ class TestSubjectIdAuditScoping:
             conn = sqlite3.connect(str(Path(tmpdir) / "audit.db"))
             try:
                 rows = conn.execute(
-                    "SELECT subject_id FROM audit_log"
+                    "SELECT entity_id FROM audit_log"
                 ).fetchall()
             finally:
                 conn.close()
         assert rows == [(None,)]
 
-    def test_subject_id_invalid_pattern_audits_as_param_invalid(self):
+    def test_entity_id_invalid_pattern_audits_as_param_invalid(self):
         """
-        When a child declares a ``subject_id`` pattern (as RunningChild
+        When a child declares a ``entity_id`` pattern (as RunningChild
         now does, per ADR 0002), a malformed value is rejected at
         validation. The audit row must still capture the submitted
-        ``subject_id`` so an IRB reviewer can see on whose behalf the
+        ``entity_id`` so an IRB reviewer can see on whose behalf the
         (rejected) call was allegedly made. The router extracts
-        ``subject_id`` pre-validation precisely for this reason
+        ``entity_id`` pre-validation precisely for this reason
         (router.py:305).
         """
         import sqlite3
@@ -593,7 +593,7 @@ class TestSubjectIdAuditScoping:
                 return {
                     f"{self._domain}_free_tool": {
                         "value": ValidationSchema(type=int, min=1, required=True),
-                        "subject_id": ValidationSchema(
+                        "entity_id": ValidationSchema(
                             type=str,
                             required=False,
                             pattern=r"^[A-Za-z0-9_\-]{1,64}$",
@@ -609,7 +609,7 @@ class TestSubjectIdAuditScoping:
                         "A free tool for testing.",
                         {
                             "value": {"type": "integer", "description": "A value", "required": True},
-                            "subject_id": {"type": "string", "description": "Subject", "required": False},
+                            "entity_id": {"type": "string", "description": "Subject", "required": False},
                         },
                     ),
                 ]
@@ -618,7 +618,7 @@ class TestSubjectIdAuditScoping:
             router = RouterMCP("test", Path(tmpdir))
             router.register_child(ChildWithSubjectIdSchema("alpha"))
             result = _run(router._dispatch(
-                "alpha_free_tool", {"value": 7, "subject_id": "bad;value"},
+                "alpha_free_tool", {"value": 7, "entity_id": "bad;value"},
             ))
             router.close()
             # Validation rejected the call.
@@ -628,7 +628,7 @@ class TestSubjectIdAuditScoping:
             conn = sqlite3.connect(str(Path(tmpdir) / "audit.db"))
             try:
                 rows = conn.execute(
-                    "SELECT tool_name, outcome, subject_id FROM audit_log"
+                    "SELECT tool_name, outcome, entity_id FROM audit_log"
                 ).fetchall()
             finally:
                 conn.close()
@@ -637,7 +637,7 @@ class TestSubjectIdAuditScoping:
 
 class TestPHIScrubberSeam:
     """
-    The router runs PHIScrubber.scrub() on every successful child result
+    The router runs DataScrubber.scrub() on every successful child result
     before tokens are counted, the row is audited, or post-execute hooks
     fire. Default is a no-op; a subclass can override to actually strip
     fields.
@@ -654,9 +654,9 @@ class TestPHIScrubberSeam:
             router.close()
 
     def test_subclass_scrubber_mutates_response(self):
-        from tailor.framework.security import PHIScrubber
+        from tailor.framework.security import DataScrubber
 
-        class DropParamsScrubber(PHIScrubber):
+        class DropParamsScrubber(DataScrubber):
             def scrub(self, result: dict) -> dict:
                 # Drop everything except the outcome marker so we can prove
                 # the scrubber actually ran.
@@ -680,7 +680,7 @@ class TestPHIScrubberAuditStamp:
     that ``scrubber_id`` is recorded in audit rows so a misconfigured
     deployment running the no-op default is distinguishable from one
     running an institutional subclass. Until v6.2 the property existed
-    on PHIScrubber but the router never read it. These tests pin the
+    on DataScrubber but the router never read it. These tests pin the
     wire-up.
     """
 
@@ -709,9 +709,9 @@ class TestPHIScrubberAuditStamp:
                 router.close()
 
     def test_subclass_scrubber_stamps_class_name(self):
-        from tailor.framework.security import PHIScrubber
+        from tailor.framework.security import DataScrubber
 
-        class HIPAASafeHarborScrubber(PHIScrubber):
+        class HIPAASafeHarborScrubber(DataScrubber):
             def scrub(self, result: dict) -> dict:
                 return result
 
@@ -966,10 +966,10 @@ class TestDispatchInternalProvenance:
             finally:
                 router.close()
 
-    def test_dispatch_internal_threads_subject_id_into_audit_row(self):
+    def test_dispatch_internal_threads_entity_id_into_audit_row(self):
         """ADR 0009 invariant on the internal dispatch path: vault
         backfill calls children through dispatch_internal carrying a
-        subject_id; the audit row must record it so a multi-subject
+        entity_id; the audit row must record it so a multi-subject
         retrospective can answer "which participant did this backfill
         touch?". Until v6.4.1 no test asserted this — the red-team
         v6.4.1 secondary finding."""
@@ -980,20 +980,20 @@ class TestDispatchInternalProvenance:
                 router.register_child(MockChild("alpha"))
                 _run(router.dispatch_internal(
                     "alpha_free_tool",
-                    {"value": 1, "subject_id": "P007"},
+                    {"value": 1, "entity_id": "P007"},
                 ))
                 import sqlite3
                 conn = sqlite3.connect(str(data_dir / "audit.db"))
                 try:
                     (sid,) = conn.execute(
-                        "SELECT subject_id FROM audit_log "
+                        "SELECT entity_id FROM audit_log "
                         "WHERE tool_name='alpha_free_tool' "
                         "ORDER BY id DESC LIMIT 1"
                     ).fetchone()
                 finally:
                     conn.close()
                 assert sid == "P007", (
-                    "subject_id must propagate from params into the "
+                    "entity_id must propagate from params into the "
                     "INTERNAL audit row (ADR 0009); vault backfill "
                     "subject-keying depends on this"
                 )
@@ -1004,9 +1004,9 @@ class TestDispatchInternalProvenance:
         """Internal cross-child calls (vault backfill) must traverse the
         same PHI-scrub seam as Claude-facing calls. Otherwise vault notes
         written by backfill would carry an un-scrubbed view."""
-        from tailor.framework.security import PHIScrubber
+        from tailor.framework.security import DataScrubber
 
-        class StripIdScrubber(PHIScrubber):
+        class StripIdScrubber(DataScrubber):
             def scrub(self, result):
                 result.pop("params", None)  # simulate stripping a field
                 return result
@@ -1213,7 +1213,7 @@ class TestNoopScrubberWarningSurfacedInMeta:
                 r = _run(router._dispatch("alpha_free_tool", {"value": 1}))
                 data = _loads(r[0].text)
                 assert "scrubber_warning" in data["_meta"], (
-                    "default PHIScrubber must surface its warning into "
+                    "default DataScrubber must surface its warning into "
                     "_meta so the LLM transcript shows the no-op state"
                 )
                 assert "no-op" in data["_meta"]["scrubber_warning"]
@@ -1222,9 +1222,9 @@ class TestNoopScrubberWarningSurfacedInMeta:
                 router.close()
 
     def test_subclass_scrubber_omits_warning_from_meta(self):
-        from tailor.framework.security import PHIScrubber
+        from tailor.framework.security import DataScrubber
 
-        class HIPAASafeHarborScrubber(PHIScrubber):
+        class HIPAASafeHarborScrubber(DataScrubber):
             def scrub(self, result: dict) -> dict:
                 return result
 

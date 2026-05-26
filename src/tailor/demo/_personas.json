@@ -36,7 +36,7 @@
         "the practical work of running the framework on real participant data"
       ],
       "cares_about": [
-        "clear schemas (knowing what subject_id means, what _meta carries, what columns the audit log has)",
+        "clear schemas (knowing what entity_id means, what _meta carries, what columns the audit log has)",
         "good error messages when something breaks",
         "low-friction tool ergonomics",
         "the ability to debug a session without reading framework source"
@@ -63,7 +63,7 @@
         "PHI handling correctness",
         "audit-log completeness across every dispatch path",
         "scrubber subclass identifiability (scrubber_id per ADR 0003)",
-        "subject_id integrity (set-once, never reassignable per ADR 0009)",
+        "entity_id integrity (set-once, never reassignable per ADR 0009)",
         "data flow that survives consent revocation",
         "retention assumptions"
       ],
@@ -85,7 +85,7 @@
     },
     "section_2": {
       "title": "router pipeline",
-      "pi": "Every tool call lands a row in audit.db with subject_id, called_at, package_version, scrubber_id, and per-call token counts. This is the audit trail you cite in the methods section of a paper — durable, queryable, and tied to the framework version that produced it.",
+      "pi": "Every tool call lands a row in audit.db with entity_id, called_at, package_version, scrubber_id, and per-call token counts. This is the audit trail you cite in the methods section of a paper — durable, queryable, and tied to the framework version that produced it.",
       "analyst": "The _meta block on every result envelope tells you exactly what was called, when, by whom (scrubber_id), and at what cost. Debug a stuck session by tailing audit.db; reproduce a result by re-running the call with the same parameters.",
       "irb": "Audit completeness — every dispatch path through RouterMCP writes an audit_log row before the result returns. The scrubber_id column distinguishes a misconfigured deployment (no-op default scrubber per ADR 0003) from a real institutional policy. Consent revocations also write audit rows with PURGE_CACHE per ADR 0013."
     },
@@ -97,7 +97,7 @@
     },
     "section_4": {
       "title": "vault as second persistence tier",
-      "pi": "Cross-session analytical memory — observations made today survive into next month's session without the analyst having to remember them. Themes carry an optional subject_id (ADR 0009) so a multi-subject pilot can keep per-participant interpretations cleanly scoped. The vault is markdown source-of-truth; SQLite is the query index, not the canonical record.",
+      "pi": "Cross-session analytical memory — observations made today survive into next month's session without the analyst having to remember them. Themes carry an optional entity_id (ADR 0009) so a multi-subject pilot can keep per-participant interpretations cleanly scoped. The vault is markdown source-of-truth; SQLite is the query index, not the canonical record.",
       "analyst": "Vault tools skip the biosensor-tier gates (the analyst's notes aren't participant biometrics — only param validation + audit apply). VaultLayer is parallel to ChildMCP, registered separately. Wikilinks resolve to markdown files you can grep and edit by hand if the framework misbehaves.",
       "irb": "Vault tools bypass the PHI-scrubber seam by design (ADR 0012) because the analyst's notes are not participant biometrics. The bypass is documented and audited — every vault write lands an audit_log row, and the markdown files themselves are the source of truth (no opaque database state)."
     },

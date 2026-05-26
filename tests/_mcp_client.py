@@ -69,7 +69,7 @@ def seed_full_config(root: Path) -> dict[str, Path]:
     (csv_dir / "P001.csv").write_text(_SAMPLE_CSV_A, encoding="utf-8")
     (csv_dir / "P002.csv").write_text(_SAMPLE_CSV_B, encoding="utf-8")
 
-    # Sidecar so csv_cohort_summary is callable end-to-end.
+    # Sidecar so csv_group_summary is callable end-to-end.
     sidecar = {
         "P001.csv": {"sex": "F", "group": "control"},
         "P002.csv": {"sex": "M", "group": "intervention"},

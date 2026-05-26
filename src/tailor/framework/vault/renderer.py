@@ -535,8 +535,8 @@ def render_theme_note(theme: dict) -> tuple[str, str]:
     if "theme" not in tags:
         tags = ["theme"] + tags
     # ADR 0009 — optional set-once subject scoping
-    subject_id = theme.get("subject_id")
-    subject_id = str(subject_id).strip() if subject_id else None
+    entity_id = theme.get("entity_id")
+    entity_id = str(entity_id).strip() if entity_id else None
 
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -555,8 +555,8 @@ def render_theme_note(theme: dict) -> tuple[str, str]:
         f"linked_runs: {_yaml_int_list(linked_runs)}",
         f"linked_themes: {_yaml_string_list(linked_themes)}",
     ]
-    if subject_id:
-        fm_lines.append(f"subject_id: {_yaml_scalar(subject_id)}")
+    if entity_id:
+        fm_lines.append(f"entity_id: {_yaml_scalar(entity_id)}")
     if confidence:
         fm_lines.append(f"confidence: {_yaml_scalar(confidence)}")
     fm_lines.append(f'generated_at: "{now_iso}"')
@@ -594,11 +594,11 @@ def render_theme_note(theme: dict) -> tuple[str, str]:
     if isinstance(initial_evidence, list):
         for block in initial_evidence:
             body_parts.append(_format_evidence_block(
-                str(block), last_updated, subject_id=subject_id,
+                str(block), last_updated, entity_id=entity_id,
             ))
     elif isinstance(initial_evidence, str) and initial_evidence.strip():
         body_parts.append(_format_evidence_block(
-            initial_evidence, last_updated, subject_id=subject_id,
+            initial_evidence, last_updated, entity_id=entity_id,
         ))
     else:
         body_parts.append("*(No evidence recorded yet.)*")
@@ -630,7 +630,7 @@ def _format_evidence_block(
     verification: str | None = None,
     tag_suffix: str = "",
     timestamp: str | None = None,
-    subject_id: str | None = None,
+    entity_id: str | None = None,
 ) -> str:
     """
     Render one evidence entry.  Uses the same ``### Insight — TIMESTAMP``
@@ -642,7 +642,7 @@ def _format_evidence_block(
     recording the origin of the observation.  ``tag_suffix`` appends a
     bracketed tag to the header (e.g. ``[correction]``).
 
-    ``subject_id`` (ADR 0009) renders as a second blockquote line
+    ``entity_id`` (ADR 0009) renders as a second blockquote line
     (``> Subject: P004``) immediately after the source line — preserves
     the append-only invariant on existing blocks (legacy blocks have no
     subject line, are read as 'subject unspecified').
@@ -667,8 +667,8 @@ def _format_evidence_block(
         )
         if prov_line:
             metadata_lines.append(prov_line)
-    if subject_id:
-        metadata_lines.append(f"> Subject: {subject_id}")
+    if entity_id:
+        metadata_lines.append(f"> Subject: {entity_id}")
 
     if metadata_lines:
         meta_block = "\n".join(metadata_lines)
@@ -748,8 +748,8 @@ def render_moment_note(moment: dict) -> tuple[str, str]:
     divergence = moment.get("divergence")
     divergence = str(divergence).strip() if divergence else ""
     # ADR 0009 — optional subject scoping
-    subject_id = moment.get("subject_id")
-    subject_id = str(subject_id).strip() if subject_id else None
+    entity_id = moment.get("entity_id")
+    entity_id = str(entity_id).strip() if entity_id else None
 
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -764,8 +764,8 @@ def render_moment_note(moment: dict) -> tuple[str, str]:
         f"linked_runs: {_yaml_int_list(linked_runs)}",
         f"linked_themes: {_yaml_string_list(linked_themes)}",
     ]
-    if subject_id:
-        fm_lines.append(f"subject_id: {_yaml_scalar(subject_id)}")
+    if entity_id:
+        fm_lines.append(f"entity_id: {_yaml_scalar(entity_id)}")
     if divergence:
         fm_lines.append(f"divergence: {_yaml_scalar(divergence)}")
     fm_lines.append(f'generated_at: "{now_iso}"')
@@ -946,7 +946,7 @@ def render_failure_mode_note(failure_mode: dict) -> tuple[str, str]:
         opened:                YYYY-MM-DD (default: today)
         last_updated:          YYYY-MM-DD (default: today)
         related_themes:        list of theme slugs implicated by this failure
-        related_subjects:      list of subject_ids it has affected
+        related_subjects:      list of entity_ids it has affected
         tags:                  list of strings (always merged with ['failure_mode'])
         evidence:              optional initial evidence block (str)
 

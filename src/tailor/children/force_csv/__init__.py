@@ -14,7 +14,7 @@ children that compose for multimodal physiology research:
 - ``emg_csv`` (planned) — surface EMG envelopes and raw bursts
 - ``mrs_csv`` / ``mrs_*`` (planned) — 31P-MRS metabolic time-courses
 
-Composition is enabled by shared ``subject_id`` scoping (ADR 0009),
+Composition is enabled by shared ``entity_id`` scoping (ADR 0009),
 shared audit log (ADR 0001), and the ``dispatch_internal`` cross-
 child seam (vault layer is the existing precedent).  Together they
 let an analyst query *"show me subject S004's force decline alongside

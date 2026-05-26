@@ -7,7 +7,7 @@ in the order defined by ``RouterMCP._dispatch()``:
 1. ``ParamValidator``  — reject bad input before any work
 2. ``CircuitBreaker``  — block if upstream is failing
 3. ``ConsentGate``     — per-domain biometric consent
-4. ``PHIScrubber``     — institutional-policy scrubbing seam (default: no-op)
+4. ``DataScrubber``     — institutional-policy scrubbing seam (default: no-op)
 
 The cost gate and audit log are separate concerns and live in
 ``framework.cost`` and ``framework.audit`` respectively.
@@ -15,7 +15,7 @@ The cost gate and audit log are separate concerns and live in
 Research framing
 ----------------
 These components own the framework's governance surface for biosensor-
-tier dispatch. The ``PHIScrubber`` in particular is a documented seam
+tier dispatch. The ``DataScrubber`` in particular is a documented seam
 (see ADR 0003) — institutions subclass it once they have an IRB-
 approved policy. The default no-op surfaces itself loudly so a
 misconfigured deployment is visible from the first call.
@@ -255,7 +255,7 @@ class ConsentGate:
 # PHI SCRUBBER (extension seam)
 # ═══════════════════════════════════════════════════════════════
 
-class PHIScrubber:
+class DataScrubber:
     """
     Extension seam for institutional PHI scrubbing policies.
 
@@ -291,17 +291,17 @@ class PHIScrubber:
     def __init__(self):
         # Only the base class is the no-op. Subclasses signal intent
         # by overriding scrub() — their __init__ doesn't trigger this.
-        if type(self) is PHIScrubber and not PHIScrubber._noop_warning_emitted:
+        if type(self) is DataScrubber and not DataScrubber._noop_warning_emitted:
             log.warning(
-                "PHIScrubber default is a no-op; subclass and wire a real "
+                "DataScrubber default is a no-op; subclass and wire a real "
                 "scrubber in at router construction for production use."
             )
-            PHIScrubber._noop_warning_emitted = True
+            DataScrubber._noop_warning_emitted = True
 
     @property
     def scrubber_id(self) -> str:
         """Short identifier stamped into _meta for audit traceability."""
-        return "noop" if type(self) is PHIScrubber else type(self).__name__
+        return "noop" if type(self) is DataScrubber else type(self).__name__
 
     @property
     def scrubber_warning(self) -> str | None:
@@ -316,10 +316,10 @@ class PHIScrubber:
         LLM transcript on every call, satisfying ADR 0003's intent that
         a no-op deployment surface "loudly" in any environment.
         """
-        if type(self) is PHIScrubber:
+        if type(self) is DataScrubber:
             return (
-                "PHIScrubber default is a no-op; production deployments "
-                "must subclass PHIScrubber. See ADR 0003."
+                "DataScrubber default is a no-op; production deployments "
+                "must subclass DataScrubber. See ADR 0003."
             )
         return None
 

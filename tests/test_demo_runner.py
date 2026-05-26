@@ -26,10 +26,10 @@ Test surface:
         - bit-identical Section 1 cohort numbers across runs
     Section 2-5 / ADR 0029 (architectural surface):
         - _meta provenance block visible
-        - audit_log row tail-printed with subject_id="S001"
+        - audit_log row tail-printed with entity_id="S001"
         - cost gate fires with cheaper-alternative on Tier 3
         - consent gate fires then approves on Tier 2
-        - vault moment captured with subject_id="S001" frontmatter
+        - vault moment captured with entity_id="S001" frontmatter
         - oracle substrate scan finds the captured moment
     --save-shareable flag (this PR):
         - file is written, self-contained
@@ -216,20 +216,20 @@ def test_section_2_router_pipeline_emits_meta_provenance_block(
     assert '"package_version"' in demo_output
     assert '"called_at"' in demo_output
     assert '"scrubber_id"' in demo_output
-    # PHIScrubber default no-op warning surfaces in _meta per ADR 0003
+    # DataScrubber default no-op warning surfaces in _meta per ADR 0003
     # (the seam, not a policy)
     assert "scrubber_warning" in demo_output
 
 
-def test_section_2_audit_row_tail_printed_with_subject_id(
+def test_section_2_audit_row_tail_printed_with_entity_id(
     demo_output: str,
 ) -> None:
     """The Section 2 envelope is followed by a tail-print of the
     latest ``audit.db`` row. ADR 0001 (audit-log backbone) +
-    ADR 0009 (subject_id scoping) compose: the tail row must carry
-    ``subject_id="S001"`` (Section 2's call threads it explicitly)."""
+    ADR 0009 (entity_id scoping) compose: the tail row must carry
+    ``entity_id="S001"`` (Section 2's call threads it explicitly)."""
     assert "Latest audit_log row" in demo_output
-    assert '"subject_id": "S001"' in demo_output
+    assert '"entity_id": "S001"' in demo_output
     assert '"outcome": "SUCCESS"' in demo_output
 
 
@@ -262,17 +262,17 @@ def test_section_3_consent_gate_fires_then_approves(
     assert "approve_consent_csv_dir" in demo_output
 
 
-def test_section_4_vault_moment_captured_with_subject_id_s001(
+def test_section_4_vault_moment_captured_with_entity_id_s001(
     demo_output: str,
 ) -> None:
     """Section 4 captures a moment via ``vault_capture_moment`` scoped
-    to ``subject_id="S001"`` (ADR 0009). The moment markdown is
+    to ``entity_id="S001"`` (ADR 0009). The moment markdown is
     printed inline so the recipient sees the source-of-truth markdown
     (ADR 0007), not just the SQLite index."""
     assert "vault_capture_moment" in demo_output
-    # Moment markdown frontmatter — ADR 0009 subject_id scoping made
+    # Moment markdown frontmatter — ADR 0009 entity_id scoping made
     # recipient-visible
-    assert 'subject_id: "S001"' in demo_output
+    assert 'entity_id: "S001"' in demo_output
     # ADR 0007 source-of-truth: markdown body is printed
     assert "Sex-grouped peak force" in demo_output
 
@@ -283,7 +283,7 @@ def test_section_5_oracle_substrate_scan_finds_section_4_moment(
     """Section 5's ``ask_local_oracle`` call (with ``NullBackend``)
     must show ``related_substrate`` populated with the moment captured
     in Section 4. The substrate scan (ADR 0023) auto-finds the moment
-    by ``subject_id="S001"`` match without the LLM having to
+    by ``entity_id="S001"`` match without the LLM having to
     remember the slug — this is the cooperation-loop architecture
     working live, not narrated in prose."""
     assert "ask_local_oracle" in demo_output
@@ -309,7 +309,7 @@ def test_section_5_oracle_meta_carries_processing_calls() -> None:
 
     # processing_calls is a list of tool names that fed resolved_context
     assert '"processing_calls"' in output
-    assert '"csv_cohort_summary"' in output
+    assert '"csv_group_summary"' in output
 
 
 # ════════════════════════════════════════════════════════════════

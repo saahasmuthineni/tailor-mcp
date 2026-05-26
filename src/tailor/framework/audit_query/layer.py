@@ -32,8 +32,8 @@ import logging
 
 from ..audit import AuditLog
 from ..interfaces import (
-    SUBJECT_ID_PARAM_DOC,
-    SUBJECT_ID_SCHEMA,
+    ENTITY_ID_PARAM_DOC,
+    ENTITY_ID_SCHEMA,
     ToolDefinition,
     ValidationSchema,
 )
@@ -46,13 +46,13 @@ _AUDIT_QUERY_DESCRIPTION = (
     "Read structured columns from the audit log — the IRB-grade query "
     "surface. Returns a list of audit rows ordered by timestamp "
     "descending; each row carries id, timestamp, domain, tool_name, "
-    "tier, token_estimate, outcome, duration_ms, subject_id, "
+    "tier, token_estimate, outcome, duration_ms, entity_id, "
     "scrubber_id, child_scrubber_id, source_metadata_fingerprint, and "
     "has_error (bool). The raw params content and raw error strings "
     "are NEVER returned — for those, drop to 'tailor status' or "
     "'sqlite3 audit.db' directly. Typical questions this answers: "
     "'did the PHI scrubber run on subject S004's last consent "
-    "revocation?' (filter outcome=PURGE_CACHE / subject_id=S004); "
+    "revocation?' (filter outcome=PURGE_CACHE / entity_id=S004); "
     "'what just failed in the last hour?' (since=1h / outcome=ERROR); "
     "'show me every REDCap trust-root re-attestation' "
     "(domain=redcap_file / tool=tailor_redcap_reattest). Use 'since' "
@@ -101,7 +101,7 @@ class AuditQueryLayer:
                         ),
                         "required": True,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                     "domain": {
                         "type": "string",
                         "description": (
@@ -121,7 +121,7 @@ class AuditQueryLayer:
                         "type": "string",
                         "description": (
                             "Optional. Exact match against the row's "
-                            "tool_name (e.g. 'csv_cohort_summary', "
+                            "tool_name (e.g. 'csv_group_summary', "
                             "'vault_upsert_theme')."
                         ),
                         "required": False,
@@ -175,7 +175,7 @@ class AuditQueryLayer:
                 "since": ValidationSchema(
                     type=str, required=True, min_len=1, max_len=64,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
                 "domain": ValidationSchema(
                     type=str, required=False, min_len=1, max_len=64,
                 ),
@@ -213,7 +213,7 @@ class AuditQueryLayer:
 
         rows = self._audit_log.query(
             since=since_iso,
-            subject_id=params.get("subject_id"),
+            entity_id=params.get("entity_id"),
             domain=params.get("domain"),
             tool=params.get("tool"),
             outcome=params.get("outcome"),
@@ -222,7 +222,7 @@ class AuditQueryLayer:
         )
 
         scope_parts = [f"since={since_iso}"]
-        for key in ("subject_id", "domain", "tool", "outcome"):
+        for key in ("entity_id", "domain", "tool", "outcome"):
             val = params.get(key)
             if val is not None:
                 scope_parts.append(f"{key}={val}")

@@ -29,7 +29,7 @@ architectural claims via five sections:
                 the cost gate cleanly; production uses ``35_000``.
     Section 4 — Vault as second persistence tier. ``VaultLayer``
                 captures an analyst moment that references the Section
-                1 cohort finding; ``subject_id="S001"``.
+                1 cohort finding; ``entity_id="S001"``.
     Section 5 — Local-LLM oracle (``NullBackend``; opt-in
                 ``OllamaBackend`` produces narrative prose).
                 ``related_substrate`` populates from the moment captured
@@ -66,7 +66,7 @@ from io import StringIO
 from pathlib import Path
 
 # Pinned subject for the per-file diagnostic + the tier-walk + the
-# vault moment + the oracle subject_id scoping. Pinning extends the
+# vault moment + the oracle entity_id scoping. Pinning extends the
 # ADR 0008 deterministic-by-construction property to the demo surface.
 _REPRESENTATIVE_FILE = "S001_force.csv"
 _REPRESENTATIVE_SUBJECT = "S001"
@@ -582,7 +582,7 @@ def run_demo(
         )
     # Suppress the framework's INFO/WARNING log lines so stderr does not
     # interleave with the demo's stdout output. The structurally
-    # important warnings (e.g. PHIScrubber's no-op default) still
+    # important warnings (e.g. DataScrubber's no-op default) still
     # appear in the printed `_meta.scrubber_warning` field where they
     # are recipient-visible; silencing the duplicate stderr emission
     # keeps the demo's transcript clean for sharing.
@@ -705,11 +705,11 @@ def run_demo(
             print()
             section1_calls: list[tuple[str, dict]] = [
                 (
-                    "csv_cohort_summary",
+                    "csv_group_summary",
                     {"value_column": "force_N", "group_by": "sex", "metric": "max"},
                 ),
                 (
-                    "csv_cohort_summary",
+                    "csv_group_summary",
                     {"value_column": "force_N", "group_by": "group", "metric": "max"},
                 ),
                 (
@@ -722,7 +722,7 @@ def run_demo(
                 result = asyncio.run(child.execute(tool_name, params))
                 _print_call(tool_name, params, result)
                 if (
-                    tool_name == "csv_cohort_summary"
+                    tool_name == "csv_group_summary"
                     and params.get("group_by") == "sex"
                 ):
                     cohort_result_for_moment = result
@@ -752,7 +752,7 @@ def run_demo(
             print()
             section2_params = {
                 "file_id": _REPRESENTATIVE_FILE,
-                "subject_id": _REPRESENTATIVE_SUBJECT,
+                "entity_id": _REPRESENTATIVE_SUBJECT,
             }
             section2_result = asyncio.run(
                 router._dispatch("csv_summary_report", section2_params)
@@ -783,7 +783,7 @@ def run_demo(
             tier1_params = {
                 "file_id": _REPRESENTATIVE_FILE,
                 "value_column": "force_N",
-                "subject_id": _REPRESENTATIVE_SUBJECT,
+                "entity_id": _REPRESENTATIVE_SUBJECT,
             }
             tier1_result = asyncio.run(
                 router._dispatch("csv_force_decline", tier1_params)
@@ -808,7 +808,7 @@ def run_demo(
             tier2_params = {
                 "file_id": _REPRESENTATIVE_FILE,
                 "interval": 5,
-                "subject_id": _REPRESENTATIVE_SUBJECT,
+                "entity_id": _REPRESENTATIVE_SUBJECT,
             }
             tier2_blocked = asyncio.run(
                 router._dispatch("csv_downsampled", tier2_params)
@@ -861,7 +861,7 @@ def run_demo(
             print()
             tier3_params = {
                 "file_id": _REPRESENTATIVE_FILE,
-                "subject_id": _REPRESENTATIVE_SUBJECT,
+                "entity_id": _REPRESENTATIVE_SUBJECT,
             }
             tier3_result = asyncio.run(
                 router._dispatch("csv_raw_stream", tier3_params)
@@ -923,7 +923,7 @@ def run_demo(
                 "written as plain markdown. Capturing the Section 1"
             )
             print(
-                "finding as a moment, scoped to subject_id='S001':"
+                "finding as a moment, scoped to entity_id='S001':"
             )
             print()
             vault_writer = VaultWriter(
@@ -951,7 +951,7 @@ def run_demo(
                     "above came from CSVProcessing.cohort_stats(); this "
                     "note is the analyst's interpretation of them."
                 ),
-                "subject_id": _REPRESENTATIVE_SUBJECT,
+                "entity_id": _REPRESENTATIVE_SUBJECT,
                 "tags": ["demo", "cohort", "force"],
             }
             moment_result = asyncio.run(
@@ -1043,7 +1043,7 @@ def run_demo(
                 "question": (
                     "How does peak force compare across sexes in this cohort?"
                 ),
-                "subject_id": _REPRESENTATIVE_SUBJECT,
+                "entity_id": _REPRESENTATIVE_SUBJECT,
             }
             if cohort_result_for_moment is not None:
                 # resolved_context is a {processing_call: result} map
@@ -1052,7 +1052,7 @@ def run_demo(
                 # numerical claims surface from the cohort result for
                 # citation, even with no LLM running.
                 oracle_params["resolved_context"] = {
-                    "csv_cohort_summary": cohort_result_for_moment,
+                    "csv_group_summary": cohort_result_for_moment,
                 }
             oracle_result = asyncio.run(
                 router._dispatch("ask_local_oracle", oracle_params)

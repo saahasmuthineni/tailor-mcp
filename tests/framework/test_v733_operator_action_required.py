@@ -19,7 +19,7 @@ Covers the four invariants the v7.3.3 patch ratifies:
 
   T4  Audit row on the exempt path still records outcome=ERROR with the
       full provenance kwargs (scrubber_id, child_scrubber_id,
-      source_metadata_fingerprint, subject_id). Closes the v7.3.3 I2
+      source_metadata_fingerprint, entity_id). Closes the v7.3.3 I2
       finding — without this, a future refactor could elide audit on
       exempt exceptions and the existing tests would still pass.
 
@@ -259,7 +259,7 @@ class TestT4AuditRowProvenanceOnExemptPath:
             try:
                 router.register_child(_OperatorActionRaisingChild("opact"))
                 _run(router._dispatch(
-                    "opact_tool", {"value": 1, "subject_id": "S001"},
+                    "opact_tool", {"value": 1, "entity_id": "S001"},
                 ))
             finally:
                 router.close()
@@ -276,7 +276,7 @@ class TestT4AuditRowProvenanceOnExemptPath:
                 conn.close()
             assert row is not None, "audit row missing on exempt path"
             assert row["outcome"] == "ERROR"
-            assert row["subject_id"] == "S001"
+            assert row["entity_id"] == "S001"
             assert "Reattest required" in row["error"]
             # W5 invariant columns must be threaded on exempt path too.
             assert "scrubber_id" in row.keys()

@@ -53,8 +53,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..interfaces import (
-    SUBJECT_ID_PARAM_DOC,
-    SUBJECT_ID_SCHEMA,
+    ENTITY_ID_PARAM_DOC,
+    ENTITY_ID_SCHEMA,
     ToolDefinition,
     ValidationSchema,
 )
@@ -292,7 +292,7 @@ class VaultLayer:
                         "description": "Max results (default 10, max 50)",
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -890,12 +890,12 @@ class VaultLayer:
                 },
             ),
         ]
-        # v6.2 — surface optional subject_id on every vault tool so LLM
+        # v6.2 — surface optional entity_id on every vault tool so LLM
         # clients discover it via list_tools. ADR 0002 (audit-scoping)
         # + ADR 0009 (vault subject-keying). setdefault is idempotent if
-        # any tool ever declares its own subject_id schema.
+        # any tool ever declares its own entity_id schema.
         for td in defs:
-            td.params.setdefault("subject_id", dict(SUBJECT_ID_PARAM_DOC))
+            td.params.setdefault("entity_id", dict(ENTITY_ID_PARAM_DOC))
         return defs
 
     @property
@@ -928,12 +928,12 @@ class VaultLayer:
                     type=str, allowed_values=list(self._allowed_kinds),
                 ),
                 "limit": ValidationSchema(type=int, min=1, max=50, default=10),
-                # subject_id is intentionally not listed here. The
+                # entity_id is intentionally not listed here. The
                 # setdefault loop in __init__ (search for "for tn,
                 # schema in self.param_schemas.items()") injects
-                # SUBJECT_ID_SCHEMA into every vault tool's schema.
+                # ENTITY_ID_SCHEMA into every vault tool's schema.
                 # If that loop is ever refactored, this tool's
-                # subject_id surface goes silent — add it explicitly
+                # entity_id surface goes silent — add it explicitly
                 # before touching the loop. Other vault tools follow
                 # the same pattern; this comment exists because
                 # vault_search_notes was the v6.4.1 reproducibility-
@@ -1086,12 +1086,12 @@ class VaultLayer:
                 ),
             },
         }
-        # v6.2 — every vault tool accepts subject_id for audit-scoping
+        # v6.2 — every vault tool accepts entity_id for audit-scoping
         # and (where the handler supports it) note keying. ADR 0002 +
         # ADR 0009. setdefault preserves any tool that ever wants a
         # narrower schema.
         for tool_schemas in schemas.values():
-            tool_schemas.setdefault("subject_id", SUBJECT_ID_SCHEMA)
+            tool_schemas.setdefault("entity_id", ENTITY_ID_SCHEMA)
         return schemas
 
     async def execute(self, tool_name: str, params: dict) -> dict:
@@ -1306,7 +1306,7 @@ class VaultLayer:
             date_from=params.get("date_from"),
             date_to=params.get("date_to"),
             has_insight_notes=params.get("has_insight_notes"),
-            subject_id=params.get("subject_id"),
+            entity_id=params.get("entity_id"),
             limit=params.get("limit", 20),
         )
         return {
@@ -1370,7 +1370,7 @@ class VaultLayer:
         candidates = self._storage.list_notes(
             domain=self._domain_for_kind(kind),
             note_type=kind,
-            subject_id=params.get("subject_id"),
+            entity_id=params.get("entity_id"),
             limit=500,
         )
 
@@ -1412,7 +1412,7 @@ class VaultLayer:
         limit = params.get("limit", 20)
         notes = self._storage.get_anomalous_notes(
             anomaly_type=anomaly_type,
-            subject_id=params.get("subject_id"),
+            entity_id=params.get("entity_id"),
             limit=limit,
         )
         return {
@@ -1544,12 +1544,12 @@ class VaultLayer:
     async def _handle_list_themes(self, params: dict) -> dict:
         status = params.get("status")
         tag = params.get("tag")
-        subject_id = params.get("subject_id")
+        entity_id = params.get("entity_id")
         limit = params.get("limit", 20)
 
         themes = self._storage.list_themes(
             status=status,
-            subject_id=subject_id,
+            entity_id=entity_id,
             limit=limit * 2 if tag else limit,
         )
 
@@ -1636,8 +1636,8 @@ class VaultLayer:
         filename = f"themes/{slug}.md"
 
         # ADR 0009 — vault subject-keying. Optional, set-once.
-        new_subject_id = params.get("subject_id")
-        new_subject_id = str(new_subject_id).strip() if new_subject_id else None
+        new_entity_id = params.get("entity_id")
+        new_entity_id = str(new_entity_id).strip() if new_entity_id else None
 
         existing = self._storage.get_theme(slug)
         abs_path = (self._vault_path / filename).resolve()
@@ -1654,22 +1654,22 @@ class VaultLayer:
 
             # Enforce set-once on theme subject. Promotion (None → P004)
             # is allowed; reassignment (P003 → P007) is a hard error.
-            current_subject = (existing or {}).get("subject_id")
+            current_subject = (existing or {}).get("entity_id")
             if (
-                new_subject_id is not None
+                new_entity_id is not None
                 and current_subject is not None
-                and new_subject_id != current_subject
+                and new_entity_id != current_subject
             ):
                 return {
                     "error": (
                         f"Theme {slug!r} is already scoped to subject "
                         f"{current_subject!r}; cannot reassign to "
-                        f"{new_subject_id!r}. Open a new theme and "
+                        f"{new_entity_id!r}. Open a new theme and "
                         f"reframe-link the old one if a different scope is "
                         f"genuinely needed (ADR 0009 set-once invariant)."
                     )
                 }
-            effective_subject_id = new_subject_id or current_subject
+            effective_entity_id = new_entity_id or current_subject
 
             # Reframe detection: new hypothesis that differs from the one
             # on disk means the old framing is preserved under
@@ -1700,7 +1700,7 @@ class VaultLayer:
             try:
                 updated_filename = self._merge_theme_frontmatter(
                     slug, effective_params, existing or {},
-                    subject_id=effective_subject_id,
+                    entity_id=effective_entity_id,
                 )
             except (ValueError, FileNotFoundError) as exc:
                 return {"error": str(exc)}
@@ -1716,7 +1716,7 @@ class VaultLayer:
                         source_tool=params.get("evidence_source_tool"),
                         source_domain=params.get("evidence_source_domain"),
                         verification=params.get("evidence_verification"),
-                        subject_id=new_subject_id,
+                        entity_id=new_entity_id,
                     )
                 except (ValueError, FileNotFoundError) as exc:
                     return {"error": str(exc)}
@@ -1784,7 +1784,7 @@ class VaultLayer:
             "linked_themes": params.get("linked_themes") or [],
             "tags": params.get("tags") or [],
             "resolution": params.get("resolution"),
-            "subject_id": new_subject_id,
+            "entity_id": new_entity_id,
         }
         ev = params.get("evidence")
         if ev:
@@ -1926,7 +1926,7 @@ class VaultLayer:
         params: dict,
         existing_theme: dict,
         *,
-        subject_id: str | None = None,
+        entity_id: str | None = None,
     ) -> str:
         """
         Rewrite only the YAML frontmatter of an existing theme note.
@@ -1985,12 +1985,12 @@ class VaultLayer:
             f"linked_runs: {_yaml_int_list([int(x) for x in linked_runs if x is not None])}",
             f"linked_themes: {_yaml_string_list(linked_themes)}",
         ]
-        # Preserve set-once subject_id across frontmatter rewrites — read
+        # Preserve set-once entity_id across frontmatter rewrites — read
         # whatever is already on disk, fall back to the caller-supplied
         # value (which has already been validated by _handle_upsert_theme).
-        effective_subject = subject_id or fm.get("subject_id")
+        effective_subject = entity_id or fm.get("entity_id")
         if effective_subject:
-            fm_lines.append(f"subject_id: {_yaml_scalar(effective_subject)}")
+            fm_lines.append(f"entity_id: {_yaml_scalar(effective_subject)}")
         if confidence:
             fm_lines.append(f"confidence: {_yaml_scalar(confidence)}")
         fm_lines.append(f'generated_at: "{now_iso}"')
@@ -2040,7 +2040,7 @@ class VaultLayer:
             note_type="moment",
             date_from=date_from,
             date_to=date_to,
-            subject_id=params.get("subject_id"),
+            entity_id=params.get("entity_id"),
             limit=limit * 2 if (theme_filter or tag) else limit,
         )
 
@@ -2080,7 +2080,7 @@ class VaultLayer:
                 "linked_themes": params.get("linked_themes") or [],
                 "tags": params.get("tags") or [],
                 "date": params.get("date"),
-                "subject_id": params.get("subject_id"),  # ADR 0009
+                "entity_id": params.get("entity_id"),  # ADR 0009
             })
         except (ValueError, KeyError, FileNotFoundError) as exc:
             return {"error": str(exc)}
@@ -2600,7 +2600,7 @@ class VaultLayer:
 
         rows = self._storage.list_notes(
             domain="vault", note_type="failure_mode",
-            subject_id=params.get("subject_id"),
+            entity_id=params.get("entity_id"),
             limit=max(limit * 2, limit),
         )
         out: list[dict] = []

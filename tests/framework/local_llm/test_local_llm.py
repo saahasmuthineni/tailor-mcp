@@ -98,7 +98,7 @@ class TestFlattenClaims:
     flattener so the property is enforced in one place."""
 
     def test_flat_shape(self):
-        """{processing_call: {metric: value}} → claims with no subject_id."""
+        """{processing_call: {metric: value}} → claims with no entity_id."""
         ctx = {
             "csv_force_decline": {
                 "peak": 100.0,
@@ -112,13 +112,13 @@ class TestFlattenClaims:
             "peak": 100.0, "decline_pct_total": 12.5, "n_samples": 1500,
         }
         for c in claims:
-            assert c.subject_id is None
+            assert c.entity_id is None
             assert c.processing_call == "csv_force_decline"
 
     def test_per_subject_shape(self):
-        """{processing_call: {subject_id: {metric: value}}} → keyed claims."""
+        """{processing_call: {entity_id: {metric: value}}} → keyed claims."""
         ctx = {
-            "csv_cohort_summary": {
+            "csv_group_summary": {
                 "P003": {"decline_pct": 12.5, "peak": 100.0},
                 "P004": {"decline_pct": 8.0, "peak": 95.0},
             },
@@ -126,11 +126,11 @@ class TestFlattenClaims:
         claims = _flatten_claims(ctx)
         # 4 claims total: 2 metrics × 2 subjects
         assert len(claims) == 4
-        by_subject = {(c.subject_id, c.metric): c.value for c in claims}
+        by_subject = {(c.entity_id, c.metric): c.value for c in claims}
         assert by_subject[("P003", "decline_pct")] == 12.5
         assert by_subject[("P004", "peak")] == 95.0
         for c in claims:
-            assert c.processing_call == "csv_cohort_summary"
+            assert c.processing_call == "csv_group_summary"
 
     def test_booleans_are_skipped(self):
         """Booleans are int-subclass in Python; skip them so flag fields
@@ -338,10 +338,10 @@ class TestLocalLLMLayer:
         names = [t.name for t in layer.tool_definitions]
         assert names == ["ask_local_oracle"]
 
-    def test_tool_definition_includes_subject_id_param(self):
+    def test_tool_definition_includes_entity_id_param(self):
         layer = LocalLLMLayer()
         tool = layer.tool_definitions[0]
-        assert "subject_id" in tool.params
+        assert "entity_id" in tool.params
 
     def test_execute_unknown_tool_returns_error(self):
         layer = LocalLLMLayer()
@@ -403,7 +403,7 @@ class TestRouterDispatch:
                     "resolved_context": {
                         "csv_force_decline": {"peak": 100.0},
                     },
-                    "subject_id": "P003",
+                    "entity_id": "P003",
                 },
             ))
             # Result is a list of TextContent objects
@@ -420,15 +420,15 @@ class TestRouterDispatch:
             audit = AuditLog(tmp_path / "audit.db")
             try:
                 cursor = audit._conn.execute(
-                    "SELECT domain, tool_name, outcome, subject_id "
+                    "SELECT domain, tool_name, outcome, entity_id "
                     "FROM audit_log WHERE tool_name = 'ask_local_oracle'"
                 )
                 rows = cursor.fetchall()
                 assert len(rows) == 1
-                domain, tool, outcome, subject_id = rows[0]
+                domain, tool, outcome, entity_id = rows[0]
                 assert domain == "local_llm"
                 assert outcome == "SUCCESS"
-                assert subject_id == "P003"
+                assert entity_id == "P003"
             finally:
                 audit.close()
         finally:
@@ -480,7 +480,7 @@ class TestRouterDispatch:
                     "resolved_context": {
                         "csv_force_decline": {"peak": 100.0},
                     },
-                    "subject_id": "P003",
+                    "entity_id": "P003",
                 },
             ))
             audit = AuditLog(tmp_path / "audit.db")
@@ -550,7 +550,7 @@ class _StubVaultStorage:
 
     Implements only the two methods :class:`LocalLLMLayer` calls
     (``list_themes`` / ``list_notes``); ignores filter args except
-    ``subject_id``, which it threads through so tests can assert it
+    ``entity_id``, which it threads through so tests can assert it
     was passed.
     """
 
@@ -565,18 +565,18 @@ class _StubVaultStorage:
         self._raise = raise_on_call
         self.calls: list[tuple] = []
 
-    def list_themes(self, subject_id=None, limit=50, **kw):
-        self.calls.append(("list_themes", subject_id, limit))
+    def list_themes(self, entity_id=None, limit=50, **kw):
+        self.calls.append(("list_themes", entity_id, limit))
         if self._raise is not None:
             raise self._raise
-        return list(self._themes.get(subject_id, []))[:limit]
+        return list(self._themes.get(entity_id, []))[:limit]
 
-    def list_notes(self, note_type=None, subject_id=None, limit=50, **kw):
-        self.calls.append(("list_notes", note_type, subject_id, limit))
+    def list_notes(self, note_type=None, entity_id=None, limit=50, **kw):
+        self.calls.append(("list_notes", note_type, entity_id, limit))
         if self._raise is not None:
             raise self._raise
         return list(
-            self._notes.get(note_type, {}).get(subject_id, [])
+            self._notes.get(note_type, {}).get(entity_id, [])
         )[:limit]
 
 
@@ -652,20 +652,20 @@ class TestLocalLLMLayerSubstrateScan:
             {
                 "question": "?",
                 "resolved_context": {"csv_force_decline": {"peak": 1.0}},
-                "subject_id": "P003",
+                "entity_id": "P003",
             },
         ))
         assert result["related_substrate"] == []
 
-    def test_finds_themes_for_explicit_subject_id(self):
-        """request.subject_id triggers a list_themes(subject_id=...) query
+    def test_finds_themes_for_explicit_entity_id(self):
+        """request.entity_id triggers a list_themes(entity_id=...) query
         and populates related_substrate."""
         storage = _StubVaultStorage(themes={
             "P003": [{
                 "slug": "force-fatigue-mechanism",
                 "status": "open",
                 "last_updated": "2026-04-30T10:00:00Z",
-                "subject_id": "P003",
+                "entity_id": "P003",
             }],
         })
         layer = self._layer_with(storage)
@@ -674,31 +674,31 @@ class TestLocalLLMLayerSubstrateScan:
             {
                 "question": "?",
                 "resolved_context": {},
-                "subject_id": "P003",
+                "entity_id": "P003",
             },
         ))
         slugs = [e["slug"] for e in result["related_substrate"]]
         assert "force-fatigue-mechanism" in slugs
-        # Verify the layer asked storage with subject_id (ADR 0009
+        # Verify the layer asked storage with entity_id (ADR 0009
         # IS-NULL-or-match filter semantics inherited from VaultStorage)
         assert ("list_themes", "P003", 10) in storage.calls
 
     def test_walks_per_subject_resolved_context(self):
         """Per-subject resolved_context shape (cohort summary):
-        {processing_call: {subject_id: {metric: value}}} — scan walks
+        {processing_call: {entity_id: {metric: value}}} — scan walks
         each subject key."""
         storage = _StubVaultStorage(themes={
             "P003": [{
                 "slug": "p003-theme",
                 "status": "open",
                 "last_updated": "2026-04-30T10:00:00Z",
-                "subject_id": "P003",
+                "entity_id": "P003",
             }],
             "P004": [{
                 "slug": "p004-theme",
                 "status": "open",
                 "last_updated": "2026-04-29T10:00:00Z",
-                "subject_id": "P004",
+                "entity_id": "P004",
             }],
         })
         layer = self._layer_with(storage)
@@ -707,7 +707,7 @@ class TestLocalLLMLayerSubstrateScan:
             {
                 "question": "?",
                 "resolved_context": {
-                    "csv_cohort_summary": {
+                    "csv_group_summary": {
                         "P003": {"decline_pct": 12.5},
                         "P004": {"decline_pct": 8.0},
                     },
@@ -726,7 +726,7 @@ class TestLocalLLMLayerSubstrateScan:
                 "slug": f"theme-{i:03d}",
                 "status": "open",
                 "last_updated": f"2026-04-{(i % 28) + 1:02d}T10:00:00Z",
-                "subject_id": "P003",
+                "entity_id": "P003",
             }
             for i in range(100)
         ]
@@ -737,7 +737,7 @@ class TestLocalLLMLayerSubstrateScan:
             {
                 "question": "?",
                 "resolved_context": {},
-                "subject_id": "P003",
+                "entity_id": "P003",
             },
         ))
         assert (
@@ -759,7 +759,7 @@ class TestLocalLLMLayerSubstrateScan:
             {
                 "question": "?",
                 "resolved_context": {"csv_force_decline": {"peak": 1.0}},
-                "subject_id": "P003",
+                "entity_id": "P003",
             },
         ))
         assert result["related_substrate"] == []
@@ -778,7 +778,7 @@ class TestLocalLLMLayerSubstrateScan:
                 "slug": "x",
                 "status": "open",
                 "last_updated": "2026-04-30T10:00:00Z",
-                "subject_id": "P003",
+                "entity_id": "P003",
             }],
         })
         layer = self._layer_with(storage)
@@ -787,7 +787,7 @@ class TestLocalLLMLayerSubstrateScan:
             {
                 "question": "?",
                 "resolved_context": {},
-                "subject_id": "P003",
+                "entity_id": "P003",
             },
         ))
         assert "substrate_scan_warning" not in result
@@ -796,14 +796,14 @@ class TestLocalLLMLayerSubstrateScan:
         """coverage gate (line 276): a non-dict result in
         resolved_context is skipped by _collect_subjects rather than
         raising. The substrate scan still runs against
-        request.subject_id; the malformed entry just contributes no
+        request.entity_id; the malformed entry just contributes no
         per-subject keys."""
         storage = _StubVaultStorage(themes={
             "P003": [{
                 "slug": "x",
                 "status": "open",
                 "last_updated": "2026-04-30T10:00:00Z",
-                "subject_id": "P003",
+                "entity_id": "P003",
             }],
         })
         layer = self._layer_with(storage)
@@ -815,11 +815,11 @@ class TestLocalLLMLayerSubstrateScan:
                     "csv_summary_report": "string-not-a-dict",
                     "csv_force_decline": {"peak": 1.0},
                 },
-                "subject_id": "P003",
+                "entity_id": "P003",
             },
         ))
         # Did not raise; substrate scan still ran on the explicit
-        # subject_id; the malformed entry was tolerated.
+        # entity_id; the malformed entry was tolerated.
         slugs = [e["slug"] for e in result["related_substrate"]]
         assert slugs == ["x"]
 
@@ -840,7 +840,7 @@ class TestLocalLLMLayerSubstrateScan:
                 "slug": "p003-theme",
                 "status": "open",
                 "last_updated": "2026-04-30T10:00:00Z",
-                "subject_id": "P003",
+                "entity_id": "P003",
             }],
             # Bogus storage rows for the misclassified keys; if the
             # fix breaks, these will surface in related_substrate.
@@ -848,13 +848,13 @@ class TestLocalLLMLayerSubstrateScan:
                 "slug": "would-not-exist",
                 "status": "open",
                 "last_updated": "2026-04-30T10:00:00Z",
-                "subject_id": "_meta",
+                "entity_id": "_meta",
             }],
             "columns": [{
                 "slug": "also-not-real",
                 "status": "open",
                 "last_updated": "2026-04-30T10:00:00Z",
-                "subject_id": "columns",
+                "entity_id": "columns",
             }],
         })
         layer = self._layer_with(storage)
@@ -896,7 +896,7 @@ class TestLocalLLMLayerSubstrateScan:
                     "slug": shared,
                     "status": "open",
                     "last_updated": "2026-04-30T10:00:00Z",
-                    "subject_id": "P003",
+                    "entity_id": "P003",
                 }],
             },
             notes={
@@ -905,7 +905,7 @@ class TestLocalLLMLayerSubstrateScan:
                         "filename": f"{shared}.md",
                         "frontmatter": {"title": "Same name, different kind"},
                         "written_at": "2026-04-29T10:00:00Z",
-                        "subject_id": "P003",
+                        "entity_id": "P003",
                     }],
                 },
             },
@@ -916,7 +916,7 @@ class TestLocalLLMLayerSubstrateScan:
             {
                 "question": "?",
                 "resolved_context": {},
-                "subject_id": "P003",
+                "entity_id": "P003",
             },
         ))
         # Both surface — the (kind, slug) dedup key keeps them
@@ -929,7 +929,7 @@ class TestLocalLLMLayerSubstrateScan:
         assert slugs == {shared}
 
     def test_no_subjects_in_scope_returns_empty(self):
-        """When neither request.subject_id nor any per-subject key in
+        """When neither request.entity_id nor any per-subject key in
         resolved_context is present, the scan returns [] — substrate
         scan is purpose-built to find content about subjects of the
         question, not arbitrary recent vault content."""
@@ -938,7 +938,7 @@ class TestLocalLLMLayerSubstrateScan:
                 "slug": "cross-subject-theme",
                 "status": "open",
                 "last_updated": "2026-04-30T10:00:00Z",
-                "subject_id": None,
+                "entity_id": None,
             }],
         })
         layer = self._layer_with(storage)
@@ -963,7 +963,7 @@ class TestLocalLLMLayerSubstrateScan:
                     "filename": "2026-04-30-p003-aha.md",
                     "frontmatter": {"title": "P003 plateau", "status": None},
                     "written_at": "2026-04-30T10:00:00Z",
-                    "subject_id": "P003",
+                    "entity_id": "P003",
                 }],
             },
             "failure_mode": {
@@ -974,7 +974,7 @@ class TestLocalLLMLayerSubstrateScan:
                         "status": "active",
                     },
                     "written_at": "2026-04-29T10:00:00Z",
-                    "subject_id": "P003",
+                    "entity_id": "P003",
                 }],
             },
         })
@@ -984,7 +984,7 @@ class TestLocalLLMLayerSubstrateScan:
             {
                 "question": "?",
                 "resolved_context": {},
-                "subject_id": "P003",
+                "entity_id": "P003",
             },
         ))
         kinds = {e["kind"] for e in result["related_substrate"]}
@@ -1007,19 +1007,19 @@ class TestLocalLLMLayerSubstrateScan:
                     "slug": "oldest",
                     "status": "open",
                     "last_updated": "2026-01-01T00:00:00Z",
-                    "subject_id": "P003",
+                    "entity_id": "P003",
                 },
                 {
                     "slug": "newest",
                     "status": "open",
                     "last_updated": "2026-04-30T00:00:00Z",
-                    "subject_id": "P003",
+                    "entity_id": "P003",
                 },
                 {
                     "slug": "middle",
                     "status": "open",
                     "last_updated": "2026-03-15T00:00:00Z",
-                    "subject_id": "P003",
+                    "entity_id": "P003",
                 },
             ],
         })
@@ -1029,14 +1029,14 @@ class TestLocalLLMLayerSubstrateScan:
             {
                 "question": "?",
                 "resolved_context": {},
-                "subject_id": "P003",
+                "entity_id": "P003",
             },
         ))
         slugs = [e["slug"] for e in result["related_substrate"]]
         assert slugs == ["newest", "middle", "oldest"]
 
     def test_dedupe_across_subjects(self):
-        """If two subjects share a cross-subject theme (subject_id IS
+        """If two subjects share a cross-subject theme (entity_id IS
         NULL — ADR 0009 IS-NULL-or-match), it appears once, not
         twice. The per-subject queries each return it; the layer
         dedupes by slug."""
@@ -1044,7 +1044,7 @@ class TestLocalLLMLayerSubstrateScan:
             "slug": "cross-subject-hypothesis",
             "status": "open",
             "last_updated": "2026-04-30T10:00:00Z",
-            "subject_id": None,
+            "entity_id": None,
         }
         storage = _StubVaultStorage(themes={"P003": [cross], "P004": [cross]})
         layer = self._layer_with(storage)
@@ -1053,7 +1053,7 @@ class TestLocalLLMLayerSubstrateScan:
             {
                 "question": "?",
                 "resolved_context": {
-                    "csv_cohort_summary": {
+                    "csv_group_summary": {
                         "P003": {"x": 1.0},
                         "P004": {"x": 2.0},
                     },
@@ -1082,7 +1082,7 @@ class TestRouterDispatchSubstrateCount:
                 {
                     "question": "?",
                     "resolved_context": {"csv_force_decline": {"peak": 1.0}},
-                    "subject_id": "P003",
+                    "entity_id": "P003",
                 },
             ))
             audit = AuditLog(tmp_path / "audit.db")
@@ -1109,12 +1109,12 @@ class TestRouterDispatchSubstrateCount:
                 {
                     "slug": "t1", "status": "open",
                     "last_updated": "2026-04-30T10:00:00Z",
-                    "subject_id": "P003",
+                    "entity_id": "P003",
                 },
                 {
                     "slug": "t2", "status": "open",
                     "last_updated": "2026-04-29T10:00:00Z",
-                    "subject_id": "P003",
+                    "entity_id": "P003",
                 },
             ],
         })
@@ -1128,7 +1128,7 @@ class TestRouterDispatchSubstrateCount:
                 {
                     "question": "?",
                     "resolved_context": {},
-                    "subject_id": "P003",
+                    "entity_id": "P003",
                 },
             ))
             audit = AuditLog(tmp_path / "audit.db")

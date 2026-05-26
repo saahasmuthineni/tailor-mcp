@@ -52,6 +52,17 @@ def split_frontmatter(content: str) -> tuple[dict, str]:
         body = body[1:]
 
     fm = _parse_frontmatter_block(fm_block)
+    # v9.0.0 backward-compat: vault notes written before the
+    # subject_id → entity_id rename carry `subject_id:` in their
+    # frontmatter. Surface them under the new key so every downstream
+    # consumer (VaultLayer filters, VaultStorage index, renderer) reads
+    # the same field regardless of when the note was written. The
+    # original `subject_id` key is preserved on the dict so a future
+    # write that round-trips the frontmatter doesn't silently drop it
+    # (the writer always emits `entity_id` on new notes; the dual key
+    # is only present while reading legacy notes).
+    if "subject_id" in fm and "entity_id" not in fm:
+        fm["entity_id"] = fm["subject_id"]
     return fm, body
 
 

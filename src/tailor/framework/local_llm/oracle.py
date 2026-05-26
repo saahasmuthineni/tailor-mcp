@@ -33,15 +33,15 @@ class NumericalClaim:
     metric: str  # e.g. "decline_rate_per_min", "decoupling_pct"
     value: float | int | None  # the actual number (or None if not computable)
     unit: str = ""  # e.g. "bpm", "%", "seconds"
-    subject_id: str | None = None  # optional; identifies which subject this claim is about
+    entity_id: str | None = None  # optional; identifies which subject this claim is about
     processing_call: str = ""  # e.g. "csv_force_decline" — the deterministic source
 
     def to_dict(self) -> dict:
         d: dict = {"metric": self.metric, "value": self.value}
         if self.unit:
             d["unit"] = self.unit
-        if self.subject_id is not None:
-            d["subject_id"] = self.subject_id
+        if self.entity_id is not None:
+            d["entity_id"] = self.entity_id
         if self.processing_call:
             d["processing_call"] = self.processing_call
         return d
@@ -91,15 +91,15 @@ class OracleRequest:
 
     question: str
     resolved_context: dict  # {processing_call_name: result_dict}
-    subject_id: str | None = None
+    entity_id: str | None = None
 
     def to_dict(self) -> dict:
         d: dict = {
             "question": self.question,
             "resolved_context": self.resolved_context,
         }
-        if self.subject_id is not None:
-            d["subject_id"] = self.subject_id
+        if self.entity_id is not None:
+            d["entity_id"] = self.entity_id
         return d
 
 

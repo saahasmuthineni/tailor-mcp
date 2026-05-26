@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import datetime
 from statistics import fmean, stdev
 
-# Per-file metric vocabulary for csv_cohort_summary. Each metric reduces
+# Per-file metric vocabulary for csv_group_summary. Each metric reduces
 # a column-of-values (and optional timestamps) to a single scalar before
 # cohort-level aggregation. See ADR 0015.
 COHORT_METRICS = (

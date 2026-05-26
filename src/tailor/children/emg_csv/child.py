@@ -42,8 +42,8 @@ from pathlib import Path
 
 from ...framework.audit import _loads
 from ...framework.interfaces import (
-    SUBJECT_ID_PARAM_DOC,
-    SUBJECT_ID_SCHEMA,
+    ENTITY_ID_PARAM_DOC,
+    ENTITY_ID_SCHEMA,
     ChildMCP,
     ConsentInfo,
     ConsentScope,
@@ -122,7 +122,7 @@ class EmgCsvStorage(BaseStorage):
                 label TEXT NOT NULL,
                 notes TEXT,
                 labeled_at TEXT NOT NULL,
-                subject_id TEXT,
+                entity_id TEXT,
                 PRIMARY KEY (file_id, t_seconds, event_type)
             );
         """
@@ -134,11 +134,11 @@ class EmgCsvStorage(BaseStorage):
         event_type: str,
         label: str,
         notes: str | None = None,
-        subject_id: str | None = None,
+        entity_id: str | None = None,
     ) -> None:
         self.execute(
             "INSERT OR REPLACE INTO emg_event_labels"
-            " (file_id, t_seconds, event_type, label, notes, labeled_at, subject_id)"
+            " (file_id, t_seconds, event_type, label, notes, labeled_at, entity_id)"
             " VALUES (?,?,?,?,?,?,?)",
             (
                 file_id,
@@ -147,17 +147,17 @@ class EmgCsvStorage(BaseStorage):
                 label,
                 notes,
                 datetime.now(timezone.utc).isoformat(),
-                subject_id,
+                entity_id,
             ),
         )
         self.commit()
 
     def get_labels(
-        self, file_id: str, subject_id: str | None = None,
+        self, file_id: str, entity_id: str | None = None,
     ) -> list[dict]:
-        if subject_id is None:
+        if entity_id is None:
             rows = self.fetchall(
-                "SELECT t_seconds, event_type, label, notes, labeled_at, subject_id"
+                "SELECT t_seconds, event_type, label, notes, labeled_at, entity_id"
                 " FROM emg_event_labels WHERE file_id = ?"
                 " ORDER BY t_seconds",
                 (file_id,),
@@ -166,11 +166,11 @@ class EmgCsvStorage(BaseStorage):
             # ADR 0009 IS-NULL-or-match filter so cross-subject
             # legacy rows stay visible.
             rows = self.fetchall(
-                "SELECT t_seconds, event_type, label, notes, labeled_at, subject_id"
+                "SELECT t_seconds, event_type, label, notes, labeled_at, entity_id"
                 " FROM emg_event_labels"
-                " WHERE file_id = ? AND (subject_id IS NULL OR subject_id = ?)"
+                " WHERE file_id = ? AND (entity_id IS NULL OR entity_id = ?)"
                 " ORDER BY t_seconds",
-                (file_id, subject_id),
+                (file_id, entity_id),
             )
         return [
             {
@@ -179,7 +179,7 @@ class EmgCsvStorage(BaseStorage):
                 "label": r[2],
                 "notes": r[3],
                 "labeled_at": r[4],
-                "subject_id": r[5],
+                "entity_id": r[5],
             }
             for r in rows
         ]
@@ -363,7 +363,7 @@ class EmgCsvChild(ChildMCP):
                         "description": "Max results (default 50)",
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -377,7 +377,7 @@ class EmgCsvChild(ChildMCP):
                         "description": "Filename within emg_csv.path",
                         "required": True,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -402,13 +402,13 @@ class EmgCsvChild(ChildMCP):
                         ),
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
                 "emg_cohort_summary", 1,
                 "Cross-file aggregation by metadata-sidecar group "
-                "(matches csv_cohort_summary, ADR 0015). Reduces each "
+                "(matches csv_group_summary, ADR 0015). Reduces each "
                 "trial to one scalar via metric, then aggregates by "
                 "group. Requires metadata.json sidecar. ~600 tokens.",
                 {
@@ -433,7 +433,7 @@ class EmgCsvChild(ChildMCP):
                         ),
                         "required": True,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -452,7 +452,7 @@ class EmgCsvChild(ChildMCP):
                         "description": "Column carrying envelope values",
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -491,7 +491,7 @@ class EmgCsvChild(ChildMCP):
                         "description": "Optional details",
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             # ── Tier 2: Consent-gated (downsampled streams) ──
@@ -520,7 +520,7 @@ class EmgCsvChild(ChildMCP):
                         ),
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             # ── Tier 3: Cost-gated (raw windowed streams) ──
@@ -556,7 +556,7 @@ class EmgCsvChild(ChildMCP):
                         ),
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
         ]
@@ -566,20 +566,20 @@ class EmgCsvChild(ChildMCP):
         return {
             "emg_list_files": {
                 "limit": ValidationSchema(type=int, min=1, max=500, default=50),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "emg_file_detail": {
                 "file_id": ValidationSchema(
                     type=str, required=True, pattern=FILE_ID_PATTERN,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "emg_envelope_summary": {
                 "file_id": ValidationSchema(
                     type=str, required=True, pattern=FILE_ID_PATTERN,
                 ),
                 "envelope_column": ValidationSchema(type=str),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "emg_cohort_summary": {
                 "group_by": ValidationSchema(
@@ -589,14 +589,14 @@ class EmgCsvChild(ChildMCP):
                 "metric": ValidationSchema(
                     type=str, required=True, allowed_values=list(COHORT_METRICS),
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "emg_compare_trials": {
                 "file_ids": ValidationSchema(
                     type=list, min_len=2, max_len=5, required=True,
                 ),
                 "envelope_column": ValidationSchema(type=str),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "emg_label_event": {
                 "file_id": ValidationSchema(
@@ -606,7 +606,7 @@ class EmgCsvChild(ChildMCP):
                 "event_type": ValidationSchema(type=str, required=True),
                 "label": ValidationSchema(type=str, required=True),
                 "notes": ValidationSchema(type=str),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "emg_downsampled": {
                 "file_id": ValidationSchema(
@@ -614,7 +614,7 @@ class EmgCsvChild(ChildMCP):
                 ),
                 "interval": ValidationSchema(type=int, min=1, max=10000, default=10),
                 "columns": ValidationSchema(type=list, allowed_values=ALL_STREAM_TYPES),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "emg_raw_window": {
                 "file_id": ValidationSchema(
@@ -623,7 +623,7 @@ class EmgCsvChild(ChildMCP):
                 "start_seconds": ValidationSchema(type=float, min=0.0, required=True),
                 "end_seconds": ValidationSchema(type=float, min=0.0, required=True),
                 "columns": ValidationSchema(type=list, allowed_values=ALL_STREAM_TYPES),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
         }
 
@@ -896,7 +896,7 @@ class EmgCsvChild(ChildMCP):
         sample_rate = self._derive_sample_rate(timestamps, self._sample_rate_hz)
 
         labels = self._storage.get_labels(
-            params["file_id"], subject_id=params.get("subject_id"),
+            params["file_id"], entity_id=params.get("entity_id"),
         )
         result: dict = {
             "filename": filepath.name,
@@ -1169,7 +1169,7 @@ class EmgCsvChild(ChildMCP):
                 event_type=params["event_type"],
                 label=params["label"],
                 notes=params.get("notes"),
-                subject_id=params.get("subject_id"),
+                entity_id=params.get("entity_id"),
             )
         except Exception as exc:
             log.error(f"emg_label_event save failed: {exc}", exc_info=True)

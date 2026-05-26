@@ -8,7 +8,7 @@ version = "9.0.0"
 description = "Tailor: a local-first MCP framework that lets any MCP-speaking AI work with your own data — your Wardrobe stays on your machine, with server-side analytics, consent gates, cost gates, and a durable audit log."
 readme = "README_PYPI.md"
 requires-python = ">=3.10"
-license = "Apache-2.0"
+license = "AGPL-3.0-or-later"
 license-files = ["LICENSE"]
 authors = [{name = "Saahas Muthineni"}]
 keywords = ["mcp", "ai", "personal-data", "local-first", "claude", "llm", "audit", "consent"]

@@ -2,7 +2,7 @@
 
 [![Python 3.10 | 3.11 | 3.12](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/downloads/)
 [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows-lightgrey)](.github/workflows/ci.yml)
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
+[![License: AGPL 3.0](https://img.shields.io/badge/license-AGPL%203.0-blue)](LICENSE)
 
 **Tailor is a personal AI server with research-grade trust — and
 turns a $200/month AI bill into a $2/month one while making the AI
@@ -563,4 +563,37 @@ Detailed notes in [CLAUDE.md](CLAUDE.md).
 
 ## License
 
-Apache-2.0.
+Tailor v9.0.0 onward is licensed under the **GNU Affero General Public
+License v3.0 or later** (`AGPL-3.0-or-later`). The full license text is
+in [LICENSE](LICENSE).
+
+In plain English:
+
+- **Community use is fully permitted.** Researchers, analysts,
+  clinicians, and individuals can install Tailor, use it on their own
+  data, modify it for their own purposes, and share their modifications
+  with colleagues — all without any obligation to the project.
+- **Distributing a modified version requires publishing your changes
+  under the same license.** If you fork Tailor and release the fork
+  (binary, wheel, or source) to anyone outside your organization,
+  your modifications must be available under AGPL-3.0-or-later.
+- **Running a modified version as a network service requires
+  publishing your changes too.** AGPL's Section 13 (the "network
+  trigger") extends the copyleft obligation to anyone who exposes a
+  modified Tailor to users over a network — including SaaS
+  deployments and managed-cloud offerings. This is the key
+  difference from a permissive license like Apache-2.0, and the
+  reason AGPL was chosen: it prevents a future cloud provider from
+  forking Tailor and offering "Tailor Cloud" without contributing
+  back to the project.
+
+**Past releases (v8.0.0 and earlier) were licensed under Apache-2.0
+and continue to be available under those terms in perpetuity.** The
+AGPL-3.0-or-later license applies to v9.0.0 and onward. If you
+received an older release under Apache, your rights to that release
+are unchanged.
+
+For commercial use cases that cannot accept AGPL-3.0's network-
+trigger clause, contact the maintainer (Saahas Muthineni) to discuss
+a separate commercial license. The project does not currently offer
+one off-the-shelf, but is open to the conversation.

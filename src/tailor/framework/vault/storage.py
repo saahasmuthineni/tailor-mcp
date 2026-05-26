@@ -45,13 +45,13 @@ class VaultStorage(BaseStorage):
                 frontmatter_json TEXT NOT NULL,
                 written_at TEXT NOT NULL,
                 mtime_ns INTEGER,
-                subject_id TEXT
+                entity_id TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_vault_domain ON vault_notes(domain);
             CREATE INDEX IF NOT EXISTS idx_vault_date   ON vault_notes(date);
             CREATE INDEX IF NOT EXISTS idx_vault_type   ON vault_notes(note_type);
             CREATE INDEX IF NOT EXISTS idx_vault_week   ON vault_notes(week);
-            CREATE INDEX IF NOT EXISTS idx_vault_subject ON vault_notes(subject_id);
+            CREATE INDEX IF NOT EXISTS idx_vault_subject ON vault_notes(entity_id);
 
             CREATE TABLE IF NOT EXISTS vault_links (
                 source TEXT NOT NULL,
@@ -77,11 +77,11 @@ class VaultStorage(BaseStorage):
                 linked_runs_json TEXT NOT NULL DEFAULT '[]',
                 confidence TEXT,
                 excerpt TEXT,
-                subject_id TEXT
+                entity_id TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_vault_themes_status ON vault_themes(status);
             CREATE INDEX IF NOT EXISTS idx_vault_themes_updated ON vault_themes(last_updated);
-            CREATE INDEX IF NOT EXISTS idx_vault_themes_subject ON vault_themes(subject_id);
+            CREATE INDEX IF NOT EXISTS idx_vault_themes_subject ON vault_themes(entity_id);
         """
 
     def _ensure_db(self):
@@ -92,24 +92,24 @@ class VaultStorage(BaseStorage):
         cols = {row[1] for row in conn.execute("PRAGMA table_info(vault_notes)").fetchall()}
         if "mtime_ns" not in cols:
             conn.execute("ALTER TABLE vault_notes ADD COLUMN mtime_ns INTEGER")
-        if "subject_id" not in cols:
+        if "entity_id" not in cols:
             # v6.2 — vault subject-keying (ADR 0009). Lazy backfill on
             # the next vault_rescan, which already parses frontmatter.
-            conn.execute("ALTER TABLE vault_notes ADD COLUMN subject_id TEXT")
+            conn.execute("ALTER TABLE vault_notes ADD COLUMN entity_id TEXT")
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_vault_subject "
-                "ON vault_notes(subject_id)"
+                "ON vault_notes(entity_id)"
             )
         # vault_themes column migrations
         theme_cols = {
             row[1]
             for row in conn.execute("PRAGMA table_info(vault_themes)").fetchall()
         }
-        if "subject_id" not in theme_cols:
-            conn.execute("ALTER TABLE vault_themes ADD COLUMN subject_id TEXT")
+        if "entity_id" not in theme_cols:
+            conn.execute("ALTER TABLE vault_themes ADD COLUMN entity_id TEXT")
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_vault_themes_subject "
-                "ON vault_themes(subject_id)"
+                "ON vault_themes(entity_id)"
             )
         conn.commit()
 
@@ -127,14 +127,14 @@ class VaultStorage(BaseStorage):
         week: str | None = None,
         has_insight_notes: bool = False,
         mtime_ns: int | None = None,
-        subject_id: str | None = None,
+        entity_id: str | None = None,
     ):
         """Insert or replace a note index entry."""
         self.execute(
             "INSERT OR REPLACE INTO vault_notes"
             " (filename, domain, note_type, activity_id, date, week,"
             "  has_insight_notes, frontmatter_json, written_at, mtime_ns,"
-            "  subject_id)"
+            "  entity_id)"
             " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
             (
                 filename, domain, note_type, activity_id, date, week,
@@ -142,16 +142,16 @@ class VaultStorage(BaseStorage):
                 _dumps(frontmatter),
                 datetime.now(timezone.utc).isoformat(),
                 mtime_ns,
-                subject_id,
+                entity_id,
             ),
         )
         self.commit()
 
-    def set_subject_id(self, filename: str, subject_id: str | None) -> None:
-        """Update subject_id for an existing note (used by lazy rescan backfill)."""
+    def set_entity_id(self, filename: str, entity_id: str | None) -> None:
+        """Update entity_id for an existing note (used by lazy rescan backfill)."""
         self.execute(
-            "UPDATE vault_notes SET subject_id=? WHERE filename=?",
-            (subject_id, filename),
+            "UPDATE vault_notes SET entity_id=? WHERE filename=?",
+            (entity_id, filename),
         )
         self.commit()
 
@@ -191,7 +191,7 @@ class VaultStorage(BaseStorage):
         """Return index row for a specific file, or None."""
         row = self.fetchone(
             "SELECT filename, domain, note_type, activity_id, date, week,"
-            "       has_insight_notes, frontmatter_json, written_at, subject_id"
+            "       has_insight_notes, frontmatter_json, written_at, entity_id"
             " FROM vault_notes WHERE filename=?",
             (filename,),
         )
@@ -205,13 +205,13 @@ class VaultStorage(BaseStorage):
         date_to: str | None = None,
         week: str | None = None,
         has_insight_notes: bool | None = None,
-        subject_id: str | None = None,
+        entity_id: str | None = None,
         limit: int = 50,
     ) -> list[dict]:
         """Filtered list of notes, newest first.
 
-        ``subject_id`` filtering follows ADR 0009: when provided, returns
-        rows whose subject_id matches OR is NULL (cross-subject themes
+        ``entity_id`` filtering follows ADR 0009: when provided, returns
+        rows whose entity_id matches OR is NULL (cross-subject themes
         and v6.1-era legacy notes both stay visible to a subject-filtered
         query). When absent, returns all rows.
         """
@@ -236,15 +236,15 @@ class VaultStorage(BaseStorage):
         if has_insight_notes is not None:
             clauses.append("has_insight_notes=?")
             params.append(int(has_insight_notes))
-        if subject_id is not None:
-            clauses.append("(subject_id=? OR subject_id IS NULL)")
-            params.append(subject_id)
+        if entity_id is not None:
+            clauses.append("(entity_id=? OR entity_id IS NULL)")
+            params.append(entity_id)
 
         where = " WHERE " + " AND ".join(clauses) if clauses else ""
         params.append(limit)
         rows = self.fetchall(
             f"SELECT filename, domain, note_type, activity_id, date, week,"
-            f"       has_insight_notes, frontmatter_json, written_at, subject_id"
+            f"       has_insight_notes, frontmatter_json, written_at, entity_id"
             f" FROM vault_notes{where}"
             f" ORDER BY written_at DESC LIMIT ?",
             tuple(params),
@@ -259,24 +259,24 @@ class VaultStorage(BaseStorage):
     def get_anomalous_notes(
         self,
         anomaly_type: str | None = None,
-        subject_id: str | None = None,
+        entity_id: str | None = None,
         limit: int = 50,
     ) -> list[dict]:
         """
         Return run_report notes where anomaly_count > 0.
         Optionally filter to a specific anomaly_type by scanning frontmatter.
-        ``subject_id`` filtering follows ADR 0009 (matching rows OR NULL).
+        ``entity_id`` filtering follows ADR 0009 (matching rows OR NULL).
         """
         clauses = ["note_type='run_report'",
                    "json_extract(frontmatter_json, '$.anomaly_count') > 0"]
         params: list = []
-        if subject_id is not None:
-            clauses.append("(subject_id=? OR subject_id IS NULL)")
-            params.append(subject_id)
+        if entity_id is not None:
+            clauses.append("(entity_id=? OR entity_id IS NULL)")
+            params.append(entity_id)
         params.append(limit)
         rows = self.fetchall(
             "SELECT filename, domain, note_type, activity_id, date, week,"
-            "       has_insight_notes, frontmatter_json, written_at, subject_id"
+            "       has_insight_notes, frontmatter_json, written_at, entity_id"
             f" FROM vault_notes WHERE {' AND '.join(clauses)}"
             " ORDER BY date DESC LIMIT ?",
             tuple(params),
@@ -365,12 +365,12 @@ class VaultStorage(BaseStorage):
         linked_runs: list | None = None,
         confidence: str | None = None,
         excerpt: str | None = None,
-        subject_id: str | None = None,
+        entity_id: str | None = None,
     ) -> None:
         self.execute(
             "INSERT OR REPLACE INTO vault_themes"
             " (slug, status, opened, last_updated, linked_runs_json, confidence,"
-            "  excerpt, subject_id)"
+            "  excerpt, entity_id)"
             " VALUES (?,?,?,?,?,?,?,?)",
             (
                 slug,
@@ -380,7 +380,7 @@ class VaultStorage(BaseStorage):
                 _dumps(linked_runs or []),
                 confidence,
                 excerpt,
-                subject_id,
+                entity_id,
             ),
         )
         self.commit()
@@ -388,21 +388,21 @@ class VaultStorage(BaseStorage):
     def get_theme(self, slug: str) -> dict | None:
         row = self.fetchone(
             "SELECT slug, status, opened, last_updated, linked_runs_json,"
-            "       confidence, excerpt, subject_id"
+            "       confidence, excerpt, entity_id"
             " FROM vault_themes WHERE slug=?",
             (slug,),
         )
         return self._theme_row(row) if row else None
 
-    def get_theme_subject_id(self, slug: str) -> str | None:
-        """Read just the subject_id of a theme (None if absent or theme missing).
+    def get_theme_entity_id(self, slug: str) -> str | None:
+        """Read just the entity_id of a theme (None if absent or theme missing).
 
         Used to enforce the ADR 0009 set-once invariant on theme subject:
-        a vault_upsert_theme call passing a different non-null subject_id
+        a vault_upsert_theme call passing a different non-null entity_id
         than the one already on disk is a hard error.
         """
         row = self.fetchone(
-            "SELECT subject_id FROM vault_themes WHERE slug=?",
+            "SELECT entity_id FROM vault_themes WHERE slug=?",
             (slug,),
         )
         return row[0] if row and row[0] is not None else None
@@ -410,12 +410,12 @@ class VaultStorage(BaseStorage):
     def list_themes(
         self,
         status: str | None = None,
-        subject_id: str | None = None,
+        entity_id: str | None = None,
         limit: int = 50,
     ) -> list[dict]:
         """List themes, newest first.
 
-        ``subject_id`` filter follows ADR 0009: matches rows with that
+        ``entity_id`` filter follows ADR 0009: matches rows with that
         subject OR NULL (cross-subject hypotheses).
         """
         clauses = []
@@ -423,14 +423,14 @@ class VaultStorage(BaseStorage):
         if status:
             clauses.append("status=?")
             params.append(status)
-        if subject_id is not None:
-            clauses.append("(subject_id=? OR subject_id IS NULL)")
-            params.append(subject_id)
+        if entity_id is not None:
+            clauses.append("(entity_id=? OR entity_id IS NULL)")
+            params.append(entity_id)
         where = " WHERE " + " AND ".join(clauses) if clauses else ""
         params.append(limit)
         rows = self.fetchall(
             "SELECT slug, status, opened, last_updated, linked_runs_json,"
-            "       confidence, excerpt, subject_id"
+            "       confidence, excerpt, entity_id"
             f" FROM vault_themes{where}"
             " ORDER BY last_updated DESC LIMIT ?",
             tuple(params),
@@ -487,7 +487,7 @@ class VaultStorage(BaseStorage):
     @staticmethod
     def _row_to_dict(row: tuple) -> dict:
         filename, domain, note_type, activity_id, date, week, \
-            has_insight_notes, frontmatter_json, written_at, subject_id = row
+            has_insight_notes, frontmatter_json, written_at, entity_id = row
         fm = {}
         try:
             fm = _loads(frontmatter_json) if frontmatter_json else {}
@@ -506,13 +506,13 @@ class VaultStorage(BaseStorage):
             "has_insight_notes": bool(has_insight_notes),
             "frontmatter": fm,
             "written_at": written_at,
-            "subject_id": subject_id,
+            "entity_id": entity_id,
         }
 
     @staticmethod
     def _theme_row(row: tuple) -> dict:
         slug, status, opened, last_updated, linked_runs_json, \
-            confidence, excerpt, subject_id = row
+            confidence, excerpt, entity_id = row
         try:
             linked_runs = _loads(linked_runs_json) if linked_runs_json else []
         except (ValueError, TypeError) as exc:
@@ -529,5 +529,5 @@ class VaultStorage(BaseStorage):
             "linked_runs": linked_runs,
             "confidence": confidence,
             "excerpt": excerpt,
-            "subject_id": subject_id,
+            "entity_id": entity_id,
         }

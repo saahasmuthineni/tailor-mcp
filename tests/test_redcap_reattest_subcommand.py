@@ -63,7 +63,7 @@ def _stamp_prior_attestation(audit_db: Path, fingerprint: str) -> None:
                 outcome TEXT NOT NULL,
                 duration_ms INTEGER,
                 error TEXT,
-                subject_id TEXT,
+                entity_id TEXT,
                 scrubber_id TEXT,
                 child_scrubber_id TEXT,
                 source_metadata_fingerprint TEXT

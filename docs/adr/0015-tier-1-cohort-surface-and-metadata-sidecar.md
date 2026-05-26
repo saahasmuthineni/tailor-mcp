@@ -2,7 +2,8 @@
 
 - **Status:** Accepted
 - **Date:** 2026-04-30
-- **Related:** [ADR 0001 (Audit log is the backbone)](0001-audit-log-as-backbone.md), [ADR 0002 (subject_id scoping)](0002-subject-id-scoping.md), [ADR 0008 (Deterministic-by-construction processing)](0008-deterministic-by-construction-processing.md), [ADR 0009 (Vault subject-keying)](0009-vault-subject-keying.md), [ADR 0014 (Coverage criticality invariant)](0014-coverage-criticality-invariant.md), [CLAUDE.md § Three-Tier Access Model](../../CLAUDE.md#three-tier-access-model)
+- **Renamed in v9.0.0 (2026-05-26):** the `csv_dir` cohort tool was renamed `csv_cohort_summary` → `csv_group_summary` as part of the public-flip domain-agnostic vocabulary sweep. The metadata-sidecar shape and cohort statistics contract are unchanged. The biometric children's sibling tools — `force_cohort_summary`, `emg_cohort_summary`, `redcap_cohort_summary` — retain their `_cohort_` names because they ARE cohort-shaped in the research sense; the rename applies only to the generic CSV-directory child where "group" is more accurate.
+- **Related:** [ADR 0001 (Audit log is the backbone)](0001-audit-log-as-backbone.md), [ADR 0002 (entity_id scoping)](0002-subject-id-scoping.md), [ADR 0008 (Deterministic-by-construction processing)](0008-deterministic-by-construction-processing.md), [ADR 0009 (Vault entity-keying)](0009-vault-subject-keying.md), [ADR 0014 (Coverage criticality invariant)](0014-coverage-criticality-invariant.md), [CLAUDE.md § Three-Tier Access Model](../../CLAUDE.md#three-tier-access-model)
 
 ## Context
 
@@ -33,7 +34,7 @@ The proposal-mode audit on the v6.5.0 HIP-Lab demo plan named this
 gap as the highest-leverage decision in the build:
 
 > "*The single highest-leverage decision is whether to ship a
-> `csv_cohort_summary` Tier-1 tool before the demo. Without it, Wow
+> `csv_group_summary` Tier-1 tool before the demo. Without it, Wow
 > Moment 1 is structurally a Tier-2 demo dressed up as Tier-1.*"
 
 The audit also surfaced the bound problem: cross-file aggregation
@@ -59,7 +60,7 @@ travels via a sidecar JSON file at `<csv_dir>/metadata.json`. The
 demo walkthrough at `examples/hip_lab_demo/` is the proof-of-concept
 that demonstrates the surface against a synthetic study.
 
-**`csv_cohort_summary` (Tier 1, ~300 tokens).** Reduces every CSV in
+**`csv_group_summary` (Tier 1, ~300 tokens).** Reduces every CSV in
 the directory to a per-file scalar by metric, groups by a metadata
 field, returns per-group n/mean/std/min/max plus the file list per
 group. The metric vocabulary is the new module-level constant
@@ -94,7 +95,7 @@ holds.
 Schema: `{"<csv_filename>": {"<field>": <value>, ...}, ...}`.
 Loaded on demand by the handler — never cached at init, so a user
 editing the sidecar between calls sees the change on the next
-invocation. The file is required for `csv_cohort_summary` and
+invocation. The file is required for `csv_group_summary` and
 ignored by every other tool. The sidecar is a JSON file (not YAML)
 to match the existing `user_config.json` posture and avoid pulling
 a YAML parser into the runtime dependency surface.
@@ -105,7 +106,7 @@ The shape of the new tools matches the existing ChildMCP contract:
   aggregate statistics; raw rows never enter the result. Honest
   on-architecture: *no streams cross into LLM context for any
   question answerable by these tools*.
-- `subject_id` declared in both `tool_definitions` and
+- `entity_id` declared in both `tool_definitions` and
   `param_schemas` per ADR 0002. Audit-log scoping carries through
   unchanged.
 - Pure-function processing per ADR 0008. `aggregate_metric`,
@@ -120,22 +121,22 @@ The sidecar mechanism is intentionally minimal:
 
 - No required schema beyond the filename → field-map shape.
   Studies record whatever metadata is meaningful (sex, study arm,
-  age bucket, recording condition, subject_id).
+  age bucket, recording condition, entity_id).
 - No write API at the Tier-1 surface. The framework reads the
   sidecar; the deployer writes it (typically as part of dataset
   packaging from REDCap export, lab CSV dump, etc.). This matches
   the institutional-source-files pattern established in ADR 0013
   for csv_dir's purge-cache no-op: *the CSV files at csv_dir.path
   are institutional artifacts the deployer manages*.
-- No automatic linkage to `subject_id`. A study can record
-  `subject_id` as one of the metadata fields if it wants the
+- No automatic linkage to `entity_id`. A study can record
+  `entity_id` as one of the metadata fields if it wants the
   audit-log scoping to match the cohort-grouping field; nothing
   forces it. A multi-subject CSV per-file (rare but possible)
   remains coherent because the sidecar lives at file granularity.
 - **Out-of-band of the PHI-scrubber seam.** The sidecar is read by
   the cohort handler and used for grouping, but its contents never
-  enter a tool result — `csv_cohort_summary` returns per-group
-  *stats*, not per-subject metadata rows. ADR 0003's `PHIScrubber`
+  enter a tool result — `csv_group_summary` returns per-group
+  *stats*, not per-subject metadata rows. ADR 0003's `DataScrubber`
   seam therefore never sees `metadata.json`. A deployer who packs
   HIPAA Safe Harbor §164.514(b)(2) identifiers (full DOB, ZIP at
   5-digit precision, full name, etc.) into the sidecar ships PHI
@@ -170,7 +171,7 @@ the same change:
   after a diff is `COVERAGE REGRESSION`.
 - **`children/csv_dir/child.py:tool_definitions`,
   `param_schemas`** — **HIGH**. Schema declaration paths
-  (ADR 0014). New tools must declare `subject_id` in both surfaces
+  (ADR 0014). New tools must declare `entity_id` in both surfaces
   per ADR 0002.
 - **The new tool surface in router-reachable dispatch** —
   inherits from `framework/router.py`'s existing CRITICAL
@@ -223,7 +224,7 @@ classification on subsequent diffs touching these regions.
   rename or schema extension has to update both. Mitigated by
   the `code-vs-roadmap-drift-auditor` agent's existing remit on
   documentation truthfulness.
-- `csv_cohort_summary` is a fail-closed-on-missing-sidecar tool.
+- `csv_group_summary` is a fail-closed-on-missing-sidecar tool.
   An institution running `csv_dir` against a directory that
   predates this ADR will get a clear error from the new tool but
   no breakage on the five existing tools. Acceptable — the new
@@ -311,7 +312,7 @@ absent.** Rejected. The five existing tools (`csv_list_files`,
 `csv_file_detail`, `csv_summary_report`, `csv_downsampled`,
 `csv_raw_stream`) are useful with no metadata at all — a single-
 subject directory or an exploratory CSV dump. Mandating metadata
-breaks those use cases for a feature only `csv_cohort_summary`
+breaks those use cases for a feature only `csv_group_summary`
 needs. The fail-closed-at-tool-call-time pattern is the right
 grain: tools that need metadata require it; tools that don't,
 ignore it.

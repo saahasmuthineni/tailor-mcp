@@ -96,7 +96,7 @@ _SECTION_PAYLOADS: dict[int, dict] = {
             "PHI-scrub → audit pipeline. Each call lands a row in "
             "`audit.db` with timestamp, domain, tool_name, tier, "
             "parameters, token estimate, outcome, latency, optional "
-            "subject_id, and the scrubber identity. An IRB reviewer "
+            "entity_id, and the scrubber identity. An IRB reviewer "
             "can reconstruct what was accessed, by whom, when, and "
             "at what resolution from `audit.db` alone."
         ),
@@ -111,7 +111,7 @@ _SECTION_PAYLOADS: dict[int, dict] = {
                 "outcome": "SUCCESS",
                 "token_estimate": 102,
                 "duration_ms": 11,
-                "subject_id": None,
+                "entity_id": None,
                 "scrubber_id": "noop",
                 "source_metadata_fingerprint": None,
             },
@@ -129,7 +129,7 @@ _SECTION_PAYLOADS: dict[int, dict] = {
         },
         "adr_citations": [
             "ADR 0001 (audit log as backbone)",
-            "ADR 0002 (subject_id scoping)",
+            "ADR 0002 (entity_id scoping)",
             "ADR 0003 (PHI scrubber seam)",
             "ADR 0039 (audit log is LLM-queryable under column allowlist)",
         ],
@@ -156,7 +156,7 @@ _SECTION_PAYLOADS: dict[int, dict] = {
         "worked_example": {
             "tier_1": {
                 "tool": "csv_force_decline",
-                "params": {"subject_id": "S004"},
+                "params": {"entity_id": "S004"},
                 "tokens": 310,
                 "gates": [],
                 "result_shape": {
@@ -167,13 +167,13 @@ _SECTION_PAYLOADS: dict[int, dict] = {
             },
             "tier_2": {
                 "tool": "csv_downsampled",
-                "params": {"subject_id": "S004", "interval_s": 5},
+                "params": {"entity_id": "S004", "interval_s": 5},
                 "tokens": 6750,
                 "gates": ["consent"],
             },
             "tier_3": {
                 "tool": "csv_raw_stream",
-                "params": {"subject_id": "S004"},
+                "params": {"entity_id": "S004"},
                 "tokens": 50000,
                 "tier3_pre_execution_estimate": 24000,
                 "gates": ["consent", "cost"],
@@ -203,21 +203,21 @@ _SECTION_PAYLOADS: dict[int, dict] = {
             "theme), and failure modes. Notes are markdown files in "
             "an Obsidian-compatible vault; SQLite indexes them for "
             "fast LLM queries. Capturing a moment scoped to "
-            "subject_id='S004' creates a durable note an analyst "
+            "entity_id='S004' creates a durable note an analyst "
             "(or Claude in a future session) can find by filtering "
             "the index."
         ),
         "worked_example": {
             "tool": "vault_capture_moment",
             "params": {
-                "subject_id": "S004",
+                "entity_id": "S004",
                 "title": "S004 force decline pattern",
                 "body": "S004 shows 76% decline over 60 s...",
             },
             "result_shape": {
                 "slug": "s004-force-decline-pattern",
                 "kind": "moment",
-                "subject_id": "S004",
+                "entity_id": "S004",
                 "vault_path": "moments/s004-force-decline-pattern.md",
                 "tokens": 180,
             },
@@ -255,7 +255,7 @@ _SECTION_PAYLOADS: dict[int, dict] = {
             "params": {
                 "intent": "summarize_subject_force_pattern",
                 "resolved_context": {
-                    "subject_id": "S004",
+                    "entity_id": "S004",
                     "peak_N": 229.0,
                     "decline_pct": 76.1,
                 },
@@ -276,7 +276,7 @@ _SECTION_PAYLOADS: dict[int, dict] = {
                     {
                         "kind": "moment",
                         "slug": "s004-force-decline-pattern",
-                        "subject_id": "S004",
+                        "entity_id": "S004",
                     },
                 ],
                 "next_best_calls": [],

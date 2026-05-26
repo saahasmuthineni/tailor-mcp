@@ -1,12 +1,13 @@
-# ADR 0009: Vault subject-keying — optional frontmatter, set-once, with cross-subject preserved
+# ADR 0009: Vault entity-keying — optional frontmatter, set-once, with cross-entity preserved
 
 - **Status:** Accepted
 - **Date:** 2026-04-29
-- **Related:** [ADR 0002 (`subject_id` audit-scoping)](0002-subject-id-scoping.md), [ADR 0006 (Vault overhaul v6)](0006-vault-overhaul-v6.md), [ADR 0007 (Rendering layers policy)](0007-rendering-layers-policy.md), [ROADMAP.md § Per-subject parameter scoping on vault tools](../../ROADMAP.md#per-subject-parameter-scoping-on-vault-tools), [docs/design/research-framing.md](../design/research-framing.md)
+- **Renamed in v9.0.0 (2026-05-26):** the frontmatter key + parameter name was renamed `subject_id` → `entity_id` as part of the public-flip domain-agnostic vocabulary sweep. The set-once / promotion / reassignment-is-error invariants are unchanged. Backward compat: `parser.split_frontmatter` aliases legacy `subject_id:` to `entity_id:` on read so notes written under the old name continue to load without migration.
+- **Related:** [ADR 0002 (`entity_id` audit-scoping)](0002-subject-id-scoping.md), [ADR 0006 (Vault overhaul v6)](0006-vault-overhaul-v6.md), [ADR 0007 (Rendering layers policy)](0007-rendering-layers-policy.md), [ROADMAP.md § Per-subject parameter scoping on vault tools](../../ROADMAP.md#per-subject-parameter-scoping-on-vault-tools), [docs/design/research-framing.md](../design/research-framing.md)
 
 ## Context
 
-ADR 0002 made `subject_id` a first-class audit column and threaded it
+ADR 0002 made `entity_id` a first-class audit column and threaded it
 through the router, including `_dispatch_vault()`. That ADR
 deliberately deferred *vault* subject-keying as "an open design
 question" — how should themes, moments, and failure-mode notes
@@ -39,13 +40,13 @@ locks in: 5–20 participants, light IRB, one lab.
 The constraint shape:
 
 1. The vault has existing notes from v6.0 and v6.1 deployments with
-   no `subject_id` frontmatter. Back-compat must hold.
+   no `entity_id` frontmatter. Back-compat must hold.
 2. Some hypotheses are genuinely cohort-level ("does pre-run
    carbohydrate timing affect HR drift across the cohort?"). Forcing
    every theme to claim a single subject is the wrong default.
-3. The router already extracts `subject_id` from arguments and threads
+3. The router already extracts `entity_id` from arguments and threads
    it to audit ([`router.py:572-630`](../../src/tailor/framework/router.py)).
-   All 25 vault tools now declare `subject_id` in their `param_schemas`
+   All 25 vault tools now declare `entity_id` in their `param_schemas`
    (Phase B of v6.2). The renderer and the SQLite index are the layers
    that have not yet been taught.
 4. ADR 0002's own neutral consequence states: *"How the vault
@@ -60,49 +61,49 @@ manuscript-freeze export, full provenance hashing)?*
 
 ## Decision
 
-Vault notes carry an **optional, set-once `subject_id` in
+Vault notes carry an **optional, set-once `entity_id` in
 frontmatter**. Evidence and moment renderers stamp the subject of
 the call that wrote them. The SQLite index gains a nullable
-`subject_id` column on `vault_notes` and filters search/list queries
+`entity_id` column on `vault_notes` and filters search/list queries
 by subject when one is provided, keeping cross-subject and legacy
 notes visible.
 
 Concretely:
 
 - **Themes are subject-scoped optionally.** `vault_upsert_theme`
-  accepts an optional `subject_id`. When present, it stamps the
-  theme's frontmatter (`subject_id: "P004"`). When absent, the theme
+  accepts an optional `entity_id`. When present, it stamps the
+  theme's frontmatter (`entity_id: "P004"`). When absent, the theme
   is cross-subject — the implicit semantics of every existing v6.1
   theme. A theme's subject is **set-once**: the first call that
-  passes a non-null `subject_id` claims the theme; subsequent calls
+  passes a non-null `entity_id` claims the theme; subsequent calls
   passing the same value are idempotent; a call passing a *different*
   value raises an error and writes nothing. Promoting a cross-subject
   theme to subject-scoped is permitted; reassigning a scoped theme
   to a different subject is not, by design.
 - **Evidence blocks carry the subject of their writing call.** When
-  a `vault_upsert_theme` call provides `subject_id`, the appended
+  a `vault_upsert_theme` call provides `entity_id`, the appended
   evidence block's metadata line gets a `subject:` field. Existing
   blocks with no subject line are read as "subject unspecified",
   preserving the historical record without rewriting markdown.
 - **Moments carry the subject of their writing call.**
-  `vault_capture_moment` accepts optional `subject_id`. When
+  `vault_capture_moment` accepts optional `entity_id`. When
   present, the renderer stamps the moment's frontmatter and the
   rendered body. Same back-compat rule.
-- **`vault_notes` gains a nullable `subject_id` column.** Migration
+- **`vault_notes` gains a nullable `entity_id` column.** Migration
   on open via `ALTER TABLE` if the column is absent — the same
-  pattern `audit_log` used for `subject_id` and `scrubber_id`
+  pattern `audit_log` used for `entity_id` and `scrubber_id`
   ([`audit.py:107-118`](../../src/tailor/framework/audit.py)).
   Backfill happens lazily on the next `vault_rescan`, which already
   parses frontmatter on every note it touches.
 - **Search and list filter on subject when one is provided.**
   `vault_search_notes`, `vault_list_notes`, `vault_list_themes`,
   `vault_list_moments`, and `vault_list_failure_modes` accept an
-  optional `subject_id`. When present, the query returns rows where
-  `vault_notes.subject_id = ?` **OR** `vault_notes.subject_id IS
+  optional `entity_id`. When present, the query returns rows where
+  `vault_notes.entity_id = ?` **OR** `vault_notes.entity_id IS
   NULL`. The `IS NULL` branch is deliberate — it keeps cross-subject
   themes (cohort hypotheses) and v6.1-era legacy notes visible to a
   subject-filtered query, because both are relevant to a session
-  about that participant. When `subject_id` is absent, the query
+  about that participant. When `entity_id` is absent, the query
   returns every row, matching current behaviour.
 - **`vault_correct_evidence` propagation stamps the subject.** With
   `propagate=True`, the `[!warning]` callouts already appended to
@@ -120,10 +121,10 @@ Concretely:
 The renderer and storage layers — currently subject-agnostic — are
 the implementation surface this ADR authorises:
 
-- `framework/vault/renderer.py` gains `subject_id` parameters on
+- `framework/vault/renderer.py` gains `entity_id` parameters on
   the theme, moment, and evidence-block render paths.
 - `framework/vault/storage.py` adds the nullable column, the
-  migration, and `subject_id`-aware query variants on the
+  migration, and `entity_id`-aware query variants on the
   list/search methods.
 - `framework/vault/parser.py` reads the new frontmatter key when
   `vault_rescan` revalidates the index.
@@ -151,7 +152,7 @@ v6.2, tracked separately on ROADMAP:
   named is closed without rewriting any existing v6.1 vaults. Legacy
   notes remain readable, queryable, and visible to subject-filtered
   searches.
-- An analyst running a session for P004 can pass `subject_id="P004"`
+- An analyst running a session for P004 can pass `entity_id="P004"`
   to `vault_search_notes` and see only P004-scoped results plus
   cohort-level themes, without the framework guessing what
   cross-subject means.
@@ -197,7 +198,7 @@ v6.2, tracked separately on ROADMAP:
   `themes/P004/hr-drift-on-long-runs.md`. Wikilinks, slugs, and
   cross-references continue to work without subject-aware path
   resolution.
-- The `subject_id` regex from ADR 0002
+- The `entity_id` regex from ADR 0002
   (`^[A-Za-z0-9_\-]{1,64}$`) is reused unchanged. Vault tools
   validate against the same shared schema running tools already use.
 - ADR 0007's rendering-layers policy holds: every change is plain
@@ -209,18 +210,18 @@ v6.2, tracked separately on ROADMAP:
 
 ## Alternatives considered
 
-**Mandatory `subject_id` on every theme and moment.** Rejected. It
+**Mandatory `entity_id` on every theme and moment.** Rejected. It
 breaks back-compat with every v6.0 and v6.1 vault in the wild —
 existing themes have no subject and are not safely defaultable to
 one. It also forces cohort-level hypotheses ("does pre-run carb
 timing affect drift across the cohort?") into a synthetic scope
-value like `subject_id="cohort"`, which is exactly the kind of
+value like `entity_id="cohort"`, which is exactly the kind of
 sentinel that ADR 0002 rejected for `audit_log`. Optional
 frontmatter with explicit cross-subject semantics handles both
 cases without a special string.
 
 **Hash-based subject keys for pseudonymisation.** Rejected. A
-content-addressed scheme (e.g. `subject_id = sha256(participant_id +
+content-addressed scheme (e.g. `entity_id = sha256(participant_id +
 study_salt)`) would commit the framework to a particular IRB
 workflow for identifier pseudonymisation. That is the IRB's
 decision, not the framework's. The regex from ADR 0002 already

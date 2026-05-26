@@ -109,9 +109,9 @@ gate asking for cost approval — before any data crosses the wire.
   unprompted.
 - **IRB-grade audit log.** Every call records to `data/audit.db`
   with timestamp, tool name, parameters, outcome, latency, and
-  optional `subject_id` (per ADR 0001 + ADR 0002). Open the SQLite
+  optional `entity_id` (per ADR 0001 + ADR 0002). Open the SQLite
   file from the operator's shell
-  (`sqlite3 data/audit.db "SELECT tool_name, outcome, subject_id, called_at FROM audit_log ORDER BY id DESC LIMIT 20;"`)
+  (`sqlite3 data/audit.db "SELECT tool_name, outcome, entity_id, called_at FROM audit_log ORDER BY id DESC LIMIT 20;"`)
   to reconstruct a session post-hoc. An MCP-callable audit-query
   tool is queued for v7.4.0 per ADR 0038; in v7.3.4 the audit log
   is inspectable from the shell, not from inside the Claude Desktop

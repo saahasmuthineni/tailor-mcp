@@ -8,7 +8,7 @@ Covers:
 - Conditional registration: layer only constructs when no demo blocks
   in user_config.json (the v6.10.2 cue-card-rehearsal-auditor /
   prose-to-schema-inference safety property).
-- Audit-row provenance (domain="setup_help", subject_id=None,
+- Audit-row provenance (domain="setup_help", entity_id=None,
   scrubber_id stamped).
 """
 
@@ -235,17 +235,17 @@ async def test_dispatch_setup_help_writes_audit_row(router_with_setup_help, tmp_
         f"got {payload['_meta']['child_scrubber_id']!r}"
     )
 
-    # Audit row must record domain="setup_help" with subject_id=None
+    # Audit row must record domain="setup_help" with entity_id=None
     # (server-state diagnostic; not per-subject).
     audit_db = tmp_path / "data" / "audit.db"
     with sqlite3.connect(str(audit_db)) as conn:
         rows = conn.execute(
-            "SELECT domain, tool_name, outcome, subject_id, scrubber_id "
+            "SELECT domain, tool_name, outcome, entity_id, scrubber_id "
             "FROM audit_log WHERE tool_name = 'tailor_setup_help'"
         ).fetchall()
     assert len(rows) == 1
     assert rows[0][0] == "setup_help"
     assert rows[0][1] == "tailor_setup_help"
     assert rows[0][2] == "SUCCESS"
-    assert rows[0][3] is None  # subject_id intentionally absent
+    assert rows[0][3] is None  # entity_id intentionally absent
     assert rows[0][4]  # scrubber_id stamped per ADR 0003

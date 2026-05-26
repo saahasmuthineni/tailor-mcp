@@ -12,7 +12,7 @@ What's covered:
 * The ChildMCP ABC surface (``domain``, ``display_name``,
   ``tool_definitions``, ``param_schemas``) is non-empty and
   correctly typed.
-* Every tool declares ``subject_id`` in both ``tool_definitions``
+* Every tool declares ``entity_id`` in both ``tool_definitions``
   (MCP discoverability) and ``param_schemas`` (validator-side
   pattern enforcement). See ADR 0002.
 * The router's ``register_child`` accepts the template without
@@ -34,7 +34,7 @@ import pytest
 from tailor.children.template import TemplateChild
 from tailor.children.template.child import (
     ALL_STREAM_TYPES,
-    SUBJECT_ID_SCHEMA,
+    ENTITY_ID_SCHEMA,
 )
 from tailor.framework.interfaces import (
     CostEstimate,
@@ -43,7 +43,7 @@ from tailor.framework.interfaces import (
 )
 from tailor.framework.router import RouterMCP
 
-SUBJECT_ID_PATTERN = r"^[A-Za-z0-9_\-]{1,64}$"
+ENTITY_ID_PATTERN = r"^[A-Za-z0-9_\-]{1,64}$"
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -122,43 +122,43 @@ class TestRequiredAbstractSurface:
 # ═══════════════════════════════════════════════════════════════
 
 
-class TestSubjectIdConsistency:
-    """Every template tool declares subject_id in both surfaces."""
+class TestEntityIdConsistency:
+    """Every template tool declares entity_id in both surfaces."""
 
-    def test_every_tool_declares_subject_id_in_param_schemas(
+    def test_every_tool_declares_entity_id_in_param_schemas(
         self, template_child: TemplateChild,
     ):
         schemas = template_child.param_schemas
         assert schemas, "param_schemas should not be empty"
         for tool_name, tool_schema in schemas.items():
-            assert "subject_id" in tool_schema, (
-                f"{tool_name} missing subject_id in param_schemas"
+            assert "entity_id" in tool_schema, (
+                f"{tool_name} missing entity_id in param_schemas"
             )
-            entry = tool_schema["subject_id"]
+            entry = tool_schema["entity_id"]
             assert isinstance(entry, ValidationSchema)
             assert entry.type is str
             assert entry.required is False
-            assert entry.pattern == SUBJECT_ID_PATTERN
+            assert entry.pattern == ENTITY_ID_PATTERN
 
-    def test_every_tool_declares_subject_id_in_tool_definitions(
+    def test_every_tool_declares_entity_id_in_tool_definitions(
         self, template_child: TemplateChild,
     ):
         defs = template_child.tool_definitions
         assert defs, "tool_definitions should not be empty"
         for tool_def in defs:
-            assert "subject_id" in tool_def.params, (
-                f"{tool_def.name} missing subject_id in tool_definitions.params"
+            assert "entity_id" in tool_def.params, (
+                f"{tool_def.name} missing entity_id in tool_definitions.params"
             )
-            entry = tool_def.params["subject_id"]
+            entry = tool_def.params["entity_id"]
             assert entry["type"] == "string"
             assert entry["required"] is False
             assert isinstance(entry["description"], str)
             assert entry["description"].strip()
 
-    def test_exported_subject_id_schema_matches_canonical_pattern(self):
-        assert SUBJECT_ID_SCHEMA.type is str
-        assert SUBJECT_ID_SCHEMA.required is False
-        assert SUBJECT_ID_SCHEMA.pattern == SUBJECT_ID_PATTERN
+    def test_exported_entity_id_schema_matches_canonical_pattern(self):
+        assert ENTITY_ID_SCHEMA.type is str
+        assert ENTITY_ID_SCHEMA.required is False
+        assert ENTITY_ID_SCHEMA.pattern == ENTITY_ID_PATTERN
 
 
 # ═══════════════════════════════════════════════════════════════

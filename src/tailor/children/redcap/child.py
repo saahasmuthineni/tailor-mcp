@@ -11,12 +11,12 @@ superseding ADR.
 
 Built-in PHI scrubbing per ADR 0003 § Amendment 2026-05-14: the child
 ships ``RedcapPHIScrubber``, a parallel seam to the framework-level
-``PHIScrubber``. The child-level scrubber reads ``project_metadata.csv``
+``DataScrubber``. The child-level scrubber reads ``project_metadata.csv``
 identifier flags set by the IRB at protocol creation and strips
 identifier-flagged fields from every Tier-1+ result before return.
 Unknown fields default to identifier-positive (fail-closed).
 
-Subject scoping per ADR 0009: ``record_id`` is the ``subject_id``.
+Subject scoping per ADR 0009: ``record_id`` is the ``entity_id``.
 ``redcap_event_name`` is a grouping dimension (NOT subject scoping)
 because longitudinal REDCap projects emit one row per
 (subject, event) — literal "one record = one subject" is wrong for
@@ -55,8 +55,8 @@ from pathlib import Path
 
 from ...framework import OperatorActionRequired
 from ...framework.interfaces import (
-    SUBJECT_ID_PARAM_DOC,
-    SUBJECT_ID_SCHEMA,
+    ENTITY_ID_PARAM_DOC,
+    ENTITY_ID_SCHEMA,
     ChildMCP,
     ConsentInfo,
     ConsentScope,
@@ -342,7 +342,7 @@ class RedcapFileChild(ChildMCP):
                         "description": "Max records (default 50, max 500)",
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -366,7 +366,7 @@ class RedcapFileChild(ChildMCP):
                         ),
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -384,7 +384,7 @@ class RedcapFileChild(ChildMCP):
                         ),
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -437,7 +437,7 @@ class RedcapFileChild(ChildMCP):
                         ),
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -461,7 +461,7 @@ class RedcapFileChild(ChildMCP):
                         ),
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -478,7 +478,7 @@ class RedcapFileChild(ChildMCP):
                         ),
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
         ]
@@ -488,7 +488,7 @@ class RedcapFileChild(ChildMCP):
         return {
             "redcap_list_records": {
                 "limit": ValidationSchema(type=int, min=1, max=500, default=50),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "redcap_record_detail": {
                 "record_id": ValidationSchema(
@@ -497,13 +497,13 @@ class RedcapFileChild(ChildMCP):
                 "event": ValidationSchema(
                     type=str, required=False, pattern=EVENT_NAME_PATTERN,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "redcap_summary_report": {
                 "instrument": ValidationSchema(
                     type=str, required=False, pattern=INSTRUMENT_NAME_PATTERN,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "redcap_cohort_summary": {
                 "field": ValidationSchema(
@@ -522,7 +522,7 @@ class RedcapFileChild(ChildMCP):
                 "event": ValidationSchema(
                     type=str, required=False, pattern=EVENT_NAME_PATTERN,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "redcap_records": {
                 "instrument": ValidationSchema(
@@ -531,13 +531,13 @@ class RedcapFileChild(ChildMCP):
                 "event": ValidationSchema(
                     type=str, required=False, pattern=EVENT_NAME_PATTERN,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "redcap_raw_records": {
                 "precision": ValidationSchema(
                     type=int, min=0, max=12, default=6,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
         }
 

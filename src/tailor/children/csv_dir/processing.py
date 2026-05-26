@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import datetime
 from statistics import fmean, stdev
 
-# Per-file metric vocabulary for csv_cohort_summary. Each metric reduces
+# Per-file metric vocabulary for csv_group_summary. Each metric reduces
 # a column-of-values (and optional timestamps) to a single scalar before
 # cohort-level aggregation. See ADR 0015.
 COHORT_METRICS = (
@@ -25,6 +25,20 @@ COHORT_METRICS = (
     "last",
     "duration_s",            # requires timestamps; last - first
     "time_to_50pct_drop_s",  # requires timestamps; peak → first sample <= peak/2
+)
+
+# Per-channel reduction vocabulary for csv_synchronized_windows. Each
+# metric reduces one channel's slice (the samples inside a detected
+# contraction epoch, or inside a peak-anchored window) to a single
+# scalar. RMS is the standard amplitude measure for an oscillating
+# EMG envelope; mean suits a sustained anchor/torque hold; peak/min
+# are there for off-script probing. Demo-grade tool — no ADR.
+WINDOW_METRICS = (
+    "rms",
+    "mean",
+    "peak",          # alias of max
+    "max",
+    "min",
 )
 
 
@@ -214,6 +228,167 @@ class CSVProcessing:
                 round(time_to_50, 3) if time_to_50 is not None else None
             )
         return result
+
+    # ═══════════════════════════════════════════════════════════════
+    # SYNCHRONIZED-WINDOW EXTRACTION (csv_synchronized_windows)
+    #
+    # Detect a series of contraction epochs in a 1-D signal and pull
+    # per-channel windowed metrics for each. The demo answer to a
+    # multi-channel LabChart → Excel transcription loop. Pure
+    # functions — threshold + contiguous-run segmentation, no PRNG,
+    # no clock reads. Per ADR 0008.
+    # ═══════════════════════════════════════════════════════════════
+
+    @staticmethod
+    def detect_contraction_peaks(
+        values: list[float],
+        sample_rate_hz: float,
+        threshold: float | None = None,
+        min_run_s: float = 0.5,
+        min_spacing_s: float = 0.0,
+    ) -> list[dict]:
+        """Detect contraction epochs in a 1-D signal.
+
+        One epoch is one contraction — the unit of analysis in the
+        LabChart contraction-extraction workflow. Deterministic — same
+        inputs always produce the same epochs. No PRNG, no clock reads.
+        Per ADR 0008.
+
+        Algorithm (see the demo plan's "Detection algorithm" section):
+
+        1. **Threshold.** When ``threshold`` is ``None`` it defaults to
+           ``min + 0.40 * (max - min)``; a sample is "active" when its
+           value is ``>= threshold``.
+        2. **Segment** the active mask into maximal contiguous runs;
+           drop any run shorter than ``min_run_s`` seconds.
+        3. **One peak per run** — the index of the run's maximum, with
+           ties resolved to the LAST such index (``_last_peak_index``,
+           so a flat plateau anchors at its end).
+        4. **Minimum spacing.** Greedy left-to-right: an epoch whose peak
+           falls within ``min_spacing_s`` of the previously accepted
+           epoch's peak collapses into it, keeping the higher-amplitude
+           peak.
+
+        Returns a list of epochs ordered by onset, each a dict of integer
+        sample indices: ``{onset_idx, peak_idx, offset_idx}`` where the
+        detected span is the inclusive run ``[onset_idx, offset_idx]``.
+        Returns ``[]`` for empty input, a non-positive sample rate, or a
+        flat signal (no min-to-max range, hence no contraction shape).
+        """
+        if not values or sample_rate_hz <= 0:
+            return []
+        lo = min(values)
+        hi = max(values)
+        if hi <= lo:
+            # Flat signal — no contraction structure to detect.
+            return []
+        if threshold is None:
+            threshold = lo + 0.40 * (hi - lo)
+
+        # Steps 1+2: active mask → maximal contiguous active runs.
+        runs: list[tuple[int, int]] = []  # (start, end) inclusive
+        run_start: int | None = None
+        for i, v in enumerate(values):
+            if v >= threshold:
+                if run_start is None:
+                    run_start = i
+            elif run_start is not None:
+                runs.append((run_start, i - 1))
+                run_start = None
+        if run_start is not None:
+            runs.append((run_start, len(values) - 1))
+
+        # Drop runs shorter than min_run_s.
+        min_run_samples = max(1, round(min_run_s * sample_rate_hz))
+        runs = [r for r in runs if (r[1] - r[0] + 1) >= min_run_samples]
+
+        # Step 3: one peak per surviving run (argmax, ties → last).
+        epochs: list[dict] = []
+        for start, end in runs:
+            segment = values[start : end + 1]
+            peak_idx = start + _last_peak_index(segment, max(segment))
+            epochs.append({
+                "onset_idx": start,
+                "peak_idx": peak_idx,
+                "offset_idx": end,
+            })
+
+        # Step 4: minimum spacing — greedy, keep the higher peak.
+        if min_spacing_s > 0 and epochs:
+            min_gap_samples = min_spacing_s * sample_rate_hz
+            accepted: list[dict] = []
+            for epoch in epochs:
+                if accepted:
+                    last = accepted[-1]
+                    if epoch["peak_idx"] - last["peak_idx"] < min_gap_samples:
+                        if values[epoch["peak_idx"]] > values[last["peak_idx"]]:
+                            accepted[-1] = epoch
+                        continue
+                accepted.append(epoch)
+            epochs = accepted
+
+        return epochs
+
+    @staticmethod
+    def window_bounds(
+        peak_idx: int,
+        sample_rate_hz: float,
+        lead_s: float,
+        window_s: float,
+    ) -> tuple[int, int]:
+        """Half-open ``[start, end)`` index window anchored at a peak.
+
+        The window starts ``lead_s`` seconds before ``peak_idx`` and
+        runs for ``window_s`` seconds. Bounds may fall outside the
+        array; ``slice_window`` clamps them. Pure function.
+        """
+        start = peak_idx - round(lead_s * sample_rate_hz)
+        end = start + round(window_s * sample_rate_hz)
+        return start, end
+
+    @staticmethod
+    def slice_window(
+        values: list[float], start: int, end: int,
+    ) -> list[float]:
+        """Return the half-open ``[start, end)`` slice, clamped to the
+        array bounds. Returns ``[]`` when the clamped window is empty.
+        Pure function.
+        """
+        lo = max(0, start)
+        hi = min(len(values), end)
+        if lo >= hi:
+            return []
+        return values[lo:hi]
+
+    @staticmethod
+    def channel_metric(values: list[float], metric: str) -> float | None:
+        """Reduce one channel's slice to a single scalar by ``metric``.
+
+        ``metric`` must be in ``WINDOW_METRICS``; an unknown string
+        raises ``ValueError`` so the dispatch layer surfaces the typo
+        rather than silently returning ``None``. Empty input returns
+        ``None`` (the epoch had no samples for this channel). Pure
+        function.
+        """
+        if metric not in WINDOW_METRICS:
+            raise ValueError(
+                f"Unknown channel metric: {metric}. "
+                f"Supported: {list(WINDOW_METRICS)}"
+            )
+        if not values:
+            return None
+        if metric == "rms":
+            return round(fmean([v * v for v in values]) ** 0.5, 4)
+        if metric == "mean":
+            return round(fmean(values), 4)
+        if metric in ("peak", "max"):
+            return round(max(values), 4)
+        if metric == "min":
+            return round(min(values), 4)
+        # Defensive: WINDOW_METRICS membership is checked above.
+        raise ValueError(  # pragma: no cover
+            f"Unhandled channel metric branch: {metric}"
+        )
 
     @staticmethod
     def downsample_rows(rows: list[dict], interval: int) -> list[dict]:

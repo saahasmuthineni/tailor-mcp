@@ -1,7 +1,8 @@
-# ADR 0003: PHI scrubbing is a seam, not a policy
+# ADR 0003: Data scrubbing is a seam, not a policy
 
 - **Status:** Accepted
 - **Date:** 2026-04-13
+- **Renamed in v9.0.0 (2026-05-26):** the framework-level class was renamed `PHIScrubber` → `DataScrubber` as part of the public-flip domain-agnostic vocabulary sweep. The seam contract is unchanged; only the class name changed. The child-level `RedcapPHIScrubber` retains its HIPAA-specific name per ADR 0037 § parallel-seam invariant — HIPAA is the specific institutional policy that child enforces.
 - **Related:** [ROADMAP.md § Real PHI-scrubbing implementations](../../ROADMAP.md#real-phi-scrubbing-implementations-behind-the-phiscrubber-slot), saahasmuthineni/tailor-mcp#14
 
 ## Context
@@ -39,17 +40,17 @@ If the framework ships with *no* PHI-scrubbing hook:
 
 Ship a **seam**, not a policy.
 
-- `PHIScrubber` is a class in `framework.security` (formerly
+- `DataScrubber` is a class in `framework.security` (formerly
   `framework.middleware`) with a single method, `scrub(result) -> result`.
 - The default implementation is a no-op. It is documented as a no-op.
 - The default emits a **one-time warning on first construction** so a
   misconfigured deployment surfaces loudly in stderr on startup.
-- `PHIScrubber` exposes a `scrubber_id` property — `"noop"` for the
+- `DataScrubber` exposes a `scrubber_id` property — `"noop"` for the
   default, the subclass name otherwise — which is recorded in audit
   rows (or queryable per-install) so a reviewer can distinguish
   audit rows produced under a real policy from rows produced under
   the no-op default.
-- The router instantiates one `PHIScrubber` at construction time and
+- The router instantiates one `DataScrubber` at construction time and
   calls `.scrub()` on every successful child result in `_dispatch()`
   and `dispatch_internal()`, before the token estimate and audit row
   are finalized.
@@ -58,7 +59,7 @@ Ship a **seam**, not a policy.
   participant biometric data. The vault tier has its own governance
   story (see [CLAUDE.md § Two persistence tiers](../../CLAUDE.md#architecture)).
 
-Institutions subclass `PHIScrubber` and wire their subclass into the
+Institutions subclass `DataScrubber` and wire their subclass into the
 router at construction time when they have an IRB-approved policy.
 An example subclass (issue #14) will live under `examples/`, not in
 the framework, to make the subclassing pattern discoverable without
@@ -122,7 +123,7 @@ Two seams, two distinct concerns:
 
 | Seam | Owned by | Scrubs based on | Default | Examples |
 |------|----------|-----------------|---------|----------|
-| Framework-level (this ADR) | `framework/security.py` `PHIScrubber` | Cross-domain pattern matchers (regex, heuristic, NLP) | No-op with one-time warning | Institutional subclass with regex for MRNs across all domains |
+| Framework-level (this ADR) | `framework/security.py` `DataScrubber` | Cross-domain pattern matchers (regex, heuristic, NLP) | No-op with one-time warning | Institutional subclass with regex for MRNs across all domains |
 | Child-level (ADR 0037) | `children/<domain>/scrubber.py` | Domain-specific structured input from the source | No child-level scrubber unless declared by per-domain ADR | `RedcapPHIScrubber` reading `project_metadata.csv` `identifier=yes/no` flags |
 
 The seams are complementary. A deployment that subclasses the framework-level scrubber for cross-domain regex scrubbing AND installs the REDCap child gets both — the child scrubs REDCap-specific identifier fields first inside `execute()`, then the framework's institutional regex scrubber runs on the already-domain-scrubbed result.
@@ -223,7 +224,7 @@ The same mistake at the *catching* side is the v7.3.3 B2 finding: a blanket `exc
 - New marker class `framework.security.OperatorActionRequired(Exception)`. Exported from `framework/__init__.py`. Co-located with `CircuitBreaker` (the component whose behavior it modifies) for readability — a contributor reading `CircuitBreaker.record_failure` to ask "what trips this?" sees the exemption contract adjacent.
 - Constructor takes a keyword-only `recovery_action: str` argument and validates it is a non-empty, non-whitespace string at construction time. A subclass author who cannot name a remediation command gets a `TypeError` at construction, not silent runtime defeat. The required attribute is the misuse guard: misclassification (a child author marking an upstream-flaky exception as `OperatorActionRequired` and thereby disabling the breaker for paths that legitimately need it) becomes a constructor error rather than a silent invariant break.
 - Children that already raise typed exceptions for operator-action conditions inherit from `OperatorActionRequired` and pass their remediation command up the `recovery_action` channel. v7.3.3 reparents `RedcapMetadataFingerprintMismatch` (`recovery_action="tailor redcap reattest"`); future children with the same shape (FHIR scope-expired, EDF channel-manifest drift, vendor calibration mismatch) inherit the contract without re-deciding it.
-- The router's exception handler at both dispatch sites (`_dispatch` public path and `dispatch_internal` cross-child path) skips `CircuitBreaker.record_failure` when `isinstance(exc, OperatorActionRequired)`. The audit row still records `outcome=ERROR` with the full provenance kwargs (`scrubber_id`, `child_scrubber_id`, `source_metadata_fingerprint`, `subject_id`) — the exemption is breaker-only, not audit-only. The wire error envelope still carries the exception's `str()` so the LLM transcript shows the recovery hint.
+- The router's exception handler at both dispatch sites (`_dispatch` public path and `dispatch_internal` cross-child path) skips `CircuitBreaker.record_failure` when `isinstance(exc, OperatorActionRequired)`. The audit row still records `outcome=ERROR` with the full provenance kwargs (`scrubber_id`, `child_scrubber_id`, `source_metadata_fingerprint`, `entity_id`) — the exemption is breaker-only, not audit-only. The wire error envelope still carries the exception's `str()` so the LLM transcript shows the recovery hint.
 - Children that need to *detect* an operator-action condition by speculative work (e.g. `RedcapFileChild._detect_fingerprint_mismatch` constructing a candidate `RedcapPHIScrubber` to compare fingerprints) do **not** wrap the speculative work in a blanket `except Exception`. If the speculative construction has no documented raise surface, no try/except is added; future programmer-error exceptions propagate through the router's exception handler rather than silently disabling detection. The B2 fix at `children/redcap/child.py:_detect_fingerprint_mismatch` drops the previously-wrapped try/except for exactly this reason — `RedcapPHIScrubber.__init__` already handles its documented failure classes internally and raises essentially nothing on bad input; the previous defensive wrapper caught only `TypeError` from signature changes, which is precisely the class that must propagate.
 
 ### Consequences

@@ -1,7 +1,8 @@
-# ADR 0002: `subject_id` as first-class audit column, optional on calls
+# ADR 0002: `entity_id` as first-class audit column, optional on calls
 
 - **Status:** Accepted
 - **Date:** 2026-04-13
+- **Renamed in v9.0.0 (2026-05-26):** the identifier was originally named `subject_id`; renamed to `entity_id` as part of the public-flip domain-agnostic vocabulary sweep. The decision substance is unchanged. Existing `audit.db` files auto-migrate at `AuditLog.__init__` via `ALTER TABLE RENAME COLUMN`.
 - **Related:** [ADR 0001 (Audit log)](0001-audit-log-as-backbone.md), [ROADMAP.md § Per-subject parameter scoping](../../ROADMAP.md#per-subject-parameter-scoping-on-existing-tools), saahasmuthineni/tailor-mcp#13
 
 ## Context
@@ -12,7 +13,7 @@ scoping, the audit log is a correct but coarse record — an IRB
 reviewer cannot slice it by participant to verify consent boundaries
 were respected.
 
-At the same time, forcing `subject_id` as a required parameter on
+At the same time, forcing `entity_id` as a required parameter on
 every tool would:
 
 1. Break single-subject and demo use cases (one analyst, their own
@@ -30,20 +31,20 @@ migration of every child.
 
 ## Decision
 
-`subject_id` is a **first-class column on `audit_log`** and a
+`entity_id` is a **first-class column on `audit_log`** and a
 **first-class extraction step in the router**, but **optional at the
 call site**.
 
 Specifically:
 
-- `audit_log.subject_id` is a nullable `TEXT` column. Legacy databases
+- `audit_log.entity_id` is a nullable `TEXT` column. Legacy databases
   migrate on open via `ALTER TABLE`, mirroring the pattern
   `VaultStorage` uses for `mtime_ns`.
-- The router's `_coerce_subject_id()` helper extracts `subject_id`
+- The router's `_coerce_subject_id()` helper extracts `entity_id`
   from incoming parameters if present, and threads it through
   `_dispatch()`, `_dispatch_vault()`, and `dispatch_internal()` to
   every `AuditLog.record()` call.
-- Children are **not yet required** to declare `subject_id` in their
+- Children are **not yet required** to declare `entity_id` in their
   `param_schemas`. When they do (roadmap item; see
   saahasmuthineni/tailor-mcp#13), the column is ready
   and no further router work is needed.
@@ -53,16 +54,16 @@ Specifically:
 **Positive.**
 
 - Audit rows can be scoped by participant today, as long as callers
-  pass `subject_id`.
+  pass `entity_id`.
 - The param-validator's keep-unknown-kwargs behavior means callers
-  can already pass `subject_id` and have it land in the audit row,
+  can already pass `entity_id` and have it land in the audit row,
   even before children declare it in `param_schemas`.
 - When children adopt the declared schema entry, no router changes
   are required — the wiring already exists.
 
 **Negative.**
 
-- Until children declare `subject_id` in `param_schemas`, LLM clients
+- Until children declare `entity_id` in `param_schemas`, LLM clients
   have no discovery path for it. The column is populated only when a
   caller happens to pass it.
 - Audit-log slicing by subject is best-effort until every relevant
@@ -71,20 +72,20 @@ Specifically:
 
 **Neutral.**
 
-- The vault layer receives `subject_id` through the same threading
+- The vault layer receives `entity_id` through the same threading
   pattern. How the vault *organizes* notes by subject is deliberately
   deferred — tracked on the roadmap as its own design question.
 
 ## Alternatives considered
 
-- **Require `subject_id` on every tool call from day one.** Rejected
+- **Require `entity_id` on every tool call from day one.** Rejected
   — forces single-subject and demo use cases to pass a synthetic
   value, and commits to a vault-keying answer prematurely.
 - **Skip the column; use a separate `subject_audit` table.** Rejected
   — doubles the write path and means queries "what did the router do
   on behalf of P042?" require joins. The nullable column is simpler
   and cheaper.
-- **Infer `subject_id` from the calling LLM session.** Rejected —
+- **Infer `entity_id` from the calling LLM session.** Rejected —
   inference is the wrong direction for a governance record. The
   caller should state the subject explicitly.
 
@@ -92,15 +93,15 @@ Specifically:
 
 First child-level adoption landed.
 
-- `RunningChild` now declares `subject_id` on all 12 `strava_*` tools
+- `RunningChild` now declares `entity_id` on all 12 `strava_*` tools
   in both surfaces: `ToolDefinition.params` (so MCP `list_tools`
   surfaces it to the LLM client) and `param_schemas` (so
   `ParamValidator` pattern-checks the value). The shared constant
-  `SUBJECT_ID_SCHEMA` at the top of `children/running/child.py`
+  `ENTITY_ID_SCHEMA` at the top of `children/running/child.py`
   enforces `^[A-Za-z0-9_\-]{1,64}$`, matching the conventions used
   for research participant identifiers (`P042`, `SUBJ-001`,
   `subj_042`).
-- Validation failures on `subject_id` are audited as `PARAM_INVALID`
+- Validation failures on `entity_id` are audited as `PARAM_INVALID`
   rows that preserve the submitted (rejected) value, so an IRB
   reviewer can see on whose behalf a rejected call was allegedly
   made.

@@ -485,12 +485,12 @@ with tempfile.TemporaryDirectory() as tmpdir:
     router.register_child(MockChild("alpha"))
     run(router._dispatch("alpha_free", {"val": 5}))
     run(router._dispatch("alpha_gated", {"val": 5}))  # blocked by consent gate
-    # A call with a study subject_id so we can verify scoping works.
-    run(router._dispatch("alpha_free", {"val": 9, "subject_id": "P042"}))
+    # A call with a study entity_id so we can verify scoping works.
+    run(router._dispatch("alpha_free", {"val": 9, "entity_id": "P042"}))
 
     conn = sqlite3.connect(str(Path(tmpdir) / "audit.db"))
     rows = conn.execute(
-        "SELECT tool_name, outcome, subject_id FROM audit_log ORDER BY id"
+        "SELECT tool_name, outcome, entity_id FROM audit_log ORDER BY id"
     ).fetchall()
     conn.close()
 
@@ -500,12 +500,12 @@ with tempfile.TemporaryDirectory() as tmpdir:
     check("consent block audited",
           any(r[0] == "alpha_gated" and r[1] == "CONSENT_BLOCKED" for r in rows),
           f"rows: {rows}")
-    # Research-framing: subject_id threads through to the audit row, so
+    # Research-framing: entity_id threads through to the audit row, so
     # a study's analytical trace can be scoped to a participant/cohort.
-    check("subject_id recorded on audit row",
+    check("entity_id recorded on audit row",
           any(r[0] == "alpha_free" and r[2] == "P042" for r in rows),
           f"rows: {rows}")
-    check("subject_id absent stays NULL",
+    check("entity_id absent stays NULL",
           any(r[0] == "alpha_gated" and r[2] is None for r in rows),
           f"rows: {rows}")
     router.close()

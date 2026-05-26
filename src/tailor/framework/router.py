@@ -43,22 +43,22 @@ from .security import (
     ConsentGate,
     OperatorActionRequired,
     ParamValidator,
-    PHIScrubber,
+    DataScrubber,
 )
 
 log = logging.getLogger("tailor")
 
 
-def _coerce_subject_id(params: object) -> str | None:
+def _coerce_entity_id(params: object) -> str | None:
     """
-    Extract an optional ``subject_id`` from a params dict for audit-log
+    Extract an optional ``entity_id`` from a params dict for audit-log
     scoping. Accepts str/int (common in research identifiers); anything
     else is treated as absent. Returning None means "no scope" — callers
-    pass None through to ``AuditLog.record(subject_id=...)``.
+    pass None through to ``AuditLog.record(entity_id=...)``.
     """
     if not isinstance(params, dict):
         return None
-    raw = params.get("subject_id")
+    raw = params.get("entity_id")
     if raw is None:
         return None
     if isinstance(raw, (str, int)):
@@ -137,8 +137,8 @@ class RouterMCP:
         self._cost_gate = CostGate(threshold=cost_threshold)
         # PHI scrubbing seam. Ships as a no-op; institutions swap in a
         # subclass that drops/hashes identifying fields on a per-child
-        # basis once their policy is defined. See framework.security.PHIScrubber.
-        self._phi_scrubber = PHIScrubber()
+        # basis once their policy is defined. See framework.security.DataScrubber.
+        self._phi_scrubber = DataScrubber()
         self._audit = AuditLog(data_dir / "audit.db")
         self._ledger = TokenLedger()
         self._validator = ParamValidator()
@@ -653,11 +653,11 @@ class RouterMCP:
         domain = child.domain
         tier = tool_def.tier
 
-        # Extract optional study subject_id so every audit row along this
+        # Extract optional study entity_id so every audit row along this
         # dispatch path can be scoped to a participant/cohort. Pre-validation
         # we read from raw arguments; post-validation from cleaned (which
         # ParamValidator preserves extra keys through).
-        subject_id = _coerce_subject_id(arguments)
+        entity_id = _coerce_entity_id(arguments)
 
         # ── LAYER 1: Param validation ──
         schemas = child.param_schemas.get(tool_name, {})
@@ -665,21 +665,21 @@ class RouterMCP:
         if not ok:
             self._audit.record(
                 domain, tool_name, tier, arguments, 0, "PARAM_INVALID", 0,
-                error=err, subject_id=subject_id,
+                error=err, entity_id=entity_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 child_scrubber_id=child.child_scrubber_id,
                 source_metadata_fingerprint=child.child_source_metadata_fingerprint,
             )
             return [TextContent(type="text", text=_dumps({"error": err}))]
 
-        subject_id = _coerce_subject_id(cleaned)
+        entity_id = _coerce_entity_id(cleaned)
 
         # ── LAYER 2: Circuit breaker (scoped per domain) ──
         cb_ok, cb_err = self._circuit.check(domain)
         if not cb_ok:
             self._audit.record(
                 domain, tool_name, tier, cleaned, 0, "CIRCUIT_OPEN", 0,
-                error=cb_err, subject_id=subject_id,
+                error=cb_err, entity_id=entity_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 child_scrubber_id=child.child_scrubber_id,
                 source_metadata_fingerprint=child.child_source_metadata_fingerprint,
@@ -692,7 +692,7 @@ class RouterMCP:
             if not consent_ok:
                 self._audit.record(
                     domain, tool_name, tier, cleaned, 0, "CONSENT_BLOCKED", 0,
-                    subject_id=subject_id,
+                    entity_id=entity_id,
                     scrubber_id=self._phi_scrubber.scrubber_id,
                     child_scrubber_id=child.child_scrubber_id,
                 source_metadata_fingerprint=child.child_source_metadata_fingerprint,
@@ -775,7 +775,7 @@ class RouterMCP:
                 self._audit.record(
                     domain, tool_name, tier, cleaned, 0,
                     "COST_ESTIMATE_ERROR", duration_ms,
-                    error=str(e), subject_id=subject_id,
+                    error=str(e), entity_id=entity_id,
                     scrubber_id=self._phi_scrubber.scrubber_id,
                     child_scrubber_id=child.child_scrubber_id,
                 source_metadata_fingerprint=child.child_source_metadata_fingerprint,
@@ -804,7 +804,7 @@ class RouterMCP:
                     cost_est.tokens,
                     "COST_GATE_TRIGGERED",
                     duration_ms,
-                    subject_id=subject_id,
+                    entity_id=entity_id,
                     scrubber_id=self._phi_scrubber.scrubber_id,
                     child_scrubber_id=child.child_scrubber_id,
                 source_metadata_fingerprint=child.child_source_metadata_fingerprint,
@@ -879,7 +879,7 @@ class RouterMCP:
             # ── PHI scrubbing seam (runs before tokens are counted or
             # the result is audited, so the scrubbed form is what every
             # downstream consumer sees). Default no-op; institutions
-            # override by subclassing framework.security.PHIScrubber.
+            # override by subclassing framework.security.DataScrubber.
             if isinstance(result, dict):
                 result = self._phi_scrubber.scrub(result)
 
@@ -890,7 +890,7 @@ class RouterMCP:
             self._ledger.add(domain, tool_name, tokens)
             self._audit.record(
                 domain, tool_name, tier, cleaned, tokens, "SUCCESS", duration_ms,
-                subject_id=subject_id,
+                entity_id=entity_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 # Threaded on every audit row (matches existing
                 # scrubber_id convention) to record what child-level
@@ -974,7 +974,7 @@ class RouterMCP:
                 self._circuit.record_failure(domain)
             self._audit.record(
                 domain, tool_name, tier, cleaned, 0, "ERROR", duration_ms,
-                error=str(e), subject_id=subject_id,
+                error=str(e), entity_id=entity_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 child_scrubber_id=child.child_scrubber_id,
                 source_metadata_fingerprint=child.child_source_metadata_fingerprint,
@@ -1024,7 +1024,7 @@ class RouterMCP:
               vault writes)
         """
         tier = tool_def.tier
-        subject_id = _coerce_subject_id(arguments)
+        entity_id = _coerce_entity_id(arguments)
 
         # ── LAYER 1: Param validation ──
         schemas = self._vault_layer.param_schemas.get(tool_name, {})
@@ -1032,13 +1032,13 @@ class RouterMCP:
         if not ok:
             self._audit.record(
                 "vault", tool_name, tier, arguments, 0, "PARAM_INVALID", 0,
-                error=err, subject_id=subject_id,
+                error=err, entity_id=entity_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
             return [TextContent(type="text", text=_dumps({"error": err}))]
 
-        subject_id = _coerce_subject_id(cleaned)
+        entity_id = _coerce_entity_id(cleaned)
 
         # ── EXECUTE ──
         try:
@@ -1049,7 +1049,7 @@ class RouterMCP:
             self._ledger.add("vault", tool_name, tokens)
             self._audit.record(
                 "vault", tool_name, tier, cleaned, tokens, "SUCCESS", duration_ms,
-                subject_id=subject_id,
+                entity_id=entity_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
@@ -1079,7 +1079,7 @@ class RouterMCP:
             duration_ms = int((time.time() - start) * 1000)
             self._audit.record(
                 "vault", tool_name, tier, cleaned, 0, "ERROR", duration_ms,
-                error=str(e), subject_id=subject_id,
+                error=str(e), entity_id=entity_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
@@ -1126,7 +1126,7 @@ class RouterMCP:
         sit at the top level — same shape every other dispatch path uses.
         """
         tier = tool_def.tier
-        subject_id = _coerce_subject_id(arguments)
+        entity_id = _coerce_entity_id(arguments)
 
         # ── LAYER 1: Param validation ──
         schemas = self._local_llm_layer.param_schemas.get(tool_name, {})
@@ -1134,13 +1134,13 @@ class RouterMCP:
         if not ok:
             self._audit.record(
                 "local_llm", tool_name, tier, arguments, 0, "PARAM_INVALID", 0,
-                error=err, subject_id=subject_id,
+                error=err, entity_id=entity_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
             return [TextContent(type="text", text=_dumps({"error": err}))]
 
-        subject_id = _coerce_subject_id(cleaned)
+        entity_id = _coerce_entity_id(cleaned)
 
         # ── EXECUTE ──
         try:
@@ -1226,7 +1226,7 @@ class RouterMCP:
             self._audit.record(
                 "local_llm", tool_name, tier, cleaned, tokens, "SUCCESS",
                 duration_ms,
-                subject_id=subject_id,
+                entity_id=entity_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 # Explicit None per the v7.3.1 all-call-sites-sweep
                 # rule and mcp-protocol-auditor 2026-05-15 GAP finding —
@@ -1277,7 +1277,7 @@ class RouterMCP:
             duration_ms = int((time.time() - start) * 1000)
             self._audit.record(
                 "local_llm", tool_name, tier, cleaned, 0, "ERROR", duration_ms,
-                error=str(e), subject_id=subject_id,
+                error=str(e), entity_id=entity_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
@@ -1309,7 +1309,7 @@ class RouterMCP:
               in ADR 0012 § "Amendment — v6.10.2")
             - Post-execute hooks (no vaultable artifacts)
 
-        Audit row uses domain="setup_help"; subject_id is always None
+        Audit row uses domain="setup_help"; entity_id is always None
         because the tool is server-state, not per-subject. The standard
         framework ``_meta`` block is stamped onto the response so
         provenance (package_version, called_at, scrubber_id) is uniform
@@ -1324,7 +1324,7 @@ class RouterMCP:
             self._audit.record(
                 "setup_help", tool_name, tier, arguments, 0,
                 "PARAM_INVALID", 0,
-                error=err, subject_id=None,
+                error=err, entity_id=None,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
@@ -1340,7 +1340,7 @@ class RouterMCP:
             self._audit.record(
                 "setup_help", tool_name, tier, cleaned, tokens,
                 "SUCCESS", duration_ms,
-                subject_id=None,
+                entity_id=None,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
@@ -1371,7 +1371,7 @@ class RouterMCP:
             self._audit.record(
                 "setup_help", tool_name, tier, cleaned, 0,
                 "ERROR", duration_ms,
-                error=str(e), subject_id=None,
+                error=str(e), entity_id=None,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
@@ -1404,13 +1404,13 @@ class RouterMCP:
               ADR 0012 § Amendment v7.4.0 invariant)
             - Post-execute hooks (no vaultable artifacts)
 
-        Audit row uses domain="audit_query"; subject_id passes through
+        Audit row uses domain="audit_query"; entity_id passes through
         from caller params per ADR 0009 — auditing an audit_query call
-        for subject S004 stamps the row with subject_id="S004" so the
+        for subject S004 stamps the row with entity_id="S004" so the
         full all-call-sites-sweep invariant holds.
         """
         tier = tool_def.tier
-        sid = arguments.get("subject_id")
+        sid = arguments.get("entity_id")
 
         # ── Param validation ──
         schemas = self._audit_query_layer.param_schemas.get(tool_name, {})
@@ -1419,13 +1419,13 @@ class RouterMCP:
             self._audit.record(
                 "audit_query", tool_name, tier, arguments, 0,
                 "PARAM_INVALID", 0,
-                error=err, subject_id=sid,
+                error=err, entity_id=sid,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
             return [TextContent(type="text", text=_dumps({"error": err}))]
 
-        sid_clean = cleaned.get("subject_id")
+        sid_clean = cleaned.get("entity_id")
 
         # ── Execute ──
         try:
@@ -1439,7 +1439,7 @@ class RouterMCP:
             self._audit.record(
                 "audit_query", tool_name, tier, cleaned, tokens,
                 "SUCCESS", duration_ms,
-                subject_id=sid_clean,
+                entity_id=sid_clean,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
@@ -1470,7 +1470,7 @@ class RouterMCP:
             self._audit.record(
                 "audit_query", tool_name, tier, cleaned, 0,
                 "ERROR", duration_ms,
-                error=str(e), subject_id=sid_clean,
+                error=str(e), entity_id=sid_clean,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
@@ -1510,7 +1510,7 @@ class RouterMCP:
         failure paths.
         """
         tier = tool_def.tier
-        sid = arguments.get("subject_id")
+        sid = arguments.get("entity_id")
 
         # ── Param validation ──
         schemas = self._setup_layer.param_schemas.get(tool_name, {})
@@ -1519,13 +1519,13 @@ class RouterMCP:
             self._audit.record(
                 "setup", tool_name, tier, arguments, 0,
                 "PARAM_INVALID", 0,
-                error=err, subject_id=sid,
+                error=err, entity_id=sid,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
             return [TextContent(type="text", text=_dumps({"error": err}))]
 
-        sid_clean = cleaned.get("subject_id")
+        sid_clean = cleaned.get("entity_id")
 
         # ── Execute ──
         try:
@@ -1549,7 +1549,7 @@ class RouterMCP:
             self._audit.record(
                 "setup", tool_name, tier, cleaned, tokens,
                 outcome, duration_ms,
-                subject_id=sid_clean,
+                entity_id=sid_clean,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
@@ -1580,7 +1580,7 @@ class RouterMCP:
             self._audit.record(
                 "setup", tool_name, tier, cleaned, 0,
                 "ERROR", duration_ms,
-                error=str(e), subject_id=sid_clean,
+                error=str(e), entity_id=sid_clean,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
@@ -1598,7 +1598,7 @@ class RouterMCP:
     ) -> list[TextContent]:
         """Dispatch a walkthrough-layer tool (read-only conducted tour)."""
         tier = tool_def.tier
-        sid = arguments.get("subject_id")
+        sid = arguments.get("entity_id")
 
         # ── Param validation ──
         schemas = self._walkthrough_layer.param_schemas.get(tool_name, {})
@@ -1607,13 +1607,13 @@ class RouterMCP:
             self._audit.record(
                 "walkthrough", tool_name, tier, arguments, 0,
                 "PARAM_INVALID", 0,
-                error=err, subject_id=sid,
+                error=err, entity_id=sid,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
             return [TextContent(type="text", text=_dumps({"error": err}))]
 
-        sid_clean = cleaned.get("subject_id")
+        sid_clean = cleaned.get("entity_id")
 
         # ── Execute ──
         try:
@@ -1627,7 +1627,7 @@ class RouterMCP:
             self._audit.record(
                 "walkthrough", tool_name, tier, cleaned, tokens,
                 "SUCCESS", duration_ms,
-                subject_id=sid_clean,
+                entity_id=sid_clean,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
@@ -1658,7 +1658,7 @@ class RouterMCP:
             self._audit.record(
                 "walkthrough", tool_name, tier, cleaned, 0,
                 "ERROR", duration_ms,
-                error=str(e), subject_id=sid_clean,
+                error=str(e), entity_id=sid_clean,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
@@ -1677,7 +1677,7 @@ class RouterMCP:
     ) -> list[TextContent]:
         """Dispatch a fitting-room-layer tool (scaffold + index)."""
         tier = tool_def.tier
-        sid = arguments.get("subject_id")
+        sid = arguments.get("entity_id")
 
         # ── Param validation ──
         schemas = self._fitting_room_layer.param_schemas.get(tool_name, {})
@@ -1686,13 +1686,13 @@ class RouterMCP:
             self._audit.record(
                 "fitting_room", tool_name, tier, arguments, 0,
                 "PARAM_INVALID", 0,
-                error=err, subject_id=sid,
+                error=err, entity_id=sid,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
             return [TextContent(type="text", text=_dumps({"error": err}))]
 
-        sid_clean = cleaned.get("subject_id")
+        sid_clean = cleaned.get("entity_id")
 
         # ── Execute ──
         try:
@@ -1706,7 +1706,7 @@ class RouterMCP:
             self._audit.record(
                 "fitting_room", tool_name, tier, cleaned, tokens,
                 "SUCCESS", duration_ms,
-                subject_id=sid_clean,
+                entity_id=sid_clean,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
@@ -1737,7 +1737,7 @@ class RouterMCP:
             self._audit.record(
                 "fitting_room", tool_name, tier, cleaned, 0,
                 "ERROR", duration_ms,
-                error=str(e), subject_id=sid_clean,
+                error=str(e), entity_id=sid_clean,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 source_metadata_fingerprint=None,
             )
@@ -1778,7 +1778,7 @@ class RouterMCP:
 
         domain = child.domain
         tier = tool_def.tier
-        subject_id = _coerce_subject_id(params)
+        entity_id = _coerce_entity_id(params)
 
         # ── LAYER 1: Param validation ──
         schemas = child.param_schemas.get(tool_name, {})
@@ -1786,21 +1786,21 @@ class RouterMCP:
         if not ok:
             self._audit.record(
                 domain, tool_name, tier, params, 0, "PARAM_INVALID_INTERNAL", 0,
-                error=err, subject_id=subject_id,
+                error=err, entity_id=entity_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 child_scrubber_id=child.child_scrubber_id,
                 source_metadata_fingerprint=child.child_source_metadata_fingerprint,
             )
             return {"error": err}
 
-        subject_id = _coerce_subject_id(cleaned)
+        entity_id = _coerce_entity_id(cleaned)
 
         # ── LAYER 2: Circuit breaker ──
         cb_ok, cb_err = self._circuit.check(domain)
         if not cb_ok:
             self._audit.record(
                 domain, tool_name, tier, cleaned, 0, "CIRCUIT_OPEN_INTERNAL", 0,
-                error=cb_err, subject_id=subject_id,
+                error=cb_err, entity_id=entity_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 child_scrubber_id=child.child_scrubber_id,
                 source_metadata_fingerprint=child.child_source_metadata_fingerprint,
@@ -1813,7 +1813,7 @@ class RouterMCP:
             if not consent_ok:
                 self._audit.record(
                     domain, tool_name, tier, cleaned, 0, "CONSENT_BLOCKED_INTERNAL", 0,
-                    subject_id=subject_id,
+                    entity_id=entity_id,
                     scrubber_id=self._phi_scrubber.scrubber_id,
                     child_scrubber_id=child.child_scrubber_id,
                 source_metadata_fingerprint=child.child_source_metadata_fingerprint,
@@ -1830,7 +1830,7 @@ class RouterMCP:
                 self._audit.record(
                     domain, tool_name, tier, cleaned, 0,
                     "COST_ESTIMATE_ERROR_INTERNAL", duration_ms,
-                    error=str(exc), subject_id=subject_id,
+                    error=str(exc), entity_id=entity_id,
                     scrubber_id=self._phi_scrubber.scrubber_id,
                     child_scrubber_id=child.child_scrubber_id,
                 source_metadata_fingerprint=child.child_source_metadata_fingerprint,
@@ -1850,7 +1850,7 @@ class RouterMCP:
                 self._audit.record(
                     domain, tool_name, tier, cleaned, cost_est.tokens,
                     "COST_GATE_INTERNAL", duration_ms,
-                    subject_id=subject_id,
+                    entity_id=entity_id,
                     scrubber_id=self._phi_scrubber.scrubber_id,
                     child_scrubber_id=child.child_scrubber_id,
                 source_metadata_fingerprint=child.child_source_metadata_fingerprint,
@@ -1872,7 +1872,7 @@ class RouterMCP:
             self._ledger.add(domain, tool_name, tokens)
             self._audit.record(
                 domain, tool_name, tier, cleaned, tokens, "SUCCESS_INTERNAL", duration_ms,
-                subject_id=subject_id,
+                entity_id=entity_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 # Threaded on every audit row (matches existing
                 # scrubber_id convention) to record what child-level
@@ -1918,7 +1918,7 @@ class RouterMCP:
                 self._circuit.record_failure(domain)
             self._audit.record(
                 domain, tool_name, tier, cleaned, 0, "ERROR_INTERNAL", duration_ms,
-                error=str(e), subject_id=subject_id,
+                error=str(e), entity_id=entity_id,
                 scrubber_id=self._phi_scrubber.scrubber_id,
                 child_scrubber_id=child.child_scrubber_id,
                 source_metadata_fingerprint=child.child_source_metadata_fingerprint,

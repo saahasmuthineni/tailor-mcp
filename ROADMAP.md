@@ -414,7 +414,7 @@ incognito visitor shouldn't see.
 
 ### Real PHI-scrubbing implementations
 
-`PHIScrubber.scrub()` ships today as a documented no-op seam. The
+`DataScrubber.scrub()` ships today as a documented no-op seam. The
 roadmap items are institutional-policy-specific implementations:
 transforms that drop or hash identifying fields before results leave
 the router, bound to the specific shape of a CGM child, a sleep child,
@@ -440,7 +440,7 @@ doesn't want to start from scratch:
 
 A `children/template/` skeleton already ships with three Tier-1 tools,
 one Tier-2, one Tier-3, every abstract method stubbed, param schemas
-illustrated, and `subject_id` wired throughout. New children fork from
+illustrated, and `entity_id` wired throughout. New children fork from
 `src/tailor/children/template/` rather than reading the running child
 end-to-end.
 

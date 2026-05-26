@@ -171,7 +171,7 @@ class TestScaffold:
         from tailor.framework.vault.storage import VaultStorage
         storage = VaultStorage(target / "data" / "vault.db")
         try:
-            notes = storage.list_notes(subject_id="S004")
+            notes = storage.list_notes(entity_id="S004")
             s004_moments = [
                 n for n in notes
                 if "s004" in (n.get("filename") or "").lower()

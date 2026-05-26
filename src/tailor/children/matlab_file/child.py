@@ -29,7 +29,7 @@ v7.3 is held behind a future superseding ADR.
 Subject scoping per ADR 0002 / ADR 0009: per-file (one `.mat` = one
 subject) follows the csv_dir/force_csv/emg_csv lineage. Multi-subject
 `.mat` files where variables-are-subjects (e.g. an 8-by-N envelope
-matrix where rows are participants) are deferred — passing ``subject_id``
+matrix where rows are participants) are deferred — passing ``entity_id``
 is audit-log scoping only and does NOT filter rows.
 
 ADR 0013 ``purge_cache``: no-op — the framework owns no derivative
@@ -44,8 +44,8 @@ import logging
 from pathlib import Path
 
 from ...framework.interfaces import (
-    SUBJECT_ID_PARAM_DOC,
-    SUBJECT_ID_SCHEMA,
+    ENTITY_ID_PARAM_DOC,
+    ENTITY_ID_SCHEMA,
     ChildMCP,
     ConsentInfo,
     ConsentScope,
@@ -210,7 +210,7 @@ class MATLABFileChild(ChildMCP):
                 "variable names, shapes, and dtypes. ~250 tokens.",
                 {
                     "limit": {"type": "integer", "description": "Max files (default 20)", "required": False},
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -219,7 +219,7 @@ class MATLABFileChild(ChildMCP):
                 "Per-variable summary stats for numeric arrays.",
                 {
                     "file_id": {"type": "string", "description": "`.mat` filename", "required": True},
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -229,7 +229,7 @@ class MATLABFileChild(ChildMCP):
                 "leave the server. ~800 tokens.",
                 {
                     "file_id": {"type": "string", "description": "`.mat` filename", "required": True},
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -250,7 +250,7 @@ class MATLABFileChild(ChildMCP):
                         ),
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -265,7 +265,7 @@ class MATLABFileChild(ChildMCP):
                         "description": "Decimation interval. Default 5.",
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -280,7 +280,7 @@ class MATLABFileChild(ChildMCP):
                         "description": "Decimal places to keep. Default 4.",
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
         ]
@@ -290,15 +290,15 @@ class MATLABFileChild(ChildMCP):
         return {
             "matlab_list_files": {
                 "limit": ValidationSchema(type=int, min=1, max=100, default=20),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "matlab_file_detail": {
                 "file_id": ValidationSchema(type=str, required=True, pattern=FILE_ID_PATTERN),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "matlab_summary_report": {
                 "file_id": ValidationSchema(type=str, required=True, pattern=FILE_ID_PATTERN),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "matlab_cohort_summary": {
                 "variable": ValidationSchema(type=str, required=True, pattern=VARIABLE_NAME_PATTERN),
@@ -306,19 +306,19 @@ class MATLABFileChild(ChildMCP):
                 "metric": ValidationSchema(
                     type=str, required=False, allowed_values=list(COHORT_METRICS), default="mean",
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "matlab_downsampled": {
                 "file_id": ValidationSchema(type=str, required=True, pattern=FILE_ID_PATTERN),
                 "variable": ValidationSchema(type=str, required=True, pattern=VARIABLE_NAME_PATTERN),
                 "interval": ValidationSchema(type=int, min=1, max=1000, default=5),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "matlab_raw_array": {
                 "file_id": ValidationSchema(type=str, required=True, pattern=FILE_ID_PATTERN),
                 "variable": ValidationSchema(type=str, required=True, pattern=VARIABLE_NAME_PATTERN),
                 "precision": ValidationSchema(type=int, min=0, max=12, default=4),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
         }
 

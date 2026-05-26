@@ -299,7 +299,7 @@ class TestB2AttestInitialRowOnWire:
 
             # B1 allowlist columns must all be present
             for col in ("id", "timestamp", "domain", "tool_name", "tier",
-                        "outcome", "subject_id", "scrubber_id",
+                        "outcome", "entity_id", "scrubber_id",
                         "child_scrubber_id", "source_metadata_fingerprint",
                         "has_error"):
                 assert col in row, (
@@ -317,8 +317,8 @@ class TestB2AttestInitialRowOnWire:
             assert row["source_metadata_fingerprint"] == self._FINGERPRINT
             assert row["has_error"] is False
 
-            # subject_id is NULL on an attestation row (not participant-scoped)
-            assert row["subject_id"] is None
+            # entity_id is NULL on an attestation row (not participant-scoped)
+            assert row["entity_id"] is None
 
             # timestamp must be a parseable ISO-8601 string
             import datetime
@@ -416,7 +416,7 @@ class TestB3MultiSourceToolsList:
             # CSV surface (7 tools)
             csv_expected = {
                 "csv_list_files", "csv_file_detail", "csv_summary_report",
-                "csv_cohort_summary", "csv_force_decline",
+                "csv_group_summary", "csv_force_decline",
                 "csv_downsampled", "csv_raw_stream",
             }
             missing_csv = csv_expected - names
@@ -588,10 +588,10 @@ class TestB6V740Regression:
             assert isinstance(payload["rows"], list)
 
     def test_csv_cohort_summary_still_works(self):
-        """csv_cohort_summary round-trip verifies CSV child unaffected."""
+        """csv_group_summary round-trip verifies CSV child unaffected."""
         with spawn_server() as (client, paths):
             client.initialize()
-            resp = client.call_tool("csv_cohort_summary", {
+            resp = client.call_tool("csv_group_summary", {
                 "metric": "mean",
                 "group_by": "sex",
                 "value_column": "heart_rate",
@@ -647,7 +647,7 @@ class TestB7PilotWriteAttestInitialEndToEnd:
     output of the WATCH-1 fix's code path — not adjacent test
     infrastructure that happens to produce the same string.
 
-    The dynamic assertion (scrubber_id == PHIScrubber().scrubber_id)
+    The dynamic assertion (scrubber_id == DataScrubber().scrubber_id)
     is the load-bearing part: under the default scrubber it equals
     "noop", but under a future subclassed framework scrubber it
     equals that subclass's identity. A regression that re-hardcodes
@@ -727,20 +727,20 @@ class TestB7PilotWriteAttestInitialEndToEnd:
             row = matching[0]
 
             # The dynamic scrubber_id contract — the WATCH-1
-            # closure. Under default PHIScrubber this is "noop";
+            # closure. Under default DataScrubber this is "noop";
             # under a subclassed framework scrubber it would be
             # that subclass's identity. A future pilot.py regression
             # that re-hardcoded "noop" would still pass an
             # `assert == "noop"` check; this dynamic assertion
             # would catch it once any institutional subclass is
             # wired through the framework's scrubber-selection seam.
-            from tailor.framework.security import PHIScrubber
+            from tailor.framework.security import DataScrubber
 
-            assert row["scrubber_id"] == PHIScrubber().scrubber_id, (
+            assert row["scrubber_id"] == DataScrubber().scrubber_id, (
                 f"WATCH-1 regression: pilot helper wrote "
                 f"scrubber_id={row['scrubber_id']!r}, but the "
                 f"framework scrubber's identity is "
-                f"{PHIScrubber().scrubber_id!r}. pilot.py must "
+                f"{DataScrubber().scrubber_id!r}. pilot.py must "
                 f"thread the dynamic identity, not hardcode a "
                 f"literal string."
             )

@@ -26,8 +26,8 @@ import logging
 from pathlib import Path
 
 from ...framework.interfaces import (
-    SUBJECT_ID_PARAM_DOC,
-    SUBJECT_ID_SCHEMA,
+    ENTITY_ID_PARAM_DOC,
+    ENTITY_ID_SCHEMA,
     ChildMCP,
     ConsentInfo,
     ConsentScope,
@@ -39,7 +39,7 @@ from .processing import TemplateProcessing
 
 log = logging.getLogger("tailor.template")
 
-# SUBJECT_ID_SCHEMA / SUBJECT_ID_PARAM_DOC are imported from framework
+# ENTITY_ID_SCHEMA / ENTITY_ID_PARAM_DOC are imported from framework
 # (see ADR 0002). Promoted in v6.2 so every child references the same
 # definition; previously the constants were re-declared per-child.
 
@@ -222,7 +222,7 @@ class TemplateChild(ChildMCP):
                 "List available records with summary stats. ~200 tokens.",
                 {
                     "limit": {"type": "integer", "description": "Max results (default 20)", "required": False},
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -230,7 +230,7 @@ class TemplateChild(ChildMCP):
                 "Get full details for a single record.",
                 {
                     "record_id": {"type": "integer", "description": "Record ID", "required": True},
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -239,7 +239,7 @@ class TemplateChild(ChildMCP):
                 "No raw samples leave the server. ~500 tokens.",
                 {
                     "record_id": {"type": "integer", "description": "Record ID", "required": True},
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             # ── Tier 2: Consent-gated (downsampled streams) ──
@@ -259,7 +259,7 @@ class TemplateChild(ChildMCP):
                         "description": f"Which streams to include: {', '.join(ALL_STREAM_TYPES)}. Default: all.",
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             # ── Tier 3: Cost-gated (raw per-sample streams) ──
@@ -274,7 +274,7 @@ class TemplateChild(ChildMCP):
                         "description": f"Which streams: {', '.join(ALL_STREAM_TYPES)}. Default: all.",
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
         ]
@@ -283,31 +283,31 @@ class TemplateChild(ChildMCP):
     def param_schemas(self) -> dict[str, dict[str, ValidationSchema]]:
         # FILL IN: every tool in ``tool_definitions`` must have a
         # matching entry here. Every entry must include
-        # ``"subject_id": SUBJECT_ID_SCHEMA`` (ADR 0002 — caught by
-        # ``test_template_shape.py::TestSubjectIdConsistency``).
+        # ``"entity_id": ENTITY_ID_SCHEMA`` (ADR 0002 — caught by
+        # ``test_template_shape.py::TestEntityIdConsistency``).
         return {
             "example_list": {
                 "limit": ValidationSchema(type=int, min=1, max=100, default=20),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "example_detail": {
                 "record_id": ValidationSchema(type=int, min=1, required=True),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "example_summary_report": {
                 "record_id": ValidationSchema(type=int, min=1, required=True),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "example_downsampled": {
                 "record_id": ValidationSchema(type=int, min=1, required=True),
                 "interval": ValidationSchema(type=int, min=1, max=60, default=5),
                 "streams": ValidationSchema(type=list, allowed_values=ALL_STREAM_TYPES),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "example_raw_stream": {
                 "record_id": ValidationSchema(type=int, min=1, required=True),
                 "streams": ValidationSchema(type=list, allowed_values=ALL_STREAM_TYPES),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
         }
 

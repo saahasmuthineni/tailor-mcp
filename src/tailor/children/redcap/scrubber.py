@@ -2,11 +2,11 @@
 RedcapPHIScrubber — Child-level PHI scrubbing for REDCap exports.
 
 Per ADR 0037 + ADR 0003 § Amendment 2026-05-14: this class is a
-**parallel seam** to the framework-level ``PHIScrubber``, not a
+**parallel seam** to the framework-level ``DataScrubber``, not a
 subclass. Both seams may run on the same call; they answer different
 questions:
 
-- ``framework.security.PHIScrubber`` (ADR 0003): cross-domain pattern
+- ``framework.security.DataScrubber`` (ADR 0003): cross-domain pattern
   matchers (regex / heuristic / NLP). No-op default.
 - ``RedcapPHIScrubber`` (this file): domain-specific structured input.
   Reads the IRB-approved ``identifier=yes/no`` flags from REDCap's
@@ -62,7 +62,7 @@ class RedcapPHIScrubber:
     identifier flag for each field. Subsequent ``scrub_record()`` /
     ``scrub_records()`` calls are pure lookups against that map.
 
-    Does NOT inherit from ``framework.security.PHIScrubber``. The two
+    Does NOT inherit from ``framework.security.DataScrubber``. The two
     seams are intentionally parallel, not hierarchical — see ADR 0037
     § "Built-in PHI scrubber — a new seam parallel to ADR 0003".
     """
@@ -232,7 +232,7 @@ class RedcapPHIScrubber:
     def child_scrubber_warning(self) -> str | None:
         """Surfaced into result ``_meta`` blocks when metadata is
         missing or unreadable. Mirrors
-        ``framework.security.PHIScrubber.scrubber_warning`` shape so a
+        ``framework.security.DataScrubber.scrubber_warning`` shape so a
         deployment with a broken child scrubber is visible in the LLM
         transcript on every call.
         """

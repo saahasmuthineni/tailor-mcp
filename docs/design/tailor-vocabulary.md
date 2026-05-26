@@ -20,7 +20,7 @@ list that operationalises it.
 | **Thread** | Raw incoming data, prior to any framework processing | Wire-level input to a child's ingest path |
 | **Fabric** | A mill's processing output — what a child returns from `execute()` | `children/*/processing.py` outputs |
 | **Garment** | A broad family of AI-wearable analytical outfittings | `_meta`-stamped result envelopes |
-| **Seam** | A framework extension boundary | `ChildMCP`, `PHIScrubber`, `LocalLLMBackend`, the writer hook |
+| **Seam** | A framework extension boundary | `ChildMCP`, `DataScrubber`, `LocalLLMBackend`, the writer hook |
 | **Ledger** | The audit log — the tailor's record, separate from the wardrobe | `framework/audit.py`, `audit.db` |
 
 The Ledger / Wardrobe split is load-bearing. The Wardrobe is the
@@ -45,7 +45,7 @@ shipped code or names an extension shape the framework supports.
 | **Inspect** | Audit at a seam | `mcp-protocol-auditor`, `coverage-criticality-mapper` |
 | **Preserve** | Hold durably across sessions | Vault as source of truth |
 | **Revert** | Undo by purging cached fabric (disambiguator: not Git revert) | [ADR 0013](../adr/0013-cache-only-purge-on-consent-revocation.md) |
-| **Stitch** | Close a seam with a concrete implementation (verb form of Seam) | Institutional `PHIScrubber` subclasses; see [ADR 0003](../adr/0003-phi-scrubber-seam.md) |
+| **Stitch** | Close a seam with a concrete implementation (verb form of Seam) | Institutional `DataScrubber` subclasses; see [ADR 0003](../adr/0003-phi-scrubber-seam.md) |
 
 ## Table 3 — Service hierarchy (mill-tailor producer-consumer)
 
@@ -208,3 +208,35 @@ amending pattern is:
 3. This file is updated in the same change.
 4. `code-vs-roadmap-drift-auditor` audits drift between this file and
    the ADR set on its existing cadence.
+
+## Vocabulary changes — v9.0.0 (2026-05-26)
+
+Three structural identifiers were renamed as part of the public-flip
+domain-agnostic vocabulary sweep. The renames make the framework's
+externally-visible vocabulary domain-agnostic, matching the
+architectural commitment in CLAUDE.md § "What This Project Is" that
+the framework is data-agnostic and use-case-agnostic with health
+research as the first shipped recipe.
+
+| Old name | New name | Surface | Why renamed |
+|---|---|---|---|
+| `PHIScrubber` | `DataScrubber` | Framework-level class in `framework.security` | "PHI" is a HIPAA-specific term; the seam itself is domain-agnostic. The child-level `RedcapPHIScrubber` retains its name because it IS HIPAA-specific by purpose (reads REDCap identifier flags). See [ADR 0003](../adr/0003-phi-scrubber-seam.md) § Renamed. |
+| `subject_id` | `entity_id` | `audit_log` column + all child param schemas + vault frontmatter + shared schema constants | "Subject" is research-shaped; the framework's identity-scoping primitive applies to any deployment recipe (knowledge work, creative archives, clinical workflows, family / household contexts). See [ADR 0002](../adr/0002-subject-id-scoping.md) § Renamed and [ADR 0009](../adr/0009-vault-subject-keying.md) § Renamed. |
+| `csv_cohort_summary` | `csv_group_summary` | MCP tool name on the generic `csv_dir` child only | "Cohort" is research-shaped; the generic CSV-directory child is data-agnostic. The biometric children's sibling tools — `force_cohort_summary`, `emg_cohort_summary`, `redcap_cohort_summary` — retain their `_cohort_` names because they ARE cohort-shaped in the research sense. See [ADR 0015](../adr/0015-tier-1-cohort-surface-and-metadata-sidecar.md) § Renamed. |
+
+Backward compatibility for existing deployments lands in the same
+commit as the rename:
+
+- **`audit_log` table** — `AuditLog.__init__` detects legacy
+  `subject_id` column on boot and runs
+  `ALTER TABLE audit_log RENAME COLUMN subject_id TO entity_id`.
+  Every existing row preserved in place per
+  [ADR 0001](../adr/0001-audit-log-as-backbone.md) audit-log
+  durability invariant.
+- **Vault note frontmatter** — `parser.split_frontmatter` aliases
+  legacy `subject_id:` to `entity_id:` on read so notes written
+  under the old name continue to load without migration.
+
+These backward-compat blocks are the only places in the codebase
+where the old vocabulary continues to appear; they are intentional
+and load-bearing.

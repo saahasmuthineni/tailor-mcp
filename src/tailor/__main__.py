@@ -858,9 +858,9 @@ def cmd_redcap_reattest():
     # default, and any future audit-column additions automatically.
     audit_path.parent.mkdir(parents=True, exist_ok=True)
     from tailor.framework.audit import AuditLog
-    from tailor.framework.security import PHIScrubber
+    from tailor.framework.security import DataScrubber
     audit_log = AuditLog(audit_path)
-    framework_scrubber = PHIScrubber()
+    framework_scrubber = DataScrubber()
     try:
         audit_log.record(
             domain="redcap_file",

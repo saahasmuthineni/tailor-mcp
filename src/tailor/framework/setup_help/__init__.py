@@ -83,7 +83,7 @@ _SETUP_HELP_DESCRIPTION = (
     "RECIPIENT SETUP DIAGNOSTIC. This Tailor server is running but the "
     "demo scaffold has not been installed yet. If you are trying to call "
     "force_cohort_summary, emg_cohort_summary, force_summary, "
-    "emg_envelope_summary, csv_summary_report, csv_cohort_summary, "
+    "emg_envelope_summary, csv_summary_report, csv_group_summary, "
     "csv_force_decline, or any vault_* tool and they appear missing, "
     "call this tool — it returns step-by-step terminal instructions for "
     "the recipient to scaffold the HIP Lab demo via `tailor fitting-room`, "

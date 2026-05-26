@@ -1,7 +1,7 @@
 """
 Tests for ``framework.security`` — pre-execution gates.
 
-ParamValidator, CircuitBreaker, ConsentGate, PHIScrubber. These are
+ParamValidator, CircuitBreaker, ConsentGate, DataScrubber. These are
 domain-agnostic by design: the same checks apply to any biosensor
 child registered with the router.
 """
@@ -13,7 +13,7 @@ from tailor.framework.security import (
     CircuitBreaker,
     ConsentGate,
     ParamValidator,
-    PHIScrubber,
+    DataScrubber,
 )
 
 
@@ -163,18 +163,18 @@ class TestParamValidator:
 
 class TestPHIScrubber:
     """
-    PHIScrubber is the per-institution PHI-stripping seam. The default
+    DataScrubber is the per-institution PHI-stripping seam. The default
     implementation is a no-op — but subclassing and returning a modified
     dict must work, so the seam is actually useful.
     """
 
     def test_default_is_noop(self):
-        scrubber = PHIScrubber()
+        scrubber = DataScrubber()
         result = {"value": 42, "note": "no change"}
         assert scrubber.scrub(result) is result
 
     def test_subclass_can_strip_fields(self):
-        class DropNameScrubber(PHIScrubber):
+        class DropNameScrubber(DataScrubber):
             def scrub(self, result: dict) -> dict:
                 result.pop("participant_name", None)
                 return result
@@ -197,15 +197,15 @@ class TestPHIScrubber:
         """
         # The warning may already have fired in earlier tests — what
         # matters is that further constructions do not re-emit it.
-        PHIScrubber._noop_warning_emitted = False  # reset class flag
+        DataScrubber._noop_warning_emitted = False  # reset class flag
         caplog.clear()
         with caplog.at_level("WARNING", logger="tailor"):
-            PHIScrubber()
-            PHIScrubber()
-            PHIScrubber()
+            DataScrubber()
+            DataScrubber()
+            DataScrubber()
         noop_warnings = [
             r for r in caplog.records
-            if "PHIScrubber default is a no-op" in r.getMessage()
+            if "DataScrubber default is a no-op" in r.getMessage()
         ]
         assert len(noop_warnings) == 1, (
             f"expected exactly one no-op warning across 3 constructions; "
@@ -214,21 +214,21 @@ class TestPHIScrubber:
 
     def test_subclass_construction_does_not_emit_noop_warning(self, caplog):
         """
-        Only the base PHIScrubber emits the no-op warning; a subclass
+        Only the base DataScrubber emits the no-op warning; a subclass
         (which presumably has a real policy) must not trip it.
         """
-        class RealScrubber(PHIScrubber):
+        class RealScrubber(DataScrubber):
             def scrub(self, result: dict) -> dict:
                 return result
 
-        PHIScrubber._noop_warning_emitted = False
+        DataScrubber._noop_warning_emitted = False
         caplog.clear()
         with caplog.at_level("WARNING", logger="tailor"):
             RealScrubber()
             RealScrubber()
         noop_warnings = [
             r for r in caplog.records
-            if "PHIScrubber default is a no-op" in r.getMessage()
+            if "DataScrubber default is a no-op" in r.getMessage()
         ]
         assert noop_warnings == []
 
@@ -241,9 +241,9 @@ class TestPHIScrubber:
         ``test_router.TestPHIScrubberAuditStamp``; this test just pins
         the property's contract.
         """
-        class CustomScrubber(PHIScrubber):
+        class CustomScrubber(DataScrubber):
             def scrub(self, result: dict) -> dict:
                 return result
 
-        assert PHIScrubber().scrubber_id == "noop"
+        assert DataScrubber().scrubber_id == "noop"
         assert CustomScrubber().scrubber_id == "CustomScrubber"

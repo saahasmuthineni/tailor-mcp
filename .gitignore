@@ -57,3 +57,4 @@ Thumbs.db
 # recipient ~/.tailor snapshots, raw Claude Desktop configs).
 # The friction-log markdown lives one level up and IS committed.
 docs/diagnosis/captures/
+tailor-for-industrial-rd.html

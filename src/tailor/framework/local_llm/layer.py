@@ -22,8 +22,8 @@ from __future__ import annotations
 import logging
 
 from ..interfaces import (
-    SUBJECT_ID_PARAM_DOC,
-    SUBJECT_ID_SCHEMA,
+    ENTITY_ID_PARAM_DOC,
+    ENTITY_ID_SCHEMA,
     ToolDefinition,
     ValidationSchema,
 )
@@ -41,7 +41,7 @@ log = logging.getLogger("tailor.local_llm")
 # resolved_context is accepted).
 ORACLE_MEDIATED_TOOLS = frozenset(
     {
-        "csv_cohort_summary",
+        "csv_group_summary",
         "csv_force_decline",
     }
 )
@@ -96,7 +96,7 @@ class LocalLLMLayer:
                 "structured response over the resolved data. Numerical "
                 "claims in the response are citable; narrative is "
                 "non-citable (labeled in _meta). Best paired with prior "
-                "csv_cohort_summary / csv_force_decline calls — pass "
+                "csv_group_summary / csv_force_decline calls — pass "
                 "their results as resolved_context. The response is "
                 "structured for multi-pass cooperation; three fields "
                 "name what to do next: related_substrate (vault notes — "
@@ -130,12 +130,12 @@ class LocalLLMLayer:
                             "LLM does NOT invent numbers. Hosted Claude "
                             "is expected to populate this by first "
                             "calling the relevant Tier-1 tools "
-                            "(typically csv_cohort_summary and/or "
+                            "(typically csv_group_summary and/or "
                             "csv_force_decline)."
                         ),
                         "required": True,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
         ]
@@ -150,7 +150,7 @@ class LocalLLMLayer:
                 "resolved_context": ValidationSchema(
                     type=dict, required=True,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
         }
 
@@ -161,7 +161,7 @@ class LocalLLMLayer:
         request = OracleRequest(
             question=params["question"],
             resolved_context=params["resolved_context"],
-            subject_id=params.get("subject_id"),
+            entity_id=params.get("entity_id"),
         )
         response = await self._backend.compose(request)
         # ADR 0023 — substrate scan in the layer, not the backend.
@@ -201,9 +201,9 @@ class LocalLLMLayer:
         Run reports and dashboards are intentionally not surfaced —
         they are derived artifacts, not analyst interpretation.
 
-        Subject collection: explicit ``request.subject_id`` plus any
+        Subject collection: explicit ``request.entity_id`` plus any
         per-subject keys in ``resolved_context`` (the
-        ``{processing_call: {subject_id: {metric: value}}}`` shape
+        ``{processing_call: {entity_id: {metric: value}}}`` shape
         ``_flatten_claims`` already detects). When no subjects are
         in scope, the scan returns ``([], None)`` — the substrate
         scan is purpose-built to find content *about the subject(s)
@@ -223,14 +223,14 @@ class LocalLLMLayer:
         if self._vault_storage is None:
             return [], None
         try:
-            subject_ids = self._collect_subjects(request)
-            if not subject_ids:
+            entity_ids = self._collect_subjects(request)
+            if not entity_ids:
                 return [], None
             entries: list[dict] = []
             seen: set[tuple[str, str]] = set()
-            for sid in subject_ids:
+            for sid in entity_ids:
                 for theme in self._vault_storage.list_themes(
-                    subject_id=sid, limit=10,
+                    entity_id=sid, limit=10,
                 ):
                     slug = theme.get("slug")
                     if not slug or ("theme", slug) in seen:
@@ -240,13 +240,13 @@ class LocalLLMLayer:
                         "kind": "theme",
                         "slug": slug,
                         "title": None,
-                        "subject_id": theme.get("subject_id"),
+                        "entity_id": theme.get("entity_id"),
                         "status": theme.get("status"),
                         "last_updated": theme.get("last_updated"),
                     })
                 for note_kind in ("moment", "failure_mode"):
                     for note in self._vault_storage.list_notes(
-                        note_type=note_kind, subject_id=sid, limit=5,
+                        note_type=note_kind, entity_id=sid, limit=5,
                     ):
                         filename = note.get("filename") or ""
                         slug = (
@@ -268,7 +268,7 @@ class LocalLLMLayer:
                             "kind": note_kind,
                             "slug": slug,
                             "title": title,
-                            "subject_id": note.get("subject_id"),
+                            "entity_id": note.get("entity_id"),
                             "status": status,
                             "last_updated": note.get("written_at"),
                         })
@@ -304,15 +304,15 @@ class LocalLLMLayer:
         inflating storage queries and the IS-NULL-or-match cross-
         subject substrate fan-out.
 
-        The explicit ``request.subject_id`` is added first
+        The explicit ``request.entity_id`` is added first
         (preserves order) and is exempt from the scalar filter —
         it is the caller's explicit declaration of subject scope.
         """
         subjects: list[str] = []
         seen: set[str] = set()
-        if request.subject_id is not None:
-            subjects.append(request.subject_id)
-            seen.add(request.subject_id)
+        if request.entity_id is not None:
+            subjects.append(request.entity_id)
+            seen.add(request.entity_id)
         for result in request.resolved_context.values():
             if not isinstance(result, dict):
                 continue

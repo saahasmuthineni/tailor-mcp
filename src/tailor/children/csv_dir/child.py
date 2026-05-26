@@ -34,8 +34,8 @@ import logging
 from pathlib import Path
 
 from ...framework.interfaces import (
-    SUBJECT_ID_PARAM_DOC,
-    SUBJECT_ID_SCHEMA,
+    ENTITY_ID_PARAM_DOC,
+    ENTITY_ID_SCHEMA,
     ChildMCP,
     ConsentInfo,
     ConsentScope,
@@ -47,7 +47,7 @@ from .processing import COHORT_METRICS, CSVProcessing
 
 log = logging.getLogger("tailor.csv_dir")
 
-# SUBJECT_ID_SCHEMA / SUBJECT_ID_PARAM_DOC are framework-level constants
+# ENTITY_ID_SCHEMA / ENTITY_ID_PARAM_DOC are framework-level constants
 # (see ADR 0002) — csv_* tools reference them via the import above.
 
 # Filename-safe pattern for file_id parameter — rejects path
@@ -58,14 +58,14 @@ FILE_ID_PATTERN = r"^[A-Za-z0-9_\-\.]{1,255}$"
 # Files larger than this return an error suggesting csv_downsampled.
 MAX_CSV_BYTES = 100 * 1024 * 1024  # 100 MB
 
-# Upper bound on number of CSVs csv_cohort_summary will scan in a single
+# Upper bound on number of CSVs csv_group_summary will scan in a single
 # call. Keeps the Tier-1 cost predictable and bounded; a directory with
 # more than this many files yields a clear error rather than silently
 # scanning a few hundred files. Tuned for typical pilot-study scale (the
 # project's stated audience: 5–20 participants, see ADR 0009).
 MAX_COHORT_FILES = 64
 
-# Sidecar metadata filename. Optional; csv_cohort_summary requires it
+# Sidecar metadata filename. Optional; csv_group_summary requires it
 # (see ADR 0015). Schema: ``{"<csv_filename>": {"<field>": <value>, ...}}``.
 METADATA_FILENAME = "metadata.json"
 
@@ -79,7 +79,7 @@ class CSVDirectoryChild(ChildMCP):
     | ``csv_list_files``       | 1    | List CSV files with metadata           |
     | ``csv_file_detail``      | 1    | Single-file stats                      |
     | ``csv_summary_report``   | 1    | Server-computed report (vaultable)     |
-    | ``csv_cohort_summary``   | 1    | Cross-file cohort aggregation by group |
+    | ``csv_group_summary``   | 1    | Cross-file cohort aggregation by group |
     | ``csv_force_decline``    | 1    | Per-file fatigue diagnostic            |
     | ``csv_downsampled``      | 2    | Decimated rows (consent-gated)         |
     | ``csv_raw_stream``       | 3    | Full rows, reduced (cost-gated)        |
@@ -271,7 +271,7 @@ class CSVDirectoryChild(ChildMCP):
                 "List CSV files in the configured directory with size and column names. ~200 tokens.",
                 {
                     "limit": {"type": "integer", "description": "Max results (default 20)", "required": False},
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -279,7 +279,7 @@ class CSVDirectoryChild(ChildMCP):
                 "Single-file metadata and per-column summary statistics.",
                 {
                     "file_id": {"type": "string", "description": "CSV filename", "required": True},
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -288,11 +288,11 @@ class CSVDirectoryChild(ChildMCP):
                 "data completeness. No raw data leaves the server. ~800 tokens.",
                 {
                     "file_id": {"type": "string", "description": "CSV filename", "required": True},
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
-                "csv_cohort_summary", 1,
+                "csv_group_summary", 1,
                 "Cross-file cohort aggregation. Groups every CSV in the "
                 "directory by a metadata field declared in metadata.json, "
                 "reduces the named column to a per-file scalar by metric, "
@@ -314,7 +314,7 @@ class CSVDirectoryChild(ChildMCP):
                         ),
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             ToolDefinition(
@@ -329,7 +329,37 @@ class CSVDirectoryChild(ChildMCP):
                 {
                     "file_id": {"type": "string", "description": "CSV filename", "required": True},
                     "value_column": {"type": "string", "description": "Numeric column header to analyse (e.g. 'force', 'envelope'). Renamed from 'column' in v7.6.0 to match force_csv + emg_csv per ADR 0038 § Amendment 2026-05-19.", "required": True},
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
+                },
+            ),
+            ToolDefinition(
+                "csv_synchronized_windows", 1,
+                "Align the contractions across a multi-channel recording "
+                "and extract a windowed table. Detects every contraction "
+                "epoch in a recording (one epoch = one contraction; a "
+                "series of contractions on a shared clock — e.g. EMG "
+                "channels for several muscles plus a torque track) and, "
+                "for each epoch, pulls per-channel windowed metrics: RMS "
+                "for the EMG channels, mean for the anchor/torque channel. "
+                "This is the whole LabChart-to-Excel extraction loop in "
+                "one call. By DEFAULT it runs across EVERY recording in "
+                "the configured directory and returns one aligned result "
+                "per subject; pass file_id to scope to a single "
+                "recording. Detection is deterministic — a threshold on "
+                "the anchor channel plus contiguous-run segmentation — so "
+                "the same recording always yields the same epochs and the "
+                "call is recorded in the audit log. ~400-900 tokens. "
+                "Tunable: anchor_column (which channel shows the "
+                "contractions), threshold, min_spacing_s, and an optional "
+                "peak-anchored lead_s / window_s analysis window.",
+                {
+                    "file_id": {"type": "string", "description": "Optional CSV filename to scope to one recording. Omit to process every recording in the directory (the default).", "required": False},
+                    "anchor_column": {"type": "string", "description": "Channel used to detect the contractions — the channel that clearly shows each contraction, typically the torque/force track. Default: the first configured channel.", "required": False},
+                    "threshold": {"type": "number", "description": "Activation threshold on the anchor channel. Default: auto (40% of the channel's min-to-max range).", "required": False},
+                    "min_spacing_s": {"type": "number", "description": "Minimum seconds between detected contractions; closer peaks collapse to the higher one. Default 1.0.", "required": False},
+                    "lead_s": {"type": "number", "description": "Optional: seconds before each detected peak to start a fixed analysis window. Pair with window_s.", "required": False},
+                    "window_s": {"type": "number", "description": "Optional: length in seconds of a fixed analysis window anchored at each peak. Pair with lead_s.", "required": False},
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             # ── Tier 2: Consent-gated (downsampled) ──
@@ -349,7 +379,7 @@ class CSVDirectoryChild(ChildMCP):
                         "description": col_desc,
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
             # ── Tier 3: Cost-gated (full rows) ──
@@ -364,7 +394,7 @@ class CSVDirectoryChild(ChildMCP):
                         "description": col_desc,
                         "required": False,
                     },
-                    "subject_id": SUBJECT_ID_PARAM_DOC,
+                    "entity_id": ENTITY_ID_PARAM_DOC,
                 },
             ),
         ]
@@ -374,21 +404,21 @@ class CSVDirectoryChild(ChildMCP):
         return {
             "csv_list_files": {
                 "limit": ValidationSchema(type=int, min=1, max=100, default=20),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "csv_file_detail": {
                 "file_id": ValidationSchema(
                     type=str, required=True, pattern=FILE_ID_PATTERN,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "csv_summary_report": {
                 "file_id": ValidationSchema(
                     type=str, required=True, pattern=FILE_ID_PATTERN,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
-            "csv_cohort_summary": {
+            "csv_group_summary": {
                 "value_column": ValidationSchema(
                     type=str,
                     required=True,
@@ -403,7 +433,7 @@ class CSVDirectoryChild(ChildMCP):
                     allowed_values=list(COHORT_METRICS),
                     default="mean",
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "csv_force_decline": {
                 "file_id": ValidationSchema(
@@ -414,7 +444,37 @@ class CSVDirectoryChild(ChildMCP):
                     required=True,
                     allowed_values=self._column_names,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
+            },
+            "csv_synchronized_windows": {
+                # file_id optional — absent means cohort mode (scan
+                # every recording in the directory).
+                "file_id": ValidationSchema(
+                    type=str, required=False, pattern=FILE_ID_PATTERN,
+                ),
+                # anchor_column is intentionally unconstrained by
+                # allowed_values: it is the adaptation knob for an
+                # unseen recording (Phase 2), and the handler validates
+                # it against each file's actual headers — a more honest
+                # check than against the configured column list.
+                "anchor_column": ValidationSchema(
+                    type=str, required=False,
+                ),
+                # threshold / min_spacing_s / lead_s / window_s are
+                # declared type=float for MCP-surface intent, but the
+                # framework ParamValidator has no float branch — a
+                # type=float schema passes the raw wire value through
+                # unchecked (see security.py:65-106). So
+                # _handle_synchronized_windows coerces each one with
+                # _coerce_optional_float rather than trusting the
+                # validator. Declaring them here still documents the
+                # contract and means they pick up validation for free
+                # if a float branch is ever added.
+                "threshold": ValidationSchema(type=float, required=False),
+                "min_spacing_s": ValidationSchema(type=float, required=False),
+                "lead_s": ValidationSchema(type=float, required=False),
+                "window_s": ValidationSchema(type=float, required=False),
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "csv_downsampled": {
                 "file_id": ValidationSchema(
@@ -424,7 +484,7 @@ class CSVDirectoryChild(ChildMCP):
                 "columns": ValidationSchema(
                     type=list, allowed_values=self._column_names,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
             "csv_raw_stream": {
                 "file_id": ValidationSchema(
@@ -433,7 +493,7 @@ class CSVDirectoryChild(ChildMCP):
                 "columns": ValidationSchema(
                     type=list, allowed_values=self._column_names,
                 ),
-                "subject_id": SUBJECT_ID_SCHEMA,
+                "entity_id": ENTITY_ID_SCHEMA,
             },
         }
 
@@ -504,8 +564,9 @@ class CSVDirectoryChild(ChildMCP):
             "csv_list_files": self._handle_list_files,
             "csv_file_detail": self._handle_file_detail,
             "csv_summary_report": self._handle_summary_report,
-            "csv_cohort_summary": self._handle_cohort_summary,
+            "csv_group_summary": self._handle_cohort_summary,
             "csv_force_decline": self._handle_force_decline,
+            "csv_synchronized_windows": self._handle_synchronized_windows,
             "csv_downsampled": self._handle_downsampled,
             "csv_raw_stream": self._handle_raw_stream,
         }
@@ -730,7 +791,7 @@ class CSVDirectoryChild(ChildMCP):
         maps ``filename → {field: value, ...}``. ``error_message`` is
         non-None only when the sidecar exists but is malformed; missing
         is not an error (the caller decides whether the absence is
-        fatal — csv_cohort_summary requires it, others ignore it).
+        fatal — csv_group_summary requires it, others ignore it).
 
         ``utf-8-sig`` mirrors the CSV-read paths for BOM transparency
         (v6.9.2 — a sidecar saved by Excel / PowerShell-default
@@ -781,7 +842,7 @@ class CSVDirectoryChild(ChildMCP):
         if not metadata:
             return {
                 "error": (
-                    f"csv_cohort_summary requires {METADATA_FILENAME} in "
+                    f"csv_group_summary requires {METADATA_FILENAME} in "
                     f"{self._csv_path} (see ADR 0015 for schema)"
                 ),
             }
@@ -889,6 +950,260 @@ class CSVDirectoryChild(ChildMCP):
         summary["filename"] = filepath.name
         summary["value_column"] = value_column
         return summary
+
+    def _coerce_optional_float(
+        self, params: dict, key: str, *, default: float | None = None,
+    ) -> tuple[float | None, str | None]:
+        """Coerce an optional numeric tuning param to ``float``.
+
+        The framework ``ParamValidator`` has no ``float`` branch — a
+        ``ValidationSchema(type=float)`` passes the raw wire value
+        through unchecked (security.py:65-106) — so numeric tuning
+        params are coerced here. Returns ``(value, error_message)``;
+        ``error_message`` is non-``None`` only when the param was
+        supplied but is not numeric, so an off-script caller poking the
+        tool gets a clear failure instead of a silently-ignored knob.
+        """
+        raw = params.get(key)
+        if raw is None:
+            return default, None
+        coerced = self._try_float(raw)
+        if coerced is None:
+            return None, f"parameter {key!r} must be numeric, got {raw!r}"
+        return coerced, None
+
+    def _extract_windows_for_file(
+        self,
+        filepath: Path,
+        anchor_column: str,
+        threshold: float | None,
+        min_spacing_s: float,
+        lead_s: float | None,
+        window_s: float | None,
+    ) -> dict:
+        """Detect contraction epochs in one recording and pull per-channel
+        windowed metrics. Returns a self-describing result dict, or a
+        dict with an ``error`` key on any failure (unreadable file,
+        anchor/time column absent, too few timed rows)."""
+        try:
+            headers, rows = self._read_csv(filepath, max_bytes=MAX_CSV_BYTES)
+        except OSError as exc:
+            return {"error": str(exc)}
+
+        if anchor_column not in headers:
+            return {"error": (
+                f"anchor_column {anchor_column!r} not found in "
+                f"{filepath.name}; columns are {headers}"
+            )}
+
+        # Time column: read DIRECTLY as float. The LabChart / synthetic
+        # recordings carry a float-seconds clock (e.g. 't_s'); routing
+        # it through _extract_timestamps / parse_timestamp would
+        # silently return None (those parse ISO datetimes only). The
+        # configured csv_dir.timestamp_column names the time column.
+        time_column = self._timestamp_column
+        if not time_column or time_column not in headers:
+            return {"error": (
+                f"time column {time_column!r} not found in {filepath.name}; "
+                f"set csv_dir.timestamp_column to the recording's "
+                f"numeric time column (columns are {headers})"
+            )}
+
+        # Channels = configured value columns, plus the anchor if it
+        # was not itself a configured value column.
+        channels: list[str] = list(self._column_names or [])
+        if anchor_column not in channels:
+            channels.append(anchor_column)
+
+        # One pass: build the time array and per-channel value arrays,
+        # index-aligned. Rows whose time cell does not parse are
+        # dropped from every channel so the arrays stay aligned.
+        times: list[float] = []
+        channel_values: dict[str, list[float]] = {c: [] for c in channels}
+        for r in rows:
+            t = self._try_float(r.get(time_column) or "")
+            if t is None:
+                continue
+            times.append(t)
+            for c in channels:
+                # A non-numeric cell in a numeric channel is data
+                # corruption; fill 0.0 to keep arrays aligned rather
+                # than crash. Clean recordings never hit this.
+                cv = self._try_float(r.get(c) or "")
+                channel_values[c].append(cv if cv is not None else 0.0)
+
+        if len(times) < 2:
+            return {"error": (
+                f"{filepath.name}: need at least 2 rows with a parseable "
+                f"numeric {time_column!r} value to derive a sample rate"
+            )}
+        span = times[-1] - times[0]
+        if span <= 0:
+            return {"error": (
+                f"{filepath.name}: {time_column!r} is not increasing"
+            )}
+        sample_rate_hz = (len(times) - 1) / span
+
+        anchor_values = channel_values[anchor_column]
+        epochs_idx = self._processing.detect_contraction_peaks(
+            anchor_values,
+            sample_rate_hz,
+            threshold=threshold,
+            min_spacing_s=min_spacing_s,
+        )
+
+        # Per-channel metric: the anchor channel reduces by mean (a
+        # torque hold is a sustained level); every other channel by
+        # RMS (the standard amplitude measure for an EMG envelope).
+        def _metric_for(channel: str) -> str:
+            return "mean" if channel == anchor_column else "rms"
+
+        # One "epoch" is one detected contraction (the unit of analysis
+        # in the LabChart contraction-extraction workflow).
+        epochs_out: list[dict] = []
+        for n, epoch in enumerate(epochs_idx, start=1):
+            onset_i = epoch["onset_idx"]
+            peak_i = epoch["peak_idx"]
+            offset_i = epoch["offset_idx"]
+            epoch_out: dict = {
+                "epoch": n,
+                "onset_time_s": round(times[onset_i], 4),
+                "peak_time_s": round(times[peak_i], 4),
+                "offset_time_s": round(times[offset_i], 4),
+                "duration_s": round(times[offset_i] - times[onset_i], 4),
+                "channels": {},
+            }
+            for c in channels:
+                metric = _metric_for(c)
+                # Detected span is inclusive [onset_idx, offset_idx].
+                span_vals = self._processing.slice_window(
+                    channel_values[c], onset_i, offset_i + 1,
+                )
+                epoch_out["channels"][c] = {
+                    "metric": metric,
+                    "value": self._processing.channel_metric(
+                        span_vals, metric,
+                    ),
+                }
+            # Optional fixed peak-anchored analysis window.
+            if lead_s is not None and window_s is not None:
+                w_start, w_end = self._processing.window_bounds(
+                    peak_i, sample_rate_hz, lead_s, window_s,
+                )
+                window: dict = {
+                    "lead_s": lead_s,
+                    "window_s": window_s,
+                    "channels": {},
+                }
+                for c in channels:
+                    metric = _metric_for(c)
+                    w_vals = self._processing.slice_window(
+                        channel_values[c], w_start, w_end,
+                    )
+                    window["channels"][c] = {
+                        "metric": metric,
+                        "value": self._processing.channel_metric(
+                            w_vals, metric,
+                        ),
+                    }
+                epoch_out["window"] = window
+            epochs_out.append(epoch_out)
+
+        return {
+            "anchor_column": anchor_column,
+            "time_column": time_column,
+            "channels": channels,
+            "sample_rate_hz": round(sample_rate_hz, 2),
+            "epoch_count": len(epochs_out),
+            "epochs": epochs_out,
+        }
+
+    async def _handle_synchronized_windows(self, params: dict) -> dict:
+        """Detect contraction epochs and pull per-channel windowed metrics.
+
+        Cohort by default: with no ``file_id``, scans every CSV in the
+        configured directory (mirroring ``_handle_cohort_summary``'s
+        glob + ``MAX_COHORT_FILES`` cap) and returns one entry per
+        subject. With a ``file_id`` it scopes to that one recording.
+
+        Deterministic — detection lives in ``CSVProcessing`` (threshold
+        + contiguous-run segmentation; no PRNG, no clock). Per ADR 0008.
+        """
+        if not self._csv_path.is_dir():
+            return {"error": f"CSV directory not found: {self._csv_path}"}
+
+        anchor_column = params.get("anchor_column") or (
+            self._column_names[0] if self._column_names else None
+        )
+        if not anchor_column:
+            return {"error": (
+                "no anchor_column given and no value_columns configured; "
+                "pass anchor_column explicitly (e.g. 'torque')"
+            )}
+
+        # Numeric tuning params — coerced here, not by the validator
+        # (it has no float branch).
+        threshold, err = self._coerce_optional_float(params, "threshold")
+        if err:
+            return {"error": err}
+        min_spacing_s, err = self._coerce_optional_float(
+            params, "min_spacing_s", default=1.0,
+        )
+        if err:
+            return {"error": err}
+        lead_s, err = self._coerce_optional_float(params, "lead_s")
+        if err:
+            return {"error": err}
+        window_s, err = self._coerce_optional_float(params, "window_s")
+        if err:
+            return {"error": err}
+
+        # Single-recording path.
+        file_id = params.get("file_id")
+        if file_id:
+            filepath = self._resolve_file(file_id)
+            if not filepath:
+                return {"error": f"File not found: {file_id}"}
+            result = self._extract_windows_for_file(
+                filepath, anchor_column, threshold,
+                min_spacing_s, lead_s, window_s,
+            )
+            if "error" in result:
+                return result
+            result["filename"] = filepath.name
+            return result
+
+        # Cohort path — scan the whole directory.
+        csvs = sorted(self._csv_path.glob("*.csv"))
+        if len(csvs) > MAX_COHORT_FILES:
+            return {"error": (
+                f"too many files ({len(csvs)}); synchronized-window "
+                f"extraction is capped at {MAX_COHORT_FILES} files"
+            )}
+
+        subjects: dict[str, dict] = {}
+        load_errors: list[dict] = []
+        for f in csvs:
+            per_file = self._extract_windows_for_file(
+                f, anchor_column, threshold,
+                min_spacing_s, lead_s, window_s,
+            )
+            if "error" in per_file:
+                load_errors.append(
+                    {"filename": f.name, "error": per_file["error"]},
+                )
+                continue
+            subjects[f.name] = per_file
+
+        result = {
+            "anchor_column": anchor_column,
+            "min_spacing_s": min_spacing_s,
+            "subject_count": len(subjects),
+            "subjects": subjects,
+        }
+        if load_errors:
+            result["load_errors"] = load_errors
+        return result
 
     def _extract_timestamps(self, rows: list[dict], headers: list[str]):
         """Best-effort timestamp column extraction; returns None if no

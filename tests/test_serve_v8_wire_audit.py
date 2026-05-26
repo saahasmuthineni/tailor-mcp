@@ -1120,7 +1120,7 @@ class TestA8WireShapeRegression:
         """Regression: adding new layers must not displace existing CSV tools."""
         expected_csv_tools = {
             "csv_list_files", "csv_file_detail", "csv_summary_report",
-            "csv_cohort_summary", "csv_force_decline",
+            "csv_group_summary", "csv_force_decline",
             "csv_downsampled", "csv_raw_stream",
         }
         with spawn_server() as (client, _paths):

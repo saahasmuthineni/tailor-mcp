@@ -18,10 +18,10 @@ participant exports when you're ready.
 
 - A local MCP server running against your CSV directory
 - A multi-subject vault with per-participant themes, moments, and an
-  audit log scoped to each `subject_id`
+  audit log scoped to each `entity_id`
 - One analytical conversation with Claude Desktop demonstrating that
   the same theme accumulates evidence stamped per-participant, and
-  `vault_search_notes` filtered by `subject_id` returns only that
+  `vault_search_notes` filtered by `entity_id` returns only that
   participant's results plus any cohort-level themes (per ADR 0009)
 - An audit row per call, attachable to a protocol amendment if your
   IRB asks how the analyst accessed the data
@@ -119,11 +119,11 @@ Tier 3 raw) plus the 25 `vault_*` tools.
 
 In Claude Desktop, try this exchange:
 
-> *"Run csv_summary_report on P001.csv with subject_id="P001". Then
+> *"Run csv_summary_report on P001.csv with entity_id="P001". Then
 > capture a moment titled 'P001 baseline established' linked to that
-> file, also under subject_id="P001". Then upsert a theme called
+> file, also under entity_id="P001". Then upsert a theme called
 > 'glucose-spikes' with hypothesis 'P001 shows post-prandial glucose
-> excursions' and the same subject_id."*
+> excursions' and the same entity_id."*
 
 After Claude executes those calls, repeat for P002 and P003 with
 participant-specific themes. Then ask:
@@ -131,9 +131,9 @@ participant-specific themes. Then ask:
 > *"What themes have we opened for subject P001 so far? Use
 > vault_list_themes."*
 
-The LLM calls `vault_list_themes(subject_id="P001")` and the response
+The LLM calls `vault_list_themes(entity_id="P001")` and the response
 contains *only* P001's themes plus any cohort-level ones (themes
-created without a `subject_id` would surface here too — that's the
+created without a `entity_id` would surface here too — that's the
 ADR 0009 IS NULL branch). Ask the same for P002 and P003 and confirm
 each call returns a different scope.
 
@@ -141,11 +141,11 @@ each call returns a different scope.
 
 ```bash
 sqlite3 ~/.tailor/data/audit.db \
-  "SELECT timestamp, tool_name, subject_id, scrubber_id FROM audit_log
+  "SELECT timestamp, tool_name, entity_id, scrubber_id FROM audit_log
    ORDER BY id DESC LIMIT 10;"
 ```
 
-You should see one row per call, with `subject_id` populated when the
+You should see one row per call, with `entity_id` populated when the
 LLM passed it. The `scrubber_id` column will read `noop` until you
 configure an institutional PHI scrubber (see [ADR 0003](../adr/0003-phi-scrubber-seam.md));
 for a light-IRB pilot on synthetic data the no-op default is fine.
@@ -158,7 +158,7 @@ ls ~/.tailor/vault/themes/
 head -25 ~/.tailor/vault/themes/glucose-spikes.md
 ```
 
-Each theme note carries a `subject_id` line in its YAML frontmatter
+Each theme note carries a `entity_id` line in its YAML frontmatter
 when one was provided. Each evidence block emitted under a subject
 carries a `> Subject: P001` blockquote line alongside the existing
 `> Source: …` provenance.
@@ -175,25 +175,25 @@ deployment shape — themes accumulating cross-subject evidence with no
 attribution — is structurally prevented:
 
 - A theme's subject is **set-once**: a call attempting to reassign
-  `subject_id="P003"` to `subject_id="P007"` returns an error and
+  `entity_id="P003"` to `entity_id="P007"` returns an error and
   writes nothing.
 - Every evidence block stamped under a subject carries that subject
   in its blockquote metadata. A reader scrolling the theme's evidence
   log months later can see whose observation each block describes.
-- `vault_search_notes` and the list tools filter on `subject_id` when
+- `vault_search_notes` and the list tools filter on `entity_id` when
   one is provided. Cross-subject themes (those created without a
-  `subject_id` — the cohort-level case) stay visible to all subject-
+  `entity_id` — the cohort-level case) stay visible to all subject-
   filtered queries; legacy notes from a v6.1 vault read as
   "subject unspecified" and remain queryable.
 
 ## What's still your responsibility
 
-- **PHI scrubbing.** The default `PHIScrubber` is a documented no-op
+- **PHI scrubbing.** The default `DataScrubber` is a documented no-op
   ([ADR 0003](../adr/0003-phi-scrubber-seam.md)). The framework does
   not guess what PHI means in your study. For the synthetic pilot
   here this is fine; for any deployment with real participant data,
   either confirm with your IRB that the no-op is acceptable for your
-  data sensitivity *or* subclass `PHIScrubber` with a study-specific
+  data sensitivity *or* subclass `DataScrubber` with a study-specific
   policy and wire it into the router.
 - **Manuscript-time export.** Vault freeze (a tool that bundles
   vault+audit+code-version into a submission archive) is roadmap
@@ -238,8 +238,8 @@ Add to `claude_desktop_config.json`:
 
 Real-data tip: name your CSV files by participant (`P001.csv`,
 `P002.csv`, …) so an analyst can pass `file_id="P001.csv"` and
-`subject_id="P001"` together. The framework does not auto-link
-filenames to `subject_id` in v6.2 — that's a deliberate design
+`entity_id="P001"` together. The framework does not auto-link
+filenames to `entity_id` in v6.2 — that's a deliberate design
 boundary (the analyst is the source of truth for which participant a
 call is about).
 

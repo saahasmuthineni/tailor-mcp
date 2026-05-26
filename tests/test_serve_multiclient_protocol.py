@@ -313,12 +313,13 @@ def _assert_meta_invariants(
 # ---------------------------------------------------------------------------
 
 # Expected tool count with all children configured but scipy ABSENT.
-# Breakdown (v7.4.0):
-#   25 vault + 12 running (strava_*) + 7 csv_dir + 6 redcap
+# Breakdown:
+#   25 vault + 12 running (strava_*) + 8 csv_dir + 6 redcap
 #   + 1 ask_local_oracle + 1 audit_query (v7.4.0; ADR 0039)
-#   = 52 domain tools
+#   = 53 domain tools
 #   consent pairs: running(2) + csv_dir(2) + redcap_file(2) = 6 consent tools
-#   Total = 58
+#   + 4 setup + 1 walkthrough + 3 fitting_room (v8.0.0; ADR 0040)
+#   Total = 67
 # MATLAB: 0 tools (scipy not installed; __main__.py catches ImportError and
 # skips registration, logging a banner to stderr).
 #
@@ -328,7 +329,10 @@ def _assert_meta_invariants(
 #   - v7.5.0 / v7.6.0: 58 (no new tools)
 #   - v8.0.0: 66 (added SetupLayer + WalkthroughLayer + FittingRoomLayer
 #     per ADR 0040; 4 + 1 + 3 = 8 new tools)
-_EXPECTED_WIRE_COUNT_SCIPY_ABSENT = 66
+#   - feature/csv-synchronized-windows: 67 (demo-branch tool —
+#     csv_synchronized_windows added to the csv_dir child; csv_dir
+#     7 -> 8. Demo-grade, not merged to main, no CLAUDE.md bump.)
+_EXPECTED_WIRE_COUNT_SCIPY_ABSENT = 67
 
 
 def test_mc1_all_children_tools_list_count_and_no_collisions() -> None:
@@ -377,7 +381,7 @@ def test_mc1_all_children_tools_list_count_and_no_collisions() -> None:
             # running
             "strava_list_runs", "strava_run_report", "strava_full_streams",
             # csv_dir
-            "csv_list_files", "csv_cohort_summary", "csv_raw_stream",
+            "csv_list_files", "csv_group_summary", "csv_raw_stream",
             # redcap
             "redcap_list_records", "redcap_records", "redcap_raw_records",
             # local_llm
@@ -721,7 +725,7 @@ def test_mc7_matlab_scipy_absent_coexists_with_other_children() -> None:
             )
 
         # csv_dir tools must be present.
-        for t in ("csv_list_files", "csv_cohort_summary"):
+        for t in ("csv_list_files", "csv_group_summary"):
             assert t in names, (
                 f"csv_dir tool {t!r} absent in co-resident config."
             )

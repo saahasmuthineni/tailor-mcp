@@ -78,7 +78,7 @@ class ValidationSchema:
 # any future framework-level component agree on the same regex and
 # don't drift out of sync if the IRB later specifies a different
 # identifier format.
-SUBJECT_ID_SCHEMA = ValidationSchema(
+ENTITY_ID_SCHEMA = ValidationSchema(
     type=str,
     required=False,
     pattern=r"^[A-Za-z0-9_\-]{1,64}$",
@@ -86,7 +86,7 @@ SUBJECT_ID_SCHEMA = ValidationSchema(
 
 # MCP-surface description fragment for the same parameter — included
 # in every tool's params dict so LLM clients discover it via list_tools.
-SUBJECT_ID_PARAM_DOC = {
+ENTITY_ID_PARAM_DOC = {
     "type": "string",
     "description": (
         "Optional study participant identifier (e.g. 'S001', 'S004'). "
@@ -378,7 +378,7 @@ class ChildMCP(ABC):
         row's ``child_scrubber_id`` column.
 
         Default ``None`` means no child-level scrubber runs — the
-        framework-level ``PHIScrubber`` seam (ADR 0003) is the only
+        framework-level ``DataScrubber`` seam (ADR 0003) is the only
         scrubber that touches the result. ``None`` for csv_dir,
         matlab_file, running child, template child; e.g.
         ``"redcap_metadata_flags"`` for RedcapFileChild.

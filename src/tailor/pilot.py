@@ -1498,7 +1498,7 @@ def _write_attest_initial_audit_row(
     """
     from tailor.config import DATA_DIR as _DATA_DIR
     from tailor.framework.audit import AuditLog as _AuditLog
-    from tailor.framework.security import PHIScrubber as _PHIScrubber
+    from tailor.framework.security import DataScrubber as _PHIScrubber
 
     try:
         audit = _AuditLog(_DATA_DIR / "audit.db")
@@ -1514,7 +1514,7 @@ def _write_attest_initial_audit_row(
     # phi-irb-risk-reviewer WATCH-1 closure: query the framework
     # scrubber's identity instead of hardcoding `"noop"`. The sibling
     # REATTEST path at `__main__.py:982` does the same. An institution
-    # running a subclassed framework PHIScrubber will have BOTH the
+    # running a subclassed framework DataScrubber will have BOTH the
     # ATTEST_INITIAL and REATTEST rows carry the matching subclass
     # identity — without this, the row pair would disagree on
     # scrubber_id for the same logical event, weakening the ADR 0003

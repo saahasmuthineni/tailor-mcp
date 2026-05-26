@@ -135,7 +135,7 @@ def test_serve_tools_list_round_trip() -> None:
         # csv_dir child tools — proves opt-in csv_dir wired up.
         assert "csv_list_files" in names
         assert "csv_summary_report" in names
-        assert "csv_cohort_summary" in names
+        assert "csv_group_summary" in names
         # Vault layer tools — proves vault path wired up. These are
         # the two whose `description` fields previously broke
         # tools/list with a KeyError.

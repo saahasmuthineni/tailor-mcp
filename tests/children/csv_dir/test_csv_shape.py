@@ -11,7 +11,7 @@ What's covered:
 * The ChildMCP ABC surface (``domain``, ``display_name``,
   ``tool_definitions``, ``param_schemas``) is non-empty and
   correctly typed.
-* Every tool declares ``subject_id`` in both ``tool_definitions``
+* Every tool declares ``entity_id`` in both ``tool_definitions``
   (MCP discoverability) and ``param_schemas`` (validator-side
   pattern enforcement). See ADR 0002.
 * The router's ``register_child`` accepts the child without
@@ -35,7 +35,7 @@ import pytest
 
 from tailor.children.csv_dir import CSVDirectoryChild
 from tailor.children.csv_dir.child import (
-    SUBJECT_ID_SCHEMA,
+    ENTITY_ID_SCHEMA,
 )
 from tailor.framework.interfaces import (
     CostEstimate,
@@ -44,7 +44,7 @@ from tailor.framework.interfaces import (
 )
 from tailor.framework.router import RouterMCP
 
-SUBJECT_ID_PATTERN = r"^[A-Za-z0-9_\-]{1,64}$"
+ENTITY_ID_PATTERN = r"^[A-Za-z0-9_\-]{1,64}$"
 
 # Fixture CSV content
 FIXTURE_CSV_A = """\
@@ -89,7 +89,7 @@ def csv_child() -> CSVDirectoryChild:
         (csv_dir / "fixture_a.csv").write_text(FIXTURE_CSV_A, encoding="utf-8")
         (csv_dir / "fixture_b.csv").write_text(FIXTURE_CSV_B, encoding="utf-8")
 
-        # Write metadata sidecar (ADR 0015) so csv_cohort_summary works.
+        # Write metadata sidecar (ADR 0015) so csv_group_summary works.
         (csv_dir / "metadata.json").write_text(
             json.dumps({
                 "fixture_a.csv": {"sex": "F", "group": "control"},
@@ -121,7 +121,7 @@ VALID_PARAMS = {
     "csv_list_files": {"limit": 10},
     "csv_file_detail": {"file_id": "fixture_a.csv"},
     "csv_summary_report": {"file_id": "fixture_a.csv"},
-    "csv_cohort_summary": {
+    "csv_group_summary": {
         "value_column": "heart_rate", "group_by": "sex", "metric": "mean",
     },
     "csv_force_decline": {"file_id": "fixture_a.csv", "value_column": "heart_rate"},
@@ -151,7 +151,7 @@ class TestRequiredAbstractSurface:
     ):
         defs = csv_child.tool_definitions
         assert isinstance(defs, list)
-        assert len(defs) == 7, "CSV child advertises 5 Tier-1 + 1 Tier-2 + 1 Tier-3"
+        assert len(defs) == 8, "CSV child advertises 6 Tier-1 + 1 Tier-2 + 1 Tier-3"
         for tool_def in defs:
             assert isinstance(tool_def, ToolDefinition)
             assert tool_def.tier in (1, 2, 3)
@@ -175,43 +175,43 @@ class TestRequiredAbstractSurface:
 # ═══════════════════════════════════════════════════════════════
 
 
-class TestSubjectIdConsistency:
-    """Every CSV tool declares subject_id in both surfaces."""
+class TestEntityIdConsistency:
+    """Every CSV tool declares entity_id in both surfaces."""
 
-    def test_every_tool_declares_subject_id_in_param_schemas(
+    def test_every_tool_declares_entity_id_in_param_schemas(
         self, csv_child: CSVDirectoryChild,
     ):
         schemas = csv_child.param_schemas
         assert schemas, "param_schemas should not be empty"
         for tool_name, tool_schema in schemas.items():
-            assert "subject_id" in tool_schema, (
-                f"{tool_name} missing subject_id in param_schemas"
+            assert "entity_id" in tool_schema, (
+                f"{tool_name} missing entity_id in param_schemas"
             )
-            entry = tool_schema["subject_id"]
+            entry = tool_schema["entity_id"]
             assert isinstance(entry, ValidationSchema)
             assert entry.type is str
             assert entry.required is False
-            assert entry.pattern == SUBJECT_ID_PATTERN
+            assert entry.pattern == ENTITY_ID_PATTERN
 
-    def test_every_tool_declares_subject_id_in_tool_definitions(
+    def test_every_tool_declares_entity_id_in_tool_definitions(
         self, csv_child: CSVDirectoryChild,
     ):
         defs = csv_child.tool_definitions
         assert defs, "tool_definitions should not be empty"
         for tool_def in defs:
-            assert "subject_id" in tool_def.params, (
-                f"{tool_def.name} missing subject_id in tool_definitions.params"
+            assert "entity_id" in tool_def.params, (
+                f"{tool_def.name} missing entity_id in tool_definitions.params"
             )
-            entry = tool_def.params["subject_id"]
+            entry = tool_def.params["entity_id"]
             assert entry["type"] == "string"
             assert entry["required"] is False
             assert isinstance(entry["description"], str)
             assert entry["description"].strip()
 
-    def test_exported_subject_id_schema_matches_canonical_pattern(self):
-        assert SUBJECT_ID_SCHEMA.type is str
-        assert SUBJECT_ID_SCHEMA.required is False
-        assert SUBJECT_ID_SCHEMA.pattern == SUBJECT_ID_PATTERN
+    def test_exported_entity_id_schema_matches_canonical_pattern(self):
+        assert ENTITY_ID_SCHEMA.type is str
+        assert ENTITY_ID_SCHEMA.required is False
+        assert ENTITY_ID_SCHEMA.pattern == ENTITY_ID_PATTERN
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -250,8 +250,9 @@ class TestRouterCanRegister:
                     "csv_list_files",
                     "csv_file_detail",
                     "csv_summary_report",
-                    "csv_cohort_summary",
+                    "csv_group_summary",
                     "csv_force_decline",
+                    "csv_synchronized_windows",
                     "csv_downsampled",
                     "csv_raw_stream",
                 ):
@@ -477,13 +478,13 @@ class TestMalformedCsvHandling:
 
 
 class TestCohortSummaryHandler:
-    """csv_cohort_summary handler — metadata sidecar contract (ADR 0015)."""
+    """csv_group_summary handler — metadata sidecar contract (ADR 0015)."""
 
     def test_returns_per_group_stats_with_metadata(
         self, csv_child: CSVDirectoryChild,
     ):
         result = asyncio.run(csv_child.execute(
-            "csv_cohort_summary",
+            "csv_group_summary",
             {"value_column": "heart_rate", "group_by": "sex", "metric": "mean"},
         ))
         assert isinstance(result, dict)
@@ -517,7 +518,7 @@ class TestCohortSummaryHandler:
             }), encoding="utf-8")
             child = CSVDirectoryChild(config_dir, data_dir)
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" in result
@@ -544,7 +545,7 @@ class TestCohortSummaryHandler:
             }), encoding="utf-8")
             child = CSVDirectoryChild(config_dir, data_dir)
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" in result
@@ -574,7 +575,7 @@ class TestCohortSummaryHandler:
             }), encoding="utf-8")
             child = CSVDirectoryChild(config_dir, data_dir)
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" not in result
@@ -632,7 +633,7 @@ class TestForceDeclineHandler:
 
 
 class TestCohortSummaryFailureBranches:
-    """csv_cohort_summary fail-closed branches (ADR 0015 § Criticality
+    """csv_group_summary fail-closed branches (ADR 0015 § Criticality
     classification — HIGH region per ADR 0014).
 
     These tests cover the newly-uncovered HIGH lines flagged by
@@ -690,7 +691,7 @@ class TestCohortSummaryFailureBranches:
                 Path(tmp), metadata_raw="this is not json {{{",
             )
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" in result
@@ -704,7 +705,7 @@ class TestCohortSummaryFailureBranches:
                 metadata={"a.csv": 42, "b.csv": {"sex": "M"}},
             )
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" in result
@@ -723,7 +724,7 @@ class TestCohortSummaryFailureBranches:
             # Point the child at a nonexistent directory after init.
             child._csv_path = Path(tmp) / "nonexistent_dir"
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" in result
@@ -745,7 +746,7 @@ class TestCohortSummaryFailureBranches:
             )
             monkeypatch.setattr(child_mod, "MAX_COHORT_FILES", 3)
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" in result
@@ -765,7 +766,7 @@ class TestCohortSummaryFailureBranches:
                 },
             )
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" not in result
@@ -789,7 +790,7 @@ class TestCohortSummaryFailureBranches:
             )
             monkeypatch.setattr(child_mod, "MAX_CSV_BYTES", 10)
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" not in result
@@ -830,7 +831,7 @@ class TestCohortSummaryFailureBranches:
             child = CSVDirectoryChild(config_dir, data_dir)
 
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {"value_column": "heart_rate", "group_by": "sex"},
             ))
             assert "error" not in result
@@ -852,7 +853,7 @@ class TestCohortSummaryFailureBranches:
                 metadata={"a.csv": {"sex": "F"}, "b.csv": {"sex": "M"}},
             )
             result = asyncio.run(child.execute(
-                "csv_cohort_summary",
+                "csv_group_summary",
                 {
                     "value_column": "heart_rate",
                     "group_by": "sex",
@@ -1083,3 +1084,316 @@ class TestBomTransparency:
             close = getattr(child, "close", None)
             if callable(close):
                 close()
+
+
+# ═══════════════════════════════════════════════════════════════
+# csv_synchronized_windows — multi-channel contraction extraction
+# (demo tool; feature/csv-synchronized-windows)
+# ═══════════════════════════════════════════════════════════════
+
+
+# The five channels of a synthetic LabChart recording, in the order
+# Chunyu's workflow uses: torque (anchor) + 4 EMG. The two gastroc
+# channels are the fatiguing target; the two vastus channels are the
+# quad watch-list. See examples/hip_lab_demo/labchart_sync/.
+_SYNC_CHANNELS = (
+    "torque", "gastroc_lat", "gastroc_med", "vastus_lat", "vastus_med",
+)
+
+# Distinct flat plateau values per channel so a test can assert exact
+# RMS / mean — both reduce a flat plateau to the plateau value.
+_BURST = {
+    "torque": 30.0, "gastroc_lat": 50.0, "gastroc_med": 40.0,
+    "vastus_lat": 25.0, "vastus_med": 20.0,
+}
+_REST = {
+    "torque": 2.0, "gastroc_lat": 4.0, "gastroc_med": 4.0,
+    "vastus_lat": 4.0, "vastus_med": 4.0,
+}
+
+
+def _sync_csv(
+    n_epochs: int = 6, *, sample_rate: float = 20.0, flat: bool = False,
+) -> str:
+    """Build a 5-channel synchronized recording as CSV text.
+
+    Columns: ``t_s, torque, gastroc_lat, gastroc_med, vastus_lat,
+    vastus_med`` — the LabChart shape: a float-seconds clock, a torque
+    anchor, and four EMG channels. ``n_epochs`` torque contractions
+    with the EMG channels time-locked. Each contraction is a 0.7 s
+    plateau (14 samples at 20 Hz) separated by 0.5 s of rest —
+    comfortably above the 0.5 s min-run filter, and 1.2 s peak-to-peak
+    so the default 1.0 s min-spacing keeps every epoch.
+
+    ``flat=True`` makes every channel constant — a recording with no
+    contraction structure (detection must return zero epochs).
+    """
+    rest_n = int(0.5 * sample_rate)
+    burst_n = int(0.7 * sample_rate)
+    pattern = (
+        ([False] * rest_n + [True] * burst_n) * n_epochs + [False] * rest_n
+    )
+    lines = ["t_s," + ",".join(_SYNC_CHANNELS)]
+    for idx, active in enumerate(pattern):
+        t = idx / sample_rate
+        level = _BURST if (active and not flat) else _REST
+        cells = ",".join(f"{level[c]:.4f}" for c in _SYNC_CHANNELS)
+        lines.append(f"{t:.4f},{cells}")
+    return "\n".join(lines) + "\n"
+
+
+class TestSynchronizedWindowsHandler:
+    """csv_synchronized_windows — cohort + single-file paths, error
+    paths, and the optional peak-anchored window. The handler reads a
+    numeric (float-seconds) time column directly, so these tests use
+    their own 5-channel fixtures rather than the ISO-timestamp
+    csv_child fixture above."""
+
+    def _make_child(
+        self,
+        tmpdir: Path,
+        files: dict[str, str],
+        *,
+        timestamp_column: str | None = "t_s",
+        value_columns: dict[str, str] | None = None,
+        omit_value_columns: bool = False,
+    ) -> CSVDirectoryChild:
+        config_dir = tmpdir / "config"
+        data_dir = tmpdir / "data"
+        csv_dir = tmpdir / "csv_files"
+        for d in (config_dir, data_dir, csv_dir):
+            d.mkdir()
+        for name, content in files.items():
+            (csv_dir / name).write_text(content, encoding="utf-8")
+        csv_cfg: dict = {"path": str(csv_dir)}
+        if timestamp_column is not None:
+            csv_cfg["timestamp_column"] = timestamp_column
+        # omit_value_columns leaves the key out entirely so the child
+        # falls through to auto-detection (an empty dict would too —
+        # {} is falsy — but being explicit is clearer).
+        if not omit_value_columns:
+            csv_cfg["value_columns"] = value_columns or {
+                "torque": "Torque",
+                "gastroc_lat": "Gastrocnemius lateralis EMG",
+                "gastroc_med": "Gastrocnemius medialis EMG",
+                "vastus_lat": "Vastus lateralis EMG",
+                "vastus_med": "Vastus medialis EMG",
+            }
+        (config_dir / "user_config.json").write_text(
+            json.dumps({"csv_dir": csv_cfg}), encoding="utf-8",
+        )
+        return CSVDirectoryChild(config_dir, data_dir)
+
+    # ── Cohort path (the Phase-1 headline) ──
+
+    def test_cohort_path_returns_per_subject_results(self):
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(Path(tmp), {
+                "S001.csv": _sync_csv(6),
+                "S002.csv": _sync_csv(6),
+                "S003.csv": _sync_csv(6),
+            })
+            result = asyncio.run(child.execute("csv_synchronized_windows", {}))
+            assert "error" not in result
+            assert result["subject_count"] == 3
+            assert set(result["subjects"]) == {
+                "S001.csv", "S002.csv", "S003.csv",
+            }
+            assert result["anchor_column"] == "torque"  # first value column
+            for subj in result["subjects"].values():
+                assert subj["epoch_count"] == 6
+                assert len(subj["epochs"]) == 6
+                epoch = subj["epochs"][0]
+                assert set(epoch["channels"]) == set(_SYNC_CHANNELS)
+                # Anchor reduces by mean; the 4 EMG channels by RMS.
+                assert epoch["channels"]["torque"]["metric"] == "mean"
+                assert epoch["channels"]["gastroc_lat"]["metric"] == "rms"
+                assert epoch["channels"]["vastus_med"]["metric"] == "rms"
+
+    def test_cohort_file_with_missing_anchor_goes_to_load_errors(self):
+        with TemporaryDirectory() as tmp:
+            # S002 lacks the torque anchor column entirely.
+            bad = (
+                "t_s,gastroc_lat,gastroc_med,vastus_lat,vastus_med\n"
+                "0.0,5,4,4,4\n0.05,50,40,25,20\n0.1,2,2,2,2\n"
+            )
+            child = self._make_child(Path(tmp), {
+                "S001.csv": _sync_csv(6),
+                "S002.csv": bad,
+            })
+            result = asyncio.run(child.execute("csv_synchronized_windows", {}))
+            assert "error" not in result
+            assert result["subject_count"] == 1
+            assert "S001.csv" in result["subjects"]
+            assert "load_errors" in result
+            assert result["load_errors"][0]["filename"] == "S002.csv"
+
+    def test_empty_directory_returns_zero_subject_count(self):
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(Path(tmp), {})  # no CSV files
+            result = asyncio.run(child.execute("csv_synchronized_windows", {}))
+            assert "error" not in result
+            assert result["subject_count"] == 0
+            assert result["subjects"] == {}
+
+    # ── Single-recording path (Phase 2 — the analyst's own file) ──
+
+    def test_single_file_path_scopes_to_one_recording(self):
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(Path(tmp), {
+                "S001.csv": _sync_csv(6),
+                "S002.csv": _sync_csv(4),
+            })
+            result = asyncio.run(child.execute(
+                "csv_synchronized_windows", {"file_id": "S002.csv"},
+            ))
+            assert "error" not in result
+            assert result["filename"] == "S002.csv"
+            assert result["epoch_count"] == 4
+            assert "subjects" not in result  # single-file shape, not cohort
+
+    def test_detected_epoch_has_aligned_channel_metrics(self):
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(Path(tmp), {"S001.csv": _sync_csv(6)})
+            result = asyncio.run(child.execute(
+                "csv_synchronized_windows", {"file_id": "S001.csv"},
+            ))
+            assert "error" not in result
+            epoch = result["epochs"][0]
+            # The contraction plateau is flat, so mean of the torque
+            # hold and RMS of each EMG plateau equal the plateau value.
+            assert epoch["channels"]["torque"]["value"] == 30.0
+            assert epoch["channels"]["gastroc_lat"]["value"] == 50.0
+            assert epoch["channels"]["vastus_med"]["value"] == 20.0
+            assert epoch["onset_time_s"] < epoch["peak_time_s"]
+            assert epoch["peak_time_s"] <= epoch["offset_time_s"]
+            assert epoch["duration_s"] > 0
+            # Sample rate derived from the float-seconds clock.
+            assert result["sample_rate_hz"] == 20.0
+
+    def test_recording_with_no_contractions_returns_zero_epoch_count(self):
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(Path(tmp), {
+                "S001.csv": _sync_csv(flat=True),
+            })
+            result = asyncio.run(child.execute(
+                "csv_synchronized_windows", {"file_id": "S001.csv"},
+            ))
+            assert "error" not in result
+            assert result["epoch_count"] == 0
+            assert result["epochs"] == []
+
+    # ── Error paths (off-script poking must fail clearly) ──
+
+    def test_missing_file_returns_error(self):
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(Path(tmp), {"S001.csv": _sync_csv(6)})
+            result = asyncio.run(child.execute(
+                "csv_synchronized_windows", {"file_id": "ghost.csv"},
+            ))
+            assert "error" in result
+            assert "not found" in result["error"].lower()
+
+    def test_unknown_anchor_column_returns_error(self):
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(Path(tmp), {"S001.csv": _sync_csv(6)})
+            result = asyncio.run(child.execute(
+                "csv_synchronized_windows",
+                {"file_id": "S001.csv", "anchor_column": "no_such_channel"},
+            ))
+            assert "error" in result
+            assert "anchor_column" in result["error"]
+
+    def test_time_column_absent_returns_error(self):
+        with TemporaryDirectory() as tmp:
+            # File has no t_s column; config still names timestamp_column.
+            no_time = (
+                "idx,torque,gastroc_lat,gastroc_med,vastus_lat,vastus_med\n"
+                "0,2,5,4,4,4\n1,30,50,40,25,20\n"
+                "2,30,50,40,25,20\n3,2,5,4,4,4\n"
+            )
+            child = self._make_child(Path(tmp), {"S001.csv": no_time})
+            result = asyncio.run(child.execute(
+                "csv_synchronized_windows", {"file_id": "S001.csv"},
+            ))
+            assert "error" in result
+            assert "time column" in result["error"].lower()
+
+    def test_no_timestamp_column_configured_returns_error(self):
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(
+                Path(tmp), {"S001.csv": _sync_csv(6)},
+                timestamp_column=None,
+            )
+            result = asyncio.run(child.execute(
+                "csv_synchronized_windows", {"file_id": "S001.csv"},
+            ))
+            assert "error" in result
+            assert "time column" in result["error"].lower()
+
+    def test_non_numeric_threshold_returns_clear_error(self):
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(Path(tmp), {"S001.csv": _sync_csv(6)})
+            result = asyncio.run(child.execute(
+                "csv_synchronized_windows",
+                {"file_id": "S001.csv", "threshold": "not-a-number"},
+            ))
+            assert "error" in result
+            assert "threshold" in result["error"]
+
+    def test_no_anchor_and_no_value_columns_returns_error(self):
+        # With no value_columns configured AND nothing for auto-detect
+        # to find (empty directory), there is no default anchor — the
+        # handler must say so rather than guess.
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(
+                Path(tmp), {}, omit_value_columns=True,
+            )
+            assert child._column_names is None  # auto-detect found nothing
+            result = asyncio.run(child.execute(
+                "csv_synchronized_windows", {},
+            ))
+            assert "error" in result
+            assert "anchor_column" in result["error"]
+
+    # ── Tunable params ──
+
+    def test_explicit_threshold_above_burst_detects_nothing(self):
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(Path(tmp), {"S001.csv": _sync_csv(6)})
+            result = asyncio.run(child.execute(
+                "csv_synchronized_windows",
+                {"file_id": "S001.csv", "threshold": 999.0},
+            ))
+            assert "error" not in result
+            assert result["epoch_count"] == 0
+
+    def test_optional_peak_window_is_emitted(self):
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(Path(tmp), {"S001.csv": _sync_csv(6)})
+            result = asyncio.run(child.execute(
+                "csv_synchronized_windows",
+                {"file_id": "S001.csv", "lead_s": 0.2, "window_s": 0.4},
+            ))
+            assert "error" not in result
+            epoch = result["epochs"][0]
+            assert "window" in epoch
+            assert epoch["window"]["lead_s"] == 0.2
+            assert epoch["window"]["window_s"] == 0.4
+            assert set(epoch["window"]["channels"]) == set(_SYNC_CHANNELS)
+
+    def test_anchor_column_override_selects_a_different_channel(self):
+        with TemporaryDirectory() as tmp:
+            child = self._make_child(Path(tmp), {"S001.csv": _sync_csv(6)})
+            # gastroc_lat bursts in lockstep with torque, so it works
+            # as an anchor too — and is then reduced by mean, not RMS.
+            result = asyncio.run(child.execute(
+                "csv_synchronized_windows",
+                {"file_id": "S001.csv", "anchor_column": "gastroc_lat"},
+            ))
+            assert "error" not in result
+            assert result["anchor_column"] == "gastroc_lat"
+            assert result["epoch_count"] == 6
+            epoch = result["epochs"][0]
+            assert epoch["channels"]["gastroc_lat"]["metric"] == "mean"
+            assert epoch["channels"]["torque"]["metric"] == "rms"

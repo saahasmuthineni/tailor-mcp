@@ -170,9 +170,9 @@ def _reindex_file(filename: str, abs_path: Path, storage: VaultStorage) -> None:
     date = _coerce_str(fm.get("date")) or _coerce_str(fm.get("date_end"))
     week = _coerce_str(fm.get("week"))
     has_insight_notes = bool(fm.get("has_insight_notes"))
-    # ADR 0009 — vault subject-keying. Notes carry an optional subject_id
+    # ADR 0009 — vault subject-keying. Notes carry an optional entity_id
     # in frontmatter; lazy backfill happens here on every rescan/revalidate.
-    subject_id = _coerce_str(fm.get("subject_id"))
+    entity_id = _coerce_str(fm.get("entity_id"))
 
     storage.upsert_note(
         filename=filename,
@@ -184,7 +184,7 @@ def _reindex_file(filename: str, abs_path: Path, storage: VaultStorage) -> None:
         week=week,
         has_insight_notes=has_insight_notes,
         mtime_ns=mtime_ns,
-        subject_id=subject_id,
+        entity_id=entity_id,
     )
 
     # Reindex wikilinks — resolve against the current filename universe
@@ -214,7 +214,7 @@ def _reindex_file(filename: str, abs_path: Path, storage: VaultStorage) -> None:
             linked_runs=list(fm.get("linked_runs") or []),
             confidence=_coerce_str(fm.get("confidence")),
             excerpt=_first_non_heading_line(body),
-            subject_id=subject_id,
+            entity_id=entity_id,
         )
     elif note_type == "theme_removed":  # pragma: no cover — defensive
         storage.delete_theme(_theme_slug_from_filename(filename))

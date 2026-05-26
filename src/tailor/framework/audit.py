@@ -6,7 +6,7 @@ The durable record of every tool call the router dispatched.
 The audit log is the backbone of reproducibility and IRB review for
 LLM-assisted analyses in this framework. Every tool call is persisted
 with timestamp, domain, tool name, access tier, parameters, token
-estimate, outcome, latency, and (optionally) a study ``subject_id``
+estimate, outcome, latency, and (optionally) a study ``entity_id``
 pulled from the call parameters. That row is intended to be durable
 evidence — of how an analyst accessed participant data, in what order,
 with what scope, and with what result — suitable for appendices,
@@ -116,8 +116,8 @@ class AuditLog:
 
     Captured per call: timestamp, domain, tool name, access tier,
     parameters, token estimate, outcome, latency, an optional error
-    message, and an optional ``subject_id`` for studies that want to
-    scope rows to a participant or cohort. ``subject_id`` is only
+    message, and an optional ``entity_id`` for studies that want to
+    scope rows to a participant or cohort. ``entity_id`` is only
     populated when a caller supplies one — children are free to
     ignore it.
 
@@ -144,7 +144,7 @@ class AuditLog:
                 outcome TEXT NOT NULL,
                 duration_ms INTEGER,
                 error TEXT,
-                subject_id TEXT,
+                entity_id TEXT,
                 scrubber_id TEXT
             )
         """)
@@ -156,8 +156,27 @@ class AuditLog:
             row[1]
             for row in self._conn.execute("PRAGMA table_info(audit_log)").fetchall()
         }
-        if "subject_id" not in cols:
-            self._conn.execute("ALTER TABLE audit_log ADD COLUMN subject_id TEXT")
+        # v9.0.0 backward-compat: existing audit.db files predating the
+        # subject_id → entity_id rename carry a `subject_id` column. SQLite
+        # 3.25+ supports `ALTER TABLE ... RENAME COLUMN`; Python 3.10
+        # bundles SQLite ≥3.31 so this is always available. Renaming
+        # preserves every existing row in place — the audit log's
+        # IRB-grade durability invariant (ADR 0001) is honored: rows that
+        # described pre-rename calls keep their data, just under the new
+        # column name. The condition is "legacy column present AND new
+        # column absent" so the migration is idempotent.
+        if "subject_id" in cols and "entity_id" not in cols:
+            self._conn.execute(
+                "ALTER TABLE audit_log RENAME COLUMN subject_id TO entity_id"
+            )
+            log.info(
+                "audit_log: migrated subject_id column → entity_id "
+                "(v9.0.0 rename; existing rows preserved)"
+            )
+            cols.discard("subject_id")
+            cols.add("entity_id")
+        if "entity_id" not in cols:
+            self._conn.execute("ALTER TABLE audit_log ADD COLUMN entity_id TEXT")
         if "scrubber_id" not in cols:
             # v6.2 — closes the ADR 0003 doc-lie. The seam recorded its
             # scrubber identity in the property since v5; the audit row
@@ -290,7 +309,7 @@ class AuditLog:
     def record(self, domain: str, tool_name: str, tier: int, params: dict,
                token_estimate: int, outcome: str, duration_ms: int,
                *, error: str | None = None,
-               subject_id: str | None = None,
+               entity_id: str | None = None,
                scrubber_id: str | None = None,
                child_scrubber_id: str | None = None,
                source_metadata_fingerprint: str | None = None,
@@ -316,7 +335,7 @@ class AuditLog:
         self._conn.execute(
             "INSERT INTO audit_log"
             " (timestamp, domain, tool_name, tier, params, token_estimate,"
-            "  outcome, duration_ms, error, subject_id, scrubber_id,"
+            "  outcome, duration_ms, error, entity_id, scrubber_id,"
             "  child_scrubber_id, source_metadata_fingerprint,"
             "  oracle_model_id, oracle_model_version_hash,"
             "  oracle_tier, oracle_confidence, oracle_prompt_hash,"
@@ -325,7 +344,7 @@ class AuditLog:
             " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (datetime.now(timezone.utc).isoformat(), domain, tool_name, tier,
              params_repr, token_estimate, outcome, duration_ms, error,
-             subject_id, scrubber_id, child_scrubber_id,
+             entity_id, scrubber_id, child_scrubber_id,
              source_metadata_fingerprint,
              oracle_model_id, oracle_model_version_hash, oracle_tier,
              oracle_confidence, oracle_prompt_hash, oracle_latency_ms,
@@ -336,7 +355,7 @@ class AuditLog:
         log.info(
             f"AUDIT | {domain}.{tool_name} | tier={tier} "
             f"| tokens~{token_estimate} | {outcome} | {duration_ms}ms"
-            + (f" | subject={subject_id}" if subject_id else "")
+            + (f" | subject={entity_id}" if entity_id else "")
             + (f" | scrubber={scrubber_id}" if scrubber_id else "")
             + (f" | oracle_model={oracle_model_id}" if oracle_model_id else "")
         )
@@ -350,7 +369,7 @@ class AuditLog:
     # strings. The error column is reduced to ``has_error`` (bool) so
     # the v7.3.1 path-redaction posture stays intact: legacy rows that
     # predate v7.3.1 may carry raw on-disk paths in `error`, and the
-    # framework PHIScrubber default is no-op (ADR 0003) so trusting it
+    # framework DataScrubber default is no-op (ADR 0003) so trusting it
     # to re-scrub at surface time would be wishful thinking. Researchers
     # needing full error content drop to ``tailor status`` or
     # ``sqlite3 audit.db``.
@@ -367,7 +386,7 @@ class AuditLog:
     _QUERY_COLUMNS = (
         "id", "timestamp", "domain", "tool_name", "tier",
         "token_estimate", "outcome", "duration_ms",
-        "subject_id", "scrubber_id", "child_scrubber_id",
+        "entity_id", "scrubber_id", "child_scrubber_id",
         "source_metadata_fingerprint",
     )
     _MAX_QUERY_LIMIT = 100
@@ -376,7 +395,7 @@ class AuditLog:
         self,
         *,
         since: str,
-        subject_id: str | None = None,
+        entity_id: str | None = None,
         domain: str | None = None,
         tool: str | None = None,
         outcome: str | None = None,
@@ -396,7 +415,7 @@ class AuditLog:
                 ``timestamp >= since`` match. The caller is expected
                 to validate/parse relative forms (``"1h"`` etc.) before
                 calling.
-            subject_id: optional. When provided, applies an
+            entity_id: optional. When provided, applies an
                 IS-NULL-or-match filter per ADR 0009 — framework-tier
                 rows that wrote NULL stay visible alongside the
                 requested subject's rows.
@@ -416,9 +435,9 @@ class AuditLog:
         where_clauses = ["timestamp >= ?"]
         sql_params: list = [since]
 
-        if subject_id is not None:
-            where_clauses.append("(subject_id IS NULL OR subject_id = ?)")
-            sql_params.append(subject_id)
+        if entity_id is not None:
+            where_clauses.append("(entity_id IS NULL OR entity_id = ?)")
+            sql_params.append(entity_id)
         if domain is not None:
             where_clauses.append("domain = ?")
             sql_params.append(domain)

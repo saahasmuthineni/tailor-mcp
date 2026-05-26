@@ -186,7 +186,7 @@ class VaultWriter:
         source_domain: str | None = None,
         verification: str | None = None,
         tag_suffix: str = "",
-        subject_id: str | None = None,
+        entity_id: str | None = None,
     ) -> str:
         """
         Append a timestamped evidence block to ``themes/<slug>.md``.
@@ -200,7 +200,7 @@ class VaultWriter:
         ``> Source: …`` blockquote so readers can see which tool / tier /
         verification level the observation came from.
 
-        ``subject_id`` (ADR 0009) stamps the appended block with a
+        ``entity_id`` (ADR 0009) stamps the appended block with a
         ``> Subject: …`` blockquote so multi-subject themes carry per-
         evidence attribution.
         """
@@ -231,7 +231,7 @@ class VaultWriter:
             verification=verification,
             tag_suffix=tag_suffix,
             timestamp=timestamp,
-            subject_id=subject_id,
+            entity_id=entity_id,
         )
 
         # Drop the placeholder if this is the first evidence entry
@@ -520,7 +520,7 @@ class VaultWriter:
         propagation event leaves a new callout pointing at the evidence
         timestamp it superseded.
 
-        ADR 0009: when the corrected theme carries a ``subject_id``, the
+        ADR 0009: when the corrected theme carries a ``entity_id``, the
         callout headline names the subject so a reader sees the scope
         immediately. Propagation targets are NOT filtered by subject in
         v6.2 — every wikilinker still receives the warning.
@@ -532,9 +532,9 @@ class VaultWriter:
 
         # Read theme subject for the warning headline. Stays None for
         # cross-subject themes and v6.1 legacy themes.
-        theme_subject_id = self._storage.get_theme_subject_id(theme_slug)
+        theme_entity_id = self._storage.get_theme_entity_id(theme_slug)
         subject_clause = (
-            f" for subject {theme_subject_id}" if theme_subject_id else ""
+            f" for subject {theme_entity_id}" if theme_entity_id else ""
         )
 
         callout = (

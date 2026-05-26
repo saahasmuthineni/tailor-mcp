@@ -1,48 +1,61 @@
-# Tailor — your AI works with your data, on your machine
+# Tailor — local data preprocessing for AI
 
 [![Python 3.10 | 3.11 | 3.12](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/downloads/)
 [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows-lightgrey)](.github/workflows/ci.yml)
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
+[![License: AGPL 3.0](https://img.shields.io/badge/license-AGPL%203.0-blue)](LICENSE)
 
-**Tailor is a personal AI server with research-grade trust — and
-turns a $200/month AI bill into a $2/month one while making the AI
-materially better at your question.** A local-first MCP framework
-that lets any MCP-speaking AI (Claude Desktop, Cline, Cursor, local
-models via Ollama) work with your own data, with every action
-recorded in a durable audit log and every result stamped for
-reproducibility. **Daily analyst workflows that would burn hundreds
-of dollars a month dumping raw cohort streams into a hosted LLM run
-for single digits through Tailor — because the AI gets a structured
-answer instead of your raw data, its context window goes to
-reasoning over your question, your prior work, and your audit
-trail, rather than to shuffling streams it then has to re-aggregate
-itself.** **The same architecture works on whatever shape your
-data is already in — CSV directories, MATLAB binary exports, and
-REDCap exports today; EDF recordings, FHIR bundles, vendor sensor
-exports, or any other source through a small `ChildMCP` extension that inherits the full
-pipeline (tier model, audit, scrubber seam, Wardrobe).** Every
-shape you wrap inherits the same 10-100× cost-per-question collapse
-and the same provenance discipline, without any of it leaving your
-machine. Today the worked-out recipe is
-health research — *that's the **first recipe shipped end-to-end, not
-the platform's identity***. Future recipes (knowledge work, quantified
-self, household, creative archives) compose on the same engine; see
-[ROADMAP.md](ROADMAP.md) for the phased path from "researcher
-first-look on a hand-delivered wheel" to canonical *personal AI
-server*. [Phase 0 — install-path validation](ROADMAP.md#at-a-glance)
-closed 2026-05-12 under the lenient read of its exit criterion (one
-Windows + one macOS install proven cross-OS); Phase 1 ship-quality
-housekeeping is now active.
+**Structured summaries, governed access, auditable answers.**
 
-Your **Wardrobe** is what Tailor governs on your behalf: the
-structured collection of your data and prior analytical work that
-lives entirely on your machine. *Not clothes — your stuff.* Your
-Wardrobe accumulates themes (questions you keep returning to), moments
-(observations worth remembering), evidence (data that grounds your
-themes), audit history (every action your AI took on your behalf), and
-the source data itself. Tailor curates your Wardrobe — adds to it,
-retrieves from it, governs how the AI reaches into it — and never
-sends any of it to a service you didn't choose.
+Dumping your raw data into a hosted LLM is expensive, unsafe, and
+produces worse answers. **Expensive** because cohort-scale CSV at
+$3–10 per million input tokens burns hundreds of dollars a month.
+**Unsafe** because your data crosses to a vendor — and into whatever
+logs, retention, or training pipelines you didn't tick the right
+box to opt out of. **Worse answers** because the LLM's context window
+goes to parsing 6,000 raw CSV rows it then has to re-aggregate by
+hand, instead of reasoning over your actual question.
+
+Tailor is a local-first MCP framework that preprocesses your data on
+your machine and exposes only the structured summary the LLM needs.
+Every call passes through a three-tier governance pipeline (free /
+consent-gated / cost-gated), and every result lands in a durable
+audit log next to the data. The framework is data-agnostic — CSV,
+MATLAB binary, and REDCap exports ship today; EDF recordings, FHIR
+bundles, and vendor sensor exports compose on the same engine
+through a small `ChildMCP` extension. The first shipped end-to-end
+recipe is health research; that's not the platform's identity.
+
+## How much cheaper, exactly?
+
+Two reproducible benchmarks in
+[`benchmarks/token_efficiency.md`](benchmarks/token_efficiency.md):
+
+| Scenario | Baseline (raw → LLM) | Tailor (Tier-1 → LLM) | Ratio |
+|---|---:|---:|---:|
+| Single subject — 60-second fatigue diagnostic | 48,006 tokens | 73 tokens | **657.6×** |
+| 16-subject cohort comparison by sex | 769,311 tokens | 820 tokens | **938.2×** |
+| Multi-session analytical-thread resume | 771,743 tokens | 2,427 tokens | **318.0×** |
+
+The cohort baseline at 769,311 tokens exceeds Claude Sonnet's 200K
+context window — at cohort scale the raw-data approach is not just
+expensive, it is *structurally impossible* without a hand-engineered
+chunking pipeline. The "at least 100× cheaper" claim in
+[ADR 0029](docs/adr/0029-token-reduction-as-analytical-quality.md) is
+a conservative floor; observed ratios run 3.2× to 9.4× the floor
+depending on scenario.
+
+All measurements use `tiktoken cl100k_base` (industry-standard proxy
+for Claude's tokenizer), against synthetic-by-construction HIP-Lab
+fixtures shipped in the wheel. The benchmark markdown carries an
+Assumptions table, a quantitative prompt-caching counter-factual
+(even optimal Anthropic prefix caching does not close the gap), and
+a Limitations section naming where the gap is smaller. Methodology
+is calibrated for a skeptical engineer, not for marketing.
+Reproduce from a fresh clone:
+
+```bash
+pip install tiktoken && python benchmarks/token_efficiency.py
+```
 
 ## 30-second quickstart
 
@@ -79,7 +92,7 @@ Then open [**docs/guides/worked-example.ipynb**](docs/guides/worked-example.ipyn
 
 - **PI evaluating for a study** → [Why this exists](#why-this-exists) · [How data minimization works](#how-data-minimization-works) · [10-minute worked example notebook](docs/guides/worked-example.ipynb) · [Status & retention](#status)
 - **Analyst / research-software engineer wiring this up** → [Install & run](#install--run) · [Children that ship today](#children-that-ship-today) · [Architecture](#architecture)
-- **IRB reviewer evaluating risk** → [How data minimization works](#how-data-minimization-works) · [Status & retention](#status) · [ADR 0001 — audit log](docs/adr/0001-audit-log-as-backbone.md) · [ADR 0003 — PHI scrubber seam](docs/adr/0003-phi-scrubber-seam.md) · [ADR 0009 — `subject_id` integrity](docs/adr/0009-vault-subject-keying.md) · [ADR 0013 — cache purge on consent revocation](docs/adr/0013-cache-only-purge-on-consent-revocation.md)
+- **IRB reviewer evaluating risk** → [How data minimization works](#how-data-minimization-works) · [Status & retention](#status) · [ADR 0001 — audit log](docs/adr/0001-audit-log-as-backbone.md) · [ADR 0003 — PHI scrubber seam](docs/adr/0003-phi-scrubber-seam.md) · [ADR 0009 — `entity_id` integrity](docs/adr/0009-vault-subject-keying.md) · [ADR 0013 — cache purge on consent revocation](docs/adr/0013-cache-only-purge-on-consent-revocation.md)
 - **Quantified-self / future-recipe explorer** → [Your Wardrobe](#your-wardrobe) · [What This Project Is](CLAUDE.md#what-this-project-is) · [ROADMAP Phase 4 — platform-shape proof](ROADMAP.md#phase-4--platform-shape-proof-direction)
 - **Developer trying the demo** → [Install & run](#install--run)
 - **Architect / integrator** → [Architecture](#architecture) · [Adding a new child data source](CLAUDE.md#adding-a-new-childmcp-new-data-source)
@@ -108,7 +121,7 @@ rather than a platform you can extend.
 | **Local-first router** | Runs next to your data. Only what the active tier permits crosses the boundary; tiers are declared per-tool, per-data-source. With the optional [local-LLM guardian](docs/guides/local-llm-guardian.md) opted in (per [ADR 0022](docs/adr/0022-local-llm-guardian.md)), your data stays on your machine at every tier — including from the hosted LLM. |
 | **Tiered access** | Every tool declares an access tier: 1 returns computed summaries, 2 returns downsampled views behind an analyst-side consent gate, 3 returns raw streams behind that gate plus cost approval. Data minimization, implemented. |
 | **PHI-scrubber seam** | A documented institutional override point. **Default is a no-op** — institutions subclass to wire their IRB-approved policy. The default surfaces a `scrubber_warning` field in every successful `_meta` block so a misconfigured deployment is visible inside the LLM transcript. See [ADR 0003](docs/adr/0003-phi-scrubber-seam.md). |
-| **Durable audit log** | Every call lands in SQLite: timestamp, tool, tier, parameters, outcome, latency, `scrubber_id`, optional `subject_id`. Attachable to a protocol amendment or replication package. |
+| **Durable audit log** | Every call lands in SQLite: timestamp, tool, tier, parameters, outcome, latency, `scrubber_id`, optional `entity_id`. Attachable to a protocol amendment or replication package. |
 | **Provenance stamps** | Every result carries a `_meta` block — package version, tool name, domain, tier, UTC timestamp, per-call + session token counts, `scrubber_id`, plus `scrubber_warning` when the no-op default is active and `hook_warnings` when a post-execute hook raised. Any output in a paper is traceable to the code that produced it. |
 | **Local-LLM guardian** *(opt-in)* | A framework-tier component that runs an LLM on your machine to compose structured natural-language responses over deterministic processing output. Cited numerical claims come from `processing.py` and stay deterministic; LLM-generated narrative is explicitly labelled non-citable in `_meta`. Four tiers (Scout/Sentinel/Guardian/Titan) span 4 GB laptops to 32 GB workstations. See [ADR 0022](docs/adr/0022-local-llm-guardian.md) and the [setup guide](docs/guides/local-llm-guardian.md). |
 | **Wardrobe** *(Obsidian-readable)* | Cross-session analytical memory: themes (persistent questions), moments (observations), evidence logs, failure modes. Markdown is the source of truth; SQLite makes it queryable. See [Your Wardrobe](#your-wardrobe). |
@@ -130,7 +143,7 @@ Tool:   {"summary": "6.2 mi · 48:12 · avg HR 152",
                    "tool_name":         "strava_run_report",
                    "called_at":         "2026-04-13T15:42:11Z",
                    "scrubber_id":       "noop",
-                   "scrubber_warning":  "PHIScrubber is a no-op default; subclass and wire your institution's policy before processing real PHI"}}
+                   "scrubber_warning":  "DataScrubber is a no-op default; subclass and wire your institution's policy before processing real PHI"}}
 
 Claude: Your last run was 6.2 miles in 48:12 with 3.2 % HR drift and
         an efficiency factor of 1.71 — aerobic base looks solid.
@@ -156,7 +169,7 @@ when they use LLMs as analytical assistants:
 | Problem | Response |
 |---|---|
 | **Data governance** — hosted LLMs are the wrong home for participant biometric data. Pasting streams into web chats is usually against policy, sometimes against law, and always leaves no defensible trace. | Tier model + local-first processing. Raw data never leaves the machine; only server-computed summaries do. |
-| **Reproducibility** — analyses in chat windows don't replay six months later. No log of which tool saw which data, no hook for a replication package. | Audit log (every call in SQLite with optional `subject_id`) + `_meta` provenance stamps on every result. |
+| **Reproducibility** — analyses in chat windows don't replay six months later. No log of which tool saw which data, no hook for a replication package. | Audit log (every call in SQLite with optional `entity_id`) + `_meta` provenance stamps on every result. |
 | **Longitudinal memory** — observations get dropped at session end. The note an analyst made about a participant in April is exactly what the analyst in September needs. | Vault layer: themes, moments, evidence logs — append-only, Obsidian-backed, queryable across sessions. |
 
 Tailor is a local MCP server that sits between any MCP-speaking
@@ -171,7 +184,7 @@ conversation-scoped. Tailor's vault is governance
 infrastructure: append-only markdown that survives the LLM client,
 human-readable in Obsidian or any text editor, supersession-tracked
 via [`vault_correct_evidence`](CLAUDE.md#vaultlayer--25-tools-v61),
-study-scoped via `subject_id`, and inspectable down to the SQLite
+study-scoped via `entity_id`, and inspectable down to the SQLite
 index. Same word, different artifact category. For a chat assistant
 remembering your name across conversations, Hosted Memory is the right
 tool. For an analytical record an IRB or PI can attach to a protocol
@@ -200,7 +213,7 @@ It accumulates:
 
 Wardrobe lives entirely on your machine as **plain markdown files plus a SQLite index**. Markdown is the source of truth; the index makes it queryable. Open the same files in Obsidian, in VS Code, or in `cat` — they're yours, append-only, and inspectable down to the row. That's the difference from Hosted Memory: governance infrastructure, not chat-convenience.
 
-Alongside the Wardrobe, Tailor maintains a separate **Ledger** — the audit log. Every action Tailor took on your behalf is recorded in SQLite (timestamp, tool, tier, parameters, outcome, `scrubber_id`, optional `subject_id`). The Ledger is the tailor's own record of work; the Wardrobe is yours. Both live on your machine and accumulate on your behalf, but they are accounted separately per [ADR 0033](docs/adr/0033-complete-tailor-metaphor-workshop-side.md) — the audit-log backbone (per [ADR 0001](docs/adr/0001-audit-log-as-backbone.md)) is what the Ledger names. Attachable to a protocol amendment, an IRB review, or a replication package.
+Alongside the Wardrobe, Tailor maintains a separate **Ledger** — the audit log. Every action Tailor took on your behalf is recorded in SQLite (timestamp, tool, tier, parameters, outcome, `scrubber_id`, optional `entity_id`). The Ledger is the tailor's own record of work; the Wardrobe is yours. Both live on your machine and accumulate on your behalf, but they are accounted separately per [ADR 0033](docs/adr/0033-complete-tailor-metaphor-workshop-side.md) — the audit-log backbone (per [ADR 0001](docs/adr/0001-audit-log-as-backbone.md)) is what the Ledger names. Attachable to a protocol amendment, an IRB review, or a replication package.
 
 <p align="center">
   <img src="docs/assets/vault-insights.svg" alt="Themes, moments, and evidence inside the Wardrobe — rendered as plain markdown viewable in Obsidian or any text editor" width="760">
@@ -240,7 +253,7 @@ what happened:
   "token_estimate": 1180,
   "outcome":        "ok",
   "duration_ms":    142,
-  "subject_id":     "P-017",
+  "entity_id":     "P-017",
   "scrubber_id":    "noop"
 }
 ```
@@ -254,7 +267,7 @@ Every successful result carries a `_meta` provenance stamp:
     "tool_name":        "strava_run_report",
     "called_at":        "2026-04-13T15:42:11.345Z",
     "scrubber_id":      "noop",
-    "scrubber_warning": "PHIScrubber is a no-op default; subclass and wire your institution's policy before processing real PHI"
+    "scrubber_warning": "DataScrubber is a no-op default; subclass and wire your institution's policy before processing real PHI"
   }
 }
 ```
@@ -272,14 +285,14 @@ For the durable-memory side of the picture (themes, moments, evidence — the *W
   in every successful result's `_meta` block so a no-op deployment
   cannot silently masquerade as a scrubbed one.
 - Per-subject **audit-log scoping** is first-class for every child.
-  `RunningChild` declares `subject_id` on all 12 `strava_*` tools;
+  `RunningChild` declares `entity_id` on all 12 `strava_*` tools;
   `csv_dir` declares it on all 7 tools. This is caller-asserted scoping
   for the audit log; it does **not** filter source data, since one
   authenticated upstream account may legitimately cover multiple study
   participants.
 - Per-subject **vault-tier keying** is first-class
   ([ADR 0009](docs/adr/0009-vault-subject-keying.md)). Themes carry
-  an optional, set-once `subject_id` (promotion `None → P004`
+  an optional, set-once `entity_id` (promotion `None → P004`
   permitted; reassignment `P003 → P007` is a hard error). Evidence
   and moments stamp the writing call's subject. List/search filters
   use the IS-NULL branch so cross-subject themes and pre-keying
@@ -545,7 +558,7 @@ Detailed notes in [CLAUDE.md](CLAUDE.md).
 |---|---|
 | OAuth "address already in use" on port 8189 | Another process is bound to that port. Kill it or wait for it to release. |
 | `rate_limit.json` corruption warning | Delete the file — it will be rebuilt on next API call. |
-| `subject_id` not appearing in audit rows | Pass `subject_id` as a parameter in the tool call, not as a header. |
+| `entity_id` not appearing in audit rows | Pass `entity_id` as a parameter in the tool call, not as a header. |
 | Vault disabled silently | Check `~/.tailor/logs/` for a `user_config.json` parse warning. |
 
 ---
@@ -558,9 +571,42 @@ Detailed notes in [CLAUDE.md](CLAUDE.md).
 | [ADR 0031 — rename to Tailor + Wardrobe](docs/adr/0031-rename-to-tailor-and-wardrobe.md) | Anyone — the v7.0.0 identity decision, the *Wardrobe* user-facing engine word, and the counter-programming invariant against fashion-domain drift |
 | [docs/design/research-framing.md](docs/design/research-framing.md) | Researchers and IRB reviewers evaluating this for a study |
 | [CLAUDE.md](CLAUDE.md) | Contributors and operators — the architecture, the agent roster, the boss-architect protocols |
-| [docs/adr/](docs/adr/) | Architectural decisions and their rationale (34 ADRs as of v7.0.9) |
+| [docs/adr/](docs/adr/) | Architectural decisions and their rationale (40 ADRs as of v9.0.0) |
 | [docs/design/design-context.pdf](docs/design/design-context.pdf) | Historical design rationale |
 
 ## License
 
-Apache-2.0.
+Tailor v9.0.0 onward is licensed under the **GNU Affero General Public
+License v3.0 or later** (`AGPL-3.0-or-later`). The full license text is
+in [LICENSE](LICENSE).
+
+In plain English:
+
+- **Community use is fully permitted.** Researchers, analysts,
+  clinicians, and individuals can install Tailor, use it on their own
+  data, modify it for their own purposes, and share their modifications
+  with colleagues — all without any obligation to the project.
+- **Distributing a modified version requires publishing your changes
+  under the same license.** If you fork Tailor and release the fork
+  (binary, wheel, or source) to anyone outside your organization,
+  your modifications must be available under AGPL-3.0-or-later.
+- **Running a modified version as a network service requires
+  publishing your changes too.** AGPL's Section 13 (the "network
+  trigger") extends the copyleft obligation to anyone who exposes a
+  modified Tailor to users over a network — including SaaS
+  deployments and managed-cloud offerings. This is the key
+  difference from a permissive license like Apache-2.0, and the
+  reason AGPL was chosen: it prevents a future cloud provider from
+  forking Tailor and offering "Tailor Cloud" without contributing
+  back to the project.
+
+**Past releases (v8.0.0 and earlier) were licensed under Apache-2.0
+and continue to be available under those terms in perpetuity.** The
+AGPL-3.0-or-later license applies to v9.0.0 and onward. If you
+received an older release under Apache, your rights to that release
+are unchanged.
+
+For commercial use cases that cannot accept AGPL-3.0's network-
+trigger clause, contact the maintainer (Saahas Muthineni) to discuss
+a separate commercial license. The project does not currently offer
+one off-the-shelf, but is open to the conversation.

@@ -11,7 +11,7 @@ Tests cover:
 - Legibility-dict contract for scrub_record / scrub_records.
 - scrubber_id == "redcap_metadata_flags".
 - child_scrubber_warning surfaces on missing project_metadata.csv.
-- Does NOT inherit from framework.security.PHIScrubber (parallel
+- Does NOT inherit from framework.security.DataScrubber (parallel
   seam, not hierarchical).
 """
 
@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 from tailor.children.redcap import RedcapPHIScrubber
-from tailor.framework.security import PHIScrubber
+from tailor.framework.security import DataScrubber
 
 # ═══════════════════════════════════════════════════════════════
 # FIXTURE BUILDERS
@@ -392,11 +392,11 @@ class TestSeamTopology:
         """ADR 0037 § 'Built-in PHI scrubber — a new seam parallel to
         ADR 0003': the seams are intentionally parallel, not
         hierarchical. The child-level scrubber must not be a subclass
-        of framework.security.PHIScrubber."""
-        assert not issubclass(RedcapPHIScrubber, PHIScrubber)
+        of framework.security.DataScrubber."""
+        assert not issubclass(RedcapPHIScrubber, DataScrubber)
 
     def test_is_a_distinct_class(self):
-        assert RedcapPHIScrubber is not PHIScrubber
+        assert RedcapPHIScrubber is not DataScrubber
 
 
 # ═══════════════════════════════════════════════════════════════

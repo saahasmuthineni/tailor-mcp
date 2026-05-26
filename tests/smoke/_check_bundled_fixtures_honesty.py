@@ -43,7 +43,7 @@ if snapshot_file.exists():
 if moment_file.exists():
     moment_content = moment_file.read_text(encoding="utf-8")
     all_pass &= check("moment file mentions 'subject four'", "subject four" in moment_content)
-    all_pass &= check("moment file subject_id is S004", 'subject_id: "S004"' in moment_content)
+    all_pass &= check("moment file entity_id is S004", 'entity_id: "S004"' in moment_content)
     all_pass &= check("moment file has S004 title", "S004" in moment_content)
     all_pass &= check("moment file references J Physiol 2024", "J Physiol" in moment_content and "2024" in moment_content)
 

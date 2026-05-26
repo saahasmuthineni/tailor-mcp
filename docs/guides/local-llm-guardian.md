@@ -47,7 +47,7 @@ Three benefits, in order of weight:
    are unaffected (they come from `processing.py`); the surface
    exposed is *prose-shaped identifiers*, not biometric streams.
    Institutional deployments with strict PHI policies should configure
-   a `PHIScrubber` subclass *and* either prompt their local model with
+   a `DataScrubber` subclass *and* either prompt their local model with
    identifier-refusal instructions or wait for the prompt-injection
    ADR named in [ADR 0022 § "Explicitly out of scope"](../adr/0022-local-llm-guardian.md).
 
@@ -56,7 +56,7 @@ Three benefits, in order of weight:
    into the hosted-LLM-bound payload via `related_substrate`. The
    fields are deliberately metadata-only: `kind` (`theme` / `moment` /
    `failure_mode`), `slug` (note filename without `.md`), `title`
-   (frontmatter title for moments and failure-modes), `subject_id`,
+   (frontmatter title for moments and failure-modes), `entity_id`,
    `status`, and `last_updated`. *No note bodies, no biometric
    streams.* But: **slug and title strings are analyst-authored**.
    If a deployment's analyst names a theme `john-smith-glucose-spike`
@@ -66,13 +66,13 @@ Three benefits, in order of weight:
    recommendations: (a) instruct analysts that vault slugs and titles
    should not contain HIPAA Safe Harbor identifiers; (b) for
    institutional deployments where (a) cannot be guaranteed, subclass
-   `PHIScrubber` and wire it into the local-LLM dispatch path.
+   `DataScrubber` and wire it into the local-LLM dispatch path.
 
    **Important precision — automatic cross-subject substrate**
    ([ADR 0009](../adr/0009-vault-subject-keying.md) IS-NULL-or-match
    semantics inherited by [ADR 0023](../adr/0023-local-llm-cooperation-loop.md))
    — when an oracle call is scoped to subject P003, the substrate
-   scan also surfaces cross-subject themes (`subject_id IS NULL` —
+   scan also surfaces cross-subject themes (`entity_id IS NULL` —
    themes that span the cohort). A theme titled `comparing-p004-and-p007-recovery`
    would surface on a P003-scoped oracle call, with the title string
    crossing to the hosted LLM. ADR 0009 documented this for
@@ -84,8 +84,8 @@ Three benefits, in order of weight:
    - Path A (default — strict-data, opt-in local-LLM): cross-subject
      substrate is permissible because vault content is analyst
      interpretation, not raw participant data.
-   - Path B (more conservative): subclass `PHIScrubber` to drop
-     `related_substrate` entries whose `subject_id` is NULL.
+   - Path B (more conservative): subclass `DataScrubber` to drop
+     `related_substrate` entries whose `entity_id` is NULL.
 
    **Important precision — gap-reasoning egress**
    ([ADR 0023](../adr/0023-local-llm-cooperation-loop.md) PR2) — PR2
@@ -105,7 +105,7 @@ Three benefits, in order of weight:
    recommendations: (a) treat `unresolved_intent` content as
    institutionally-equivalent to `narrative` for review purposes;
    (b) deployments needing a stricter posture should subclass
-   `PHIScrubber` to apply the institution's policy to *both*
+   `DataScrubber` to apply the institution's policy to *both*
    `narrative` and `unresolved_intent` on the local-LLM dispatch path
    (Path B from "automatic cross-subject substrate" above).
 
@@ -219,12 +219,12 @@ syntax with `python -m json.tool < ~/.tailor/user_config.json`.
 ## How it works in conversation
 
 In Claude Desktop, when you ask a question that involves the cohort
-tools (`csv_cohort_summary`, `csv_force_decline`), Claude can call
+tools (`csv_group_summary`, `csv_force_decline`), Claude can call
 `ask_local_oracle` after first calling the deterministic tool(s).
 The pattern is:
 
-1. **Claude calls** `csv_cohort_summary({"value_column": "force", "group_by": "sex", "metric": "max"})` — parameter renamed from `column` in v7.6.0 to match `force_cohort_summary` / `emg_cohort_summary` per [ADR 0038 § Amendment 2026-05-19](../adr/0038-vault-layer-is-data-source-agnostic.md).
-2. **Claude calls** `ask_local_oracle({"question": "compare male vs female peak force", "resolved_context": {"csv_cohort_summary": <result_from_step_1>}})`.
+1. **Claude calls** `csv_group_summary({"value_column": "force", "group_by": "sex", "metric": "max"})` — parameter renamed from `column` in v7.6.0 to match `force_cohort_summary` / `emg_cohort_summary` per [ADR 0038 § Amendment 2026-05-19](../adr/0038-vault-layer-is-data-source-agnostic.md).
+2. **Claude calls** `ask_local_oracle({"question": "compare male vs female peak force", "resolved_context": {"csv_group_summary": <result_from_step_1>}})`.
 3. **Local LLM composes** a structured response with cited claims and narrative.
 4. **Claude consumes** the response and presents it to you.
 
@@ -236,10 +236,10 @@ guide Claude to use the pattern.
 ```json
 {
   "numerical_claims": [
-    {"metric": "mean", "value": 247.3, "subject_id": "male", "processing_call": "csv_cohort_summary"},
-    {"metric": "mean", "value": 189.2, "subject_id": "female", "processing_call": "csv_cohort_summary"}
+    {"metric": "mean", "value": 247.3, "entity_id": "male", "processing_call": "csv_group_summary"},
+    {"metric": "mean", "value": 189.2, "entity_id": "female", "processing_call": "csv_group_summary"}
   ],
-  "narrative": "Male cohort's force averaged 247 N (mean); female cohort's averaged 189 N (data from csv_cohort_summary).",
+  "narrative": "Male cohort's force averaged 247 N (mean); female cohort's averaged 189 N (data from csv_group_summary).",
   "ambiguity_axes": [],
   "confidence": 0.7,
   "_meta": {
@@ -255,7 +255,7 @@ guide Claude to use the pattern.
       "tier": "guardian",
       "latency_ms": 4523,
       "prompt_hash": "abc123def456",
-      "processing_calls": ["csv_cohort_summary"],
+      "processing_calls": ["csv_group_summary"],
       "backend": "ollama",
       "narrative_disclaimer": "narrative is LLM-generated and non-citable; cite from numerical_claims."
     }

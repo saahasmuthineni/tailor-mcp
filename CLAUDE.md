@@ -1,5 +1,155 @@
 # CLAUDE.md — Tailor
 
+> **v9.0.0 (2026-05-26)** — Public-flip preparation. Major bump.
+> Three domain-specific structural identifiers renamed to domain-
+> agnostic equivalents; license switched Apache-2.0 →
+> AGPL-3.0-or-later; new token-efficiency benchmark artifact backing
+> [ADR 0029](docs/adr/0029-token-reduction-as-analytical-quality.md).
+> The framework was always *architecturally* domain-agnostic
+> (CLAUDE.md § "What This Project Is") — first shipped recipe is
+> health research, platform identity is data-agnostic. The vocabulary
+> was research-shaped, which biased a casual visitor's read. This
+> release makes the externally-visible vocabulary match the
+> architectural commitment.
+>
+> **Renames (forward-only; backward-compat on durable state).**
+> Three identifiers swapped:
+>
+> - `PHIScrubber` (framework class) → `DataScrubber`. The seam
+>   contract is unchanged — institutions still subclass it to wire
+>   their IRB-approved scrubbing policy. The child-level
+>   `RedcapPHIScrubber` retains its HIPAA-specific name per
+>   [ADR 0037](docs/adr/0037-redcap-child-scope-export-directory-only-with-deferred-live-api.md)
+>   § parallel-seam invariant — HIPAA *is* the institutional policy
+>   that child enforces. The rename clarifies which scrubber is
+>   domain-agnostic (framework) and which is institution-specific
+>   (REDCap).
+> - `subject_id` → `entity_id` across the `audit_log` column, every
+>   child's `param_schemas`, every vault tool, the shared
+>   `ENTITY_ID_SCHEMA` + `ENTITY_ID_PARAM_DOC` constants in
+>   `framework.interfaces`, and vault note frontmatter. "Subject" is
+>   research-shaped; the framework's identity-scoping primitive
+>   applies to any deployment recipe (knowledge work, creative
+>   archives, clinical workflows, family / household). 1,097
+>   occurrences across 111 files; word-boundary regex driven by a
+>   checked-in `scripts/rename_for_public_flip.py` so the recipe is
+>   reproducible.
+> - `csv_cohort_summary` → `csv_group_summary` on the generic
+>   `csv_dir` child only. The biometric children's sibling tools
+>   `force_cohort_summary` / `emg_cohort_summary` /
+>   `redcap_cohort_summary` retain their `_cohort_` names because
+>   they ARE cohort-shaped in the research sense; the rename
+>   applies only where the surface is data-agnostic.
+>
+> **Backward compatibility for existing deployments.** Forward-only
+> rename does not break v8.x users who upgrade in place:
+>
+> - `audit_log` table: `AuditLog.__init__` detects legacy `subject_id`
+>   column on boot and runs `ALTER TABLE audit_log RENAME COLUMN
+>   subject_id TO entity_id`. Every existing row preserved per
+>   [ADR 0001](docs/adr/0001-audit-log-as-backbone.md)
+>   durability invariant.
+> - Vault note frontmatter: `parser.split_frontmatter` aliases legacy
+>   `subject_id:` to `entity_id:` on read so notes written under the
+>   old name continue to load without migration.
+>
+> No backward-compat for in-process callers — tool parameter names,
+> exported constants, and the audit-log column name break cleanly.
+> That's the v9.0.0 major-bump shape: API surface breaks, durable
+> state migrates transparently.
+>
+> **License switched: Apache-2.0 → AGPL-3.0-or-later.** Forward-only.
+> Tagged releases through v8.0.0 remain Apache-2.0 in perpetuity for
+> recipients who already received them; v9.0.0 onward is AGPL.
+> Rationale: AGPL's network-trigger clause (§ 13) is the structural
+> lever against extractive cloud reuse — a future cloud provider that
+> forks Tailor and offers "Tailor Cloud" as a managed service must
+> publish their modifications under AGPL. For local-first deployments
+> (the framework's primary use case) the network-trigger rarely fires
+> in normal use, so AGPL adds minimal friction for individual
+> researchers and institutional installs.
+>
+> **Token-efficiency benchmark — new artifact backing ADR 0029.**
+> `benchmarks/token_efficiency.py` + `benchmarks/token_efficiency.md`
+> ship a reproducible measurement of the "AI economics" claim in
+> [ADR 0029](docs/adr/0029-token-reduction-as-analytical-quality.md).
+> Two named scenarios:
+>
+> - **Per-query efficiency (Tier-1 surface vs raw CSV → LLM context).**
+>   Single-subject S004 fatigue diagnostic: **657.6×** (48,006 vs 73
+>   tokens). 16-subject cohort comparison stratified by sex:
+>   **938.2×** (769,311 vs 820 tokens). The cohort baseline at 769K
+>   tokens exceeds Claude Sonnet's 200K context window — the raw-CSV
+>   approach is not just expensive at cohort scale, it is
+>   structurally impossible without chunking.
+> - **Session persistence efficiency (vault retrieval vs naive
+>   reconstruction).** Single S004 thread resume: **318.0×**
+>   (771,743 vs 2,427 tokens). Cumulative across 5 sessions: 318× —
+>   ~$57.90 baseline vs ~$0.04 with Tailor at Sonnet 4.6 input
+>   pricing.
+>
+> All measurements with `tiktoken cl100k_base` (industry-standard
+> Claude proxy; Anthropic's tokenizer is not publicly distributed).
+> The "at least 100× cheaper" claim ADR 0029 named as a conservative
+> floor turns out to be **3.2× to 9.4× the floor** depending on
+> scenario. The benchmark markdown carries an Assumptions table, a
+> quantitative prompt-caching counter-factual (even optimal Anthropic
+> prefix caching does not close the gap — under best-case caching
+> Tailor is still ~106× cheaper on the cumulative scenario), and a
+> Limitations section naming cases where the gap is smaller (one-shot
+> analysis on tiny CSVs, datasets that do not decompose into
+> per-subject scalars). Rigor calibrated for a skeptical engineer,
+> not for marketing.
+>
+> **Doc sweep + ADR amendments.** Current-state documentation
+> (README, CLAUDE.md § "What This Project Is" onward, ROADMAP active
+> sections, docs/guides/, the four ADRs in scope: 0002, 0003, 0009,
+> 0015) swept to use the new vocabulary. Historical sections
+> preserved verbatim — CLAUDE.md banners for v6.x-v8.0, ROADMAP
+> "Shipped (chronological)" section, CHANGELOG.md, docs/reports/* all
+> left as-written. Each of the four in-scope ADRs gains a
+> `**Renamed in v9.0.0:**` header bullet documenting the rename's
+> provenance + backward-compat mechanism. `docs/design/tailor-
+> vocabulary.md` gains a § "Vocabulary changes — v9.0.0" enumerating
+> the three renames in a table. README license section expanded from
+> the bare text `Apache-2.0.` to a ~35-line plain-English summary of
+> AGPL-3.0-or-later's scope + the network-trigger nuance.
+>
+> **README hero repositioned.** From "personal AI server with
+> research-grade trust" → **"Local data preprocessing for AI —
+> structured summaries, governed access, auditable answers."**
+> Problem-first narrative (raw data into LLM is expensive, unsafe,
+> and produces worse answers); the benchmark numbers (657×–938× per
+> query, 318× session persistence) sit in the first visible section
+> as load-bearing proof, not back-channeled marketing.
+>
+> **Branch shape: 4 commits on `feature/v9-public-flip-prep`.**
+> `b639b8e` rename + benchmarks → `6d3fd98` license file + SPDX
+> identifier → `84f4c93` doc sweep → `d11a412` README license section.
+> Plus this v9 banner + README hero + housekeeping in follow-up
+> commits, then push + PR.
+>
+> **Gates: 1,588 pytest pass, 3 skipped** (scipy-not-installed —
+> MATLAB child shape tests; orthogonal to this work). Backward-compat
+> migration verified on a fresh `audit.db` and on a legacy `audit.db`
+> with the v8 `subject_id` column (column rename runs at boot, rows
+> preserved). Vault frontmatter alias verified on bundled
+> `snapshot.md` (which carries the new key) and on a fixture written
+> with the old key (parser surfaces both). `mcp-protocol-auditor` /
+> `recipient-install-validator` / `cue-card-rehearsal-auditor` NOT
+> TRIGGERED (no wire-shape changes, no install-path changes, no
+> CUE_CARD.md edits — only identifier renames + new constant docs).
+>
+> **What did NOT change.** No router-pipeline / security-pipeline /
+> child / vault-layer / CLI architecture changes beyond the
+> identifier renames. No new ADRs. No new framework-tier layers. No
+> new children. No new schema beyond the audit-column rename
+> (column count unchanged; only the column NAME changed). The v9
+> bump is vocabulary + license + benchmark artifact + documentation
+> sweep. Public-flip-ready as of `feature/v9-public-flip-prep`'s
+> latest tip; repo visibility flip is the boss's call, not landed in
+> this branch.
+
 > **v8.0.0 (2026-05-19)** — A' (recipient-experience MCP-offload). Major
 > bump. Three new framework-tier layers (`SetupLayer`,
 > `WalkthroughLayer`, `FittingRoomLayer`) per [ADR 0040](docs/adr/0040-bounded-setup-time-conductor-surface.md);

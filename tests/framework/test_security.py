@@ -12,8 +12,8 @@ from tailor.framework.interfaces import ValidationSchema
 from tailor.framework.security import (
     CircuitBreaker,
     ConsentGate,
-    ParamValidator,
     DataScrubber,
+    ParamValidator,
 )
 
 

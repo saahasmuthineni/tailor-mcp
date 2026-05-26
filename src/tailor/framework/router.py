@@ -41,9 +41,9 @@ from .interfaces import ChildMCP, LLMInstruction, ToolDefinition
 from .security import (
     CircuitBreaker,
     ConsentGate,
+    DataScrubber,
     OperatorActionRequired,
     ParamValidator,
-    DataScrubber,
 )
 
 log = logging.getLogger("tailor")

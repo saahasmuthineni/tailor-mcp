@@ -62,8 +62,8 @@ lives in.
 | Phase | Status | Defining question at exit |
 |---|---|---|
 | **Phase 0 — Install-path validation** | Closed 2026-05-12 (lenient read; macOS install witnessed clean by boss) | Can two outside recipients on different OSes install Tailor end-to-end without the project author touching their machine? |
-| **Phase 1 — Ship-quality housekeeping** | Active (~2 weeks) | Do the docs and identity match the install path that actually works? |
-| **Phase 2 — Public-launch readiness** | Queued (after Phase 1 → ~3 months) | If a stranger discovers Tailor cold, can they find, install, and start trusting it in under 30 minutes? |
+| **Phase 1 — Ship-quality housekeeping** | Closed 2026-05-12 (per v7.0.10 § Shipped — all four deliverables landed) | Do the docs and identity match the install path that actually works? |
+| **Phase 2 — Public-launch readiness** | Active (v9.0.0 public-flip prep landed 2026-05-26; flip pending boss call) | If a stranger discovers Tailor cold, can they find, install, and start trusting it in under 30 minutes? |
 | **Phase 3 — Beachhead proof + public launch** | Direction | Has one real research lab used Tailor on real data, cited it in a paper, and would they recommend it? |
 | **Phase 4 — Platform-shape proof** | Direction | Can a stranger use Tailor with their own data — live or static — and combine the two via any MCP client of their choice? |
 | **Phase 5 — Category formation** | Direction | Do strangers know what *"personal AI server"* means, and do they think of Tailor when they think of it? |

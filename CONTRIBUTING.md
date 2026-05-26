@@ -80,4 +80,4 @@ Open an issue using the bug-report template. Include:
 
 ## License
 
-By contributing, you agree your contributions are licensed under the Apache License 2.0, matching the project license.
+By contributing, you agree your contributions are licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later), matching the project license. (Tagged releases through v8.0.0 remain Apache-2.0 in perpetuity for recipients who already received them; v9.0.0 onward is AGPL.)

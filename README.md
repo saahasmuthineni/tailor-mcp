@@ -571,7 +571,7 @@ Detailed notes in [CLAUDE.md](CLAUDE.md).
 | [ADR 0031 — rename to Tailor + Wardrobe](docs/adr/0031-rename-to-tailor-and-wardrobe.md) | Anyone — the v7.0.0 identity decision, the *Wardrobe* user-facing engine word, and the counter-programming invariant against fashion-domain drift |
 | [docs/design/research-framing.md](docs/design/research-framing.md) | Researchers and IRB reviewers evaluating this for a study |
 | [CLAUDE.md](CLAUDE.md) | Contributors and operators — the architecture, the agent roster, the boss-architect protocols |
-| [docs/adr/](docs/adr/) | Architectural decisions and their rationale (34 ADRs as of v7.0.9) |
+| [docs/adr/](docs/adr/) | Architectural decisions and their rationale (40 ADRs as of v9.0.0) |
 | [docs/design/design-context.pdf](docs/design/design-context.pdf) | Historical design rationale |
 
 ## License

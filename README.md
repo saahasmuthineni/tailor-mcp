@@ -1,8 +1,13 @@
+<p align="center">
+  <img src="docs/assets/tailor-social-preview.png" alt="tailor-mcp — A $50 AI session for 4¢" width="100%"/>
+</p>
+
 # Tailor — local data preprocessing for AI
 
-[![Python 3.10 | 3.11 | 3.12](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/downloads/)
+[![PyPI](https://img.shields.io/pypi/v/tailor-mcp)](https://pypi.org/project/tailor-mcp/)
+[![Python](https://img.shields.io/pypi/pyversions/tailor-mcp)](https://pypi.org/project/tailor-mcp/)
 [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows-lightgrey)](.github/workflows/ci.yml)
-[![License: AGPL 3.0](https://img.shields.io/badge/license-AGPL%203.0-blue)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-orange.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 **Structured summaries, governed access, auditable answers.**
 

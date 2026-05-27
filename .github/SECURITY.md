@@ -11,7 +11,8 @@ treated as load-bearing bugs, not optional polish.
 - Credential or token leakage paths (Strava OAuth secrets, audit DB
   paths, vault paths that might contain participant-identifying data).
 - Bypass of any layer of the router security pipeline — `ParamValidator`,
-  `CircuitBreaker`, `ConsentGate`, `CostGate`, `PHIScrubber`, `AuditLog`,
+  `CircuitBreaker`, `ConsentGate`, `CostGate`, `DataScrubber` (child-level
+  scrubbers such as `RedcapPHIScrubber` are separate), `AuditLog`,
   `TokenLedger`.
 - Any path that lets a downstream LLM client read participant data at a
   higher tier than it was granted consent for.

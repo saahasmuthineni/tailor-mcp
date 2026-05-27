@@ -19,7 +19,8 @@ pip install -e ".[dev]"
 pytest -v                          # run tests (~250+ tests)
 python tests/security_probe.py     # standalone security-gate probe
 tailor --help               # CLI smoke test
-tailor walkthrough          # researcher first-look on bundled HIP Lab fixtures (ADRs 0027 + 0035)
+tailor pilot --help         # verify the pilot wizard is wired
+tailor status               # diagnostic smoke check
 ```
 
 ### Lint & format
@@ -50,7 +51,7 @@ the wrong port.
 
 ## Adding a new child MCP
 
-Children are the extension point of the framework. See `CLAUDE.md § Adding a New Biosensor Child` for the contract. Minimum viable child:
+Children are the extension point of the framework. See [CLAUDE.md § "Adding a New ChildMCP (new data source)"](CLAUDE.md#adding-a-new-childmcp-new-data-source) for the contract. Minimum viable child:
 
 1. Subclass `tailor.framework.ChildMCP`.
 2. Implement `domain`, `display_name`, `consent_info`, `tool_definitions`, `param_schemas`, `execute`, `estimate_cost`.

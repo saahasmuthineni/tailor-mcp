@@ -126,7 +126,7 @@ amplifies the failure rather than the project.
 
 ---
 
-## Phase 1 — Ship-quality housekeeping *(active; ~2 weeks)*
+## Phase 1 — Ship-quality housekeeping *(closed 2026-05-12)*
 
 Once Phase 0 produces a reliably-working install path, the
 housekeeping work that was previously labelled *"ship-quality v7.0.0"*

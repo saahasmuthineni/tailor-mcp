@@ -6,7 +6,6 @@
 
 [![PyPI](https://img.shields.io/pypi/v/tailor-mcp)](https://pypi.org/project/tailor-mcp/)
 [![Python](https://img.shields.io/pypi/pyversions/tailor-mcp)](https://pypi.org/project/tailor-mcp/)
-[![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows-lightgrey)](.github/workflows/ci.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-orange.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 **Structured summaries, governed access, auditable answers.**

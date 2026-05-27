@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: ruff + pytest (${{ matrix.os-name }}, py${{ matrix.python-version }})
+    name: ruff + pytest (${{ matrix.os-name }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

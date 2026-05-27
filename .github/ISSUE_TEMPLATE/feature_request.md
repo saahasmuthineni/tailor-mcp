@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an enhancement or new biosensor child
+about: Suggest an enhancement or new ChildMCP (data source)
 title: "[feat] "
 labels: enhancement
 ---
@@ -19,4 +19,4 @@ labels: enhancement
 
 ## Additional context
 
-<!-- Links to related docs, upstream APIs (Dexcom, Oura, etc.), sample data formats, etc. -->
+<!-- Links to related docs, upstream APIs (Notion, Dexcom, REDCap, Oura, etc.), sample data formats, etc. -->

@@ -61,9 +61,20 @@ Reproduce from a fresh clone:
 pip install tiktoken && python benchmarks/token_efficiency.py
 ```
 
-## 30-second quickstart
+## Who this is for
 
-> *Phase 0 closed 2026-05-12 under the lenient read of the exit criterion — the install ritual below has been completed end-to-end by outside recipients on both Windows (Microsoft Store Claude Desktop) and macOS. The strict read (two clean outside-recipient installs on different OSes, project author untouched at every step) is still open. See [Status](#status). If you hit any friction installing cold, please open an issue — that's the highest-leverage diagnostic right now.*
+**For you if** you run health research involving high-frequency biometric
+streams, you use an MCP-speaking LLM client (Claude Desktop, Claude API,
+VS Code), and you need audit trails and data-minimization controls that
+survive beyond a single chat session.
+
+**Not for you if** you want clinical decision support, you're OK pasting
+your data into a hosted chat, or you need a polished consumer product
+rather than a platform you can extend.
+
+---
+
+## 30-second quickstart
 
 For a PI or analyst running a multi-subject pilot — CSV, MATLAB, or REDCap:
 
@@ -91,32 +102,6 @@ tailor --help         # see all commands
 > **Bundled fixtures are synthetic by construction** per [ADR 0024 § "Synthetic-by-construction precondition"](docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md): the HIP Lab CSV files (`S001`–`S016`) shipped inside the wheel are random-walk traces sized to mimic real cohort shapes — not real participant data. The same precondition is what makes the wheel safe to share via PyPI or hand-deliver.
 
 Then open [**docs/guides/worked-example.ipynb**](docs/guides/worked-example.ipynb) for a 10-minute end-to-end walkthrough: the router pipeline, a Tier-1 call, an audit row, the analyst-side consent gate firing, and a vault theme round-tripping to Obsidian-compatible markdown — all on synthetic data, no credentials required.
-
-### Start here
-
-- **PI evaluating for a study** → [Why this exists](#why-this-exists) · [How data minimization works](#how-data-minimization-works) · [10-minute worked example notebook](docs/guides/worked-example.ipynb) · [Status & retention](#status)
-- **Analyst / research-software engineer wiring this up** → [Install & run](#install--run) · [Children that ship today](#children-that-ship-today) · [Architecture](#architecture)
-- **IRB reviewer evaluating risk** → [How data minimization works](#how-data-minimization-works) · [Status & retention](#status) · [ADR 0001 — audit log](docs/adr/0001-audit-log-as-backbone.md) · [ADR 0003 — PHI scrubber seam](docs/adr/0003-phi-scrubber-seam.md) · [ADR 0009 — `entity_id` integrity](docs/adr/0009-vault-subject-keying.md) · [ADR 0013 — cache purge on consent revocation](docs/adr/0013-cache-only-purge-on-consent-revocation.md)
-- **Quantified-self / future-recipe explorer** → [Your Wardrobe](#your-wardrobe) · [What This Project Is](CLAUDE.md#what-this-project-is) · [ROADMAP Phase 4 — platform-shape proof](ROADMAP.md#phase-4--platform-shape-proof-direction)
-- **Developer trying the demo** → [Install & run](#install--run)
-- **Architect / integrator** → [Architecture](#architecture) · [Adding a new child data source](CLAUDE.md#adding-a-new-childmcp-new-data-source)
-- **Considering whether to install cold** → [ROADMAP — install-path validation closed 2026-05-12](ROADMAP.md#at-a-glance) (read the Status section before trying; the install is proven cross-OS but Phase 0 closed under the lenient read, not the strict one)
-- **Curious where this is going** → [What's next](#whats-next) · [full ROADMAP.md](ROADMAP.md)
-
----
-
-## Who this is for
-
-**For you if** you run health research involving high-frequency biometric
-streams, you use an MCP-speaking LLM client (Claude Desktop, Claude API,
-VS Code), and you need audit trails and data-minimization controls that
-survive beyond a single chat session.
-
-**Not for you if** you want clinical decision support, you're OK pasting
-your data into a hosted chat, or you need a polished consumer product
-rather than a platform you can extend.
-
----
 
 ## What you get
 
@@ -280,54 +265,6 @@ For the durable-memory side of the picture (themes, moments, evidence — the *W
 
 ---
 
-## Status
-
-- **Install-path validation closed 2026-05-12 under the lenient read of the [Phase 0 exit criterion](ROADMAP.md#at-a-glance).** The install ritual below has been completed end-to-end on two outside machines on different OSes: Windows 11 + Microsoft Store Claude Desktop (2026-05-09, self-driven diagnosis on a fresh user account, the boss's machine) and macOS (2026-05-12, friend installed, boss watched only — first true outside-recipient install). The strict read of the exit criterion (two installs by uninvolved third parties with the project author untouched at every step) remains open and is being satisfied opportunistically. The install ritual below is what survived Phase 0; v7.0.4 hardened it with pre-registration Claude Desktop detection, an honest "NOT DETECTED" success banner, and a recipient-vs-developer prerequisites split.
-- Two children ship today (see [Children that ship today](#children-that-ship-today) below): the **CSV directory** child (no-OAuth, generic — closest match to the platform's general shape) and the **running** child (Strava-OAuth, the most-worked-out template). CGM, sleep, ECG, EDF, and FHIR children are held items in the [ROADMAP](ROADMAP.md).
-- PHI scrubbing ships as a documented no-op seam. Institutions subclass
-  once their policy is defined. The default scrubber surfaces a warning
-  in every successful result's `_meta` block so a no-op deployment
-  cannot silently masquerade as a scrubbed one.
-- Per-subject **audit-log scoping** is first-class for every child.
-  `RunningChild` declares `entity_id` on all 12 `strava_*` tools;
-  `csv_dir` declares it on all 7 tools. This is caller-asserted scoping
-  for the audit log; it does **not** filter source data, since one
-  authenticated upstream account may legitimately cover multiple study
-  participants.
-- Per-subject **vault-tier keying** is first-class
-  ([ADR 0009](docs/adr/0009-vault-subject-keying.md)). Themes carry
-  an optional, set-once `entity_id` (promotion `None → P004`
-  permitted; reassignment `P003 → P007` is a hard error). Evidence
-  and moments stamp the writing call's subject. List/search filters
-  use the IS-NULL branch so cross-subject themes and pre-keying
-  legacy notes stay visible.
-
-### Data retention and withdrawal
-
-Retention is the deployer's responsibility. The audit log, per-child
-caches, and Wardrobe are persistent local stores with no automated
-rotation — [ADR 0001](docs/adr/0001-audit-log-as-backbone.md) names
-"long-term archival is the deployer's responsibility" as a known
-consequence.
-
-**Consent revocation triggers cache purge** per
-[ADR 0013](docs/adr/0013-cache-only-purge-on-consent-revocation.md):
-every `revoke_consent_*` call runs a synchronous purge on the affected
-child *before* the revocation lands, with the result logged in a paired
-`PURGE_CACHE` audit row carrying `rows_purged`, `tables_touched`, and
-`preserved`. The vault is durable by design — analyst notes are not
-biometric data and are not purged on revocation. ADR 0013 documents
-the limits.
-
-**Scope limit:** This is research infrastructure, not a clinical
-decision-support system. It has not been validated against any regulatory
-framework for patient-facing tools. Analytical output requires human
-validation before informing decisions. See
-[research-framing.md](docs/design/research-framing.md#scope-limit) for the
-full statement.
-
----
-
 ## Install & run
 
 ### Prerequisites
@@ -488,6 +425,54 @@ MCP tools that replaced removed CLI commands (per ADR 0040):
 
 ---
 
+## Status
+
+- **Install-path validation closed 2026-05-12 under the lenient read of the [Phase 0 exit criterion](ROADMAP.md#at-a-glance).** The install ritual above has been completed end-to-end on two outside machines on different OSes: Windows 11 + Microsoft Store Claude Desktop (2026-05-09, self-driven diagnosis on a fresh user account, the boss's machine) and macOS (2026-05-12, friend installed, boss watched only — first true outside-recipient install). The strict read of the exit criterion (two installs by uninvolved third parties with the project author untouched at every step) remains open and is being satisfied opportunistically. The install ritual above is what survived Phase 0; v7.0.4 hardened it with pre-registration Claude Desktop detection, an honest "NOT DETECTED" success banner, and a recipient-vs-developer prerequisites split.
+- Two children ship today (see [Children that ship today](#children-that-ship-today) below): the **CSV directory** child (no-OAuth, generic — closest match to the platform's general shape) and the **running** child (Strava-OAuth, the most-worked-out template). CGM, sleep, ECG, EDF, and FHIR children are held items in the [ROADMAP](ROADMAP.md).
+- PHI scrubbing ships as a documented no-op seam. Institutions subclass
+  once their policy is defined. The default scrubber surfaces a warning
+  in every successful result's `_meta` block so a no-op deployment
+  cannot silently masquerade as a scrubbed one.
+- Per-subject **audit-log scoping** is first-class for every child.
+  `RunningChild` declares `entity_id` on all 12 `strava_*` tools;
+  `csv_dir` declares it on all 7 tools. This is caller-asserted scoping
+  for the audit log; it does **not** filter source data, since one
+  authenticated upstream account may legitimately cover multiple study
+  participants.
+- Per-subject **vault-tier keying** is first-class
+  ([ADR 0009](docs/adr/0009-vault-subject-keying.md)). Themes carry
+  an optional, set-once `entity_id` (promotion `None → P004`
+  permitted; reassignment `P003 → P007` is a hard error). Evidence
+  and moments stamp the writing call's subject. List/search filters
+  use the IS-NULL branch so cross-subject themes and pre-keying
+  legacy notes stay visible.
+
+### Data retention and withdrawal
+
+Retention is the deployer's responsibility. The audit log, per-child
+caches, and Wardrobe are persistent local stores with no automated
+rotation — [ADR 0001](docs/adr/0001-audit-log-as-backbone.md) names
+"long-term archival is the deployer's responsibility" as a known
+consequence.
+
+**Consent revocation triggers cache purge** per
+[ADR 0013](docs/adr/0013-cache-only-purge-on-consent-revocation.md):
+every `revoke_consent_*` call runs a synchronous purge on the affected
+child *before* the revocation lands, with the result logged in a paired
+`PURGE_CACHE` audit row carrying `rows_purged`, `tables_touched`, and
+`preserved`. The vault is durable by design — analyst notes are not
+biometric data and are not purged on revocation. ADR 0013 documents
+the limits.
+
+**Scope limit:** This is research infrastructure, not a clinical
+decision-support system. It has not been validated against any regulatory
+framework for patient-facing tools. Analytical output requires human
+validation before informing decisions. See
+[research-framing.md](docs/design/research-framing.md#scope-limit) for the
+full statement.
+
+---
+
 ## Children that ship today
 
 A **child** is one data source. Each child wraps an ingest path (a directory, an API, a file format) and exposes tools at three access tiers, and each child inherits the full governance pipeline (validation, consent, cost, scrubber seam, audit) from the framework. Every README element below this point answers "why is this child in the README at all?" — so it's worth saying explicitly.
@@ -564,6 +549,19 @@ Detailed notes in [CLAUDE.md](CLAUDE.md).
 | `rate_limit.json` corruption warning | Delete the file — it will be rebuilt on next API call. |
 | `entity_id` not appearing in audit rows | Pass `entity_id` as a parameter in the tool call, not as a header. |
 | Vault disabled silently | Check `~/.tailor/logs/` for a `user_config.json` parse warning. |
+
+---
+
+## Start here
+
+- **PI evaluating for a study** → [Why this exists](#why-this-exists) · [How data minimization works](#how-data-minimization-works) · [10-minute worked example notebook](docs/guides/worked-example.ipynb) · [Status & retention](#status)
+- **Analyst / research-software engineer wiring this up** → [Install & run](#install--run) · [Children that ship today](#children-that-ship-today) · [Architecture](#architecture)
+- **IRB reviewer evaluating risk** → [How data minimization works](#how-data-minimization-works) · [Status & retention](#status) · [ADR 0001 — audit log](docs/adr/0001-audit-log-as-backbone.md) · [ADR 0003 — PHI scrubber seam](docs/adr/0003-phi-scrubber-seam.md) · [ADR 0009 — `entity_id` integrity](docs/adr/0009-vault-subject-keying.md) · [ADR 0013 — cache purge on consent revocation](docs/adr/0013-cache-only-purge-on-consent-revocation.md)
+- **Quantified-self / future-recipe explorer** → [Your Wardrobe](#your-wardrobe) · [What This Project Is](CLAUDE.md#what-this-project-is) · [ROADMAP Phase 4 — platform-shape proof](ROADMAP.md#phase-4--platform-shape-proof-direction)
+- **Developer trying the demo** → [Install & run](#install--run)
+- **Architect / integrator** → [Architecture](#architecture) · [Adding a new child data source](CLAUDE.md#adding-a-new-childmcp-new-data-source)
+- **Considering whether to install cold** → [ROADMAP — install-path validation closed 2026-05-12](ROADMAP.md#at-a-glance) (read the Status section before trying; the install is proven cross-OS but Phase 0 closed under the lenient read, not the strict one)
+- **Curious where this is going** → [What's next](#whats-next) · [full ROADMAP.md](ROADMAP.md)
 
 ---
 

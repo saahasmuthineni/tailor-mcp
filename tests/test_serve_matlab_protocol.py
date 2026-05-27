@@ -752,9 +752,12 @@ def test_matlab_vaultable_tools_empty_no_renderer_gap() -> None:
     # the contract at the source: `vaultable_tools = []` in child.py.
     # We verify the child.py source contains "return []" for vaultable_tools.
 
-    child_source = Path(
-        "c:/Users/saaha/Biosensor-to-LLM-Connector/"
-        "src/tailor/children/matlab_file/child.py"
+    # Resolve relative to this test file so the assertion is portable
+    # across machines (the boss's dev box was previously hardcoded —
+    # caught by GitHub Actions running on a Linux runner per #116).
+    repo_root = Path(__file__).resolve().parents[1]
+    child_source = (
+        repo_root / "src/tailor/children/matlab_file/child.py"
     ).read_text(encoding="utf-8")
 
     # The property must return an empty list

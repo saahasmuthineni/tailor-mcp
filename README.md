@@ -19,6 +19,20 @@
 
 ---
 
+## Who it's for
+
+**Good fit:**
+- RSEs and researchers building LLM-assisted analysis pipelines where data governance, audit trails, or reproducibility matter
+- Teams integrating structured data sources with Claude Desktop or other MCP-compliant clients and wanting server-side computation over raw-data prompts
+- Anyone who needs a local-first setup — no data leaves the machine
+
+**Not a good fit:**
+- Clinical decision-support or regulatory-compliance deployments — Tailor is research infrastructure, not a validated clinical tool
+- Hosted or cloud workflows — the architecture is deliberately local-first
+- Projects requiring an independent security audit — this is a solo-maintainer project with no external review yet
+
+---
+
 ## Quickstart
 
 **Prerequisites — install these first:**
@@ -65,20 +79,6 @@ The running-data (Strava) child ships as a worked example of the ChildMCP extens
 <p align="center">
   <img src="docs/assets/footprint.svg" alt="No Docker, no databases, no cloud — one install command, ~4 MB on disk" width="100%"/>
 </p>
-
----
-
-## Who it's for
-
-**Good fit:**
-- RSEs and researchers building LLM-assisted analysis pipelines where data governance, audit trails, or reproducibility matter
-- Teams integrating structured data sources with Claude Desktop or other MCP-compliant clients and wanting server-side computation over raw-data prompts
-- Anyone who needs a local-first setup — no data leaves the machine
-
-**Not a good fit:**
-- Clinical decision-support or regulatory-compliance deployments — Tailor is research infrastructure, not a validated clinical tool
-- Hosted or cloud workflows — the architecture is deliberately local-first
-- Projects requiring an independent security audit — this is a solo-maintainer project with no external review yet
 
 ---
 

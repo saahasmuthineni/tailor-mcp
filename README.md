@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/saahasmuthineni/tailor-mcp/actions/workflows/ci.yml"><img src="https://github.com/saahasmuthineni/tailor-mcp/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
   <img src="https://img.shields.io/badge/cost-1¢%2Fsession-f97316?style=flat&labelColor=0d1117" alt="1¢/session"/>
-  <img src="https://img.shields.io/badge/session%20resume-318×%20tokens-f97316?style=flat&labelColor=0d1117" alt="318× fewer tokens on session resume"/>
+  <img src="https://img.shields.io/badge/tokens-318x%20less-f97316?style=flat&labelColor=0d1117" alt="318x less tokens"/>
   <img src="https://img.shields.io/badge/data-local--first-22c55e?style=flat&labelColor=0d1117" alt="local-first"/>
   <img src="https://img.shields.io/badge/AI-Claude%20%7C%20GPT--4%20%7C%20any-0ea5e9?style=flat&labelColor=0d1117" alt="Claude | GPT-4 | any AI"/>
   <a href="https://pypi.org/project/tailor-mcp/"><img src="https://img.shields.io/pypi/v/tailor-mcp.svg" alt="PyPI version"/></a>

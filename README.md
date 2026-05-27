@@ -10,6 +10,8 @@
 
 *Sending raw CSV to Claude instead of a Tailor summary costs 657× more tokens on a single subject, and 938× more on a 16-subject cohort — at that scale the raw file doesn't even fit in Claude's context window. Picking up a 5-session thread from scratch costs ~$57.90; retrieving the same context from Tailor's vault costs ~$0.04. [Measured, reproducible benchmark →](benchmarks/token_efficiency.md)*
 
+[![CI](https://github.com/saahasmuthineni/tailor-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/saahasmuthineni/tailor-mcp/actions/workflows/ci.yml)
+
 > 📦 [PyPI](https://pypi.org/project/tailor-mcp/) · [Worked example notebook](docs/guides/worked-example.ipynb) · [ADRs](docs/adr/) · [Changelog](CHANGELOG.md)
 
 ---

@@ -4,9 +4,11 @@
 
 # tailor-mcp
 
-**Tailor** is a local MCP server that sits between any MCP-capable client and your structured data, computing analysis server-side and returning only the numbers — not raw streams. It enforces tiered data access, audit-logs every LLM action to a local SQLite database, and persists analytical notes across sessions in an Obsidian-compatible markdown vault. The architecture is domain-agnostic: the same framework handles running data, force-plate CSVs, EMG envelopes, or any structured time-series source.
+**Tailor** is a local MCP server that preprocesses your structured data before it reaches the AI — computations run on your machine, results come back as summaries rather than raw streams, and every action is logged to a local SQLite audit database. Analytical notes persist in an Obsidian-compatible vault, surviving session boundaries. It works with any structured source: CSV directories, force-plate recordings, REDCap exports, running data, or anything you register.
 
-**657×–938× fewer tokens per query** (657× single-subject · 938× 16-subject cohort; at cohort scale the raw-CSV path exceeds Claude's 200K context window entirely). **318× reduction in session-persistence overhead** (~$57.90 → ~$0.04 per 5-session thread at Sonnet 4.6 pricing). [Reproducible benchmark](benchmarks/token_efficiency.md) · tiktoken cl100k\_base · HIP Lab force-plate fixtures.
+**657×–938× fewer tokens per query** (Tier 1 computed report vs Tier 3 raw stream). **318× reduction in session-persistence overhead.**
+
+*Sending raw CSV to Claude instead of a Tailor summary costs 657× more tokens on a single subject, and 938× more on a 16-subject cohort — at that scale the raw file doesn't even fit in Claude's context window. Picking up a 5-session thread from scratch costs ~$57.90; retrieving the same context from Tailor's vault costs ~$0.04. [Measured, reproducible benchmark →](benchmarks/token_efficiency.md)*
 
 > 📦 [PyPI](https://pypi.org/project/tailor-mcp/) · [Worked example notebook](docs/guides/worked-example.ipynb) · [ADRs](docs/adr/) · [Changelog](CHANGELOG.md)
 

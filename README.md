@@ -97,17 +97,9 @@ Most analytical questions are answerable at Tier 1. The 938× token reduction is
 
 ## Architecture
 
-```mermaid
-graph LR
-    Client["MCP client\nClaude Desktop · Cline · API"]
-    Router["RouterMCP\nvalidate → circuit-break → consent\n→ cost → execute → scrub → audit"]
-    Child["ChildMCP\none per data source"]
-    Vault["VaultLayer\ncross-session memory"]
-
-    Client <-->|MCP protocol| Router
-    Router --> Child
-    Router --> Vault
-```
+<p align="center">
+  <img src="docs/assets/architecture.svg" alt="Architecture: MCP client connects to RouterMCP security pipeline, which dispatches to ChildMCP data sources and VaultLayer cross-session memory" width="100%"/>
+</p>
 
 `RouterMCP` owns the dispatch pipeline. `ChildMCP` is an abstract base class — implement five methods to register a new data source. `VaultLayer` is framework-level infrastructure, parallel to the child registry, not a child itself.
 

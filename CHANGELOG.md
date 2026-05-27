@@ -5,6 +5,293 @@ All notable changes to this project are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims at [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [9.0.0] — 2026-05-26
+
+Public-flip preparation. Vocabulary made domain-agnostic to match the
+architectural commitment, license switched to AGPL-3.0-or-later, and a
+reproducible token-efficiency benchmark ships as a load-bearing artifact
+backing the README's "657×–938× cheaper" claims.
+
+### Changed (breaking)
+
+- **License**: `Apache-2.0` → `AGPL-3.0-or-later`. Forward-only. Tagged
+  releases through v8.0.0 remain Apache-2.0 in perpetuity for recipients
+  who already received them; v9.0.0 onward is AGPL. Rationale: AGPL's
+  network-trigger clause (§ 13) is the structural lever against
+  extractive cloud reuse — a future cloud provider that forks Tailor
+  must publish their modifications under AGPL.
+- **`PHIScrubber` → `DataScrubber`** (framework class). The seam
+  contract is unchanged — institutions still subclass it to wire their
+  IRB-approved scrubbing policy. The child-level `RedcapPHIScrubber`
+  retains its HIPAA-specific name per [ADR 0037](docs/adr/0037-redcap-child-scope-export-directory-only-with-deferred-live-api.md);
+  HIPAA *is* the institutional policy that child enforces.
+- **`subject_id` → `entity_id`** across the `audit_log` column, every
+  child's `param_schemas`, every vault tool, the shared
+  `ENTITY_ID_SCHEMA` + `ENTITY_ID_PARAM_DOC` constants in
+  `framework.interfaces`, and vault note frontmatter. "Subject" was
+  research-shaped; the framework's identity-scoping primitive applies
+  to any deployment recipe.
+- **`csv_cohort_summary` → `csv_group_summary`** on the generic
+  `csv_dir` child only. The biometric children's sibling tools
+  (`force_cohort_summary`, `emg_cohort_summary`, `redcap_cohort_summary`)
+  retain their `_cohort_` names because they ARE cohort-shaped in the
+  research sense; the rename applies only where the surface is
+  data-agnostic.
+
+### Added
+
+- **`benchmarks/token_efficiency.py` + `benchmarks/token_efficiency.md`** —
+  reproducible measurement of the AI-economics claim in
+  [ADR 0029](docs/adr/0029-token-reduction-as-analytical-quality.md).
+  Per-query efficiency: 657.6× (single subject), 938.2× (16-subject
+  cohort); session-persistence efficiency: 318.0× (cumulative across 5
+  sessions). All measurements with `tiktoken cl100k_base`. The
+  benchmark markdown includes assumptions, a quantitative
+  prompt-caching counter-factual, and a Limitations section.
+- **README license section** expanded from the bare text "Apache-2.0"
+  to a ~35-line plain-English summary of AGPL-3.0-or-later's scope and
+  the network-trigger nuance.
+- **`docs/design/tailor-vocabulary.md` § "Vocabulary changes — v9.0.0"**
+  enumerating the three renames in a table.
+
+### Backward compatibility (durable state)
+
+- **`audit_log` table**: `AuditLog.__init__` detects legacy
+  `subject_id` column on boot and runs
+  `ALTER TABLE audit_log RENAME COLUMN subject_id TO entity_id`. Every
+  existing row preserved per [ADR 0001](docs/adr/0001-audit-log-as-backbone.md).
+- **Vault note frontmatter**: `parser.split_frontmatter` aliases legacy
+  `subject_id:` to `entity_id:` on read so notes written under the old
+  name continue to load without migration.
+
+No backward-compat for in-process callers — tool parameter names,
+exported constants, and the audit-log column name break cleanly. That's
+the v9.0.0 major-bump shape: API surface breaks, durable state migrates
+transparently.
+
+### Project framing
+
+- The framework was always architecturally domain-agnostic; v9.0.0
+  makes the externally-visible vocabulary match. Health research is
+  the first deployment recipe shipped end-to-end, not the platform's
+  identity. CLAUDE.md § "What This Project Is" updated; ADRs 0002,
+  0003, 0009, 0015 each gain a `**Renamed in v9.0.0:**` header bullet
+  documenting the rename's provenance + backward-compat mechanism.
+
+## [8.0.0] — 2026-05-19
+
+Recipient-experience MCP-offload. Three new framework-tier layers move
+the walkthrough, fitting-room scaffolding, and source-config setup off
+the CLI and onto MCP tools that Claude orchestrates conversationally.
+Driven by a 2026-05-19 install-friction observation: a non-technical
+recipient typed `--help` at a path prompt because terminals weren't a
+familiar interface.
+
+### Added
+
+- **`SetupLayer`** (`framework/setup/`) exposes four MCP tools for
+  source-config setup: `tailor_setup_status`,
+  `tailor_setup_detect_schema`, `tailor_setup_confirm_schema`, and
+  `tailor_setup_write_source_block`. Bounded-write authority is the
+  load-bearing invariant — the write tool only writes the keys named
+  in `SETUP_WRITE_KEY_ALLOWLIST = ("csv_dir", "matlab_file",
+  "redcap_file")` with three layers of defense-in-depth.
+- **`WalkthroughLayer`** (`framework/walkthrough/`) exposes
+  `tailor_walkthrough_section(section: int)` with `min=1, max=5`.
+  Replaces the v6.10.5 `tailor walkthrough` CLI showcase. Five
+  sections cover the cohort thesis, router pipeline + audit row,
+  three-tier consent + cost model, vault layer cross-session memory,
+  and local-LLM guardian + deterministic processing.
+- **`FittingRoomLayer`** (`framework/fitting_room/`) exposes three
+  tools wrapping the pure helpers in the preserved
+  `tailor.fitting_room` library module. Replaces the v6.9.0
+  `tailor fitting-room` CLI command.
+- **New `SETUP_CONFIG_WRITE` audit-log outcome** stamped on every
+  successful `tailor_setup_write_source_block` call, with
+  `domain="setup"` and `entity_id=NULL` (configuration is not
+  subject-scoped per [ADR 0009](docs/adr/0009-vault-subject-keying.md)).
+  An IRB reviewer reconstructs when Claude wrote configuration via
+  `SELECT * FROM audit_log WHERE outcome='SETUP_CONFIG_WRITE'`.
+- **[ADR 0040](docs/adr/0040-bounded-setup-time-conductor-surface.md)**
+  codifies the bounded setup-time conductor surface as a carve-out
+  from [ADR 0022](docs/adr/0022-local-llm-guardian.md)'s conductor-mode
+  deferral.
+
+### Removed (breaking)
+
+- **Four CLI commands hard-removed** (no deprecation shim):
+  `tailor walkthrough`, `tailor fitting-room`, `tailor tour`,
+  `tailor demo`. The CLI surface contracts from 8 commands to 6:
+  `serve / pilot / setup / redcap / status / uninstall`. Recipients
+  now touch the terminal exactly once (`tailor pilot`) and everything
+  else happens through Claude Desktop chat.
+- **`src/tailor/tour.py`** (the v7.1.x re-export shim) deleted.
+  Examples migrated to import from `tailor.fitting_room.main`
+  directly. `wizard.py` PRESERVED — load-bearing for `cmd_setup`'s
+  Strava OAuth wizard.
+
+### Fixed
+
+- **`_redact_home()` extended to SetupLayer wire-egress paths**
+  (`written_path`, `user_config_path`, echoed `path`). Path strings
+  collapse `Path.home()` to `~` per HIPAA Safe Harbor
+  §164.514(b)(2)(i)(R), extending the v6.10.2 SetupHelpLayer redaction
+  pattern. Username-bearing path strings stay off the hosted-LLM
+  transcript; on-disk artifacts carry the un-redacted operator intent.
+- **v7.5.0 orphan-cleanup defect retired structurally.** Fitting-room
+  is no longer a CLI command writing Claude Desktop config; pilot is
+  the sole CLI writer. No siblings, no orphan-cleanup-too-greedy, no
+  bug. Skipped the v7.5.1 patch entirely.
+
+## [7.6.0] — 2026-05-19
+
+Data-source-agnostic vault layer ([ADR 0038](docs/adr/0038-vault-layer-is-data-source-agnostic.md))
+structural sweep. Closes the commitment that v7.3.4 partial-closed and
+v7.4.0 / v7.5.0 deferred.
+
+### Added
+
+- **`ChildMCP.vault_note_kinds`** — new optional property on the
+  `ChildMCP` ABC defaulting to `()`. The running child overrides to
+  return `("run_report", "trend_report", "compare_runs")`.
+  `VaultLayer._compute_kind_metadata()` walks registered children,
+  unions child-declared kinds with the framework-tier base, and
+  populates `self._allowed_kinds` dynamically.
+- **`value_column ↔ column` API parity** — `csv_cohort_summary` and
+  `csv_force_decline` rename `column` → `value_column` to match
+  `force_cohort_summary` / `emg_cohort_summary`. Shipped without a
+  deprecation alias per the pre-outreach timing window.
+- **AST-class invariant test** at
+  `tests/framework/vault/test_v76_vault_is_data_source_agnostic.py`
+  asserts the vault layer carries zero domain-coupling to running.
+
+### Fixed
+
+- **`ParamValidator.validate()` enforces `allowed_values` on scalar
+  `str` types** — a pre-existing structural defect (mcp-protocol-auditor
+  D1). The validator only enforced `allowed_values` inside the `list`
+  branch, leaving every `ValidationSchema(type=str, allowed_values=[...])`
+  site as a dead constraint.
+
+### Deprecated
+
+- **`vault_get_fitness_summary`** — gains a `DEPRECATED in v7.6.0`
+  prefix in its description and a one-shot `log.warning` on first
+  call. Removal target: future v7.7.x+ when zero references remain
+  across deployed cue cards and no third-party child depends on it.
+
+## [7.5.0] — 2026-05-18
+
+Multi-source coexistence in the pilot wizard. Researchers with mixed-modal
+data can configure CSV + REDCap + MATLAB through the same wizard, one
+command per source, no manual JSON editing.
+
+### Added
+
+- **`tailor pilot --source={csv,matlab,redcap}`** argparse dispatch.
+  Backward-compat: no-arg `tailor pilot` keeps the v6.2.1 CSV-default
+  behaviour.
+- **F1 deep-merge `_write_user_config`** — multi-source coexistence by
+  construction. A researcher running `tailor pilot --source=matlab`
+  two weeks after `tailor pilot --source=csv` does not lose their
+  `csv_dir` block. AST-class all-call-sites-sweep regression test
+  enforces the contract.
+- **New `ATTEST_INITIAL` audit outcome** — distinct from `REATTEST` for
+  first-config attestation. Threads `child_scrubber_id` and
+  `source_metadata_fingerprint` so an IRB reviewer can reconstruct
+  trust-root state at first configuration.
+- **L1 / L2 product-split codified** — ChildMCP onboarding split into
+  configured ingest of a shipped source (researcher-accessible L1
+  wizard) and authoring a new source axis (RSE-accessible L2 path via
+  `docs/guides/build-your-own-child.md`).
+- **[ADR 0001 § Amendment 2026-05-18](docs/adr/0001-audit-log-as-backbone.md)** —
+  narrow five-precondition CLI-helper exemption from the
+  "missing-row-is-worse-than-failed-call" invariant.
+
+## [7.4.0] — 2026-05-16
+
+Audit log is now LLM-queryable.
+
+### Added
+
+- **`AuditQueryLayer`** — fourth framework-tier layer (parallel to
+  VaultLayer / LocalLLMLayer / SetupHelpLayer). Single MCP tool
+  `audit_query` surfaces structured columns from `audit_log` under a
+  12-column + 1-derived (`has_error`) allowlist. Never exposes raw
+  `error` text or raw `params` content. `limit=100` hard cap;
+  `order by id desc` default.
+- **[ADR 0039](docs/adr/0039-audit-log-is-llm-queryable-under-column-allowlist.md)**
+  codifies "audit log is LLM-queryable under column allowlist" as a
+  structural invariant.
+- **PyPI publish at v7.4.0** — `tailor-mcp` 7.4.0 live on PyPI;
+  colleague-outreach authorized.
+
+## [7.3.0] — 2026-05-14
+
+REDCap existence-proof child + child-level PHI scrubber seam.
+
+### Added
+
+- **`RedcapFileChild`** — six tools across all three tiers
+  (`redcap_list_records`, `redcap_record_detail`,
+  `redcap_summary_report`, `redcap_cohort_summary`, `redcap_records`,
+  `redcap_raw_records`). Opt-in via `redcap_file` block in
+  `user_config.json`.
+- **[ADR 0037](docs/adr/0037-redcap-child-scope-export-directory-only-with-deferred-live-api.md)** —
+  scope-bounded to REDCap CSV export directories; live REDCap REST
+  API support deferred behind a named reversal condition. No new
+  optional extras (REDCap exports are stdlib-only).
+- **[ADR 0003 § Amendment 2026-05-14](docs/adr/0003-phi-scrubber-seam.md)** —
+  child-level PHI scrubber seam parallel to the framework-level seam.
+  `RedcapPHIScrubber` reads `identifier=yes/no` flags from
+  `project_metadata.csv` and scrubs flagged fields inside
+  `RedcapFileChild.execute()` before the result returns to the
+  framework-level seam.
+- **New `audit_log.child_scrubber_id` column** records the child's
+  internal scrubber identity (`"redcap_metadata_flags"` for REDCap
+  calls; NULL for csv_dir / matlab_file / running which inherit the
+  ABC default).
+
+## [7.2.0] — 2026-05-14
+
+MATLAB existence-proof child as the second non-CSV source axis.
+
+### Added
+
+- **`MATLABFileChild`** — six tools across all three tiers
+  (`matlab_list_files`, `matlab_file_detail`, `matlab_summary_report`,
+  `matlab_cohort_summary`, `matlab_downsampled`, `matlab_raw_array`).
+  Opt-in via `matlab_file` block in `user_config.json`.
+- **[ADR 0036](docs/adr/0036-matlab-child-scope-v72-only-with-deferred-hdf5.md)** —
+  scope-bounded to `.mat` v5/v6/v7.2 via scipy pulled in as an optional
+  dep (`pip install tailor-mcp[matlab]`). v7.3 HDF5-based `.mat` is
+  detected via magic bytes and rejected with a typed-error envelope.
+
+## [7.1.0] — 2026-05-14
+
+CLI rename to match recipient-experience naming principle.
+
+### Changed
+
+- **CLI verbs renamed**: `tailor demo` → `tailor walkthrough`,
+  `tailor tour` → `tailor fitting-room`. Old verbs preserved as
+  one-cycle deprecation shims with stderr hints citing
+  [ADR 0035](docs/adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md).
+- **`src/tailor/tour.py` → `src/tailor/fitting_room.py`** via `git mv`
+  (history preserved); one-line re-export shim at the old path.
+- **Server-name** `tailor-tour-{variant}` →
+  `tailor-fitting-room-{variant}`; the existing
+  `_is_orphan_entry_key` prefix-cleaner handles both keys.
+
+### Added
+
+- **[ADR 0035](docs/adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md)** —
+  recipient-experience-shaped naming principle, recipient-evaluation-class
+  scope, operator-class grandfathered list.
+- **`docs/design/tailor-vocabulary.md`** — new "Recipient-facing
+  surfaces" section names walkthrough + fitting-room with etymology
+  and naming principle.
+
 ## [7.0.0] — 2026-05-08
 
 Project rename: `Biosensor MCP` → **Tailor** (per [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md)).

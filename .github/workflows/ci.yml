@@ -30,7 +30,10 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Lint (ruff)
-        run: ruff check .
+        # Scope matches CONTRIBUTING.md: production code + tests, not
+        # benchmarks/docs/examples (notebook pedagogy + setup scripts
+        # carry intentional style that does not gate releases).
+        run: ruff check src tests
 
       - name: Tests (pytest)
         run: pytest -v -x --timeout=60

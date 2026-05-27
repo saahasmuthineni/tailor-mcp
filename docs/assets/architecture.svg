@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="720" height="330" viewBox="0 0 720 330">
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="336" viewBox="0 0 720 336">
   <defs>
     <pattern id="arch-dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
       <circle fill="#1e2533" cx="1" cy="1" r="0.7"/>
@@ -6,105 +6,111 @@
   </defs>
 
   <!-- Background -->
-  <rect fill="#0f1117" x="0" y="0" width="720" height="330" rx="8" ry="8"/>
-  <rect fill="url(#arch-dots)" x="0" y="0" width="720" height="330" rx="8" ry="8"/>
+  <rect fill="#0f1117" x="0" y="0" width="720" height="336" rx="8" ry="8"/>
+  <rect fill="url(#arch-dots)" x="0" y="0" width="720" height="336" rx="8" ry="8"/>
 
   <!-- Title -->
   <text fill="#e2e8f0" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="14" font-weight="600" x="360" y="28" text-anchor="middle">Architecture</text>
   <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" x="360" y="46" text-anchor="middle">Every request passes through RouterMCP's security pipeline. The LLM cannot bypass any gate.</text>
 
   <!-- ===== MCP CLIENT BOX ===== -->
-  <rect fill="#1a1f2e" stroke="#7c3aed" stroke-width="1.5" x="16" y="68" width="138" height="90" rx="10" ry="10"/>
+  <rect fill="#1a1f2e" stroke="#7c3aed" stroke-width="1.5" x="16" y="68" width="138" height="96" rx="10" ry="10"/>
   <rect fill="#7c3aed" x="16" y="68" width="138" height="3" rx="2" ry="2"/>
   <text fill="#a78bfa" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" font-weight="700" x="85" y="88" text-anchor="middle" letter-spacing="1">MCP CLIENT</text>
-  <line stroke="#2d1f4a" stroke-width="1" x1="28" y1="95" x2="142" y2="95"/>
-  <text fill="#e2e8f0" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="85" y="112" text-anchor="middle">Claude Desktop</text>
-  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" x="85" y="128" text-anchor="middle">Cline · API</text>
-  <text fill="#4b5563" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" x="85" y="144" text-anchor="middle">any MCP client</text>
+  <line stroke="#2d3748" stroke-width="1" x1="28" y1="97" x2="142" y2="97"/>
+  <text fill="#e2e8f0" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="85" y="116" text-anchor="middle">Claude Desktop</text>
+  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" x="85" y="132" text-anchor="middle">Cline · API</text>
+  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" x="85" y="150" text-anchor="middle">any MCP client</text>
 
-  <!-- ===== CLIENT &lt;--&gt; ROUTER ARROW ===== -->
-  <line stroke="#7c3aed" stroke-width="1.5" x1="156" y1="113" x2="188" y2="113"/>
-  <polygon fill="#7c3aed" points="188,109 196,113 188,117"/>
-  <polygon fill="#7c3aed" points="156,109 148,113 156,117"/>
-  <rect fill="#1a1f2e" stroke="#7c3aed" stroke-width="1" x="156" y="103" width="40" height="14" rx="7" ry="7"/>
-  <text fill="#a78bfa" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="8" x="176" y="113" text-anchor="middle">MCP</text>
+  <!-- ===== CLIENT <--> ROUTER ARROW ===== -->
+  <line stroke="#7c3aed" stroke-width="1.5" x1="156" y1="116" x2="188" y2="116"/>
+  <polygon fill="#7c3aed" points="188,112 196,116 188,120"/>
+  <polygon fill="#7c3aed" points="156,112 148,116 156,120"/>
+  <rect fill="#1a1f2e" stroke="#7c3aed" stroke-width="1" x="156" y="106" width="40" height="14" rx="7" ry="7"/>
+  <text fill="#a78bfa" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="8" x="176" y="116" text-anchor="middle">MCP</text>
 
   <!-- ===== ROUTER MCP BOX ===== -->
-  <!-- Shadow -->
-  <rect fill="#0f1e35" x="203" y="58" width="296" height="128" rx="10" ry="10"/>
+  <!-- Orange glow layers -->
+  <rect fill="none" stroke="#f97316" stroke-width="9" stroke-opacity="0.06" x="191" y="49" width="310" height="146" rx="13" ry="13"/>
+  <rect fill="none" stroke="#f97316" stroke-width="6" stroke-opacity="0.11" x="194" y="52" width="304" height="140" rx="12" ry="12"/>
+  <rect fill="none" stroke="#f97316" stroke-width="3" stroke-opacity="0.22" x="196" y="54" width="300" height="136" rx="11" ry="11"/>
   <!-- Main box -->
-  <rect fill="#1a1f2e" stroke="#3b82f6" stroke-width="1.5" x="198" y="54" width="296" height="128" rx="10" ry="10"/>
-  <!-- Left orange accent bar -->
-  <rect fill="#f97316" x="198" y="54" width="6" height="128" rx="3" ry="3"/>
+  <rect fill="#1a1f2e" stroke="#f97316" stroke-width="1.5" x="198" y="56" width="296" height="132" rx="10" ry="10"/>
 
-  <text fill="#60a5fa" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" font-weight="700" x="360" y="76" text-anchor="middle" letter-spacing="0.5">ROUTER MCP</text>
-  <line stroke="#2d3748" stroke-width="1" x1="210" y1="84" x2="488" y2="84"/>
+  <text fill="#60a5fa" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" font-weight="700" x="360" y="78" text-anchor="middle" letter-spacing="0.5">ROUTER MCP</text>
+  <line stroke="#2d3748" stroke-width="1" x1="210" y1="86" x2="488" y2="86"/>
 
   <!-- Pipeline chips row 1 -->
-  <rect fill="#0f1e35" stroke="#1e3a5f" stroke-width="1" x="216" y="92" width="50" height="16" rx="8" ry="8"/>
-  <text fill="#60a5fa" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="241" y="103" text-anchor="middle">validate</text>
-  <text fill="#374151" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="272" y="103">&#x2192;</text>
-  <rect fill="#0f1e35" stroke="#1e3a5f" stroke-width="1" x="282" y="92" width="66" height="16" rx="8" ry="8"/>
-  <text fill="#60a5fa" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="315" y="103" text-anchor="middle">circuit-break</text>
-  <text fill="#374151" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="354" y="103">&#x2192;</text>
-  <rect fill="#0f1e35" stroke="#1e3a5f" stroke-width="1" x="364" y="92" width="50" height="16" rx="8" ry="8"/>
-  <text fill="#60a5fa" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="389" y="103" text-anchor="middle">consent</text>
-  <text fill="#374151" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="420" y="103">&#x2192;</text>
-  <rect fill="#0f1e35" stroke="#1e3a5f" stroke-width="1" x="430" y="92" width="36" height="16" rx="8" ry="8"/>
-  <text fill="#60a5fa" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="448" y="103" text-anchor="middle">cost</text>
+  <rect fill="#0f1e35" stroke="#1e3a5f" stroke-width="1" x="216" y="94" width="50" height="16" rx="8" ry="8"/>
+  <text fill="#60a5fa" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="241" y="105" text-anchor="middle">validate</text>
+  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="272" y="105">&#x2192;</text>
+  <rect fill="#0f1e35" stroke="#1e3a5f" stroke-width="1" x="282" y="94" width="66" height="16" rx="8" ry="8"/>
+  <text fill="#60a5fa" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="315" y="105" text-anchor="middle">circuit-break</text>
+  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="354" y="105">&#x2192;</text>
+  <rect fill="#0f1e35" stroke="#1e3a5f" stroke-width="1" x="364" y="94" width="50" height="16" rx="8" ry="8"/>
+  <text fill="#60a5fa" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="389" y="105" text-anchor="middle">consent</text>
+  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="420" y="105">&#x2192;</text>
+  <rect fill="#0f1e35" stroke="#1e3a5f" stroke-width="1" x="430" y="94" width="36" height="16" rx="8" ry="8"/>
+  <text fill="#60a5fa" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="448" y="105" text-anchor="middle">cost</text>
+
+  <!-- Subtle row separator -->
+  <line stroke="#2d3748" stroke-width="1" x1="214" y1="114" x2="488" y2="114"/>
 
   <!-- Pipeline chips row 2 -->
-  <rect fill="#0d1a2a" stroke="#1e3a5f" stroke-width="1" x="216" y="116" width="50" height="16" rx="8" ry="8"/>
-  <text fill="#f97316" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="241" y="127" text-anchor="middle">execute</text>
-  <text fill="#374151" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="272" y="127">&#x2192;</text>
-  <rect fill="#0d1a2a" stroke="#1e3a5f" stroke-width="1" x="282" y="116" width="40" height="16" rx="8" ry="8"/>
-  <text fill="#f97316" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="302" y="127" text-anchor="middle">scrub</text>
-  <text fill="#374151" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="328" y="127">&#x2192;</text>
-  <rect fill="#0d1a2a" stroke="#1e3a5f" stroke-width="1" x="338" y="116" width="36" height="16" rx="8" ry="8"/>
-  <text fill="#f97316" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="356" y="127" text-anchor="middle">audit</text>
-  <text fill="#374151" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="380" y="127">&#x2192;</text>
-  <rect fill="#0d1a2a" stroke="#1e3a5f" stroke-width="1" x="390" y="116" width="92" height="16" rx="8" ry="8"/>
-  <text fill="#f97316" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="436" y="127" text-anchor="middle">provenance stamp</text>
+  <rect fill="#0d1a2a" stroke="#1e3a5f" stroke-width="1" x="216" y="120" width="50" height="16" rx="8" ry="8"/>
+  <text fill="#f97316" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="241" y="131" text-anchor="middle">execute</text>
+  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="272" y="131">&#x2192;</text>
+  <rect fill="#0d1a2a" stroke="#1e3a5f" stroke-width="1" x="282" y="120" width="40" height="16" rx="8" ry="8"/>
+  <text fill="#f97316" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="302" y="131" text-anchor="middle">scrub</text>
+  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="328" y="131">&#x2192;</text>
+  <rect fill="#0d1a2a" stroke="#1e3a5f" stroke-width="1" x="338" y="120" width="36" height="16" rx="8" ry="8"/>
+  <text fill="#f97316" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="356" y="131" text-anchor="middle">audit</text>
+  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="380" y="131">&#x2192;</text>
+  <rect fill="#0d1a2a" stroke="#1e3a5f" stroke-width="1" x="390" y="120" width="92" height="16" rx="8" ry="8"/>
+  <text fill="#f97316" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="8" x="436" y="131" text-anchor="middle">provenance stamp</text>
 
   <!-- ===== FORK CONNECTOR ===== -->
-  <line stroke="#2d3748" stroke-width="1.5" x1="494" y1="90" x2="518" y2="90"/>
-  <line stroke="#2d3748" stroke-width="1.5" x1="494" y1="140" x2="518" y2="140"/>
-  <line stroke="#2d3748" stroke-width="1.5" x1="518" y1="90" x2="518" y2="140"/>
-  <line stroke="#2d3748" stroke-width="1.5" x1="518" y1="90" x2="543" y2="90"/>
-  <polygon fill="#374151" points="543,86 551,90 543,94"/>
-  <line stroke="#2d3748" stroke-width="1.5" x1="518" y1="140" x2="543" y2="140"/>
-  <polygon fill="#374151" points="543,136 551,140 543,144"/>
+  <line stroke="#2d3748" stroke-width="1.5" x1="494" y1="92" x2="518" y2="92"/>
+  <line stroke="#2d3748" stroke-width="1.5" x1="494" y1="144" x2="518" y2="144"/>
+  <line stroke="#2d3748" stroke-width="1.5" x1="518" y1="92" x2="518" y2="144"/>
+  <line stroke="#2d3748" stroke-width="1.5" x1="518" y1="92" x2="543" y2="92"/>
+  <polygon fill="#4b5563" points="543,88 551,92 543,96"/>
+  <line stroke="#2d3748" stroke-width="1.5" x1="518" y1="144" x2="543" y2="144"/>
+  <polygon fill="#4b5563" points="543,140 551,144 543,148"/>
 
   <!-- ===== CHILD MCP BOX ===== -->
-  <rect fill="#1a1f2e" stroke="#2d3748" stroke-width="1.5" x="554" y="62" width="150" height="58" rx="10" ry="10"/>
-  <rect fill="#4b5563" x="554" y="62" width="150" height="3" rx="2" ry="2"/>
-  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" font-weight="700" x="629" y="82" text-anchor="middle" letter-spacing="1">CHILD MCP</text>
-  <text fill="#e2e8f0" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="629" y="99" text-anchor="middle">one per data source</text>
-  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" x="629" y="112" text-anchor="middle">CSV · MATLAB · REDCap · ···</text>
+  <rect fill="#1a1f2e" stroke="#2d3748" stroke-width="1.5" x="554" y="64" width="150" height="60" rx="10" ry="10"/>
+  <rect fill="#4b5563" x="554" y="64" width="150" height="3" rx="2" ry="2"/>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" font-weight="700" x="629" y="84" text-anchor="middle" letter-spacing="1">CHILD MCP</text>
+  <text fill="#e2e8f0" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="629" y="101" text-anchor="middle">one per data source</text>
+  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="8" x="629" y="116" text-anchor="middle">CSV · MATLAB · REDCap · …</text>
 
   <!-- ===== VAULT LAYER BOX ===== -->
-  <rect fill="#0f2020" stroke="#22c55e" stroke-width="1.5" x="554" y="132" width="150" height="58" rx="10" ry="10"/>
-  <rect fill="#22c55e" x="554" y="132" width="150" height="3" rx="2" ry="2"/>
-  <text fill="#22c55e" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" font-weight="700" x="629" y="152" text-anchor="middle" letter-spacing="1">VAULT LAYER</text>
-  <text fill="#e2e8f0" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="629" y="169" text-anchor="middle">cross-session memory</text>
-  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" x="629" y="182" text-anchor="middle">Obsidian-compatible markdown</text>
+  <rect fill="#0f2020" stroke="#22c55e" stroke-width="1.5" x="554" y="136" width="150" height="60" rx="10" ry="10"/>
+  <rect fill="#22c55e" x="554" y="136" width="150" height="3" rx="2" ry="2"/>
+  <text fill="#22c55e" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" font-weight="700" x="629" y="156" text-anchor="middle" letter-spacing="1">VAULT LAYER</text>
+  <text fill="#e2e8f0" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="629" y="173" text-anchor="middle">cross-session memory</text>
+  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="8" x="629" y="186" text-anchor="middle">Obsidian-compatible markdown</text>
 
   <!-- ===== BOTTOM DESCRIPTION BAR ===== -->
-  <rect fill="#1a1f2e" stroke="#2d3748" stroke-width="1" x="16" y="210" width="688" height="104" rx="8" ry="8"/>
+  <rect fill="#1a1f2e" stroke="#2d3748" stroke-width="1" x="16" y="212" width="688" height="112" rx="8" ry="8"/>
 
-  <text fill="#60a5fa" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="32" y="232">RouterMCP</text>
-  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="32" y="248">Owns the dispatch pipeline. Behavioral rules live server-side — any MCP client</text>
-  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="32" y="262">gets identical enforcement.</text>
+  <text fill="#60a5fa" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="32" y="234">RouterMCP</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="32" y="252">Owns the dispatch pipeline.</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="32" y="268">Behavioral rules live server-side —</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="32" y="284">any MCP client gets identical rules.</text>
 
-  <line stroke="#2d3748" stroke-width="1" x1="248" y1="222" x2="248" y2="306"/>
+  <line stroke="#2d3748" stroke-width="1" x1="248" y1="224" x2="248" y2="316"/>
 
-  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="264" y="232">ChildMCP</text>
-  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="264" y="248">Abstract base class — implement five</text>
-  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="264" y="262">methods to register a new data source.</text>
+  <text fill="#a78bfa" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="264" y="234">ChildMCP</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="264" y="252">Abstract base class — implement</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="264" y="268">five methods to register a new</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="264" y="284">data source.</text>
 
-  <line stroke="#2d3748" stroke-width="1" x1="468" y1="222" x2="468" y2="306"/>
+  <line stroke="#2d3748" stroke-width="1" x1="468" y1="224" x2="468" y2="316"/>
 
-  <text fill="#22c55e" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="484" y="232">VaultLayer</text>
-  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="484" y="248">Framework-level infrastructure, parallel</text>
-  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="484" y="262">to the child registry, not a child itself.</text>
+  <text fill="#22c55e" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="484" y="234">VaultLayer</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="484" y="252">Framework-level infrastructure,</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="484" y="268">parallel to the child registry,</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="484" y="284">not a child itself.</text>
 </svg>

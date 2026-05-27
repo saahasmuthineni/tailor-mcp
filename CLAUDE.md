@@ -1,5 +1,7 @@
 # CLAUDE.md — Tailor
 
+> **Note for human contributors:** This file is read automatically by Claude when working in this repo. If you're a human contributor, see [CONTRIBUTING.md](CONTRIBUTING.md) instead.
+
 > **v9.0.0 (2026-05-26)** — Public-flip preparation. Major bump.
 > Three domain-specific structural identifiers renamed to domain-
 > agnostic equivalents; license switched Apache-2.0 →

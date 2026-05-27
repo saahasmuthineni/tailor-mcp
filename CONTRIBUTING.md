@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for considering a contribution. This project is a reference implementation of a biosensor → LLM middleware pattern; PRs are welcome for bug fixes, additional child MCPs (e.g. CGM, sleep), docs, and test coverage.
+Thanks for considering a contribution. This project is a governance-aware middleware layer that sits between structured data sources and LLMs; PRs are welcome for bug fixes, additional child MCPs (e.g. Notion exports, CSV directories, custom structured data), docs, and test coverage.
 
 ## Quick start
 
@@ -35,7 +35,7 @@ CI runs `ruff check` and `ruff format --check`; both must pass.
 ## Branching
 
 - `main` — stable, CI-green.
-- Open PRs from a feature branch named `type/short-description` (e.g. `fix/oauth-port-mismatch`, `feat/cgm-child`).
+- Open PRs from a feature branch named `type/short-description` (e.g. `fix/oauth-port-mismatch`, `feat/notion-child`).
 
 ## Commit messages
 

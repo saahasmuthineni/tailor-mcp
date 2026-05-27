@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use Tailor in academic work, please cite it as below."
+title: "Tailor"
+version: "9.0.0"
+date-released: "2026-05-26"
+authors:
+  - family-names: "Muthineni"
+    given-names: "Saahas"
+    alias: "saahasmuthineni"
+repository-code: "https://github.com/saahasmuthineni/tailor-mcp"
+url: "https://github.com/saahasmuthineni/tailor-mcp"
+license: "AGPL-3.0-or-later"
+keywords:
+  - "mcp"
+  - "ai"
+  - "personal-data"
+  - "local-first"
+  - "claude"
+  - "llm"
+  - "audit"
+  - "consent"
+abstract: >-
+  Local data preprocessing for AI — structured summaries, governed
+  access, auditable answers. Tailor is a local-first MCP framework
+  that lets any MCP-speaking AI work with your own data without
+  that data ever leaving your machine, with every action recorded
+  in a durable audit log and results stamped for reproducibility.

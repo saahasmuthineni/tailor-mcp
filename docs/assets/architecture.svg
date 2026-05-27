@@ -71,12 +71,12 @@
 
   <!-- ===== FORK CONNECTOR ===== -->
   <line stroke="#2d3748" stroke-width="1.5" x1="494" y1="92" x2="518" y2="92"/>
-  <line stroke="#2d3748" stroke-width="1.5" x1="494" y1="144" x2="518" y2="144"/>
-  <line stroke="#2d3748" stroke-width="1.5" x1="518" y1="92" x2="518" y2="144"/>
+  <line stroke="#2d3748" stroke-width="1.5" x1="494" y1="166" x2="518" y2="166"/>
+  <line stroke="#2d3748" stroke-width="1.5" x1="518" y1="92" x2="518" y2="166"/>
   <line stroke="#2d3748" stroke-width="1.5" x1="518" y1="92" x2="543" y2="92"/>
   <polygon fill="#4b5563" points="543,88 551,92 543,96"/>
-  <line stroke="#2d3748" stroke-width="1.5" x1="518" y1="144" x2="543" y2="144"/>
-  <polygon fill="#4b5563" points="543,140 551,144 543,148"/>
+  <line stroke="#2d3748" stroke-width="1.5" x1="518" y1="166" x2="543" y2="166"/>
+  <polygon fill="#4b5563" points="543,162 551,166 543,170"/>
 
   <!-- ===== CHILD MCP BOX ===== -->
   <rect fill="#1a1f2e" stroke="#2d3748" stroke-width="1.5" x="554" y="64" width="150" height="60" rx="10" ry="10"/>
@@ -100,17 +100,17 @@
   <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="32" y="268">Behavioral rules live server-side —</text>
   <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="32" y="284">any MCP client gets identical rules.</text>
 
-  <line stroke="#2d3748" stroke-width="1" x1="248" y1="224" x2="248" y2="316"/>
+  <line stroke="#2d3748" stroke-width="1" x1="245" y1="224" x2="245" y2="316"/>
 
-  <text fill="#a78bfa" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="264" y="234">ChildMCP</text>
-  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="264" y="252">Abstract base class — implement</text>
-  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="264" y="268">five methods to register a new</text>
-  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="264" y="284">data source.</text>
+  <text fill="#a78bfa" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="261" y="234">ChildMCP</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="261" y="252">Abstract base class — implement</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="261" y="268">five methods to register a new</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="261" y="284">data source.</text>
 
-  <line stroke="#2d3748" stroke-width="1" x1="468" y1="224" x2="468" y2="316"/>
+  <line stroke="#2d3748" stroke-width="1" x1="474" y1="224" x2="474" y2="316"/>
 
-  <text fill="#22c55e" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="484" y="234">VaultLayer</text>
-  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="484" y="252">Framework-level infrastructure,</text>
-  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="484" y="268">parallel to the child registry,</text>
-  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="484" y="284">not a child itself.</text>
+  <text fill="#22c55e" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="490" y="234">VaultLayer</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="490" y="252">Framework-level infrastructure,</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="490" y="268">parallel to the child registry,</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="490" y="284">not a child itself.</text>
 </svg>

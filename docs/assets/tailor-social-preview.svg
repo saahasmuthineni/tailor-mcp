@@ -1,0 +1,283 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <defs>
+    <!-- Orange ambient glow for left panel -->
+    <radialGradient id="sp-glow" cx="22%" cy="58%" r="48%">
+      <stop offset="0%" stop-color="#f97316" stop-opacity="0.13"/>
+      <stop offset="100%" stop-color="#0d1117" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Subtle dot texture -->
+    <pattern id="sp-dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle fill="#161b25" cx="1" cy="1" r="0.7"/>
+    </pattern>
+  </defs>
+
+  <!-- ===== BACKGROUND ===== -->
+  <rect fill="#0d1117" width="1280" height="640"/>
+  <rect fill="url(#sp-dots)" width="1280" height="640"/>
+
+  <!-- Left panel orange ambient glow -->
+  <rect fill="url(#sp-glow)" x="0" y="0" width="645" height="590"/>
+
+  <!-- ===== LEFT PANEL (x: 0–645) ===== -->
+
+  <!-- Logo: orange T square -->
+  <rect fill="#f97316" x="44" y="38" width="52" height="52" rx="9" ry="9"/>
+  <text fill="#ffffff" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="30" font-weight="900" x="70" y="73" text-anchor="middle">T</text>
+  <!-- tAIlor wordmark -->
+  <text font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="36" font-weight="800" x="108" y="76">
+    <tspan fill="#94a3b8">t</tspan><tspan fill="#60a5fa">AI</tspan><tspan fill="#94a3b8">lor</tspan>
+  </text>
+
+  <!-- Divider under logo -->
+  <line stroke="#2d3748" stroke-width="1" x1="44" y1="106" x2="390" y2="106"/>
+
+  <!-- $10 strikethrough pricing -->
+  <text fill="#4b5563" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="48" font-weight="700" x="44" y="170">$10</text>
+  <!-- Orange strikethrough line -->
+  <line stroke="#f97316" stroke-width="4" x1="40" y1="150" x2="168" y2="150"/>
+  <!-- "per session" caption -->
+  <text fill="#4b5563" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="13" x="44" y="193">per session</text>
+
+  <!-- "1¢." giant display text -->
+  <text fill="#f97316" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="118" font-weight="900" x="38" y="318">1¢.</text>
+
+  <!-- Cost claim line -->
+  <text font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="17" x="44" y="346">
+    <tspan fill="#e2e8f0"> 1,000&#xD7; cheaper. </tspan>
+    <tspan fill="#64748b" font-style="italic">Not a typo.</tspan>
+  </text>
+
+  <!-- Tagline -->
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="21" x="44" y="384">Your model sees summaries,</text>
+  <text fill="#e2e8f0" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="21" font-weight="700" x="44" y="412">not spreadsheets.</text>
+
+  <!-- Green bullet: Nothing leaves your machine -->
+  <circle fill="#22c55e" cx="57" cy="438" r="6"/>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="15" x="73" y="443">Nothing leaves your machine.</text>
+
+  <!-- Pipeline diagram -->
+  <!-- Input bars — two groups of two (generic data source shape) -->
+  <!-- Group A (top two) -->
+  <rect fill="#1e2533" stroke="#2d3748" stroke-width="0.5" x="44" y="468" width="82" height="11" rx="2"/>
+  <rect fill="#1e2533" stroke="#2d3748" stroke-width="0.5" x="44" y="484" width="82" height="11" rx="2"/>
+  <!-- Group B (bottom two) -->
+  <rect fill="#1e2533" stroke="#2d3748" stroke-width="0.5" x="44" y="505" width="82" height="11" rx="2"/>
+  <rect fill="#1e2533" stroke="#2d3748" stroke-width="0.5" x="44" y="521" width="82" height="11" rx="2"/>
+
+  <!-- Fan lines from bar-group midpoints into tAIlor box -->
+  <line stroke="#374151" stroke-width="0.9" x1="126" y1="473" x2="216" y2="495"/>
+  <line stroke="#374151" stroke-width="0.9" x1="126" y1="489" x2="216" y2="498"/>
+  <line stroke="#374151" stroke-width="0.9" x1="126" y1="510" x2="216" y2="501"/>
+  <line stroke="#374151" stroke-width="0.9" x1="126" y1="526" x2="216" y2="504"/>
+
+  <!-- tAIlor processing box (teal border) -->
+  <rect fill="#0c2020" stroke="#2c8c8c" stroke-width="2" x="216" y="480" width="118" height="42" rx="8" ry="8"/>
+  <text font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="17" font-weight="700"
+        x="275" y="506" text-anchor="middle">
+    <tspan fill="#94a3b8">t</tspan><tspan fill="#60a5fa">AI</tspan><tspan fill="#94a3b8">lor</tspan>
+  </text>
+
+  <!-- Output: line → "insight" label → green dot -->
+  <line stroke="#374151" stroke-width="0.9" x1="334" y1="501" x2="400" y2="501"/>
+  <text fill="#22c55e" font-family="SF Mono,Fira Code,Consolas,monospace"
+        font-size="12" x="340" y="491">"insight"</text>
+  <circle fill="#22c55e" cx="406" cy="501" r="6"/>
+
+  <!-- Input group labels — FIXED from "force"/"EMG" (health-domain) to generic data types -->
+  <text fill="#374151" font-family="SF Mono,Fira Code,Consolas,monospace"
+        font-size="11" x="44" y="551">.csv</text>
+  <text fill="#374151" font-family="SF Mono,Fira Code,Consolas,monospace"
+        font-size="11" x="44" y="565">.mat</text>
+
+  <!-- Panel divider -->
+  <line stroke="#1e2533" stroke-width="1" x1="645" y1="0" x2="645" y2="590"/>
+
+  <!-- ===== RIGHT PANEL (x: 660–1256) ===== -->
+
+  <!-- ===== TOP SECTION: RAW DATA → tAIlor → STRUCTURED OUT ===== -->
+  <rect fill="#0d1117" stroke="#1e2533" stroke-width="1"
+        x="660" y="26" width="600" height="204" rx="6" ry="6"/>
+
+  <!-- Section labels -->
+  <text fill="#374151" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="10" font-weight="700" letter-spacing="1.8" x="680" y="50">RAW DATA</text>
+  <text fill="#374151" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="10" font-weight="700" letter-spacing="1.8" x="1010" y="50">STRUCTURED OUT</text>
+
+  <!-- Raw data column — 8 dots representing unstructured records -->
+  <circle fill="#2d3748" cx="688" cy="82" r="4.5"/>
+  <circle fill="#2d3748" cx="688" cy="99" r="4.5"/>
+  <circle fill="#2d3748" cx="688" cy="116" r="4.5"/>
+  <circle fill="#2d3748" cx="688" cy="133" r="4.5"/>
+  <circle fill="#2d3748" cx="688" cy="150" r="4.5"/>
+  <circle fill="#2d3748" cx="688" cy="167" r="4.5"/>
+  <circle fill="#2d3748" cx="688" cy="184" r="4.5"/>
+  <circle fill="#2d3748" cx="688" cy="201" r="4.5"/>
+
+  <!-- Fan lines from raw data dots → tAIlor box -->
+  <line stroke="#2d3748" stroke-width="0.8" x1="693" y1="82"  x2="802" y2="117"/>
+  <line stroke="#2d3748" stroke-width="0.8" x1="693" y1="99"  x2="802" y2="120"/>
+  <line stroke="#2d3748" stroke-width="0.8" x1="693" y1="116" x2="802" y2="123"/>
+  <line stroke="#2d3748" stroke-width="0.8" x1="693" y1="133" x2="802" y2="126"/>
+  <line stroke="#2d3748" stroke-width="0.8" x1="693" y1="150" x2="802" y2="129"/>
+  <line stroke="#2d3748" stroke-width="0.8" x1="693" y1="167" x2="802" y2="132"/>
+  <line stroke="#2d3748" stroke-width="0.8" x1="693" y1="184" x2="802" y2="135"/>
+  <line stroke="#2d3748" stroke-width="0.8" x1="693" y1="201" x2="802" y2="138"/>
+
+  <!-- tAIlor center box (teal border) -->
+  <rect fill="#0c2020" stroke="#2c8c8c" stroke-width="2"
+        x="802" y="107" width="130" height="52" rx="10" ry="10"/>
+  <text font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="21" font-weight="800"
+        x="867" y="139" text-anchor="middle">
+    <tspan fill="#94a3b8">t</tspan><tspan fill="#60a5fa">AI</tspan><tspan fill="#94a3b8">lor</tspan>
+  </text>
+
+  <!-- Arrow line to JSON output -->
+  <line stroke="#2d3748" stroke-width="1" x1="932" y1="133" x2="984" y2="133"/>
+  <polygon fill="#2d3748" points="984,129 992,133 984,137"/>
+
+  <!-- Structured output — JSON preview box (green border) -->
+  <rect fill="#091409" stroke="#22c55e" stroke-width="1.5"
+        x="992" y="84" width="244" height="98" rx="6" ry="6"/>
+  <text fill="#22c55e" font-family="SF Mono,Fira Code,Consolas,monospace"
+        font-size="13" x="1008" y="113">"mean": 115.7,</text>
+  <text fill="#22c55e" font-family="SF Mono,Fira Code,Consolas,monospace"
+        font-size="13" x="1008" y="133">"trend": "stable",</text>
+  <text fill="#22c55e" font-family="SF Mono,Fira Code,Consolas,monospace"
+        font-size="13" x="1008" y="153">"flags": 0</text>
+
+  <!-- ===== MIDDLE SECTION: TOKEN EFFICIENCY | WARDROBE MEMORY ===== -->
+  <rect fill="#0d1117" stroke="#1e2533" stroke-width="1"
+        x="660" y="242" width="600" height="208" rx="6" ry="6"/>
+
+  <!-- TOKEN EFFICIENCY (left half) -->
+  <text fill="#374151" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="10" font-weight="700" letter-spacing="1.8" x="680" y="266">TOKEN EFFICIENCY</text>
+
+  <!-- Big token number -->
+  <text fill="#e2e8f0" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="62" font-weight="900" x="672" y="350">&#x7E;1,000x</text>
+
+  <!-- Subtext -->
+  <text fill="#4b5563" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="13" x="680" y="374">fewer tokens. every query.</text>
+  <!-- FIXED: was "from 5 real sessions" (misleading — these are benchmark measurements, not session logs) -->
+  <text fill="#374151" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="11" x="680" y="392">benchmark &#x2014; reproducible</text>
+
+  <!-- Vertical divider between TOKEN EFFICIENCY and WARDROBE MEMORY -->
+  <line stroke="#1e2533" stroke-width="1" x1="938" y1="250" x2="938" y2="442"/>
+
+  <!-- WARDROBE MEMORY (right half) -->
+  <text fill="#374151" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="10" font-weight="700" letter-spacing="1.8" x="956" y="266">WARDROBE MEMORY</text>
+
+  <!-- Legend -->
+  <circle fill="#22c55e" cx="960" cy="280" r="4"/>
+  <text fill="#4b5563" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="10" x="968" y="284">THEMES</text>
+  <circle fill="#f97316" cx="1026" cy="280" r="4"/>
+  <text fill="#4b5563" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="10" x="1034" y="284">COST</text>
+
+  <!-- Bar chart: baseline y=432; bars grow upward -->
+  <!-- Session 3 — small group -->
+  <rect fill="#f97316" x="974" y="394" width="22" height="38" rx="2"/>   <!-- COST bar -->
+  <rect fill="#22c55e" x="1000" y="374" width="22" height="58" rx="2"/>  <!-- THEMES bar -->
+  <text fill="#e2e8f0" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="12" font-weight="700" x="1000" y="367" text-anchor="middle">3</text>
+
+  <!-- Session 7 — medium group -->
+  <rect fill="#f97316" x="1072" y="372" width="22" height="60" rx="2"/>  <!-- COST bar -->
+  <rect fill="#22c55e" x="1098" y="346" width="22" height="86" rx="2"/>  <!-- THEMES bar -->
+  <text fill="#e2e8f0" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="12" font-weight="700" x="1098" y="339" text-anchor="middle">7</text>
+
+  <!-- Session 13 — tall group -->
+  <rect fill="#f97316" x="1170" y="350" width="22" height="82" rx="2"/>  <!-- COST bar -->
+  <rect fill="#22c55e" x="1196" y="314" width="22" height="118" rx="2"/> <!-- THEMES bar -->
+  <text fill="#e2e8f0" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="12" font-weight="700" x="1196" y="307" text-anchor="middle">13</text>
+
+  <!-- Dashed trend line through tops of THEMES bars -->
+  <polyline stroke="#22c55e" stroke-width="1.5" stroke-dasharray="5,3" fill="none"
+            points="1011,374 1109,346 1207,314"/>
+
+  <!-- Y-axis hint -->
+  <text fill="#374151" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="10" x="956" y="434">100%</text>
+
+  <!-- "builds on every session." callout -->
+  <text fill="#22c55e" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="11" font-weight="600" x="1250" y="442" text-anchor="end">builds on every session.</text>
+
+  <!-- ===== BOTTOM SECTION: DATA TYPE → tAIlor → AI PROVIDER ===== -->
+  <rect fill="#0d1117" stroke="#1e2533" stroke-width="1"
+        x="660" y="462" width="600" height="120" rx="6" ry="6"/>
+
+  <!-- DATA TYPE label -->
+  <text fill="#374151" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="10" font-weight="700" letter-spacing="1.8" x="680" y="484">DATA TYPE</text>
+
+  <!-- File type entries -->
+  <circle fill="#4b5563" cx="686" cy="506" r="3"/>
+  <text fill="#94a3b8" font-family="SF Mono,Fira Code,Consolas,monospace"
+        font-size="13" x="695" y="510">.csv</text>
+  <circle fill="#4b5563" cx="686" cy="525" r="3"/>
+  <text fill="#94a3b8" font-family="SF Mono,Fira Code,Consolas,monospace"
+        font-size="13" x="695" y="529">.json</text>
+  <circle fill="#4b5563" cx="686" cy="544" r="3"/>
+  <text fill="#94a3b8" font-family="SF Mono,Fira Code,Consolas,monospace"
+        font-size="13" x="695" y="548">.log</text>
+
+  <!-- Fan lines from data types → tAIlor box -->
+  <line stroke="#374151" stroke-width="0.8" x1="730" y1="506" x2="838" y2="516"/>
+  <line stroke="#374151" stroke-width="0.8" x1="742" y1="525" x2="838" y2="521"/>
+  <line stroke="#374151" stroke-width="0.8" x1="730" y1="544" x2="838" y2="526"/>
+
+  <!-- tAIlor box (orange border — matches RouterMCP/gateway role in this context) -->
+  <rect fill="#1a0e00" stroke="#f97316" stroke-width="2"
+        x="838" y="502" width="118" height="42" rx="8" ry="8"/>
+  <text font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="17" font-weight="700"
+        x="897" y="528" text-anchor="middle">
+    <tspan fill="#94a3b8">t</tspan><tspan fill="#60a5fa">AI</tspan><tspan fill="#94a3b8">lor</tspan>
+  </text>
+
+  <!-- Fan lines from tAIlor → AI providers -->
+  <line stroke="#22c55e" stroke-width="0.8" x1="956" y1="516" x2="984" y2="507"/>
+  <line stroke="#22c55e" stroke-width="0.8" x1="956" y1="523" x2="984" y2="524"/>
+  <line stroke="#22c55e" stroke-width="0.8" x1="956" y1="530" x2="984" y2="541"/>
+
+  <!-- AI PROVIDER label -->
+  <text fill="#374151" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="10" font-weight="700" letter-spacing="1.8" x="988" y="484">AI PROVIDER</text>
+
+  <!-- Provider list -->
+  <circle fill="#22c55e" cx="984" cy="507" r="4"/>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="13" x="994" y="511">Claude</text>
+  <circle fill="#22c55e" cx="984" cy="524" r="4"/>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="13" x="994" y="528">GPT-4</text>
+  <circle fill="#22c55e" cx="984" cy="541" r="4"/>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="13" x="994" y="545">any AI</text>
+
+  <!-- ===== BOTTOM BAR ===== -->
+  <rect fill="#0d1117" x="0" y="590" width="1280" height="50"/>
+  <!-- Orange top accent line -->
+  <line stroke="#f97316" stroke-width="2" x1="0" y1="590" x2="1280" y2="590"/>
+
+  <!-- Bottom bar text -->
+  <text fill="#4b5563" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="14" x="44" y="622">local-first. no cloud required.</text>
+  <text fill="#4b5563" font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="14" x="1236" y="622" text-anchor="end">tailor-mcp &#xB7; AGPL-3.0-or-later</text>
+</svg>

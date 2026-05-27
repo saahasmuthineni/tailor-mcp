@@ -1,0 +1,299 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 260" width="1200" height="260">
+  <defs>
+
+    <!-- ======= PATTERNS ======= -->
+    <pattern id="bn-dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle fill="#161b22" cx="1" cy="1" r="0.7"/>
+    </pattern>
+
+    <!-- ======= GRADIENTS ======= -->
+    <radialGradient id="bn-og" cx="20%" cy="50%" r="38%">
+      <stop offset="0%" stop-color="#f97316" stop-opacity="0.09"/>
+      <stop offset="100%" stop-color="#0d1117" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bn-rg" cx="90%" cy="50%" r="28%">
+      <stop offset="0%" stop-color="#f97316" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#0d1117" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bn-cg" cx="52%" cy="50%" r="22%">
+      <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#0d1117" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- ======= GLOW FILTER for 1¢ ======= -->
+    <filter id="gf" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- ======= CSS ANIMATIONS ======= -->
+    <style>
+      @keyframes fd  { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes dr  { to   { stroke-dashoffset: 0; } }
+      @keyframes gp  { 0%,100% { opacity: .28; } 50% { opacity: .72; } }
+
+      .a1  { animation: fd  .50s ease  .10s both; }
+      .a2  { animation: fd  .50s ease  .42s both; }
+      .a3  { animation: fd  .40s ease  .28s both; }
+      .a4  { animation: fd  .40s ease  .72s both; }
+      .a5  { animation: fd  .45s ease  .98s both; }
+      .a6  { animation: fd  .45s ease 1.10s both; }
+      .a7  { animation: fd  .45s ease 1.42s both; }
+      .a8  { animation: fd  .42s ease 1.72s both; }
+      .a9  { animation: fd  .48s ease 1.94s both; }
+      .agl { animation: gp  2.60s ease-in-out 2.40s infinite; }
+
+      /* Fan lines — all draw together */
+      .dl line {
+        stroke-dasharray: 220;
+        stroke-dashoffset: 220;
+        animation: dr .70s ease-out .55s both;
+      }
+      /* Output arrow */
+      .ao {
+        stroke-dasharray: 90;
+        stroke-dashoffset: 90;
+        animation: dr .45s ease-out 1.02s both;
+      }
+    </style>
+  </defs>
+
+  <!-- ======= BACKGROUND ======= -->
+  <rect fill="#0d1117" width="1200" height="260"/>
+  <rect fill="url(#bn-dots)" width="1200" height="260"/>
+  <rect fill="url(#bn-og)" width="1200" height="260"/>
+  <rect fill="url(#bn-rg)" width="1200" height="260"/>
+  <rect fill="url(#bn-cg)" width="1200" height="260"/>
+
+  <!-- Top accent bar (orange) -->
+  <rect fill="#f97316" x="0" y="0" width="1200" height="2.5"/>
+  <!-- Bottom dim line -->
+  <rect fill="#1e2533" x="0" y="257" width="1200" height="3"/>
+
+
+  <!-- ============================================================ -->
+  <!-- SECTION 1: IDENTITY  (x: 0 – 298)                           -->
+  <!-- ============================================================ -->
+
+  <!-- Logo + wordmark -->
+  <g class="a1">
+    <rect fill="#f97316" x="32" y="54" width="52" height="52" rx="9"/>
+    <text fill="#fff"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="30" font-weight="900"
+          x="58" y="89" text-anchor="middle">T</text>
+    <text font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="32" font-weight="800" x="98" y="92">
+      <tspan fill="#94a3b8">t</tspan><tspan fill="#60a5fa">AI</tspan><tspan fill="#94a3b8">lor</tspan>
+    </text>
+    <text fill="#374151"
+          font-family="SF Mono,Fira Code,Consolas,monospace"
+          font-size="11" x="32" y="120">tailor-mcp</text>
+  </g>
+
+  <!-- Tagline block -->
+  <g class="a2">
+    <text fill="#e2e8f0"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="14" font-weight="600" x="32" y="156">Your AI sees summaries,</text>
+    <text fill="#e2e8f0"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="14" font-weight="600" x="32" y="175">not raw data.</text>
+    <text fill="#64748b"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="11.5" x="32" y="197">Local · Audit-logged · Any MCP client.</text>
+    <!-- green dot -->
+    <circle fill="#22c55e" cx="44" cy="219" r="4.5"/>
+    <text fill="#94a3b8"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="11.5" x="57" y="223">nothing leaves your machine</text>
+  </g>
+
+  <!-- Divider 1 -->
+  <line stroke="#1e2533" stroke-width="1" x1="308" y1="16" x2="308" y2="244"/>
+
+
+  <!-- ============================================================ -->
+  <!-- SECTION 2: DATA PIPELINE  (x: 318 – 722)                    -->
+  <!-- ============================================================ -->
+
+  <text class="a3" fill="#374151"
+        font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="10" font-weight="700" letter-spacing="2.4" x="326" y="36">DATA PIPELINE</text>
+
+  <!-- Raw data bars -->
+  <g class="a3">
+    <rect fill="#1e2533" x="324" y="52" width="70" height="8"  rx="2"/>
+    <rect fill="#1e2533" x="324" y="65" width="52" height="8"  rx="2"/>
+    <rect fill="#1e2533" x="324" y="78" width="64" height="8"  rx="2"/>
+    <rect fill="#1e2533" x="324" y="91" width="46" height="8"  rx="2"/>
+    <rect fill="#1e2533" x="324" y="104" width="60" height="8" rx="2"/>
+    <rect fill="#1e2533" x="324" y="117" width="38" height="8" rx="2"/>
+    <rect fill="#1e2533" x="324" y="130" width="68" height="8" rx="2"/>
+    <rect fill="#1e2533" x="324" y="143" width="42" height="8" rx="2"/>
+
+    <text fill="#374151" font-family="SF Mono,Fira Code,Consolas,monospace"
+          font-size="9.5" x="324" y="166">.csv  ·  .mat  ·  redcap</text>
+    <text fill="#4b5563"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="9" x="324" y="179">~750,000 tokens raw</text>
+  </g>
+
+  <!-- Fan lines (animated) -->
+  <g class="dl">
+    <line stroke="#2d3748" stroke-width="0.9" x1="394" y1="56"  x2="472" y2="108"/>
+    <line stroke="#2d3748" stroke-width="0.9" x1="394" y1="69"  x2="472" y2="113"/>
+    <line stroke="#2d3748" stroke-width="0.9" x1="394" y1="82"  x2="472" y2="118"/>
+    <line stroke="#2d3748" stroke-width="0.9" x1="394" y1="95"  x2="472" y2="123"/>
+    <line stroke="#2d3748" stroke-width="0.9" x1="394" y1="108" x2="472" y2="128"/>
+    <line stroke="#2d3748" stroke-width="0.9" x1="394" y1="121" x2="472" y2="133"/>
+    <line stroke="#2d3748" stroke-width="0.9" x1="394" y1="134" x2="472" y2="138"/>
+    <line stroke="#2d3748" stroke-width="0.9" x1="394" y1="147" x2="472" y2="143"/>
+  </g>
+
+  <!-- tAIlor processing box -->
+  <g class="a4">
+    <!-- outer glow ring -->
+    <rect fill="none" stroke="#2c8c8c" stroke-width="4" stroke-opacity="0.22"
+          x="464" y="97" width="134" height="54" rx="13"/>
+    <!-- main box -->
+    <rect fill="#0c2020" stroke="#2c8c8c" stroke-width="2"
+          x="470" y="100" width="122" height="48" rx="10"/>
+    <text font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="21" font-weight="800"
+          x="531" y="130" text-anchor="middle">
+      <tspan fill="#94a3b8">t</tspan><tspan fill="#60a5fa">AI</tspan><tspan fill="#94a3b8">lor</tspan>
+    </text>
+  </g>
+
+  <!-- Output arrow + JSON summary box -->
+  <g class="a5">
+    <line class="ao" stroke="#22c55e" stroke-width="1.5"
+          x1="592" y1="124" x2="643" y2="124"/>
+    <polygon fill="#22c55e" points="640,119 650,124 640,129"/>
+
+    <!-- JSON output box -->
+    <rect fill="#091409" stroke="#22c55e" stroke-width="1.5"
+          x="654" y="87" width="58" height="76" rx="6"/>
+    <text fill="#22c55e" font-family="SF Mono,Fira Code,Consolas,monospace"
+          font-size="8.5" x="661" y="108">"mean":</text>
+    <text fill="#22c55e" font-family="SF Mono,Fira Code,Consolas,monospace"
+          font-size="8.5" x="661" y="120">115.7,</text>
+    <text fill="#22c55e" font-family="SF Mono,Fira Code,Consolas,monospace"
+          font-size="8.5" x="661" y="132">"trend":</text>
+    <text fill="#22c55e" font-family="SF Mono,Fira Code,Consolas,monospace"
+          font-size="8.5" x="661" y="144">"stable"</text>
+    <text fill="#22c55e" font-family="SF Mono,Fira Code,Consolas,monospace"
+          font-size="8.5" x="661" y="156">"flags":0</text>
+
+    <!-- ~800 token label -->
+    <text fill="#22c55e"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="9" x="651" y="80">~800 tokens</text>
+  </g>
+
+  <!-- Feature tags row -->
+  <g class="a5">
+    <rect fill="#0c1a2e" stroke="#1e4070" stroke-width="1"
+          x="324" y="198" width="80" height="20" rx="4"/>
+    <text fill="#60a5fa"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="9" x="364" y="212" text-anchor="middle">audit logged</text>
+
+    <rect fill="#0c1a10" stroke="#1a3a20" stroke-width="1"
+          x="414" y="198" width="88" height="20" rx="4"/>
+    <text fill="#22c55e"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="9" x="458" y="212" text-anchor="middle">PHI scrubbed</text>
+
+    <rect fill="#1a1208" stroke="#3a2a08" stroke-width="1"
+          x="512" y="198" width="90" height="20" rx="4"/>
+    <text fill="#f97316"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="9" x="557" y="212" text-anchor="middle">reproducible</text>
+
+    <rect fill="#0c1a2e" stroke="#1e4070" stroke-width="1"
+          x="612" y="198" width="96" height="20" rx="4"/>
+    <text fill="#60a5fa"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="9" x="660" y="212" text-anchor="middle">tiered consent</text>
+  </g>
+
+  <!-- Divider 2 -->
+  <line stroke="#1e2533" stroke-width="1" x1="730" y1="16" x2="730" y2="244"/>
+
+
+  <!-- ============================================================ -->
+  <!-- SECTION 3: TOKEN EFFICIENCY  (x: 740 – 976)                 -->
+  <!-- ============================================================ -->
+
+  <text class="a6" fill="#374151"
+        font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="10" font-weight="700" letter-spacing="2.4" x="748" y="36">TOKEN EFFICIENCY</text>
+
+  <!-- 657× stat -->
+  <g class="a6">
+    <text fill="#f97316"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="52" font-weight="900" x="742" y="108">657×</text>
+    <text fill="#64748b"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="10.5" x="748" y="124">fewer tokens · single subject</text>
+  </g>
+
+  <!-- 938× stat -->
+  <g class="a7">
+    <text fill="#0ea5e9"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="52" font-weight="900" x="742" y="182">938×</text>
+    <text fill="#64748b"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="10.5" x="748" y="198">fewer tokens · 16-subject cohort</text>
+    <text fill="#374151"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="9" x="748" y="222">measured · reproducible benchmark</text>
+  </g>
+
+  <!-- Divider 3 -->
+  <line stroke="#1e2533" stroke-width="1" x1="982" y1="16" x2="982" y2="244"/>
+
+
+  <!-- ============================================================ -->
+  <!-- SECTION 4: COST  (x: 992 – 1196)                            -->
+  <!-- ============================================================ -->
+
+  <text class="a8" fill="#374151"
+        font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="10" font-weight="700" letter-spacing="2.4" x="1002" y="36">COST</text>
+
+  <!-- $10 strikethrough -->
+  <g class="a8">
+    <text fill="#4b5563"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="26" font-weight="700" x="1002" y="80">$10</text>
+    <line stroke="#f97316" stroke-width="3.5" x1="998" y1="65" x2="1062" y2="65"/>
+    <text fill="#4b5563"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="10.5" x="1002" y="98">per session</text>
+  </g>
+
+  <!-- 1¢ — glow layer (pulsing) -->
+  <text class="agl" fill="#f97316" fill-opacity="0.38"
+        font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+        font-size="94" font-weight="900"
+        x="994" y="210" filter="url(#gf)">1¢</text>
+
+  <!-- 1¢ — sharp layer -->
+  <g class="a9">
+    <text fill="#f97316"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="94" font-weight="900" x="994" y="210">1¢</text>
+    <text fill="#94a3b8"
+          font-family="-apple-system,Segoe UI,system-ui,sans-serif"
+          font-size="10.5" x="1002" y="230">1,000× cheaper · measured</text>
+  </g>
+
+</svg>

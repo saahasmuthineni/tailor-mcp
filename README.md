@@ -1,36 +1,37 @@
 <p align="center">
-  <img src="docs/assets/tailor-social-preview.png" alt="tailor-mcp — local data preprocessing for AI" width="100%"/>
+  <img src="docs/assets/tailor-banner.svg" alt="tailor-mcp — local data preprocessing for AI" width="100%"/>
+</p>
+
+<p align="center">
+  <a href="https://github.com/saahasmuthineni/tailor-mcp/actions/workflows/ci.yml"><img src="https://github.com/saahasmuthineni/tailor-mcp/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
+  <img src="https://img.shields.io/badge/cost-1¢%2Fsession-f97316?style=flat&labelColor=0d1117" alt="1¢/session"/>
+  <img src="https://img.shields.io/badge/token%20reduction-938×-f97316?style=flat&labelColor=0d1117" alt="938× fewer tokens"/>
+  <img src="https://img.shields.io/badge/data-local--first-22c55e?style=flat&labelColor=0d1117" alt="local-first"/>
+  <img src="https://img.shields.io/badge/AI-Claude%20%7C%20GPT--4%20%7C%20any-0ea5e9?style=flat&labelColor=0d1117" alt="Claude | GPT-4 | any AI"/>
+  <a href="https://pypi.org/project/tailor-mcp/"><img src="https://img.shields.io/pypi/v/tailor-mcp.svg" alt="PyPI version"/></a>
+  <a href="https://pypi.org/project/tailor-mcp/"><img src="https://img.shields.io/pypi/pyversions/tailor-mcp.svg" alt="Python versions"/></a>
+  <a href="https://pypi.org/project/tailor-mcp/"><img src="https://img.shields.io/pypi/l/tailor-mcp.svg" alt="License"/></a>
 </p>
 
 # tailor-mcp
 
 **Tailor** is a local MCP server that preprocesses your structured data before it reaches the AI — computations run on your machine, results come back as summaries rather than raw streams, and every action is logged to a local SQLite audit database. Analytical notes persist in an Obsidian-compatible vault, surviving session boundaries. It works with any structured source: CSV directories, force-plate recordings, REDCap exports, running data, or anything you register.
 
-**657×–938× fewer tokens per query** (Tier 1 computed report vs Tier 3 raw stream). **318× reduction in session-persistence overhead.**
-
-*Sending raw CSV to Claude instead of a Tailor summary costs 657× more tokens on a single subject, and 938× more on a 16-subject cohort — at that scale the raw file doesn't even fit in Claude's context window. Picking up a 5-session thread from scratch costs ~$57.90; retrieving the same context from Tailor's vault costs ~$0.04. [Measured, reproducible benchmark →](benchmarks/token_efficiency.md)*
-
-[![CI](https://github.com/saahasmuthineni/tailor-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/saahasmuthineni/tailor-mcp/actions/workflows/ci.yml)
-[![PyPI version](https://img.shields.io/pypi/v/tailor-mcp.svg)](https://pypi.org/project/tailor-mcp/)
-[![Python versions](https://img.shields.io/pypi/pyversions/tailor-mcp.svg)](https://pypi.org/project/tailor-mcp/)
-[![Platforms](https://img.shields.io/badge/platforms-Ubuntu%20%7C%20macOS%20%7C%20Windows-blue)](#status)
-[![License](https://img.shields.io/pypi/l/tailor-mcp.svg)](https://pypi.org/project/tailor-mcp/)
-
 > 📦 [PyPI](https://pypi.org/project/tailor-mcp/) · [Worked example notebook](docs/guides/worked-example.ipynb) · [ADRs](docs/adr/) · [Changelog](CHANGELOG.md)
 
 ---
 
-## Who it's for
+## The numbers
 
-**Good fit:**
-- RSEs and researchers building LLM-assisted analysis pipelines where data governance, audit trails, or reproducibility matter
-- Teams integrating structured data sources with Claude Desktop or other MCP-compliant clients and wanting server-side computation over raw-data prompts
-- Anyone who needs a local-first setup — no data leaves the machine
+| Scenario | Raw to Claude | Through Tailor | Reduction |
+|---|---|---|---|
+| Single subject, computed report | ~526,000 tokens | ~800 tokens | **657×** |
+| 16-subject cohort | exceeds context window | ~800 tokens | **938×** (and it fits) |
+| 5-session thread pickup | ~$57.90 | ~$0.04 | **1,448×** |
 
-**Not a good fit:**
-- Clinical decision-support or regulatory-compliance deployments — Tailor is research infrastructure, not a validated clinical tool
-- Hosted or cloud workflows — the architecture is deliberately local-first
-- Projects requiring an independent security audit — this is a solo-maintainer project with no external review yet
+*Measured, reproducible benchmark — [methodology →](benchmarks/token_efficiency.md)*
+
+The 938× reduction is the ratio between a Tier-1 computed report (~800 tokens) and the raw per-second stream for the same data (~750,000 tokens for a 15-mile run). Results are identical — the computation happens server-side.
 
 ---
 
@@ -61,6 +62,20 @@ tailor pilot
 > *Are men or women losing strength faster in this cohort?*
 
 Claude will call a tool, run the computation locally, and return per-group statistics. Nothing leaves your machine.
+
+---
+
+## Who it's for
+
+**Good fit:**
+- RSEs and researchers building LLM-assisted analysis pipelines where data governance, audit trails, or reproducibility matter
+- Teams integrating structured data sources with Claude Desktop or other MCP-compliant clients and wanting server-side computation over raw-data prompts
+- Anyone who needs a local-first setup — no data leaves the machine
+
+**Not a good fit:**
+- Clinical decision-support or regulatory-compliance deployments — Tailor is research infrastructure, not a validated clinical tool
+- Hosted or cloud workflows — the architecture is deliberately local-first
+- Projects requiring an independent security audit — this is a solo-maintainer project with no external review yet
 
 ---
 

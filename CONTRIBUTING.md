@@ -1,5 +1,7 @@
 # Contributing
 
+> **A note on authorship.** This project is maintained by a solo non-technical founder working with Claude and close friends. The architecture is intentional, the test suite is real, and the design decisions are documented in the ADRs — but code reviews, bug reports, and technical scrutiny are especially welcome given that context. If something looks wrong, it may well be.
+
 Thanks for considering a contribution. This project is a governance-aware middleware layer that sits between structured data sources and LLMs; PRs are welcome for bug fixes, additional child MCPs (e.g. Notion exports, CSV directories, custom structured data), docs, and test coverage.
 
 ## Quick start

@@ -13,6 +13,7 @@
 [![CI](https://github.com/saahasmuthineni/tailor-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/saahasmuthineni/tailor-mcp/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/tailor-mcp.svg)](https://pypi.org/project/tailor-mcp/)
 [![Python versions](https://img.shields.io/pypi/pyversions/tailor-mcp.svg)](https://pypi.org/project/tailor-mcp/)
+[![Platforms](https://img.shields.io/badge/platforms-Ubuntu%20%7C%20macOS%20%7C%20Windows-blue)](#status)
 [![License](https://img.shields.io/pypi/l/tailor-mcp.svg)](https://pypi.org/project/tailor-mcp/)
 
 > 📦 [PyPI](https://pypi.org/project/tailor-mcp/) · [Worked example notebook](docs/guides/worked-example.ipynb) · [ADRs](docs/adr/) · [Changelog](CHANGELOG.md)

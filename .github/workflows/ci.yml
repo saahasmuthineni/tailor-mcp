@@ -8,13 +8,20 @@ on:
 
 jobs:
   test:
-    name: ruff + pytest (${{ matrix.os }}, py${{ matrix.python-version }})
+    name: ruff + pytest (${{ matrix.os-name }}, py${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.10", "3.11", "3.12"]
+        include:
+          - os: ubuntu-latest
+            os-name: Ubuntu
+          - os: windows-latest
+            os-name: Windows
+          - os: macos-latest
+            os-name: macOS
 
     steps:
       - uses: actions/checkout@v4

@@ -10,17 +10,18 @@
 
   <!-- Card 1: Install -->
   <rect fill="#ffffff" stroke="#e5e7eb" stroke-width="1" x="16" y="64" width="224" height="146" rx="10" ry="10"/>
-  <text fill="#1a1a1a" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="12" font-weight="600" x="128" y="88" text-anchor="middle">One-Command Install</text>
+  <text fill="#1a1a1a" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="12" font-weight="600" x="128" y="88" text-anchor="middle">Two-Command Setup</text>
   <line stroke="#f3f4f6" stroke-width="1" x1="32" y1="96" x2="224" y2="96"/>
   <!-- Terminal mockup -->
   <rect fill="#1e1e2e" x="32" y="104" width="192" height="44" rx="6" ry="6"/>
   <text fill="#a6e3a1" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="42" y="120">$</text>
-  <text fill="#cdd6f4" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="52" y="120">curl -sSL ... | bash</text>
-  <text fill="#6c7086" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="42" y="138">Restart Claude Desktop.</text>
+  <text fill="#cdd6f4" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="52" y="120">uv tool install tailor-mcp</text>
+  <text fill="#a6e3a1" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="42" y="138">$</text>
+  <text fill="#cdd6f4" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="52" y="138">tailor pilot</text>
   <!-- Subtext -->
-  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="128" y="168" text-anchor="middle">Sets up venv, configures Claude</text>
-  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="128" y="182" text-anchor="middle">Desktop, runs OAuth. Done.</text>
-  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="128" y="200" text-anchor="middle">Python 3.10+ is the only prereq.</text>
+  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="128" y="168" text-anchor="middle">3-prompt wizard registers with</text>
+  <text fill="#6b7280" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="128" y="182" text-anchor="middle">Claude Desktop. Done.</text>
+  <text fill="#059669" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" font-weight="600" x="128" y="200" text-anchor="middle">uv + Claude Desktop are the only prereqs.</text>
 
   <!-- Card 2: What's on disk -->
   <rect fill="#ffffff" stroke="#e5e7eb" stroke-width="1" x="248" y="64" width="224" height="146" rx="10" ry="10"/>
@@ -31,7 +32,7 @@
   <text fill="#6b7280" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="388" y="116">525 KB</text>
   <text fill="#1a1a1a" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="264" y="134">SQLite databases</text>
   <text fill="#6b7280" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="388" y="134">~3 MB</text>
-  <text fill="#1a1a1a" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="264" y="152">Vault notes (50 runs)</text>
+  <text fill="#1a1a1a" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="264" y="152">Vault notes (50 sessions)</text>
   <text fill="#6b7280" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="388" y="152">~75 KB</text>
   <line stroke="#f3f4f6" stroke-width="1" x1="264" y1="162" x2="456" y2="162"/>
   <text fill="#1a1a1a" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" font-weight="600" x="264" y="180">Total (3 months)</text>
@@ -83,5 +84,5 @@
   <text fill="#9ca3af" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" x="360" y="342" text-anchor="middle">Stops when Claude Desktop closes. No orphan processes.</text>
 
   <!-- Footnote -->
-  <text fill="#9ca3af" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" x="360" y="362" text-anchor="middle">*Strava OAuth token is managed by the install wizard and auto-refreshes. 3 runtime deps: mcp, orjson, requests.</text>
+  <text fill="#9ca3af" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" x="360" y="362" text-anchor="middle">*CSV, MATLAB, and REDCap children need no API key. Strava child requires an OAuth token (optional worked example). 3 runtime deps: mcp, orjson, requests.</text>
 </svg>

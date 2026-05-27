@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/tailor-social-preview.png" alt="tailor-mcp — local data preprocessing for AI" width="100%"/>
+</p>
+
 # tailor-mcp
 
 **Tailor** is a local MCP server that sits between any MCP-capable client and your structured data, computing analysis server-side and returning only the numbers — not raw streams. It enforces tiered data access, audit-logs every LLM action to a local SQLite database, and persists analytical notes across sessions in an Obsidian-compatible markdown vault. The architecture is domain-agnostic: the same framework handles running data, force-plate CSVs, EMG envelopes, or any structured time-series source.
@@ -51,6 +55,10 @@ Tailor is middleware, not an application. It does not provide a UI, a database, 
 
 The running-data (Strava) child ships as a worked example of the ChildMCP extension pattern, not as the headline use case. The same framework handles any data source you register.
 
+<p align="center">
+  <img src="docs/assets/footprint.svg" alt="No Docker, no databases, no cloud — one install command, ~4 MB on disk" width="100%"/>
+</p>
+
 ---
 
 ## Who it's for
@@ -78,6 +86,10 @@ Every tool in every child declares a tier. The router enforces each gate before 
 | **3 — Cost** | Full per-timestamp streams with precision reduction | 25,000 – 60,000 | Consent + cost approval |
 
 Most analytical questions are answerable at Tier 1. The 938× token reduction is the ratio between a Tier-1 computed report (~800 tokens) and the raw per-second stream for the same data (~750,000 tokens for a 15-mile run). Results are identical — the computation happens server-side.
+
+<p align="center">
+  <img src="docs/assets/vault-insights.svg" alt="Analytical reasoning compounds across sessions — 8 notes at ~6,400 tokens vs ~544,000 to re-process raw (85× cheaper)" width="100%"/>
+</p>
 
 ---
 

@@ -29,7 +29,7 @@ from tailor.children.strong_motion.parser import (
 )
 from tailor.children.strong_motion.processing import StrongMotionProcessing
 
-from ._synth import make_v1_text
+from ._synth import make_real_shaped_v1, make_v1_text
 
 # The Phase-0 reference: raw PGA of Northridge Tarzana channel-1 (90°).
 REFERENCE_PGA_G = 1.927
@@ -113,6 +113,36 @@ class TestParseRefusal:
         with pytest.raises(ParseRefusalError) as excinfo:
             parse_v1_text("random non-seismic content\n")
         assert "COSMOS V1" in str(excinfo.value)
+
+
+class TestRealShapedFormat:
+    """Network-free guard on the REAL CESMD V1 structure.
+
+    Replicates what real-file validation (TARZANA.RAW) confirmed: a text
+    header, a width-5 integer block, a width-10 float block, multiple
+    concatenated channels with END-OF-DATA separators, and a
+    'NO. OF POINTS = N' count line (not the synthetic 'N points of
+    acceleration' marker).
+    """
+
+    def test_skips_header_blocks_and_reads_channel_1_only(self):
+        ch1 = [0.0, 0.5, 1.927, -0.8, 0.3, -1.5, 0.2, 0.1]  # peak 1.927
+        ch2 = [0.0, 0.2, -0.4, 0.5, -0.1]                    # peak 0.5
+        rec = parse_v1_text(make_real_shaped_v1(ch1, ch2, dt=0.005))
+
+        assert rec.channel == 1
+        assert rec.azimuth == 90
+        assert rec.npts == len(ch1)  # channel 1 only, stopped at separator
+        # PGA is channel 1's peak (1.927), not channel 2's (0.5) — proves
+        # the integer/float header blocks were skipped and the channel
+        # separator halted the read.
+        pga = StrongMotionProcessing.peak_acceleration_g(rec.accel_g)
+        assert pga == pytest.approx(1.927, abs=1e-6)
+
+    def test_no_of_points_count_line_is_parsed(self):
+        ch1 = [0.0, 0.1, 0.2, 0.3]
+        rec = parse_v1_text(make_real_shaped_v1(ch1, [0.0, 0.1], dt=0.01))
+        assert rec.npts == 4
 
 
 class TestParseFile:

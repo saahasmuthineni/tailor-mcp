@@ -26,16 +26,26 @@ the real file in the Phase-2 notebook):
   the field and can touch its neighbour). Splitting on whitespace
   silently corrupts the trace; slice at width 7 instead.
 * **Interleaved time/accel pairs.** Data fields alternate
-  ``time, accel, time, accel, …`` in reading order across all data
+  ``time, accel, time, accel, …`` in reading order across the data
   lines. Even-indexed fields are times (seconds), odd-indexed are
   accelerations (G/10). The sample interval ``dt`` is recovered from
   the time column.
+* **Header blocks + multiple channels.** The real CESMD file interposes
+  an integer header block (width-5 fields) and a float header block
+  (width-10 fields) between the text header and the data, and
+  concatenates all three channels in one file (each with its own
+  header + ``----- END OF DATA FOR CHANNEL N -----`` separator). The
+  data block is therefore found *structurally* — the first run of lines
+  that slice cleanly into width-7 floats with a strictly-increasing time
+  column starting near 0 — not by a marker keyword. Reading stops at the
+  channel separator, so a parse returns channel 1 (the 90° horizontal
+  that carries the 1.927 g reference peak).
 
 Refusal (mirrors the MATLAB child's HDF5 magic-byte guard, inverted):
 if the bytes/header do not match the COSMOS V1 shape — binary content,
-a missing header signature, or no acceleration data section — the
-parser raises :class:`ParseRefusalError` with a message naming what was
-expected, rather than returning a plausible-looking but wrong number.
+a missing header signature, or no fixed-width acceleration data block —
+the parser raises :class:`ParseRefusalError` with a message naming what
+was expected, rather than returning a plausible-looking but wrong number.
 """
 
 from __future__ import annotations
@@ -66,12 +76,14 @@ COSMOS_V1_HEADER_TOKENS = (
     "raw acceleration",
 )
 
-# A line declaring the acceleration-point count, e.g.
-# "5001 points of acceleration data" or "5001 acceleration pts".
-# The captured integer is the number of (time, accel) pairs.
-_DATA_MARKER = re.compile(
-    r"(\d+)\s+(?:points?\s+of\s+)?accel\w*(?:\s+(?:data|pts|points))?",
-    re.IGNORECASE,
+# Patterns that declare the acceleration-point count. The real CESMD
+# header uses "NO. OF POINTS = 12107"; synthetic fixtures may use
+# "<N> points of acceleration data". The captured integer is the number
+# of (time, accel) pairs in one channel's data block. Optional — when
+# absent, the structural data-block scan determines the count.
+_NPTS_PATTERNS = (
+    re.compile(r"no\.?\s+of\s+points\s*=?\s*(\d+)", re.IGNORECASE),
+    re.compile(r"(\d+)\s+points?\s+of\s+accel", re.IGNORECASE),
 )
 
 # Bytes that mark a non-V1 binary file we refuse up front, before any
@@ -135,23 +147,58 @@ def _extract_int(lines: list[str], pattern: str) -> int | None:
     return None
 
 
-def _slice_fields(line: str) -> list[float]:
-    """Slice a data line into ``FIELD_WIDTH``-char fields, float each.
+def _extract_npts(lines: list[str]) -> int | None:
+    """First declared acceleration-point count, or ``None`` if absent."""
+    for line in lines[:HEADER_SCAN_LINES]:
+        for rx in _NPTS_PATTERNS:
+            m = rx.search(line)
+            if m:
+                try:
+                    return int(m.group(1))
+                except (ValueError, IndexError):
+                    continue
+    return None
 
-    Non-empty fields that fail to parse are skipped (tolerates the
-    occasional stray character without corrupting the trace); blank
-    fields are ignored. A line with no numeric fields returns ``[]``.
+
+def _try_data_line(line: str) -> list[float] | None:
+    """Parse a line as a strict fixed-width data line, or ``None``.
+
+    A data line is sliced into ``FIELD_WIDTH``-char fields, EVERY one of
+    which must parse as a float (any non-numeric chunk disqualifies the
+    whole line), with an even field count >= 2 (interleaved time/accel
+    pairs). This strictness is what lets the structural data-block scan
+    skip the COSMOS header's integer block (width-5 fields) and float
+    block (width-10 fields): sliced at 7 they yield chunks with interior
+    spaces or a bare ``.`` that fail ``float()``.
     """
-    out: list[float] = []
-    for i in range(0, len(line), FIELD_WIDTH):
-        chunk = line[i:i + FIELD_WIDTH].strip()
+    stripped = line.rstrip()
+    if not stripped:
+        return None
+    vals: list[float] = []
+    for i in range(0, len(stripped), FIELD_WIDTH):
+        chunk = stripped[i:i + FIELD_WIDTH].strip()
         if not chunk:
             continue
         try:
-            out.append(float(chunk))
+            vals.append(float(chunk))
         except ValueError:
-            continue
-    return out
+            return None
+    if len(vals) < 2 or len(vals) % 2 != 0:
+        return None
+    return vals
+
+
+def _is_data_block_start(vals: list[float]) -> bool:
+    """True if ``vals`` looks like the first line of the data block.
+
+    Discriminates real data from any header line that happens to slice
+    into clean floats: the time column (even-indexed fields) must be
+    strictly increasing and start near the record origin (t0 < 1 s).
+    """
+    times = vals[0::2]
+    if abs(times[0]) >= 1.0:
+        return False
+    return all(times[i] < times[i + 1] for i in range(len(times) - 1))
 
 
 def parse_v1_text(text: str) -> StrongMotionRecord:
@@ -168,39 +215,43 @@ def parse_v1_text(text: str) -> StrongMotionRecord:
             "in the first header lines)."
         )
 
-    # Locate the acceleration-data marker line; everything after it is
-    # the fixed-width data section. The integer it carries is npts (the
-    # number of time/accel pairs).
-    marker_idx: int | None = None
-    declared_npts: int | None = None
-    for idx, line in enumerate(lines[:HEADER_SCAN_LINES]):
-        m = _DATA_MARKER.search(line)
-        if m:
-            marker_idx = idx
-            try:
-                declared_npts = int(m.group(1))
-            except (ValueError, IndexError):
-                declared_npts = None
+    declared_npts = _extract_npts(lines)
+
+    # Locate the start of the data block structurally. The CESMD V1 file
+    # interposes an integer header block (width-5 fields) and a float
+    # header block (width-10 fields) between the text header and the
+    # data; neither survives strict width-7 float slicing, so the first
+    # line that both parses cleanly AND has a strictly-increasing time
+    # column starting near 0 is the data start.
+    data_start: int | None = None
+    for idx, line in enumerate(lines):
+        vals = _try_data_line(line)
+        if vals is not None and _is_data_block_start(vals):
+            data_start = idx
             break
-    if marker_idx is None:
+    if data_start is None:
         raise ParseRefusalError(
-            "COSMOS V1 header recognized but no acceleration-data section "
-            "found (expected a line like '<N> points of acceleration data')."
+            "COSMOS V1 header recognized but no acceleration-data block "
+            "found (no fixed-width time/accel section with an increasing "
+            "time column)."
         )
 
-    # Flatten every numeric field from the data lines in reading order.
+    # Collect the first contiguous run of data lines. The run ends at the
+    # first non-data line — for the real multi-channel file that is the
+    # '----- END OF DATA FOR CHANNEL 1 -----' separator, so we read only
+    # channel 1 (the 90-deg horizontal). npts is a belt-and-suspenders cap.
     fields: list[float] = []
-    for line in lines[marker_idx + 1:]:
-        parsed = _slice_fields(line)
-        if not parsed and fields:
-            # First all-non-numeric line after data has begun: treat as
-            # a footer / trailer and stop.
+    for line in lines[data_start:]:
+        vals = _try_data_line(line)
+        if vals is None:
             break
-        fields.extend(parsed)
+        fields.extend(vals)
+        if declared_npts and len(fields) >= 2 * declared_npts:
+            break
 
     if len(fields) < 2:
         raise ParseRefusalError(
-            "COSMOS V1 data section contained no parseable time/accel pairs."
+            "COSMOS V1 data block contained no parseable time/accel pairs."
         )
 
     n_pairs = len(fields) // 2
@@ -218,8 +269,10 @@ def parse_v1_text(text: str) -> StrongMotionRecord:
         dt=dt,
         npts=n_pairs,
         station=_extract_station(lines),
-        channel=_extract_int(lines, r"chan(?:nel)?\.?\s*[:#]?\s*(\d+)"),
-        azimuth=_extract_int(lines, r"azimuth\s*[:#]?\s*(\d+)"),
+        # Real header: "CHAN  1:  90 DEG". Channel from the CHAN token;
+        # azimuth from the "<N> DEG" degree marker on the same line.
+        channel=_extract_int(lines, r"chan(?:nel)?\.?\s*(\d+)"),
+        azimuth=_extract_int(lines, r"(\d+)\s*deg"),
         units_note="raw values are G/10; divided by 10 to report g",
     )
 
@@ -241,7 +294,15 @@ def _derive_dt(times_s: list[float]) -> float:
 
 
 def _extract_station(lines: list[str]) -> str:
-    """Best-effort station label from the first non-empty header line."""
+    """Best-effort station label.
+
+    Prefers a header line naming the station (the real CESMD header has
+    'STATION NO. 24436  34.160N, 118.534W ...'); falls back to the first
+    non-empty line for synthetic fixtures that lead with the station name.
+    """
+    for line in lines[:HEADER_SCAN_LINES]:
+        if "station" in line.lower() and line.strip():
+            return line.strip()[:120]
     for line in lines[:HEADER_SCAN_LINES]:
         stripped = line.strip()
         if stripped:

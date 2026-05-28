@@ -25,7 +25,7 @@
 
 | Scenario | Raw to Claude | Through Tailor | Reduction |
 |---|---|---|---|
-| Single subject, computed report | ~526,000 tokens | ~800 tokens | **657×** |
+| Single subject, computed report | 48,006 tokens | 73 tokens | **657×** |
 | 16-subject cohort | exceeds context window | ~800 tokens | **938×** (and it fits) |
 | 5-session thread pickup | ~$57.90 | ~$0.04 | **1,448×** |
 

@@ -1,80 +1,107 @@
-# Tailor — your AI works with your data, on your machine
+# tailor-mcp
 
-**Tailor is a personal AI server with research-grade trust.** A local-first framework that lets any MCP-speaking AI (Claude Desktop, Cline, Cursor, or a local model via Ollama) work with your own data — without that data leaving your machine. Every action your AI takes gets recorded in a durable audit log; every result is stamped for reproducibility.
+**Local data preprocessing for AI — structured summaries, governed access, auditable answers.**
 
-**It also turns a $200/month AI bill into a $2/month one — and makes the AI materially better at your question.** Most analytical questions resolve to a server-computed summary instead of a raw-stream dump (*return the answer, not the data*). Daily workflows that would burn hundreds of dollars a month against a hosted LLM run for single digits through Tailor, because the AI's context window goes to reasoning over your question and your prior work instead of shuffling streams it would have to re-aggregate itself.
+Pasting raw data into an LLM is expensive, often produces worse answers (the model spends capacity extracting numbers from text instead of reasoning), and at scale is simply impossible. A 16-subject force-plate cohort comparison is **769,311 tokens** of CSV — that **exceeds Claude's 200K context window**. You cannot ask the question at all without chunking, streaming, or some other orchestration workaround.
 
-**The same architecture works on whatever shape your data is already in.** Directories of per-subject CSVs, MATLAB binary exports, and REDCap exports are the three child shapes shipped end-to-end today; EDF sleep recordings, vendor sensor exports, and FHIR bundles fit the same `ChildMCP` extension point — a runnable template child is the starting point, and your data source inherits the full governance pipeline (tier model, audit, scrubber seam, Wardrobe). What works for CSV works for anything you wrap, and the same 10-100× cost-per-question collapse applies regardless of shape.
+Tailor computes the answer on your machine and returns **820 tokens**. The result is identical; the question becomes answerable in a single call. Your data never leaves your machine, and every action is recorded in a local SQLite audit log.
 
-Today the worked-out recipe is health research — *the first recipe shipped end-to-end, not the platform's identity*. Future recipes (knowledge work, quantified self, household, creative archives) compose on the same engine.
+Tailor is a local MCP server that sits between an LLM client (Claude Desktop, Cline, Cursor, or a local model via Ollama) and any structured source: directories of per-subject CSVs, MATLAB binary exports, REDCap exports, running data, or anything you register through a small extension point.
 
-Your **Wardrobe** is what Tailor governs on your behalf: the structured collection of your data and prior analytical work that lives entirely on your machine. *Not clothes — your stuff.* Your Wardrobe accumulates themes (questions you keep returning to), moments (observations worth remembering), evidence (data that grounds your themes), audit history (every action your AI took on your behalf), and the source data itself. Tailor curates your Wardrobe — adds to it, retrieves from it, governs how the AI reaches into it — and never sends any of it to a service you didn't choose.
+## The numbers
+
+Measured, reproducible benchmark — force-plate cohort fixtures, `tiktoken cl100k_base`:
+
+| Scenario | Raw → LLM | Through Tailor | Reduction |
+|---|---:|---:|---:|
+| Single analytical question, 1 subject | 48,006 tokens | 73 tokens | **657×** |
+| 16-subject cohort comparison | 769,311 tokens *(exceeds the 200K window)* | 820 tokens | **938×** |
+| Resuming a 5-session analytical thread | 771,743 tokens | 2,427 tokens | **318×** |
+
+Results are identical to processing the raw stream — the computation happens server-side. Over a 5-session analytical thread at Claude Sonnet 4.6 input pricing, that difference is roughly **$11.58 vs $0.04**.
+
+Full methodology, assumptions, and a prompt-caching counter-factual:
+<https://github.com/saahasmuthineni/tailor-mcp/blob/main/benchmarks/token_efficiency.md>
 
 ## Install
 
+**Prerequisites:**
+
+1. [Claude Desktop](https://claude.ai/download) (Windows: Microsoft Store; macOS: claude.ai/download)
+2. [uv](https://docs.astral.sh/uv/getting-started/installation/) — the installer Tailor uses:
+
+   ```
+   # Windows (PowerShell)
+   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+   # macOS / Linux
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+**Install and run:**
+
 ```
 uv tool install tailor-mcp
+tailor pilot
 ```
 
-Bootstrap your first project with `tailor pilot` (multi-source setup wizard — CSV / MATLAB / REDCap; also registers Claude Desktop). Then ask Claude in the Desktop app to walk you through Tailor or scaffold the bundled HIP Lab demo — both flows moved into MCP tools in v8.0.0 per ADR 0040 so terminal-averse recipients drive them conversationally rather than from the command line. No data leaves your machine at any point. The bundled HIP Lab CSV fixtures (`S001`–`S016`) shipped inside the wheel are synthetic by construction — random-walk traces sized to mimic real cohort shapes, not real participant data.
+`tailor pilot` runs a short setup wizard, registers Tailor with Claude Desktop, and configures your first data source (CSV / MATLAB / REDCap). Fully quit and reopen Claude Desktop (system-tray Exit on Windows; Cmd+Q on macOS), then ask a question about your data — Claude calls a tool, the computation runs locally, and you get back per-group statistics. Nothing leaves your machine.
 
-## Architecture
+The bundled demo fixtures (`S001`–`S016`) are synthetic by construction — random-walk traces sized to mimic real cohort shapes, not real participant data.
+
+## How it works
 
 ```
 LLM client <--> RouterMCP (validate -> circuit break -> consent -> cost
-                           -> execute -> PHI scrub -> audit + provenance)
-                   |                  \           \
-              ChildMCP                  VaultLayer  LocalLLMLayer
-   (one per data source                 (reorientation  (local-LLM
-    e.g. CSV directory,                  tier;           guardian; opt-in
-    Strava API, FHIR bundle)             Obsidian        via user_config)
-                                         vault + index)
+                           -> execute -> scrub -> audit + provenance)
+                   |                  \            \
+              ChildMCP                 VaultLayer    LocalLLMLayer
+   (one per data source:               (cross-session  (optional local-LLM
+    CSV dir, MATLAB, REDCap,           analytical       guardian; opt-in)
+    running data, your own)            memory)
 ```
 
-Children ship in the framework today:
-
-- **csv_dir** — wrap a local directory of per-subject CSV files; 7 tools (file detail, summary report, cohort summary, force decline, downsampled stream, raw stream, file list)
-- **matlab_file** — wrap a local directory of MATLAB `.mat` binary exports (v5/v6/v7.2 only per ADR 0036; HDF5-based v7.3 deferred); 6 tools across 3 tiers including cohort summary. Shipped v7.2.0. Requires the `[matlab]` optional extra: `pip install tailor-mcp[matlab]`
-- **redcap** — wrap a local directory of REDCap CSV/JSON exports plus the `project_metadata.csv` data dictionary; 6 tools across 3 tiers including cohort summary. Built-in PHI scrubbing via `RedcapPHIScrubber` reading `identifier=yes/no` flags from the data dictionary (child-level seam parallel to ADR 0003 § Amendment 2026-05-14). Shipped v7.3.0 per ADR 0037. Stdlib-only, no optional extra
-- **running** — Strava API wrapper as a worked example; 12 tools across pace, heart rate, GPS, run reports, trend reports
-- **template** — runnable starting point for new data sources; copy + rename to wrap your own data
+Every tool call passes through a server-side pipeline the LLM cannot bypass: parameter validation, a circuit breaker, a per-domain consent gate, a token cost gate, a PHI/sensitive-data scrubber seam (no-op by default; subclass per child for institutional policy), and an audit log. Every successful result carries a `_meta` provenance stamp — package version, UTC timestamp, domain, tier, scrubber id, token counts — minimum-viable provenance for results that may end up in a report or paper.
 
 ## Three-tier access model
 
-Tailor enforces data minimization server-side, not in the AI's prompt:
+Data minimization is enforced server-side, not in the prompt. The LLM cannot escalate to higher-resolution data without explicit user approval.
 
-| Tier | What the AI sees | Gate |
-|---|---|---|
-| 1 — Free | Server-computed reports (splits, cohort summaries, decline metrics) | None |
-| 2 — Consent | Downsampled streams (5–30s intervals) | Per-domain biometric consent |
-| 3 — Cost | Per-timestamp streams | Consent + cost approval |
+| Tier | What the LLM sees | Typical tokens | Gate |
+|------|-------------------|---------------|------|
+| **1 — Free** | Server-computed reports: summaries, stats, trends, anomalies | 200 – 1,500 | None |
+| **2 — Consent** | Downsampled streams at 5–30 s resolution | 3,000 – 7,000 | Domain consent |
+| **3 — Cost** | Full per-timestamp streams with precision reduction | 25,000 – 60,000 | Consent + cost approval |
 
-Most analytical questions resolve at Tier 1 — zero raw biometric data leaves the machine, and the AI's context goes to reasoning rather than to data shuffling.
+Most analytical questions resolve at Tier 1 — zero raw data leaves the machine, and the freed context goes to reasoning rather than data shuffling.
 
-## Security pipeline
+## Data sources shipped today
 
-Every tool call passes through six layers, cheapest first:
+- **csv_dir** — a local directory of per-subject CSV files; cohort summary + a force-decline fatigue diagnostic
+- **matlab_file** — MATLAB `.mat` binary exports (v5/v6/v7.2; requires the `[matlab]` extra)
+- **redcap** — REDCap CSV/JSON exports with built-in PHI scrubbing driven by the `project_metadata.csv` data dictionary
+- **running** — a Strava API wrapper, shipped as a worked example of the extension pattern, not as the headline use case
+- **template** — a runnable starting point: copy, rename, wrap your own source
 
-1. **Parameter validation** — type/range/pattern, reject before any work
-2. **Circuit breaker** — block domain after 3 consecutive failures
-3. **Consent gate** — per-domain biometric consent, revocable
-4. **Cost gate** — pre-estimate tokens before execution
-5. **PHI scrubber** — institutional PHI-stripping seam (no-op default; subclass per child)
-6. **Audit log + token ledger** — every call logged to SQLite
+Adding a source means copying `children/template/` and implementing five things (`domain` / `display_name`, `consent_info`, `tool_definitions` with tiers, `execute()`, `estimate_cost()`); your source inherits the full governance pipeline. `children/csv_dir/` is a complete second worked example.
 
-Every successful result also carries a `_meta` block stamped with package version, tool name, UTC timestamp, domain, tier, scrubber identifier, and token counts — minimum-viable provenance for results that may end up in a paper.
+## Who it's for
 
-## Problems Tailor is built against
+**Good fit:** researchers and RSEs building LLM-assisted analysis where data governance, audit trails, or reproducibility matter; teams wiring structured sources into Claude Desktop or any MCP client and wanting server-side computation over raw-data prompts; anyone who needs a local-first setup.
 
-1. **Data governance.** Hosted LLMs are the wrong home for sensitive participant data. The tier model and local-first processing are the structural response.
-2. **Reproducibility.** LLM-assisted analyses in chat windows leave no durable trace. The audit log and `_meta` provenance stamps make every result traceable.
-3. **Longitudinal analytical memory.** Observations made in one session disappear when the chat ends. The Wardrobe (themes, moments, evidence, append-only) is the response.
-4. **AI economics.** Tier-1 server-side computation — *return the answer, not the data* — is simultaneously a cost lever (token-per-question collapses by 1–2 orders of magnitude on most analytical questions) and a cognition lever (freed context goes to reasoning over the analyst's prior work, not to data shuffling). The same architectural choice that satisfies the data-governance problem also makes the AI materially better at the question and reduces cost-per-question by 10–100×.
+**Not a good fit:** clinical decision-support or regulatory-compliance deployments (this is research infrastructure, not a validated clinical tool); hosted/cloud workflows (the architecture is deliberately local-first); projects requiring an independent security audit (solo-maintainer project, no external review yet).
 
-## Where to read more
+## Status
 
-The project landing page at <https://saahasmuthineni.github.io/tailor-mcp-landing/> describes the project's stage and audience. The source repository is currently in invited evaluation; full design documentation (35 numbered ADRs, design notes, roadmap) is private until Tailor completes its first beachhead deployment with a research lab.
+Validated on **Windows 11** (Microsoft Store Claude Desktop) and **macOS**. Cross-client round-trip confirmed with Cline; any MCP-compliant client works without bespoke accommodation. CI matrix: Ubuntu · Windows · macOS × Python 3.10–3.12. Community validation is ongoing — issues and reports welcome.
 
----
+## Project
 
-Built by Saahas Muthineni. If you received this URL personally and have questions, reply through whatever channel he sent it through.
+- **Source code:** <https://github.com/saahasmuthineni/tailor-mcp>
+- **Benchmark methodology:** <https://github.com/saahasmuthineni/tailor-mcp/blob/main/benchmarks/token_efficiency.md>
+- **Architecture Decision Records:** <https://github.com/saahasmuthineni/tailor-mcp/tree/main/docs/adr>
+- **Issues:** <https://github.com/saahasmuthineni/tailor-mcp/issues>
+
+## License
+
+AGPL-3.0-or-later (v9.0.0 onward; releases through v8.0.0 remain Apache-2.0 for prior recipients). For local-first use — the framework's primary deployment shape — the AGPL network-trigger clause rarely fires, so it adds minimal friction for individual researchers and institutional installs. It exists as a structural lever against extractive cloud reuse: a hosted "Tailor as a service" fork must publish its modifications.

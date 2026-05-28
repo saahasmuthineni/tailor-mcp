@@ -226,6 +226,86 @@ Audit log is now LLM-queryable.
 - **PyPI publish at v7.4.0** — `tailor-mcp` 7.4.0 live on PyPI;
   colleague-outreach authorized.
 
+## [7.3.4] — 2026-05-16
+
+Phase 2 first-time-user setup pass — first end-to-end pass. The 2026-05-16 first real outside-recipient walkthrough (Windows + Claude Desktop, non-technical friend) produced five findings that drove four scope-shape escalations. Every ship-blocker closed before any code was written. Partial closure of ADR 0038 (vault layer is data-source-agnostic) on the demo hot path; full structural sweep deferred to v7.4.0.
+
+### Fixed
+
+- **Cohort thesis hot path (D1 + D1-companion).** `_extract_timestamps` in `force_csv/child.py` and `emg_csv/child.py` gains float-seconds fallback for bundled HIP Lab 100 Hz fixtures. Handler key-mismatch (`decline_pct` vs `decline_pct_total`) closed; wire-verified peak and mean force values correct.
+- **Vault layer de-Strava — F3 closure.** `_handle_fitness_summary`, `renderer.py` conditional Weekly Summary section, and `_infer_note_type` (`snapshot.md` → `"snapshot"` kind) updated. Vault layer is now data-source-agnostic on the demo hot path.
+
+### Changed
+
+- **API parity (D2).** `force_cohort_summary` + `emg_cohort_summary` parameter renamed `group_field` → `group_by` across ToolDefinition, param_schema, handler, and result-dict key. No deprecation alias per the pre-outreach timing window.
+- **`cost_threshold` operator-configurable** from `user_config.json` (default `35_000` preserved; backwards-compatible). `tailor fitting-room` scaffold writes `cost_threshold: 15000` so the cost gate fires demonstrably on bundled fixtures.
+- **Recipient ergonomics.** README gains per-OS `uv install` one-liner table. Fitting-room banner reshaped: single "Next step" leads, three science-shaped prompts, paths demoted to labelled "Files & locations" block; regenerate-warning added.
+- **Schema description sweeps (D5, D6, D7).** `value_column`, `group_by`, and `SUBJECT_ID_PARAM_DOC` gain literal examples and semantic distinctions (biosensor-tier audit-only vs vault-tier filter per ADR 0009).
+
+### Added
+
+- **Bundled `snapshot.md` fixture** ships in the wheel under `_fixtures/hip_lab_demo_realistic/vault/`, including a "## Token cost shape" section with wire-audit-verified tier numbers.
+- **AI-economics demonstration (ADR 0029 Option B).** Fifth banner prompt + "## Token cost shape" in `snapshot.md` ground the AI-economics claim in audit-verified numbers.
+- **ADR 0038 (NEW, Proposed)** — "vault layer is data-source-agnostic" structural invariant. v7.3.4 ships partial closure (demo hot path); v7.4.0 ships the full sweep.
+- **21 net-new tests** in `tests/test_v734_demo_readiness.py`.
+
+## [7.3.3] — 2026-05-15
+
+Closes the two red-team BORDER NOTES deferred from v7.3.2. Both addressed under a single structural argument — typed-exception taxonomy — rather than two point-fixes.
+
+### Added
+
+- **`OperatorActionRequired` marker class** (`framework.security`, co-located with `CircuitBreaker`). Constructor takes a keyword-only `recovery_action: str` argument validated as non-empty at construction; misclassification is a loud constructor error rather than a silent runtime defeat.
+- **ADR 0003 § Amendment 2026-05-15 § Typed-exception taxonomy** ratifies the contract; reversal condition named.
+
+### Fixed
+
+- **Router breaker exemption at both dispatch sites (B1).** `isinstance(e, OperatorActionRequired)` check added at both `_dispatch` and `dispatch_internal` handlers. Audit row still records `outcome=ERROR` with full v7.3.1 W5 invariant kwargs. The initial plan named only the public dispatch site; proposal-mode audit caught the internal-path miss.
+- **`RedcapMetadataFingerprintMismatch` reparented to `OperatorActionRequired`** with `recovery_action="tailor redcap reattest"`. v7.3.2 invariants preserved verbatim.
+- **Drop defensive try/except in `_detect_fingerprint_mismatch` (B2).** The proposed narrowing to `(OSError, ValueError, ...)` was a no-op — `_load_metadata` already swallows those classes internally. Dropped entirely; future signature changes propagate rather than silently disabling mismatch detection.
+- **Pipe-buffer stall path closed (F-G).** On Windows, ~8 `OperatorActionRequired` events fill the 4 KB OS pipe buffer, stall the server, and swallow the recovery hint. Fix: silence the router's logger output entirely on the exempt path — audit row + wire envelope already carry the full event and recovery hint. Two T8 regression tests lock closure.
+- **31 net-new tests** (16 in `test_v733_operator_action_required.py`, 14 in `test_serve_v733_wire_audit.py`, 1 in `test_redcap_shape.py`).
+
+## [7.3.2] — 2026-05-15
+
+Closes the two remaining v7.3.0 WATCH findings deferred from v7.3.1: (a) `project_metadata.csv` trust-root attestation seam and (c) small-cell suppression for aggregate count surfaces. Both land as framework seams rather than per-child policies, matching ADR 0003's structural argument.
+
+### Added
+
+- **Trust-root fingerprint primitive.** `RedcapPHIScrubber.fingerprint` computes SHA-256 over a canonical-form rendering of sorted `(field_name, identifier_flag)` tuples. BOM/CRLF/whitespace round-trips do NOT trip; flag flips and field additions/removals DO.
+- **`audit_log.source_metadata_fingerprint TEXT` column** + `idx_audit_source_metadata_fingerprint` index. Domain-agnostic naming so future EDF / FHIR / vendor-sensor children inherit the seam without column renames. `ALTER TABLE` migration on legacy audit DBs.
+- **Fingerprint threaded across 19 audit-call sites + 5 `_meta` blocks.** `ChildMCP.child_source_metadata_fingerprint` interface property added (default `None`); `RedcapFileChild` overrides; no breaking change for other children.
+- **`RedcapFileChild` fingerprint-mismatch detection at `execute()`.** Re-reads `project_metadata.csv` on every call; on drift returns typed `REDCAP_METADATA_FINGERPRINT_MISMATCH` error envelope pointing operator at `tailor redcap reattest`. Forward-only policy per ADR 0003 § Amendment 2026-05-15.
+- **`tailor redcap reattest` CLI subcommand.** Prints cached + new fingerprints and a sorted field-by-field trust-root listing. On `y`, writes a `REATTEST` audit row.
+- **Small-cell suppression.** `RedcapProcessing.apply_small_cell_suppression_to_top_values`, `…_to_groups`, and `…_to_completion_counts` static helpers. Below-threshold entries collapse into a sentinel. Default k=5 (HHS SDL baseline); configurable via `redcap_file.small_cell_suppression_threshold`; validated ≥ 2 at config-load time.
+- **`small_cell_suppression_threshold` + `small_cell_warning`** surfaced in every result envelope where suppression was applied.
+- **ADR 0003 § Amendment 2026-05-15 (NEW)** — reversal condition named (promote to `ChildMCP` abstract method on third domain using the seam).
+- **49+ net-new tests** (fingerprint/canonical-state, small-cell processing, mismatch detection, reattest CLI).
+
+### Fixed
+
+- **(F-A)** `cmd_redcap_reattest` was hand-rolling a raw `sqlite3.INSERT`, leaving `scrubber_id` NULL on `REATTEST` rows. Rewrote to use `AuditLog.record()`.
+- **(F-B)** Mismatch path returned a dict-with-error-key rather than raising; audit row was stamped `outcome="SUCCESS"`. Switched to raising typed `RedcapMetadataFingerprintMismatch`.
+- **(F-C)** `completion_counts` (`{instrument: count}`) was left unsuppressed despite `top_values` and cohort `groups` being suppressed.
+- **(F-F / W5)** Audit-record-site invariant test rewritten from textual-window scan to AST-based detection (`ast.walk` on `self._audit.record()` call nodes, inspecting only `node.keywords`). Enforcement class is now AST-class; textual-adjacency false-positives that fooled v7.3.1 cannot recur.
+
+## [7.3.1] — 2026-05-15
+
+Bug-hunt followup patch + structural gate-composition closure. Closes three VIOLATION-class defects and four HIGH findings from a seven-specialist max-depth audit against v7.3.0, plus a fifth defect surfaced by adversarial pairing on this banner's draft. Two VIOLATIONs were direct falsifications of v7.3.0 banner claims — documented as second-pass catches.
+
+### Fixed
+
+- **Banner-claim falsification 1 (IRB-stakes).** v7.3.0 claimed `child_scrubber_id` was threaded into all failure rows. Five consent-handler audit-record sites (`framework/router.py:1281, 1334, 1359, 1395, 1401`) were missed. On a REDCap deployment, consent-revocation audit rows — the highest-leverage IRB events — silently recorded `child_scrubber_id` as NULL. All five sites corrected; five unit tests + wire-side verifier `TestW3ConsentAuditRowsThreadChildScrubberId`.
+- **Banner-claim falsification 2.** A malformed `redcap_file` block (missing required `path` key) caused `tailor serve` to exit rc=1, taking down the entire server (running + csv_dir + vault + local_llm). `__main__.py` registration wrapped in try/except mirroring the MATLAB pattern. Subprocess regression test + `TestW4MisconfiguredRedcapBoots`.
+- **PHI Safe Harbor surface reduction.** 11 `redcap/child.py` error-envelope sites and 3 `redcap/scrubber.py` warning sites swap raw-path interpolation for `<configured_redcap_path>` placeholders. Full paths retained in stderr `log.warning` only (HIPAA Safe Harbor §164.514(b)(2)(i)(B + R)).
+- **`setup_help/__init__.py:221` typo** — `"redcap_export"` → `"redcap_file"`. Closed an inverse-v6.10.2 trap where `SetupHelpLayer` fired on working REDCap deployments.
+- **REDCap child added to `vault_writer._registered` list** — closing the v7.3.0 asymmetry where vaultable_tools were collected for every child except REDCap.
+
+### Added
+
+- **`child_scrubber_id` surfaced in `_meta`** across all five dispatch paths (child dispatch, vault layer, local_llm layer, setup_help layer, dispatch_internal). Wire-output shape uniform across all paths.
+- **Structural gate-composition closure (option 2).** `phi-irb-risk-reviewer` prompt extended with mandatory "Step 1.5 — All-call-sites sweep on new invariants": when a diff adds a new `audit_log` column, `_meta` field, or `ChildMCP` property, every existing call site must be verified.
+- **50 net-new tests** (1137 prior → 1187); 18 wire-level regression tests in `tests/test_serve_v731_wire_audit.py`.
 ## [7.3.0] — 2026-05-14
 
 REDCap existence-proof child + child-level PHI scrubber seam.
@@ -267,6 +347,14 @@ MATLAB existence-proof child as the second non-CSV source axis.
   dep (`pip install tailor-mcp[matlab]`). v7.3 HDF5-based `.mat` is
   detected via magic bytes and rejected with a typed-error envelope.
 
+## [7.1.1] — 2026-05-14
+
+Source-agnostic framework claim. Documentation and internal structural language formalised to reflect that the framework is not specific to any data domain — the running (Strava) child and CSV biometric children are deployment recipes, not the platform's identity. This claim is the named milestone that the MATLAB child (v7.2.0) and REDCap child (v7.3.0) demonstrate in code.
+
+### Changed
+
+- **Framework framing** updated in `CLAUDE.md`, module docstrings, and `ChildMCP`/`children` docstrings to reflect data-source-agnostic architecture.
+- **`docs/design/` updated** to platform framing consistent with the v5.0.0/v7.0.0 research-shift and rename.
 ## [7.1.0] — 2026-05-14
 
 CLI rename to match recipient-experience naming principle.
@@ -292,6 +380,71 @@ CLI rename to match recipient-experience naming principle.
   surfaces" section names walkthrough + fitting-room with etymology
   and naming principle.
 
+## [7.0.13] — 2026-05-13
+
+PyPI publish. The `tailor-mcp` package is live on PyPI; the canonical install path switches from hand-delivered wheel to `uv tool install tailor-mcp`. Unbundles the PyPI publish decision (tooling question: YES) from the repo public-flip decision (audience question: NOT YET), per ROADMAP Phase 2.
+
+### Added
+
+- **`tailor-mcp` published to PyPI.** `uv tool install tailor-mcp` is the install command. Any recipient with PyPI access can now install without a back-channel.
+- **PyPI/public-flip decoupled from repo public-flip.** The repo remains private under the three-condition public-flip trigger (held item, ROADMAP § Held).
+
+## [7.0.10] — 2026-05-12
+
+README install-command update pass. Phase 1 closed — all four Phase 1 housekeeping deliverables have now landed (GitHub repo rename v7.0.6, `tailor migrate` retired v7.0.9, README updated v7.0.10). Phase 2 (public-launch readiness) unblocks.
+
+### Changed
+
+- **README install commands** updated to reflect the Phase 0–proven install path. Six framing callouts and table rows revised; four `#phase-0--install-path-validation` anchors repointed to `#at-a-glance`; ADR count refreshed 31 → 34.
+
+## [7.0.9] — 2026-05-12
+
+Retire `tailor migrate` subcommand. The v6 user population was empirically zero; the migrate path was over-engineered scaffolding for a migration no external recipient ever needed.
+
+### Removed (breaking)
+
+- **`tailor migrate` subcommand** hard-removed. No deprecation shim; no external machine ever held a v6 install state.
+- **Startup migration warning** (stderr line when `~/.biosensor-mcp/` exists and `~/.tailor/` is absent) also retired.
+
+### Added
+
+- **ADR 0034** — rationale for removal; reversal condition named (promote back if a real v6 user is discovered).
+
+## [7.0.8] — 2026-05-12
+
+Phase 0 closure under lenient read of exit criterion. The 2026-05-12 macOS install — a friend ran the wheel install and `tailor tour` on their own Mac, with the project author watching but not touching the machine — satisfied the lenient read. The strict read (two fully unassisted outside-recipient installs on different OSes) remains open and is being satisfied opportunistically. Phase 1 work unblocks per the project author's call.
+
+### Changed
+
+- **CLAUDE.md banner updated.** v7.0.8 banner documents Phase 0 lenient-read closure; v7.0.0 banner retained intact as historical record (banner-stacking convention, established v6.11.1).
+
+## [7.0.6] — 2026-05-10
+
+Retire public-mirror distribution channel + GitHub repo rename (`Biosensor-to-LLM-Connector` → `tailor-mcp`) as a doc-truth pass.
+
+### Removed
+
+- **Public-mirror distribution channel retired** per ADR 0032. The hand-delivered GitHub URL wheel method is the sole distribution path until the PyPI publish at v7.0.13.
+
+### Changed
+
+- **GitHub repo renamed** from `Biosensor-to-LLM-Connector` to `tailor-mcp`. GitHub auto-redirect preserves existing clones. Closes ADR 0031 § Negative consequences "repo name still carries old identity" known-debt entry.
+
+### Added
+
+- **ADR 0032** — retire public-mirror rationale; reversal condition named.
+
+## [7.0.4] — 2026-05-09
+
+Install-path diagnosis — PATCH-not-RESTRUCTURE verdict. A 2026-05-09 self-driven diagnosis on a fresh `tailor-recipient` user account (Windows, Microsoft Store Claude Desktop) confirmed: the existing `uv tool install + tailor tour + Claude Desktop restart` ritual is achievable for non-developer recipients with targeted patches. A single-binary executable, Docker container, or one-shot installer is not required.
+
+### Fixed
+
+- **Windows install friction points** logged and resolved during the diagnosis pass. Specific findings documented in CLAUDE.md v7.0.4 banner (cp1252 encoding, dual-path Claude Desktop config, sibling-entry cleanup, Microsoft Store sandbox paths).
+
+### Changed
+
+- **Phase 0 PATCH verdict recorded.** Restructure shape (PyInstaller / Nuitka, Docker, one-shot installer) explicitly deferred as not load-bearing for Phase 0 exit.
 ## [7.0.0] — 2026-05-08
 
 Project rename: `Biosensor MCP` → **Tailor** (per [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md)).

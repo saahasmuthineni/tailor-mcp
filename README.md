@@ -10,6 +10,7 @@
   <a href="https://pypi.org/project/tailor-mcp/"><img src="https://img.shields.io/pypi/v/tailor-mcp.svg" alt="PyPI version"/></a>
   <a href="https://pypi.org/project/tailor-mcp/"><img src="https://img.shields.io/pypi/pyversions/tailor-mcp.svg" alt="Python versions"/></a>
   <a href="https://pypi.org/project/tailor-mcp/"><img src="https://img.shields.io/pypi/l/tailor-mcp.svg" alt="License"/></a>
+  <a href="https://github.com/saahasmuthineni/tailor-mcp/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/saahasmuthineni/tailor-mcp/ci.yml?style=flat&labelColor=0d1117&label=CI" alt="CI"/></a>
 </p>
 
 # tailor-mcp

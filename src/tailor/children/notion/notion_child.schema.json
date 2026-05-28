@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org",
+  "title": "NotionChildMCPSchema",
+  "type": "object",
+  "properties": {
+    "status": { "type": "string" },
+    "total_files_found": { "type": "integer" },
+    "export_type": { "type": "string" }
+  },
+  "required": ["status", "total_files_found"]
+}

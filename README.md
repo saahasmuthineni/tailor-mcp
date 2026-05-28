@@ -3,7 +3,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/saahasmuthineni/tailor-mcp/actions/workflows/ci.yml"><img src="https://github.com/saahasmuthineni/tailor-mcp/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
   <img src="https://img.shields.io/badge/per%20penny-~1000x%20more-f97316?style=flat&labelColor=0d1117" alt="~1000x more per penny"/>
   <img src="https://img.shields.io/badge/tokens-318x%20less-f97316?style=flat&labelColor=0d1117" alt="318x less tokens"/>
   <img src="https://img.shields.io/badge/data-local--first-22c55e?style=flat&labelColor=0d1117" alt="local-first"/>
@@ -147,10 +146,10 @@ Validated on **Windows 11** (Microsoft Store Claude Desktop) and **macOS**. Comm
 
 Cross-client compatibility confirmed: Cline 3.85.0 round-trip with full `_meta` block and matching audit row (v8.0.0, 2026-05-26). Any MCP-compliant client works without bespoke accommodation.
 
-CI matrix: Ubuntu · Windows · macOS × Python 3.10–3.12. 795 tests (pytest + standalone security probe). Coverage floor 80%.
+CI matrix: Ubuntu · Windows · macOS × Python 3.10–3.12. 1,588 tests (pytest + standalone security probe). Coverage floor 80%.
 
 ---
 
 ## License
 
-Apache-2.0 (≤ v7.x) · AGPL-3.0 (v8.0.0+)
+Apache-2.0 (≤ v8.x) · AGPL-3.0 (v9.0.0+)

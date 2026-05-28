@@ -1,0 +1,124 @@
+"""
+Parser tests for the COSMOS V1 strong-motion reader.
+
+Covers the three behaviours the parser exists to guarantee:
+
+* **Happy path** — a synthetic V1 record round-trips through the
+  fixed-width slicer + G/10 conversion, and the recovered peak matches
+  the constructed value (the Phase-0 spike's Northridge Tarzana
+  channel-1 reference is 1.927 g; here we reproduce it from synthetic
+  bytes rather than a real download — ADR 0042).
+* **Typed parse refusal** — non-V1 input (plain text, binary/HDF5, a
+  header with no data section) raises ``ParseRefusalError``, mirroring
+  the MATLAB child's HDF5 magic-byte guard.
+* **Format gotchas** — fixed-width 7-char slicing (not whitespace
+  split) and dt recovery from the time column.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from tailor.children.strong_motion.parser import (
+    FIELD_WIDTH,
+    ParseRefusalError,
+    parse_v1_file,
+    parse_v1_text,
+)
+from tailor.children.strong_motion.processing import StrongMotionProcessing
+
+from ._synth import make_v1_text
+
+# The Phase-0 reference: raw PGA of Northridge Tarzana channel-1 (90°).
+REFERENCE_PGA_G = 1.927
+
+
+class TestHappyPath:
+    def test_parses_synthetic_record_and_pga_matches_reference(self):
+        accel_g = [0.10, -0.50, 1.20, REFERENCE_PGA_G, -0.80, 0.30, -1.50, 0.05]
+        rec = parse_v1_text(make_v1_text(accel_g, dt=0.01))
+
+        assert rec.npts == len(accel_g)
+        assert rec.dt == pytest.approx(0.01)
+        assert rec.channel == 1
+        assert rec.azimuth == 90
+
+        pga = StrongMotionProcessing.peak_acceleration_g(rec.accel_g)
+        assert pga == pytest.approx(REFERENCE_PGA_G, abs=1e-6)
+
+    def test_units_are_converted_from_g_over_10(self):
+        # A single 19.27 G/10 sample must come back as 1.927 g.
+        rec = parse_v1_text(make_v1_text([1.927, 0.0, -0.5], dt=0.02))
+        assert max(abs(v) for v in rec.accel_g) == pytest.approx(1.927, abs=1e-6)
+        assert "G/10" in rec.units_note or "g" in rec.units_note
+
+    def test_dt_recovered_from_time_column(self):
+        rec = parse_v1_text(make_v1_text([0.1, 0.2, 0.3, 0.4], dt=0.005))
+        assert rec.dt == pytest.approx(0.005)
+        assert rec.times_s[0] == pytest.approx(0.0)
+        assert rec.times_s[1] == pytest.approx(0.005)
+
+
+class TestFixedWidthSlicing:
+    def test_adjacent_negative_values_not_split_on_whitespace(self):
+        # A run of negatives packs 7-char fields that touch with no
+        # separating space; whitespace-splitting would mis-count them.
+        accel_g = [-1.234, -2.345, -3.456, -4.567]
+        text = make_v1_text(accel_g, dt=0.01, pairs_per_line=4)
+        rec = parse_v1_text(text)
+        assert rec.npts == 4
+        # All four negatives recovered in order — packed 7-char fields
+        # (-12.340 etc. in G/10) touch with no separating space, so
+        # whitespace-splitting would mis-parse them.
+        assert rec.accel_g == pytest.approx(accel_g)
+
+    def test_field_width_is_seven(self):
+        assert FIELD_WIDTH == 7
+
+
+class TestParseRefusal:
+    def test_plain_text_is_refused(self):
+        with pytest.raises(ParseRefusalError):
+            parse_v1_text(
+                "hello world\nthis is just a plain text file\n"
+                "it has no seismic header at all\n"
+            )
+
+    def test_csv_like_input_is_refused(self):
+        with pytest.raises(ParseRefusalError):
+            parse_v1_text("time,accel\n0.0,0.1\n0.01,0.2\n0.02,0.3\n")
+
+    def test_header_without_data_section_is_refused(self):
+        # Carries the V1 signature but no acceleration-data marker.
+        text = (
+            "STATION X\n"
+            "COSMOS V1 UNCORRECTED ACCELERATION RECORD\n"
+            "CHANNEL 1 AZIMUTH 90\n"
+            "ACCELERATION UNITS: G/10\n"
+        )
+        with pytest.raises(ParseRefusalError):
+            parse_v1_text(text)
+
+    def test_binary_hdf5_file_is_refused(self, tmp_path: Path):
+        # An HDF5 `.mat` v7.3 file dropped in the records dir must be
+        # refused before any text decode — mirrors the MATLAB guard.
+        blob = tmp_path / "v73.v1"
+        blob.write_bytes(b"\x89HDF\r\n\x1a\n" + b"\x00" * 256)
+        with pytest.raises(ParseRefusalError):
+            parse_v1_file(blob)
+
+    def test_refusal_message_names_the_expectation(self):
+        with pytest.raises(ParseRefusalError) as excinfo:
+            parse_v1_text("random non-seismic content\n")
+        assert "COSMOS V1" in str(excinfo.value)
+
+
+class TestParseFile:
+    def test_round_trips_through_disk(self, tmp_path: Path):
+        path = tmp_path / "record_a.v1"
+        path.write_text(make_v1_text([0.0, 1.0, 1.927, -0.5], dt=0.01), encoding="utf-8")
+        rec = parse_v1_file(path)
+        assert rec.npts == 4
+        assert max(abs(v) for v in rec.accel_g) == pytest.approx(1.927, abs=1e-6)

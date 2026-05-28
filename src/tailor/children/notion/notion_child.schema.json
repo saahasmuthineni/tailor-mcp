@@ -1,5 +1,5 @@
 {
-  "$schema": "http://json-schema.org",
+  "$schema": "https://json-schema.org",
   "title": "NotionChildMCPSchema",
   "type": "object",
   "properties": {

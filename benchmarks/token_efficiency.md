@@ -221,7 +221,7 @@ hypothesis to candidate finding):
 At Claude Sonnet 4.6 input pricing ($3 / million input tokens, no
 caching):
 
-- Baseline: ~$11.58 per resume × 5 = **~$57.90** just on the input
+- Baseline: ~$2.32 per resume × 5 = **~$11.58** just on the input
   side (output tokens extra)
 - Tailor: ~$0.0073 per resume × 5 = **~$0.04** input-side
 

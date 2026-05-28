@@ -26,7 +26,7 @@
 |---|---|---|---|
 | Single subject, computed report | 48,006 tokens | 73 tokens | **657×** |
 | 16-subject cohort | exceeds context window | ~800 tokens | **938×** (and it fits) |
-| 5-session thread pickup | ~$57.90 | ~$0.04 | **1,448×** |
+| 5-session thread pickup | ~$11.58 | ~$0.04 | **318×** |
 
 *Measured, reproducible benchmark — [methodology →](benchmarks/token_efficiency.md)*
 

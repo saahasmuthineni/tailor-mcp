@@ -627,6 +627,11 @@ src/tailor/
       child.py             # RedcapFileChild(ChildMCP) — 6 tools, 3 tiers
       processing.py        # RedcapProcessing — stateless analytics
       scrubber.py          # RedcapPHIScrubber — child-level structured-PHI seam (ADR 0003 § Amendment 2026-05-14)
+    strong_motion/         # COSMOS V1 strong-motion child (issue #114; stdlib-only)
+      __init__.py          # Exports StrongMotionChild, StrongMotionProcessing
+      child.py             # StrongMotionChild(ChildMCP) — 5 tools, 3 tiers
+      parser.py            # COSMOS V1 fixed-width text parser (no scipy)
+      processing.py        # StrongMotionProcessing — stateless analytics
     template/              # Runnable starting-point child (copy + rename)
       __init__.py          # Rename checklist for new children
       child.py             # TemplateChild(ChildMCP) — minimal 3-tier skeleton
@@ -669,6 +674,10 @@ tests/                     # Mirrors src/ layout
       test_redcap_shape.py     # Shape + handler tests for RedcapFileChild
       test_redcap_processing.py  # Pure-function analytics tests
       test_redcap_scrubber.py    # RedcapPHIScrubber identifier-flag enforcement tests
+    strong_motion/
+      test_strong_motion_shape.py      # Shape + handler tests for StrongMotionChild
+      test_strong_motion_parser.py     # COSMOS V1 fixed-width parser tests
+      test_strong_motion_processing.py # Pure-function analytics tests (PGA, Arias, Sa)
     template/
       test_template_shape.py     # Shape contract tests for the template child
       test_template_processing.py # Pure-function analytics tests
@@ -789,6 +798,30 @@ Config shape in `~/.tailor/user_config.json`:
 ```
 
 All keys optional except `path`. Defaults: `records_file="records.csv"`, `project_metadata_file="project_metadata.csv"`. Cohort grouping uses an optional `<redcap_dir>/metadata.json` sidecar per ADR 0015 — distinct from REDCap's `project_metadata.csv` data dictionary; both files may coexist with orthogonal purposes.
+
+## Strong Motion Child — 5 Tools
+
+Opt-in via `strong_motion` key in `user_config.json`. Wraps a local directory of COSMOS Volume-1 (uncorrected acceleration) strong-motion records — the earthquake-engineering worked example shipped for the launch (issue #114). Stdlib-only: the COSMOS V1 format is fixed-width text, so unlike `matlab_file` it needs no optional extra. Record files are recognized by extension (`.v1` / `.raw`, case-insensitive); one file = one channel = one record.
+
+| Tool | Tier | Description |
+|------|------|-------------|
+| `seismic_list_records` | 1 | List V1 record files with channel metadata |
+| `seismic_record_summary` | 1 | Peak ground acceleration, Arias intensity, significant duration, response spectra Sa(T) |
+| `seismic_cohort_summary` | 1 | Cross-record aggregation by metadata-sidecar group (same `metadata.json` pattern as `csv_dir`; see ADR 0015) |
+| `seismic_downsampled` | 2 | Decimated acceleration trace at every Nth sample |
+| `seismic_full_trace` | 3 | Full per-sample acceleration trace with precision reduction |
+
+Subject scoping per [ADR 0002](docs/adr/0002-subject-id-scoping.md) / [ADR 0009](docs/adr/0009-vault-subject-keying.md): `entity_id` is the station-event code (one record). It is audit-log scoping only and does NOT filter source data — there is one record per call. `purge_cache` is a no-op per [ADR 0013](docs/adr/0013-cache-only-purge-on-consent-revocation.md): the framework owns no derivative cache; records are re-parsed from disk on every call.
+
+Config shape in `~/.tailor/user_config.json`:
+
+```json
+"strong_motion": {
+  "path": "/path/to/cosmos/v1/directory"
+}
+```
+
+`path` is the only key. Cohort grouping uses the same `<strong_motion_dir>/metadata.json` sidecar schema as `csv_dir` (`{"<filename>": {"<field>": <value>, ...}}`).
 
 ## Running and Testing
 

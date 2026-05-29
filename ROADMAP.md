@@ -63,8 +63,8 @@ lives in.
 |---|---|---|
 | **Phase 0 — Install-path validation** | Closed 2026-05-12 (lenient read; macOS install witnessed clean by boss) | Can two outside recipients on different OSes install Tailor end-to-end without the project author touching their machine? |
 | **Phase 1 — Ship-quality housekeeping** | Closed 2026-05-12 (per v7.0.10 § Shipped — all four deliverables landed) | Do the docs and identity match the install path that actually works? |
-| **Phase 2 — Public-launch readiness** | Active (v9.0.0 public-flip prep landed 2026-05-26; flip pending boss call) | If a stranger discovers Tailor cold, can they find, install, and start trusting it in under 30 minutes? |
-| **Phase 3 — Beachhead proof + public launch** | Direction | Has one real research lab used Tailor on real data, cited it in a paper, and would they recommend it? |
+| **Phase 2 — Public-launch readiness** | Near-complete (repo public + PyPI live; contribution-infra + merge-gate + dual-AI review shipped in the 05-26→05-29 burst; only the Apple Silicon recipe remains open — and the *loud* launch is deliberately held, see Phase 3) | If a stranger discovers Tailor cold, can they find, install, and start trusting it in under 30 minutes? |
+| **Phase 3 — Beachhead proof + public launch** | Direction (Direction A beachhead **shelved** 2026-05-28; Direction B launch narrative parked under quiet-launch posture) | Has one real research lab used Tailor on real data, cited it in a paper, and would they recommend it? |
 | **Phase 4 — Platform-shape proof** | Direction | Can a stranger use Tailor with their own data — live or static — and combine the two via any MCP client of their choice? |
 | **Phase 5 — Category formation** | Direction | Do strangers know what *"personal AI server"* means, and do they think of Tailor when they think of it? |
 
@@ -159,11 +159,11 @@ strangers at the door.
 | Deliverable | Effort | Why it matters |
 |---|---|---|
 | ~~**Publish to PyPI as `tailor-mcp`**~~ — **Shipped in v7.0.13 (2026-05-13)** | — | The canonical install path named in [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) ("when published") landed; `uv tool install tailor-mcp` is the install command. Closes the hand-delivered-wheel gap. |
-| **Make the GitHub repo public** — **Held under three-condition trigger** (see [§ Held items](#held-items-revisit-when-the-trigger-fires)) | 30 min once triggered | Without this, the trust narrative ("look at the audit log; look at the ADRs; look at the determinism invariants") cannot establish itself in OSS culture. **v7.0.13 unbundled this from the PyPI-publish row** because PyPI is a tooling question (frictionless install — at YES) and public-flip is an audience question (trust narrative going public — at NOT YET); the honest shipping shape matches that. |
+| ~~**Make the GitHub repo public**~~ — **Done 2026-05-27.** Repo flipped to public ahead of the original three-condition trigger: with the beachhead lab shelved (2026-05-28) condition 1 will not fire, and condition 2 (launch narrative) is parked under the quiet-launch posture, so only condition 3 (boss decides) remained — and the boss made that call. The flip is **mechanical-only**: the repo is discoverable and the wheel/source is inspectable, but there is deliberately **no loud launch** (no HN/Reddit/blog distribution) — see Phase 3 Direction B. To be filed in § Shipped at the next version bump. | — | The original three-condition trigger is retired as moot; see [§ Held items](#held-items-revisit-when-the-trigger-fires). |
 | ~~**Promote `vocabulary-drift-auditor` agent (reshape of retired `counter-programming-invariant-auditor`)**~~ — **KILLED in Phase 2 planning 2026-05-12** ([§ Killed](#vocabulary-drift-auditor-specialist--killed)). [ADR 0033 § Negative consequences](docs/adr/0033-complete-tailor-metaphor-workshop-side.md) explicitly delegated vocabulary drift to `code-vs-roadmap-drift-auditor`'s existing remit and stated *"does not need a new specialist."* Applied to [ADR 0011](docs/adr/0011-promotion-policy.md)'s three criteria: structural argument is weak (register/taxonomy detection is distinguishable from fact-checking, but the architect ADR already named the seam holder), severity is low (identity-cost, not safety-cost), and the always-forbidden six-word list is grep-enforceable in principle. A pytest invariant for the always-forbidden six was prototyped during planning and deliberately not landed; Table 5 enforcement is PR review per ADR 0033 § Negative consequences' original delegation. | — | — |
 | ~~**First-time-user setup pass**~~ — **first end-to-end pass landed in v7.3.4 (2026-05-16)**. 2026-05-16 first real outside-recipient walkthrough (Windows + Claude Desktop, non-technical friend) drove five closures: cohort thesis hot path (D1+D1-companion), API parity (D2), vault de-Strava (F3), bundled `snapshot.md` orientation fixture, AI-economics demonstration via configurable `cost_threshold`. See [Shipped in v7.3.4](#shipped-in-v734-2026-05-16). Continuation work queued for v7.4.0 (ADR 0038 full sweep, `audit_query` tool, `value_column`↔`column` API parity, cost-estimator calibration). | — | — |
 | **Apple Silicon reference deployment recipe** | 1 week | Document the *"Tailor on a Mac mini"* recipe for newcomers — recommended hardware tier (M4 24GB minimum), bundled local LLM (Llama 3.1 8B via MLX), always-on LaunchAgent setup, troubleshooting. Decides what *"AI-optimized computer"* means concretely for v1. |
-| **CONTRIBUTING + community machinery** | 2 days | Issue templates for bug / feature / child contribution; PR template; child contribution guide; code of conduct beyond defaults. Without this, public-launch contributions hit unstructured chaos. |
+| ~~**CONTRIBUTING + community machinery**~~ — **landed 2026-05-27** (PR #123): CI workflow, child-contribution guide, code of conduct, PR/issue templates. To be filed in § Shipped at the next version bump. | — | — |
 
 **Phase 2 exit criterion**: a stranger who hears about Tailor through a
 blog post or HN thread can complete `pip install tailor-mcp →
@@ -179,12 +179,17 @@ The platform is real; the trust narrative needs evidence. Two
 parallel directions:
 
 **Direction A — land a real research lab using Tailor on real data.**
-The Senefeld thread (per project memory, the off-blueprint detour built
-realistic-rate child ahead of the meeting) is the seed. Success looks
-like one PI running an actual analysis through `tailor` on their lab's
-own data, citing the framework in a methods section, and being willing
-to be referenced in launch materials. A second beachhead lab is worth
-seeking in parallel as a fallback.
+**Shelved 2026-05-28** — not being pursued in the current launch push
+(not killed; revisitable). The Senefeld thread (per project memory, the
+off-blueprint detour built realistic-rate child ahead of the meeting)
+remains the seed if it reopens. The consequence of shelving: the launch
+narrative (Direction B) can no longer lean on a "real lab uses it"
+testimonial and must stand on the architecture, the trust moat, and the
+benchmark numbers instead. Success, if reopened, looks like one PI
+running an actual analysis through `tailor` on their lab's own data,
+citing the framework in a methods section, and being willing to be
+referenced in launch materials. A second beachhead lab was previously
+named as a parallel fallback.
 
 **Direction B — ship the launch narrative.** The artifacts that get
 distributed everywhere a stranger might discover Tailor:
@@ -373,44 +378,46 @@ These items are out of scope for active phases but kept on the radar
 with explicit triggering conditions. When the trigger fires, the item
 gets promoted into the next applicable phase.
 
-### Make the GitHub repo public
+### Make the GitHub repo public — FIRED 2026-05-27 (trigger retired)
 
-v7.0.13 split the original Phase 2 "PyPI publish + repo public-flip"
-bundle into two separable decisions because they answer different
-questions. PyPI answers a tooling question (*"is there a frictionless
-install path?"*) — the project is at YES on it. Repo public-flip
-answers an audience question (*"is the trust narrative going out into
-the world?"*) — the project is at NOT YET. The honest posture as of
-v7.0.13: source code is inspectable via the wheel on PyPI (anyone can
-`pip download tailor-mcp` and unpack the .whl); the project's full
-governance trail (ADRs, ROADMAP, design notes) stays private until a
-deliberate public-flip decision. The landing page at
+**This item has fired; retained here as the record of how the decision
+was actually made versus how it was originally gated.** The repo is
+public as of 2026-05-27. To be filed in § Shipped at the next version
+bump.
+
+The original gate (below) required ALL three of: (1) a beachhead lab
+using Tailor on real data, (2) launch-narrative artifacts drafted, (3)
+boss decides he wants public scrutiny. The flip happened with only
+condition 3 met, and the gate is now **retired as moot**:
+
+- **Condition 1 will not fire** — the beachhead lab is shelved
+  (2026-05-28; see Phase 3 Direction A).
+- **Condition 2 is parked** — the launch narrative is deliberately not
+  being drafted under the quiet-launch posture.
+- **Condition 3 fired** — the boss made the public-flip call.
+
+The load-bearing reframe: the repo being public is **mechanical-only**,
+decoupled from the *loud launch*. Going public (discoverable, source +
+governance trail inspectable) and going loud (HN / Reddit / blog
+distribution) are now two separate decisions; the first is done, the
+second is held. The original three-condition gate conflated them.
+
+*Original context (retained as historical record):* v7.0.13 split the
+Phase 2 "PyPI publish + repo public-flip" bundle into two separable
+decisions because they answer different questions. PyPI answers a
+tooling question (*"is there a frictionless install path?"*) — YES.
+Repo public-flip answered an audience question (*"is the trust
+narrative going out into the world?"*) — at the time, NOT YET. The
+landing page at
 [saahasmuthineni.github.io/tailor-mcp-landing](https://saahasmuthineni.github.io/tailor-mcp-landing/)
-serves the *"invited evaluation"* framing as the public interface for
-visitors who don't yet have a back-channel.
+served the *"invited evaluation"* framing for visitors without a
+back-channel.
 
-**Trigger**: ALL three conditions must fire:
-
-1. **Beachhead lab using Tailor on real data** (Phase 3 Direction A
-   succeeds — public scrutiny becomes a real artifact to point at,
-   not an abstract claim).
-2. **Launch-narrative artifacts drafted** (Phase 3 Direction B's
-   long-form launch post + honest comparison artifacts exist in
-   publish-ready form; trust-receipts and discovery moment co-locate
-   in time).
-3. **Boss separately decides he wants public scrutiny** (readiness ≠
-   pursuit; per project memory the boss-architect's framing is that
-   Tailor is a life-project with foundational-tool ambitions, not a
-   startup launch funnel — the decision to open the repo is
-   independent of all technical readiness, requiring bandwidth to
-   triage drive-by issues and patience for public criticism).
-
-When all three fire, the public-flip is mechanical (~30 minutes of
-repo-settings operation) plus a doc-truth pass over commit history to
-confirm nothing private leaked into history. `integration-auditor
---proposal-mode` should fire on a planned public-flip diff before the
-visibility-change to surface any commit-message or file content an
-incognito visitor shouldn't see.
+**Pre-flip safety pass that should still run before any future history
+exposure:** `integration-auditor --proposal-mode` over the repo to
+confirm no commit-message or file content an incognito visitor
+shouldn't see leaked into history — worth running now if it was not run
+before the flip, since the repo is already live.
 
 ### Real PHI-scrubbing implementations
 
@@ -670,6 +677,22 @@ prior roadmap revisions per the same historical-preservation principle
 [ADR 0031](docs/adr/0031-rename-to-tailor-and-wardrobe.md) applies to
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
+
+### Shipped in the public-launch burst (2026-05-26 → 2026-05-29)
+
+The § Shipped log previously stopped at v7.6.0; v8.0.0, v9.0.0, and the
+post-flip surface-hardening burst are recorded here. Full per-release
+detail for v8.0.0 and v9.0.0 lives in the stacked CLAUDE.md banners
+(preserved as the canonical release record per the banner-stacking
+convention); this section is the catch-up summary.
+
+- **v8.0.0 (2026-05-19)** — recipient-experience MCP-offload (ADR 0040): three new framework-tier layers (`SetupLayer` / `WalkthroughLayer` / `FittingRoomLayer`); four CLI commands hard-removed (`walkthrough` / `fitting-room` / `tour` / `demo`). Recipients now drive setup through Claude Desktop chat, not the terminal. See CLAUDE.md v8.0.0 banner.
+- **v9.0.0 (2026-05-26)** — public-flip preparation: domain-agnostic rename (`PHIScrubber` → `DataScrubber`, `subject_id` → `entity_id`, `csv_cohort_summary` → `csv_group_summary`) with backward-compat on durable state; license Apache-2.0 → **AGPL-3.0-or-later**; reproducible token-efficiency benchmark (657×–938× per query, 318× session persistence) backing ADR 0029. See CLAUDE.md v9.0.0 banner.
+- **Repo flipped private → public (2026-05-27)** — the mechanical visibility change. Ahead of the original three-condition trigger; see [§ Held items](#held-items-revisit-when-the-trigger-fires) for why the trigger is retired. **The flip is public-discovery only; the *loud* launch (coordinated channel announcements) is deliberately held** — see Phase 3.
+- **Public-surface hardening (PRs #107–#136)** — five-blocker pre-flip closure (#108: CI badge, ruff, AGPL contributor licensing, ROADMAP status, notebook vocabulary); CHANGELOG back-filled v7.x→v9.0.0 (#119); README compressed + reordered for first-time visitors (#120); README/PyPI honesty pass — benchmark numbers corrected, badges reframed, README_PYPI rewritten for v9 (#125–#132); `CITATION.cff` (#109); `FUNDING.yml` sponsor button (#119); domain-agnostic issue templates (#112); social preview card (#122); tAIlor wordmark fix (#121).
+- **Contribution infrastructure (#123)** — `.github/workflows/ci.yml` (ruff + pytest matrix, Python 3.10/3.11/3.12), `CONTRIBUTING_CHILD.md` (L2 child-authoring guide), `CODE_OF_CONDUCT.md`. **CI is now live (GitHub Actions re-enabled)** — the earlier "Actions disabled, merge via `gh pr merge --admin`" posture is retired.
+- **Merge gate on `main` (#133 + #135 + branch protection)** — 9 required CI checks + an unattended Claude PR review (silent regressions / ADR conflicts / description-vs-diff honesty) + Gemini Code Assist as an independent second reviewer (different lens: correctness / SQLite-WAL / determinism) + a PR-template "Intent" gate. Activation of the two AI reviewers is pending app-install + OAuth-secret. Admin-merge bypass still permitted but no longer the routine path.
+- **First organic external contribution** — PR #130 (Notion MCP stub from a non-maintainer) opened 2026-05-28; the public surface is already drawing strangers.
 
 ### Shipped in v7.6.0 (2026-05-19)
 

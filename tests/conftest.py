@@ -4,11 +4,13 @@ Shared pytest fixtures and configuration for the tailor test suite.
 What lives here:
 
 - The ``probe`` marker registration. The standalone
-  ``tests/security_probe.py`` script can also be invoked under pytest
-  via the wrapper at ``tests/test_security_probe_pytest.py``; that
-  wrapper is gated by ``@pytest.mark.probe`` so the probe surfaces
-  visibly in CI output without polluting routine ``pytest -v`` runs
-  with its synthetic console banners.
+  ``tests/security_probe.py`` script is also invoked under pytest via
+  the wrapper at ``tests/test_security_probe_pytest.py``. That wrapper
+  runs as part of the default ``pytest`` run, so the probe gates CI; the
+  ``@pytest.mark.probe`` marker lets it ALSO be selected in isolation
+  via ``pytest -m probe``. The wrapper captures the probe's synthetic
+  console banner and surfaces it only on failure, so routine runs stay
+  quiet.
 
 - ``tmp_data_dir`` and ``tmp_vault_dirs`` fixtures — boilerplate-
   reduction for the ``TemporaryDirectory`` + ``mkdir`` pattern that

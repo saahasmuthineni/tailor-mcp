@@ -3,18 +3,16 @@ Pytest wrapper around the standalone security probe.
 
 The probe at ``tests/security_probe.py`` is a deliberately self-
 contained script: it can be run with ``python tests/security_probe.py``
-on a machine without pytest installed, and CI invokes it that way as a
-defense-in-depth check (see ``.github/workflows/ci.yml`` "Security
-probe" step).
+on a machine without pytest installed.
 
-This wrapper makes the same checks visible inside ``pytest`` runs.
-A failing security invariant should never depend on which entry point
-the suite was invoked through.
-
-Gated by ``@pytest.mark.probe`` so routine ``pytest -v`` runs do not
-emit the probe's synthetic console banners. Run with::
-
-    pytest -m probe
+This wrapper makes the same checks visible inside ``pytest`` runs, so a
+failing security invariant fails CI regardless of which entry point the
+suite was invoked through. It runs as part of the default ``pytest``
+invocation CI uses (``pytest -v``); the ``@pytest.mark.probe`` marker
+exists so the probe can ALSO be selected in isolation via
+``pytest -m probe``, not to exclude it from the default run. The probe's
+synthetic console banner is suppressed by capturing stdout below and is
+surfaced only on failure.
 """
 
 from __future__ import annotations

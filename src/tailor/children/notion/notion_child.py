@@ -1,17 +1,26 @@
 import os
 import typing
 from tailor.children.base import ChildMCP
+# Adds the required contract wrappers
+from tailor.interfaces import ToolDefinition, ValidationSchema, CostEstimate, ConsentInfo
 
 class NotionChildMCP(ChildMCP):
     """
     A domain-agnostic stub implementation for a Notion export directory child.
     """
-    domain: str = "notion"
-    display_name: str = "Notion Export Analytics"
     
     def __init__(self, export_dir: str):
         self.export_dir = export_dir
         super().__init__()
+
+    @property
+    def domain(self) -> str:
+        return "notion"
+
+    @property
+    def display_name(self) -> str:
+        return "Notion Export Analytics"
+
 
 
     @property
@@ -55,13 +64,11 @@ class NotionChildMCP(ChildMCP):
 
     @property
     def consent_info(self) -> ConsentInfo:
-        # Note: If ConsentInfo is a dataclass, you might need to return ConsentInfo(...) 
-        # instead of a raw dictionary. If your project accepts a raw dict, keep it as is.
-        return {
-            "requires_auth": False,
-            "data_source": "Local Notion Export Directory",
-            "description": "Reads local CSV or JSON exports from Notion safely."
-        }
+        return ConsentInfo(
+            requires_auth=False,
+            data_source="Local Notion Export Directory",
+            description="Reads local CSV or JSON exports from Notion safely."
+        )
 
     async def estimate_cost(self, tool_name: str, params: dict) -> CostEstimate:
         return CostEstimate(input_tokens=500, output_tokens=200)
@@ -76,7 +83,7 @@ class NotionChildMCP(ChildMCP):
         
         return {
             "status": "success",
-            "total_files_found": file_count,  # Fixed: Removed the 'else 3' fallback bug!
+            "total_files_found": file_count,
             "export_type": "Notion Workspace Export",
             "target_path": self.export_dir
         }
@@ -85,7 +92,8 @@ class NotionChildMCP(ChildMCP):
         if tool_name == "group_summary":
             return self.group_summary()
         elif tool_name == "file_detail":
-            # Fixed: Returns a clean not-implemented stub instead of fabricated columns/rows
             return {"status": "error", "message": "Not implemented yet"}
         return {"error": f"Unknown tool: {tool_name}"}
 
+
+   

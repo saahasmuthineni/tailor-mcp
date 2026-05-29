@@ -157,7 +157,9 @@ class StrongMotionProcessing:
         Nigam–Jennings exact recurrence for a piecewise-linear ground
         acceleration. The forcing is ``p = -üg`` (üg in m/s²).
         """
-        if len(accel_g) < 2 or dt <= 0 or period <= 0:
+        if len(accel_g) < 2 or dt <= 0 or period <= 0 or not 0.0 <= damping < 1.0:
+            # damping >= 1.0 (critically/over-damped) or < 0 would make
+            # math.sqrt(1 - z*z) raise / divide-by-zero in the recurrence.
             return 0.0
         wn = 2.0 * math.pi / period
         z = damping

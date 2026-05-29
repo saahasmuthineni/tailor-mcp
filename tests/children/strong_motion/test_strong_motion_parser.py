@@ -24,6 +24,7 @@ import pytest
 from tailor.children.strong_motion.parser import (
     FIELD_WIDTH,
     ParseRefusalError,
+    _try_data_line,
     parse_v1_file,
     parse_v1_text,
 )
@@ -152,3 +153,35 @@ class TestParseFile:
         rec = parse_v1_file(path)
         assert rec.npts == 4
         assert max(abs(v) for v in rec.accel_g) == pytest.approx(1.927, abs=1e-6)
+
+
+class TestBlankFieldMisalignmentGuard:
+    """A blank interior fixed-width field must disqualify the data line,
+    not be silently skipped. Skipping shifts the interleaved time/accel
+    pairs into wrong positions — a silent wrong-answer path. Regression
+    for the Gemini HIGH finding on PR #137.
+    """
+
+    @staticmethod
+    def _field(v: float) -> str:
+        f = f"{v:7.3f}"
+        assert len(f) == FIELD_WIDTH  # guard the test's own assumption
+        return f
+
+    def test_clean_interleaved_line_parses(self):
+        line = (
+            self._field(0.0) + self._field(1.234)
+            + self._field(0.010) + self._field(-2.345)
+        )
+        assert _try_data_line(line) == pytest.approx([0.0, 1.234, 0.010, -2.345])
+
+    def test_blank_interior_field_is_refused_not_skipped(self):
+        # time / accel / [BLANK FIELD] / accel: the old `continue` skipped
+        # the blank and returned 4 misaligned floats that passed the
+        # even-count check. The guard must return None instead.
+        line = (
+            self._field(0.0) + self._field(1.234)
+            + " " * FIELD_WIDTH
+            + self._field(0.010) + self._field(-2.345)
+        )
+        assert _try_data_line(line) is None

@@ -87,6 +87,11 @@ class StrongMotionChild(ChildMCP):
 
         cfg = self._load_user_config(config_dir)
         sm_cfg = cfg.get("strong_motion", {})
+        if not isinstance(sm_cfg, dict):
+            raise ValueError(
+                "strong_motion block in user_config.json must be a JSON "
+                "object (got a non-object value)."
+            )
 
         raw_path = sm_cfg.get("path")
         if not raw_path:
@@ -377,7 +382,7 @@ class StrongMotionChild(ChildMCP):
             return f"File too large ({size_mb:.1f} MB, limit {limit_mb:.1f} MB)."
         try:
             return parse_v1_file(filepath)
-        except ParseRefusalError as exc:
+        except (ParseRefusalError, OSError) as exc:
             return str(exc)
 
     def _record_scalar(self, rec: StrongMotionRecord, metric: str) -> float | None:
@@ -395,10 +400,14 @@ class StrongMotionChild(ChildMCP):
         if not sidecar.is_file():
             return None
         try:
-            return json.loads(sidecar.read_text(encoding="utf-8-sig"))
+            data = json.loads(sidecar.read_text(encoding="utf-8-sig"))
         except (json.JSONDecodeError, OSError) as exc:
             log.warning(f"Could not read {sidecar}: {exc}")
             return None
+        if not isinstance(data, dict):
+            log.warning(f"{sidecar} is not a JSON object; ignoring sidecar.")
+            return None
+        return data
 
     # ── Tier 1 handlers ──
 
@@ -492,7 +501,7 @@ class StrongMotionChild(ChildMCP):
         for f in files:
             if group_by:
                 meta = sidecar.get(f.name)
-                if meta is None:
+                if not isinstance(meta, dict):
                     missing_metadata.append(f.name)
                     continue
                 if group_by not in meta:

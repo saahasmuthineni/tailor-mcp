@@ -178,7 +178,11 @@ def _try_data_line(line: str) -> list[float] | None:
     for i in range(0, len(stripped), FIELD_WIDTH):
         chunk = stripped[i:i + FIELD_WIDTH].strip()
         if not chunk:
-            continue
+            # A blank interior field violates the strict fixed-width
+            # contract. Skipping it would silently misalign the
+            # interleaved time/accel pairs (a silent wrong-answer path),
+            # so disqualify the whole line instead.
+            return None
         try:
             vals.append(float(chunk))
         except ValueError:

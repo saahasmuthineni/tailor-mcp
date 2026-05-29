@@ -24,6 +24,7 @@ import pytest
 from tailor.children.strong_motion.parser import (
     FIELD_WIDTH,
     ParseRefusalError,
+    _is_data_block_start,
     _try_data_line,
     parse_v1_file,
     parse_v1_text,
@@ -185,3 +186,19 @@ class TestBlankFieldMisalignmentGuard:
             + self._field(0.010) + self._field(-2.345)
         )
         assert _try_data_line(line) is None
+
+
+class TestDataBlockStartGuard:
+    """_is_data_block_start must require >= 2 time/accel pairs, so a
+    single-pair line (or a lone NaN time) can't be mistaken for the start
+    of the multi-column data block. (Gemini MED, PR #137.)"""
+
+    def test_single_pair_line_is_not_a_data_block_start(self):
+        assert _is_data_block_start([0.0, 1.234]) is False
+
+    def test_lone_nan_time_is_not_a_data_block_start(self):
+        assert _is_data_block_start([float("nan"), 1.0]) is False
+
+    def test_valid_multi_pair_increasing_time_is_a_data_block_start(self):
+        # times = [0.0, 0.01, 0.02] — near origin and strictly increasing.
+        assert _is_data_block_start([0.0, 1.0, 0.01, -2.0, 0.02, 0.5]) is True

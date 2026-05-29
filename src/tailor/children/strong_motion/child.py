@@ -362,10 +362,16 @@ class StrongMotionChild(ChildMCP):
     def _list_record_files(self) -> list[Path]:
         if not self._sm_path.is_dir():
             return []
-        return sorted(
-            p for p in self._sm_path.iterdir()
-            if p.is_file() and p.suffix.lower() in RECORD_SUFFIXES
-        )
+        try:
+            return sorted(
+                p for p in self._sm_path.iterdir()
+                if p.is_file() and p.suffix.lower() in RECORD_SUFFIXES
+            )
+        except OSError as exc:
+            # Directory became unreadable (permissions / I/O) after the
+            # is_dir() check — return empty rather than crash the tool.
+            log.error(f"Failed to list {self._sm_path}: {exc}")
+            return []
 
     def _resolve_file(self, file_id: str) -> Path | None:
         if not file_id:

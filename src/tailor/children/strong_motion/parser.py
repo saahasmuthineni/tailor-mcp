@@ -200,7 +200,11 @@ def _is_data_block_start(vals: list[float]) -> bool:
     strictly increasing and start near the record origin (t0 < 1 s).
     """
     times = vals[0::2]
-    if abs(times[0]) >= 1.0:
+    # Require at least 2 time/accel pairs: a real COSMOS V1 data line is
+    # multi-column, and len < 2 would also let a single NaN time slip
+    # through (abs(nan) >= 1.0 is False, and all() over an empty range is
+    # True) — a silent false-positive on the data-block boundary.
+    if len(times) < 2 or abs(times[0]) >= 1.0:
         return False
     return all(times[i] < times[i + 1] for i in range(len(times) - 1))
 

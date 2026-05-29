@@ -240,6 +240,19 @@ class TestListRecords:
         assert row["size_bytes"] == 0
         assert "error" in row
 
+    def test_list_records_survives_iterdir_oserror(
+        self, sm_child: StrongMotionChild, monkeypatch
+    ):
+        # Regression (Gemini MED, PR #137): if iterdir() raises OSError
+        # (directory unreadable after the is_dir() check), the listing
+        # tool must return empty, not crash.
+        def _raise(self, *a, **k):
+            raise OSError("permission denied")
+        monkeypatch.setattr(Path, "iterdir", _raise)
+        result = asyncio.run(sm_child.execute("seismic_list_records", {}))
+        assert result["count"] == 0
+        assert result["records"] == []
+
 
 class TestRecordSummary:
     def test_computes_pga_arias_duration_spectrum(self, sm_child: StrongMotionChild):

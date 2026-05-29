@@ -2,6 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-05-19
+- **Supersedes (in part):**
+  - [ADR 0024 (Wheel-distributed tour and fixture bundling)](0024-wheel-distributed-tour-and-fixture-bundling.md) — the `tailor fitting-room` CLI command is hard-removed in v8.0.0; its scaffolding substance moves to the `FittingRoomLayer` MCP tools.
+  - [ADR 0027 (Demo as researcher first-look)](0027-demo-as-researcher-first-look.md) — the `tailor walkthrough` CLI command is hard-removed in v8.0.0; its researcher-first-look substance moves to the `WalkthroughLayer` MCP tools.
+  - [ADR 0035 (CLI rename: walkthrough + fitting-room)](0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md) — both renamed CLI verbs are hard-removed in v8.0.0; the naming principle is retained for the MCP tool names.
 - **Related:** [ADR 0001](0001-audit-log-as-backbone.md),
   [ADR 0003](0003-phi-scrubber-seam.md),
   [ADR 0011](0011-promotion-policy.md),
@@ -10,9 +14,7 @@
   [ADR 0022 § Explicitly out of scope](0022-local-llm-guardian.md) (the
   conductor-mode-toggle deferral this ADR carves out from),
   [ADR 0026](0026-claude-desktop-config-dual-path.md),
-  [ADR 0027](0027-demo-as-researcher-first-look.md),
   [ADR 0028](0028-recipient-install-validation-as-release-gate.md),
-  [ADR 0035](0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md),
   [ADR 0038](0038-vault-layer-is-data-source-agnostic.md),
   [ADR 0039](0039-audit-log-is-llm-queryable-under-column-allowlist.md)
 

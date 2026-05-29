@@ -418,17 +418,25 @@ class StrongMotionChild(ChildMCP):
         files = self._list_record_files()[:limit]
         results: list[dict] = []
         for f in files:
+            try:
+                size_bytes = f.stat().st_size
+            except OSError:
+                # File vanished / became inaccessible between listing and
+                # this stat — report it rather than crashing the whole
+                # listing tool. (stat() once, guarded; reused in both
+                # branches below.)
+                size_bytes = 0
             rec = self._load_record(f)
             if isinstance(rec, str):
                 results.append({
                     "filename": f.name,
-                    "size_bytes": f.stat().st_size,
+                    "size_bytes": size_bytes,
                     "error": rec,
                 })
                 continue
             results.append({
                 "filename": f.name,
-                "size_bytes": f.stat().st_size,
+                "size_bytes": size_bytes,
                 "station": rec.station,
                 "channel": rec.channel,
                 "azimuth": rec.azimuth,

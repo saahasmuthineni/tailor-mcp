@@ -224,6 +224,22 @@ class TestListRecords:
         assert ch1["azimuth"] == 90
         assert ch1["n_samples"] == 8
 
+    def test_list_records_survives_stat_failure(
+        self, sm_child: StrongMotionChild, monkeypatch, tmp_path: Path
+    ):
+        # Regression (Gemini HIGH, PR #137): a file that vanishes between
+        # listing and the size stat must not crash seismic_list_records.
+        # A non-existent path makes f.stat() raise FileNotFoundError (an
+        # OSError) exactly as a deleted/locked file would; the old code
+        # called f.stat() unguarded in the error branch and crashed.
+        ghost = tmp_path / "ghost.v1"  # never created → stat() raises
+        monkeypatch.setattr(sm_child, "_list_record_files", lambda: [ghost])
+        result = asyncio.run(sm_child.execute("seismic_list_records", {}))
+        assert result["count"] == 1
+        row = result["records"][0]
+        assert row["size_bytes"] == 0
+        assert "error" in row
+
 
 class TestRecordSummary:
     def test_computes_pga_arias_duration_spectrum(self, sm_child: StrongMotionChild):

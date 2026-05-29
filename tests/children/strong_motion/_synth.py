@@ -21,9 +21,12 @@ from pathlib import Path
 def _fmt7(x: float) -> str:
     """Format a number into exactly 7 characters (Fortran fixed-format)."""
     s = f"{x:7.3f}"
-    # Synthetic values stay small enough to fit; guard against overflow
-    # so a careless test value can't silently produce a >7-char field.
-    return s if len(s) == 7 else s[-7:]
+    # Fail loud rather than silently slicing: a >7-char field would drop a
+    # sign or significant digits and make a test pass (or fail) for the
+    # wrong reason.
+    if len(s) != 7:
+        raise ValueError(f"Value {x} formats to {s!r} ({len(s)} chars, need 7).")
+    return s
 
 
 def make_v1_text(

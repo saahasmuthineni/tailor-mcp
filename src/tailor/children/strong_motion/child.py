@@ -99,6 +99,15 @@ class StrongMotionChild(ChildMCP):
                 "strong_motion.path is required in user_config.json. "
                 "Set it to the directory containing your COSMOS V1 records."
             )
+        if not isinstance(raw_path, str):
+            # A non-string path (number / bool / list) would raise
+            # TypeError in Path(), which __main__'s registration guard
+            # does not catch — crashing serve boot for every child. Raise
+            # ValueError instead so registration fails gracefully.
+            raise ValueError(
+                "strong_motion.path must be a string (the directory "
+                "containing your COSMOS V1 records)."
+            )
         self._sm_path = Path(raw_path).expanduser().resolve()
         if not self._sm_path.is_dir():
             log.warning(
@@ -115,10 +124,16 @@ class StrongMotionChild(ChildMCP):
         if not path.exists():
             return {}
         try:
-            return json.loads(path.read_text(encoding="utf-8-sig"))
+            data = json.loads(path.read_text(encoding="utf-8-sig"))
         except (json.JSONDecodeError, OSError) as exc:
             log.warning(f"Could not read {path}: {exc}")
             return {}
+        if not isinstance(data, dict):
+            # A top-level non-object user_config.json would AttributeError
+            # on the caller's .get(); fail soft to an empty config.
+            log.warning(f"{path} is not a JSON object; ignoring.")
+            return {}
+        return data
 
     # ══════════════════════════════════════════════════════════
     # IDENTITY

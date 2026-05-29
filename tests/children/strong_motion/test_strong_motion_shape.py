@@ -378,3 +378,34 @@ class TestConfigValidation:
         )
         with pytest.raises(ValueError):
             StrongMotionChild(cfg, tmp_path / "data")
+
+    def test_non_string_path_raises_value_error_not_typeerror(self, tmp_path: Path):
+        # Non-string path (number/bool/list) must fail with ValueError —
+        # caught by __main__'s registration guard — not a TypeError that
+        # crashes serve boot. (Gemini HIGH, PR #137; same boot-crash class
+        # as the v7.3.1 redcap fix.)
+        cfg = tmp_path / "cfg"
+        cfg.mkdir()
+        (cfg / "user_config.json").write_text(
+            json.dumps({"strong_motion": {"path": 12345}}), encoding="utf-8",
+        )
+        with pytest.raises(ValueError):
+            StrongMotionChild(cfg, tmp_path / "data")
+
+    def test_list_path_raises_value_error(self, tmp_path: Path):
+        cfg = tmp_path / "cfg"
+        cfg.mkdir()
+        (cfg / "user_config.json").write_text(
+            json.dumps({"strong_motion": {"path": ["a", "b"]}}), encoding="utf-8",
+        )
+        with pytest.raises(ValueError):
+            StrongMotionChild(cfg, tmp_path / "data")
+
+    def test_top_level_non_object_config_does_not_crash(self, tmp_path: Path):
+        # A top-level JSON array must not AttributeError on .get(); it
+        # falls through to the normal "path required" ValueError.
+        cfg = tmp_path / "cfg"
+        cfg.mkdir()
+        (cfg / "user_config.json").write_text("[1, 2, 3]", encoding="utf-8")
+        with pytest.raises(ValueError):
+            StrongMotionChild(cfg, tmp_path / "data")

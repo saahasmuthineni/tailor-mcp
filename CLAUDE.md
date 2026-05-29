@@ -438,7 +438,7 @@ Manager mode is the default working style on this repo. The general conventions 
 | [`mcp-protocol-auditor`](.claude/agents/mcp-protocol-auditor.md) | End-to-end subprocess MCP-protocol audit — drives `python -m tailor serve` as a real subprocess speaking JSON-RPC over stdio, asserts wire-level correctness on `initialize` / `tools/list` / `tools/call` / consent gate / cost gate / error envelopes / `_dumps` serialization seam. Catches the gate-evasion class no other specialist owns: upstream-mcp-SDK signature drift, missing schema keys, silent type coercion, markdown round-trip lossiness, post-execute hook silent failures | After any change touching `framework/router.py`, `framework/audit.py`, `framework/security.py`, `framework/vault/{layer,writer}.py`, or any child's `execute()` path; mandatory before every release. Promoted v6.5.0 after 5 protocol-adapter ship-blocker bugs surfaced in 90 minutes that 8 existing gates missed |
 | [`cue-card-rehearsal-auditor`](.claude/agents/cue-card-rehearsal-auditor.md) | Read-only cue-card audit — maps each cue-card prompt against the registered ToolDefinition schemas and emits per-prompt verdicts (PASS / WRONG-TOOL / WRONG-PARAMS / AMBIGUOUS) with file:line citations. Catches the schema-under-specification class of failure: schemas that pass structural gates but silently fail when Claude infers parameters from operator prose | Before every release that ships or revises a cue card (`--cue-card=<path>` arg); whenever `CUE_CARD.md` or any `ToolDefinition` schema changes. Promoted v6.10.0 per [ADR 0025](docs/adr/0025-cue-card-rehearsal-as-release-gate.md) after v6.9.1 + v6.9.2 closed the same structural gap twice in one week |
 | [`adr-weigher`](.claude/agents/adr-weigher.md) | Weighs a candidate ADR concept against five criteria (decision-shaped, reversal-changes-code, WHY-non-obvious, cites-prior-ADRs, severity) and returns `PASS / REJECT-NOT-ADR-WORTHY / DEFER-NEEDS-BOSS-INPUT / INSUFFICIENT-INPUT`. Read-only — produces a verdict, not an ADR | Before `adr-drafter` is invoked during autonomous overnight sessions — gates premature-ADR drift the same way [ADR 0011](docs/adr/0011-promotion-policy.md) gates premature-specialist drift. Per [ADR 0017](docs/adr/0017-adr-weigher-and-autonomous-session-cap.md), the autonomous-session ADR cap is six per session with `adr-weigher` as the binding quality constraint |
-| [`recipient-install-validator`](.claude/agents/recipient-install-validator.md) | End-to-end recipient-install validation — provisions a clean Windows 11 base box via VirtualBox + Vagrant, installs the freshly-built wheel via the documented recipient command, runs `tailor fitting-room` (renamed from `tailor tour` in v7.1.0 per [ADR 0035](docs/adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md)), validates per-path Claude Desktop config (per ADR 0026), exercises `tailor walkthrough` (renamed from `tailor demo` per ADR 0035; per ADR 0027), and runs wheel-install-dependent pytest in-guest. Catches the failure class that produced the v6.10.1–v6.10.4 patch quartet — bugs that exist between the wheel artifact and a stranger's machine, invisible to host-side gates that test against the dev tree | Mandatory + file-touched-gated. Fires when any of `fitting_room.py`, `tour.py` (re-export shim through v7.1.x), `pilot.py`, `__main__.py`, `wizard.py`, `pyproject.toml` package-data globs, or `_fixtures/**` are modified in a release branch. Promoted v6.11.0 per [ADR 0028](docs/adr/0028-recipient-install-validation-as-release-gate.md) — the gate composes at `release-shipper` with `ci-gate-runner` (host: dev-tree pytest) and `recipient-install-validator` (guest: wheel-installed package) |
+| [`recipient-install-validator`](.claude/agents/recipient-install-validator.md) | End-to-end recipient-install validation — provisions a clean Windows 11 base box via VirtualBox + Vagrant, installs the freshly-built wheel via the documented recipient command, runs `tailor pilot` (the sole recipient-facing CLI touch per ADR 0040 / v8.0.0), validates per-path Claude Desktop config (per ADR 0026), exercises the `WalkthroughLayer` / `FittingRoomLayer` MCP tools that replaced the hard-removed `walkthrough` / `fitting-room` CLI verbs (per ADR 0040), and runs wheel-install-dependent pytest in-guest. Catches the failure class that produced the v6.10.1–v6.10.4 patch quartet — bugs that exist between the wheel artifact and a stranger's machine, invisible to host-side gates that test against the dev tree | Mandatory + file-touched-gated. Fires when any of `fitting_room.py`, `pilot.py`, `__main__.py`, `wizard.py`, `pyproject.toml` package-data globs, or `_fixtures/**` are modified in a release branch. Promoted v6.11.0 per [ADR 0028](docs/adr/0028-recipient-install-validation-as-release-gate.md) — the gate composes at `release-shipper` with `ci-gate-runner` (host: dev-tree pytest) and `recipient-install-validator` (guest: wheel-installed package) |
 
 The agents are checked into the repo so the team is reproducible across machines. Per `.gitignore`: `.claude/*` ignores per-machine settings; `!.claude/agents/` re-includes the roster. New specialists land via [ADR 0011 — promotion-policy](docs/adr/0011-promotion-policy.md): structural argument + severity + per-agent maintenance estimate, with frequency-based 3+-uses as the fallback signal in the absence of a structural argument. The deferred roster (parked candidates with named promotion triggers) lives in [docs/design/operating-model.md § Deferred roster](docs/design/operating-model.md).
 
@@ -560,16 +560,14 @@ Markdown files in the Obsidian vault are the **source of truth** for analytical 
 ```
 src/tailor/
   __init__.py              # Package metadata
-  __main__.py              # CLI: serve | pilot | fitting-room | walkthrough |
-                           #   setup | status | uninstall | --help
-                           #   (deprecated v7.1.0 per ADR 0035: tour, demo)
+  __main__.py              # CLI: serve | pilot | setup | redcap | status |
+                           #   uninstall | --help (six-command surface per
+                           #   ADR 0040 / v8.0.0; walkthrough + fitting-room
+                           #   moved to MCP framework layers)
   pilot.py                 # Multi-subject CSV pilot wizard (v6.2.1)
-  fitting_room.py          # `tailor fitting-room` scaffolder — bundled
-                           #   fixtures + Claude Desktop registration
-                           #   (v6.9.0 / ADR 0024; renamed v7.1.0 per ADR 0035)
-  tour.py                  # v7.1.x re-export shim for `tailor.tour` (legacy
-                           #   import path); removal deferred to a future
-                           #   minor per the v7.2.0 banner amendment
+  fitting_room.py          # Library module — pure scaffolder/index helpers
+                           #   wrapped by FittingRoomLayer MCP tools (CLI verb
+                           #   hard-removed v8.0.0 / ADR 0040; helpers retained)
   wizard.py                # Strava OAuth wizard (localhost callback server)
   config.py                # Centralised env-var + user_config.json reader
   _fixtures/               # Synthetic per-subject CSVs shipped in the wheel
@@ -814,16 +812,16 @@ pytest -v
 # CLI smoke test
 tailor --help
 
-# Subcommands
+# Subcommands (six-command surface per ADR 0040 / v8.0.0)
+tailor serve         # Start MCP server (Claude Desktop calls this)
 tailor pilot         # Multi-subject CSV pilot setup wizard (v6.2.1+)
-tailor fitting-room  # Recipient-driven walkthrough (HIP Lab realistic; ADRs 0024 + 0035)
 tailor setup         # Strava OAuth wizard for the worked-example child
-tailor walkthrough   # Researcher first-look — runs cohort tools on bundled HIP Lab fixtures (ADRs 0027 + 0035)
-tailor serve        # Start MCP server (Claude Desktop calls this)
-tailor status       # Diagnostic check
-# Deprecated aliases (removal deferred to a future minor; one-cycle shims per ADR 0035):
-tailor tour         # alias for `tailor fitting-room`
-tailor demo         # alias for `tailor walkthrough`
+tailor redcap        # REDCap export-directory setup + re-attestation
+tailor status        # Diagnostic check
+tailor uninstall     # Remove Tailor's Claude Desktop registration + state
+# Recipient walkthrough + fitting-room are no longer CLI verbs — they run as
+# WalkthroughLayer / FittingRoomLayer MCP tools driven from Claude Desktop
+# chat (hard-removed in v8.0.0, no shim, per ADR 0040).
 ```
 
 ## Key Design Decisions

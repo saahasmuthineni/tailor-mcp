@@ -1,5 +1,14 @@
 <!-- Thanks for the contribution! Please fill in the sections below. -->
 
+## Intent — is this the right thing to ship to `main`?
+
+<!-- CI (tests/ruff) and the bot reviewers (Claude, Copilot) check whether the
+     diff is correct and safe. They CANNOT check whether it is the RIGHT change.
+     That judgment is yours. Confirm before merging: -->
+
+- [ ] This is the change I actually intended to ship — not merely green and clean.
+- [ ] I have read the Claude and Copilot review comments and resolved or dismissed each.
+
 ## Summary
 
 <!-- 1-3 sentences on what this PR does and why. -->

@@ -5,6 +5,8 @@
 - **Supersedes (in part):**
   - [ADR 0024 (Wheel-distributed tour and fixture bundling)](0024-wheel-distributed-tour-and-fixture-bundling.md) — the `tour` CLI verb retires (`tour` → `fitting-room`). The substance ADR 0024 codified — wheel-distributed scaffolding into Claude Desktop, the synthetic-by-construction precondition for bundled fixtures, the package-data globs — is retained without change.
   - [ADR 0027 (Demo as researcher first-look)](0027-demo-as-researcher-first-look.md) — the `demo` CLI verb retires (`demo` → `walkthrough`). The substance ADR 0027 codified — five-section architectural showcase, cohort thesis as Section 1, bundled HIP Lab fixtures, no Strava data — is retained without change.
+- **Partially superseded by:**
+  - [ADR 0040 (Bounded setup-time conductor surface)](0040-bounded-setup-time-conductor-surface.md) (v8.0.0, 2026-05-19) — both CLI verbs this ADR introduced (`tailor walkthrough`, `tailor fitting-room`) were **hard-removed** in v8.0.0 with no deprecation shim, replaced by the `WalkthroughLayer` and `FittingRoomLayer` MCP tools. The recipient-experience-shaped naming *principle* this ADR established is retained and applied to the MCP tool names; only the CLI surface was retired.
 - **Related:**
   - [ADR 0026 (Claude Desktop config dual-path)](0026-claude-desktop-config-dual-path.md) — the `_is_orphan_entry_key` matcher's `tailor-*` prefix already covers `tailor-fitting-room-*`. ADR 0026 receives a 2026-05-14 amendment footer confirming the scope.
   - [ADR 0031 (Project rename to Tailor + Wardrobe)](0031-rename-to-tailor-and-wardrobe.md) — parent of the rename pattern; v7.0.0 set the precedent that public-API verb names get a major or minor bump and a one-cycle deprecation shim.

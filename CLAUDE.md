@@ -144,7 +144,8 @@
 >
 > **What did NOT change.** No router-pipeline / security-pipeline /
 > child / vault-layer / CLI architecture changes beyond the
-> identifier renames. No new ADRs. No new framework-tier layers. No
+> identifier renames. One new ADR — [ADR 0041](docs/adr/0041-license-apache-2-0-to-agpl-3-0-or-later.md),
+> recording the license switch. No new framework-tier layers. No
 > new children. No new schema beyond the audit-column rename
 > (column count unchanged; only the column NAME changed). The v9
 > bump is vocabulary + license + benchmark artifact + documentation

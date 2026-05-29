@@ -2,7 +2,8 @@ import os
 import typing
 from tailor.children.base import ChildMCP
 # Adds the required contract wrappers
-from tailor.interfaces import ToolDefinition, ValidationSchema, CostEstimate, ConsentInfo
+from tailor.framework import ToolDefinition, ValidationSchema, CostEstimate, ConsentInfo
+
 
 class NotionChildMCP(ChildMCP):
     """

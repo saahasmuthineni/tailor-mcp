@@ -39,13 +39,19 @@ jobs:
           fetch-depth: 1
 
       - name: Claude PR review
-        uses: anthropics/claude-code-action@v1
+        # Pinned to a specific release SHA rather than the floating @v1
+        # tag (security best practice + reproducibility). The floating
+        # @v1 still resolves to an Aug-2025 release whose post-step
+        # ("post-buffered-inline-comments") crashes on a tsconfig
+        # directory-mismatch bug; v1.0.133 is the current patch. See PR
+        # that introduced this pin.
+        uses: anthropics/claude-code-action@787c5a0ce96a9a6cfb050ea0c8f4c05f2447c251 # v1.0.133
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           track_progress: true
           claude_args: |
             --model claude-sonnet-4-6
-            --max-turns 15
+            --max-turns 40
           prompt: |
             You are reviewing this pull request to help the maintainer decide
             whether it should merge to `main`. CI already checks pytest, ruff,

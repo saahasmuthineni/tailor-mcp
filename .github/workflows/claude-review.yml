@@ -1,0 +1,74 @@
+name: Claude PR Review
+
+# Automated, unattended review on every PR against main. This is the
+# "should this merge?" judgment layer that CI cannot provide — CI checks
+# that the diff is correct and safe; this checks for silent regressions,
+# ADR conflicts, and whether the description matches the diff.
+#
+# Auth: rides the maintainer's Claude Max subscription via an OAuth token
+# (secret CLAUDE_CODE_OAUTH_TOKEN, generated locally with `claude setup-token`).
+# No Anthropic API billing. If the secret is absent the job fails loudly —
+# that is the signal to set it, not a silent skip.
+#
+# Fork safety: uses `pull_request` (not pull_request_target), so secrets are
+# withheld from fork PRs by default; a maintainer approves the run in the UI.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+# A new push to the same PR cancels the in-flight review so we don't burn
+# subscription quota reviewing a commit that's already superseded.
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  claude-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Claude PR review
+        # Pinned to a specific release SHA rather than the floating @v1
+        # tag (security best practice + reproducibility). The floating
+        # @v1 still resolves to an Aug-2025 release whose post-step
+        # ("post-buffered-inline-comments") crashes on a tsconfig
+        # directory-mismatch bug; v1.0.133 is the current patch. See PR
+        # that introduced this pin.
+        uses: anthropics/claude-code-action@787c5a0ce96a9a6cfb050ea0c8f4c05f2447c251 # v1.0.133
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          track_progress: true
+          claude_args: |
+            --model claude-sonnet-4-6
+            --max-turns 40
+          prompt: |
+            You are reviewing this pull request to help the maintainer decide
+            whether it should merge to `main`. CI already checks pytest, ruff,
+            and the CLI smoke — do NOT re-run or re-report those. Focus on what
+            CI cannot see:
+
+            - Lost vs gained: is any load-bearing behavior, test, or invariant
+              being quietly removed or weakened? Surface silent regressions.
+            - Architecture conflicts: check the diff against CLAUDE.md and the
+              ADRs in docs/adr/ — the security pipeline, the audit-log backbone
+              (ADR 0001), the PHI-scrubber seam (ADR 0003), entity_id scoping
+              (ADR 0002 / 0009), and deterministic-by-construction processing
+              (ADR 0008). Cite the ADR number whenever you find a conflict.
+            - Correctness bugs and security/privacy issues: PHI reaching the
+              wire, secrets in code, audit-log gaps.
+            - Honesty: does the PR description match what the diff actually does?
+
+            Post inline comments for specific issues, and one summary comment
+            ending in a clear verdict line: `MERGE-READY` or `NEEDS-WORK`, with
+            the top three reasons.

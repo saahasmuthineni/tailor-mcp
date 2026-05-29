@@ -1,0 +1,29 @@
+# Gemini Code Assist — repo review config.
+# https://docs.cloud.google.com/gemini/docs/code-review/customize-repo-review
+#
+# Role: the INDEPENDENT second reviewer. A Claude review already runs on every
+# PR (.github/workflows/claude-review.yml) and owns architecture / ADR conflicts
+# / PHI + audit concerns. Gemini is here for a different lineage's eyes on
+# correctness and robustness — see .gemini/styleguide.md for the lens split.
+
+have_fun: false
+
+memory_config:
+  disabled: false
+
+code_review:
+  disable: false
+  # Skip LOW-severity nits — ruff already gates style in CI; we want signal.
+  comment_severity_threshold: MEDIUM
+  max_review_comments: -1
+  pull_request_opened:
+    help: false
+    summary: true
+    code_review: true
+    # Don't review work-in-progress drafts; wait until the PR is ready.
+    include_drafts: false
+
+# Synthetic fixtures and vendored/generated data are not worth review budget.
+ignore_patterns:
+  - "src/tailor/_fixtures/**"
+  - "**/*.ipynb"

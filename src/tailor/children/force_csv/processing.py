@@ -11,17 +11,18 @@ fix is the load-bearing reason not to duplicate.  This module
 adds force-domain helpers that don't fit the generic CSV shape:
 
 - ``mvc_window_mean`` — Sánchez-2015 MVC definition (mean over
-  250 ms window centered on peak), used by HIP Lab and the
-  broader plantarflexor / handgrip dynamometer literature.
+  250 ms window centered on peak), used across the plantarflexor
+  / handgrip dynamometer literature.
 - ``bland_altman`` — paired-device agreement analysis.  Returns
   mean difference (bias), 95% limits of agreement, and per-pair
   differences for plotting.  Generalizes to any two paired
   measurements on the same subjects (HUMAC vs custom dyno being
-  the canonical example per Wang & Senefeld 2026).
+  the canonical example in the dynamometry literature).
 
-The streaming-reducer methods I'd scaffolded for a 1-2 kHz × 4-
-channel data shape are intentionally absent — at actual HIP Lab
-rates (20-100 Hz × single channel), files are small enough that
+The streaming-reducer methods scaffolded for a 1-2 kHz × 4-
+channel data shape are intentionally absent — at typical
+physiology-lab rates (20-100 Hz × single channel), files are
+small enough that
 ``CSVProcessing``'s load-all pattern works without modification.
 """
 
@@ -54,11 +55,11 @@ class ForceCsvProcessing:
         Sánchez-2015 MVC definition: mean force over a 250 ms
         window centered on the peak sample.
 
-        This is the publication-aligned definition the HIP Lab
-        literature (Wang & Senefeld 2026; Hunter & Senefeld
-        broader work) cites — *not* the instantaneous peak,
-        because brief sensor spikes inflate instantaneous peaks
-        in ways window-averaging removes.
+        This is the publication-aligned definition the isometric
+        force literature (Hunter & Senefeld 2024, *J Physiol*)
+        cites — *not* the instantaneous peak, because brief sensor
+        spikes inflate instantaneous peaks in ways window-averaging
+        removes.
 
         Returns ``None`` for empty input or when the window
         cannot fit (file too short).
@@ -97,10 +98,10 @@ class ForceCsvProcessing:
         - ``differences``: per-pair A - B (y-axis of plot)
         - ``n_pairs``: pair count
 
-        Mirrors the analysis Chunyu Wang's 2026 thesis applies
-        to HUMAC vs custom MR-conditional dyno (Figure 7).
-        Generalizes to *any* paired-device validation — not
-        specific to that study.
+        Mirrors the standard paired-device validation analysis
+        for HUMAC vs custom MR-conditional dyno.  Generalizes to
+        *any* paired-device validation — not specific to one
+        study.
 
         Returns an error dict for mismatched lengths or empty
         input rather than raising — caller surfaces the error

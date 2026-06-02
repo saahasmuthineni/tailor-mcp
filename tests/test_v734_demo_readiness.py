@@ -1,5 +1,5 @@
 """
-v7.3.4 regression tests — demo-readiness invariants for the Senefeld /
+v7.3.4 regression tests — demo-readiness invariants for the
 health-researcher hot path.
 
 Locks the behaviours the v7.3.4 cycle established after the 2026-05-16
@@ -228,7 +228,7 @@ class TestD1FloatSecondsTimestampFallback:
     strings and silently returned None on these fixtures, which made
     every time-based metric (``time_to_50pct_drop_s``, ``duration_s``,
     ``decline_rate_per_min``) silently null on the cohort thesis hot
-    path — the headline analytical claim for the Senefeld audience."""
+    path — the headline analytical claim for the health-researcher audience."""
 
     def test_force_cohort_time_to_50pct_drop_is_non_null(
         self, scaffolded_target: Path,

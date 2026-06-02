@@ -11,11 +11,11 @@
 
 ## Context
 
-The HIP Lab realistic demo (`examples/hip_lab_demo/realistic/`) ships
+The demo cohort realistic demo (`examples/cohort_demo/realistic/`) ships
 in v6.5.0 as a 48-CSV multimodal fixture plus a guided walkthrough
-designed for live recipients — Dr. Senefeld at the next HIP Lab
-meeting, the boss-architect's family member as a non-technical first
-audience, future PIs evaluating the framework. The demo is the
+designed for live recipients — a prospective beachhead-lab PI, the
+boss-architect's family member as a non-technical first audience,
+future PIs evaluating the framework. The demo is the
 project's primary live-audience surface; everything before it
 (`tailor demo`, the synthetic-running-data analytics dump) is
 operator self-verification, not an audience walkthrough.
@@ -25,7 +25,7 @@ repo. The recipient had to:
 
 1. Clone or download the GitHub repository.
 2. Install Python and the package in editable mode.
-3. Run `python examples/hip_lab_demo/realistic/setup.py` to scaffold
+3. Run `python examples/cohort_demo/realistic/setup.py` to scaffold
    the demo.
 4. Hand-edit `claude_desktop_config.json` to add a server entry with
    the right `TAILOR_CONFIG_DIR` env var pointing at the cloned
@@ -57,28 +57,28 @@ processing code obeys, justified because generators sit *off* the
 analytical path. The generators do not ship in the wheel. The
 question of whether their *generated outputs* ship has been resolved
 inconsistently — `multi_subject_pilot/csv/` outputs ship; the
-hip_lab_demo realistic outputs did not, until this ADR.
+cohort_demo realistic outputs did not, until this ADR.
 
 ## Decision
 
-Wheel-distribute the HIP Lab realistic demo via a single CLI
+Wheel-distribute the demo cohort realistic demo via a single CLI
 subcommand, governed by four sub-decisions:
 
 ### 1. Generated fixtures ship in the wheel; generators do not
 
 The 48 force/EMG/MRS CSVs, three `metadata.json` sidecars, and the
 S004 cross-session-memory seed vault moment migrate from
-`examples/hip_lab_demo/realistic/{force,emg,mrs,vault}/` to
-`src/tailor/_fixtures/hip_lab_demo_realistic/{force,emg,mrs,vault}/`.
+`examples/cohort_demo/realistic/{force,emg,mrs,vault}/` to
+`src/tailor/_fixtures/cohort_demo_realistic/{force,emg,mrs,vault}/`.
 `pyproject.toml` `[tool.setuptools.package-data]` extends to glob
 `_fixtures/**/*.csv`, `_fixtures/**/*.json`, and `_fixtures/**/*.md`
 so the entire bundled tree ships in the wheel.
 
-`examples/hip_lab_demo/realistic/generate.py` keeps the seeded PRNG
+`examples/cohort_demo/realistic/generate.py` keeps the seeded PRNG
 that produced those fixtures, stays out of the wheel by way of the
 `[tool.setuptools.packages.find] where = ["src"]` rule, and writes
 its outputs *into the bundled tree* — `generate.py`'s output path
-becomes `src/tailor/_fixtures/hip_lab_demo_realistic/`, not
+becomes `src/tailor/_fixtures/cohort_demo_realistic/`, not
 the in-repo example dir. Re-running `generate.py` is the way to
 refresh the bundled fixtures; the next wheel build picks up the new
 bytes automatically.
@@ -96,19 +96,19 @@ bytes are committed.
 
 `tailor tour` lands as a new public CLI subcommand at
 [`src/tailor/tour.py`](../../src/tailor/tour.py).
-Default invocation (`tailor tour`) scaffolds the hip-lab
-realistic variant into `~/.tailor/demos/hip-lab/`, copies
+Default invocation (`tailor tour`) scaffolds the cohort
+realistic variant into `~/.tailor/demos/cohort/`, copies
 bundled fixtures via `importlib.resources`, writes `user_config.json`
 with absolute paths resolved against the target dir, indexes the
 seed vault moment into `data/vault.db`, and writes (or merges with)
 the recipient's Claude Desktop config to register an
-`mcpServers["tailor-tour-hip-lab"]` entry whose `env` block
+`mcpServers["tailor-tour-cohort"]` entry whose `env` block
 **bakes in `TAILOR_CONFIG_DIR` and `TAILOR_DATA_DIR` pointing
 at the scaffolded target dir**. The recipient never types an env
 var by hand; Claude Desktop spawns the server with the right
 environment automatically.
 
-Flags: `--variant=<name>` (currently only `hip-lab`; future variants
+Flags: `--variant=<name>` (currently only `cohort`; future variants
 plug into the `_VARIANT_FIXTURES` table), `--target=<dir>` (override
 default scaffold location), `--no-claude-desktop` (skip the Claude
 Desktop merge for headless / CI use), `--force` (overwrite a
@@ -134,11 +134,11 @@ bundled fixtures." Tour is read-only against the package; pilot is
 write-through against the user's data. Different jobs; different
 subcommands.
 
-Naming: `tour` was selected over `hip-lab` (recipient-name
-lock-in), `hip-lab-demo` (collides with the existing operator
-self-verification `demo` subcommand), and folding into `demo
---variant=hip-lab` (would breaking-change the existing `demo`
-subcommand's behaviour). At ADR landing time (v6.9.0), `demo` was
+Naming: `tour` was selected over a domain-specific variant name
+(recipient-name lock-in), a `*-demo` name (collides with the
+existing operator self-verification `demo` subcommand), and folding
+into `demo --variant=<name>` (would breaking-change the existing
+`demo` subcommand's behaviour). At ADR landing time (v6.9.0), `demo` was
 operator self-verification and a `demo` → `verify` rename was
 bookmarked; that rename was **killed in v6.10.5** per
 [ADR 0027](0027-demo-as-researcher-first-look.md), which reframed
@@ -198,7 +198,7 @@ account, clone, or env-setup ritual.
 2. **Synthetic-by-construction precondition holds.** § 4 below is
    load-bearing for this carve-out — the wheel is shareable publicly
    only because every byte it contains is synthetic by construction
-   (HIP Lab fixtures from `random.Random(20260504)`, fictitious
+   (demo cohort fixtures from `random.Random(20260504)`, fictitious
    subject IDs, no possibility of real participant data passing
    through). A future bundle of real or de-identified-real data
    under § 4's reversal conditions immediately disqualifies this
@@ -240,7 +240,7 @@ only when the bundled bytes are synthetic by construction.** "Synthetic
 by construction" means: the bytes are produced by a seeded generator
 (`examples/**/generate.py`) acting on fictitious subject IDs and
 fictitious clinical interpretations, with no possibility of real
-participant data passing through the generator's input. The HIP Lab
+participant data passing through the generator's input. The demo cohort
 realistic fixtures meet this bar by inspection — `generate.py` takes
 no inputs from outside its own constants, and the seed
 (`random.Random(20260504)`) plus integer subject IDs (`S001`–`S016`)
@@ -282,9 +282,9 @@ public surface declares its criticality class so
 | File | Criticality | Rationale |
 |---|---|---|
 | `src/tailor/tour.py` | **HIGH** | CLI public surface that writes the recipient's Claude Desktop config and scaffolds runtime SQLite state. A regression in `_register_with_claude_desktop` could clobber sibling MCP servers (the v6.2.1 hardening this ADR inherits); a regression in `_write_user_config` could write paths that point at the operator's real config dir instead of the scaffold. Both failure modes are silent and recipient-visible. |
-| `src/tailor/_fixtures/hip_lab_demo_realistic/**` | LOW | Bundled data; coverage doesn't apply to non-code artifacts. |
-| `examples/hip_lab_demo/realistic/generate.py` | LOW | Deterministic generator off the analytical path; output is verified by `rehearse.py` end-to-end (which is itself in the dev tree). |
-| `examples/hip_lab_demo/realistic/rehearse.py` | MEDIUM | Pre-meeting smoke check; failure is loud and pre-ship, but a regression that flatten the S004 amplitude bridge silently undermines the demo's wow moment if `rehearse.py` itself drifts in lockstep. Step 4b's cohort-relativity assertion is the structural backstop. |
+| `src/tailor/_fixtures/cohort_demo_realistic/**` | LOW | Bundled data; coverage doesn't apply to non-code artifacts. |
+| `examples/cohort_demo/realistic/generate.py` | LOW | Deterministic generator off the analytical path; output is verified by `rehearse.py` end-to-end (which is itself in the dev tree). |
+| `examples/cohort_demo/realistic/rehearse.py` | MEDIUM | Pre-meeting smoke check; failure is loud and pre-ship, but a regression that flatten the S004 amplitude bridge silently undermines the demo's wow moment if `rehearse.py` itself drifts in lockstep. Step 4b's cohort-relativity assertion is the structural backstop. |
 
 `tests/test_tour_subcommand.py` lands with 19 tests covering the
 HIGH region — bundled fixtures present, scaffold populates the
@@ -331,7 +331,7 @@ sibling-MCP-server preservation on merge.
   future contributor adding a third or fourth variant has a number
   to hit; crossing 10 MB triggers a re-evaluation of whether the
   variants should split into separate distribution artifacts.
-- **`examples/hip_lab_demo/realistic/setup.py` is removed.** Any
+- **`examples/cohort_demo/realistic/setup.py` is removed.** Any
   external doc, slack message, or memory referencing the prior
   `python setup.py` invocation is now stale. The replacement
   command is `tailor tour`; the doc churn is contained to
@@ -342,13 +342,13 @@ sibling-MCP-server preservation on merge.
   `generate.py`'s `PACKAGE_FIXTURES` constant. The coupling is
   documented inline.
 - **The default scaffold target dir
-  `~/.tailor/demos/hip-lab/` lives under the operator's
+  `~/.tailor/demos/cohort/` lives under the operator's
   tailor config root.** A future user running both a real
   pilot and the tour will see them as siblings under
   `~/.tailor/`; an `rm -rf ~/.tailor/` would nuke
   both. Mitigation: the `demos/` subdir scope makes a more
   targeted cleanup easy (`rm -rf ~/.tailor/demos/`); for
-  single-recipient deployments (mom, Senefeld) there is no real
+  single-recipient deployments there is no real
   pilot config to collide with.
 - **`pip install <path-to-wheel>` does not pull dependencies from
   PyPI for offline recipients.** A recipient on a fully air-gapped
@@ -414,7 +414,7 @@ do not exist yet. Premature.
 ### Alternative 3 — Send the demo as a .zip of the repo
 
 `git archive` the repo, send the zip, recipient extracts and runs
-`python examples/hip_lab_demo/realistic/setup.py`. No new code, no
+`python examples/cohort_demo/realistic/setup.py`. No new code, no
 package-data changes, no wheel build.
 
 **Rejected.** The recipient still needs to install Python *and* the

@@ -7,7 +7,7 @@
 ## Context
 
 The framework ships with a one-page cue card at
-[`examples/hip_lab_demo/realistic/CUE_CARD.md`](../../examples/hip_lab_demo/realistic/CUE_CARD.md)
+[`examples/cohort_demo/realistic/CUE_CARD.md`](../../examples/cohort_demo/realistic/CUE_CARD.md)
 that scripts a seven-step audience walkthrough — the operator reads
 prose prompts to a fresh Claude Desktop, Claude infers which tool to
 call and what parameters to pass, the framework returns a result, the
@@ -104,7 +104,7 @@ Concrete mechanism:
   False-negative PASS is exactly what v6.9.0 had. The agent is
   calibrated to err toward WRONG.
 - **The cue card is the load-bearing artifact.** Recovery prompts at
-  [`examples/hip_lab_demo/realistic/CUE_CARD.md:55-68`](../../examples/hip_lab_demo/realistic/CUE_CARD.md)
+  [`examples/cohort_demo/realistic/CUE_CARD.md:55-68`](../../examples/cohort_demo/realistic/CUE_CARD.md)
   encode the failure class explicitly — Variant-B and Variant-C rows
   added in v6.9.1 anticipate both "Claude guessed wrong column" and
   "Claude guessed wrong tool." The cue card is no longer a
@@ -152,7 +152,7 @@ Concrete mechanism:
 Reversal condition is a named validation step: the specialist's
 first-run dogfood must produce a *non-PASS* verdict on the cue card's
 Step 2 prompt at
-[`CUE_CARD.md:38`](../../examples/hip_lab_demo/realistic/CUE_CARD.md).
+[`CUE_CARD.md:38`](../../examples/cohort_demo/realistic/CUE_CARD.md).
 The verdict's shape depends on which codebase the audit runs against,
 because the v6.9.1 fix landed in the *handler* — not the *schema
 description* — so the schema's `value_column` prose is identical
@@ -193,7 +193,7 @@ from the report:
 
 ```
 === CUE CARD REHEARSAL ===
-Cue card: examples/hip_lab_demo/realistic/CUE_CARD.md
+Cue card: examples/cohort_demo/realistic/CUE_CARD.md
 Inventoried prompts: 7 (4 tool-call, 3 frame)
 Schemas in scope: ~50 ToolDefinitions across 5 children + framework
 
@@ -284,7 +284,7 @@ main session integrates rather than the agent fixing.
   system applies to itself.
 - The cue card's promotion to load-bearing artifact is descriptive,
   not aspirational. The recovery-prompt rows added in v6.9.1
-  ([`CUE_CARD.md:64-66`](../../examples/hip_lab_demo/realistic/CUE_CARD.md))
+  ([`CUE_CARD.md:64-66`](../../examples/cohort_demo/realistic/CUE_CARD.md))
   already encode the failure class explicitly; v6.9.2's BOM and
   uninstall fixes already track to cue-card flow integrity. This ADR
   recognises what the artifact has already become rather than

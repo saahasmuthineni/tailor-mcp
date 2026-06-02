@@ -72,12 +72,12 @@ Earlier framing of "Tailor itself worked end-to-end" was wrong. CLI didn't crash
 
 ```
 (4/4) register with Claude Desktop
-      wrote entry 'tailor-tour-hip-lab' to C:\Users\tailor-recipient\AppData\Roaming\Claude\claude_desktop_config.json
+      wrote entry 'tailor-tour-cohort' to C:\Users\tailor-recipient\AppData\Roaming\Claude\claude_desktop_config.json
 
 ================================================================
   Tour scaffolded successfully
 ================================================================
-  Claude Desktop: registered as 'tailor-tour-hip-lab' in
+  Claude Desktop: registered as 'tailor-tour-cohort' in
                   C:\Users\tailor-recipient\AppData\Roaming\Claude\claude_desktop_config.json
 
   Next: fully quit Claude Desktop (system tray Quit on Windows,

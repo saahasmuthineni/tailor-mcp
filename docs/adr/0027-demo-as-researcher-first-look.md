@@ -3,8 +3,8 @@
 - **Status:** Accepted
 - **Date:** 2026-05-06
 - **Partially superseded by:** [ADR 0029 (Token reduction is analytical quality)](0029-token-reduction-as-analytical-quality.md) (2026-05-07) — § Negative consequences "the demo bypasses RouterMCP by design" (lines 174-193 below) and the framing-prose contract that names `_meta` in prose because the demo doesn't exercise the router. ADR 0027's central claim — cohort thesis as canonical first-look, no Strava data — is preserved as Section 1 of the v6.12.0 demo.
-- **Partially superseded by:** [ADR 0035 (CLI rename: walkthrough + fitting-room)](0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md) (2026-05-14) — the CLI verb name (`tailor demo`) was renamed to `tailor walkthrough` per the recipient-experience-shaped naming principle. The substance of this ADR — researcher first-look against bundled HIP Lab fixtures, the operator-vs-researcher framing correction, the `sample_data.py` preservation per ADR 0008 — is fully retained. The CLI alias `tailor demo` survives through v7.1.0 with a deprecation hint; it is removed in v7.2.0.
-- **Partially superseded by:** [ADR 0038 (Vault layer is data-source-agnostic)](0038-vault-layer-is-data-source-agnostic.md) (2026-05-16, Proposed) — ADR 0027 reshaped the *demo data layer* but did not extend to the *vault layer*. The 2026-05-16 first-real-recipient user run + the v7.3.4 cycle's wire / cue-card audits surfaced that vault tool descriptions, orientation fallback prose, and the snapshot regenerator continued to treat the running child as canonical — Strava-shaping the orientation surface a science recipient sees on a HIP Lab demo. ADR 0038 codifies "vault layer is data-source-agnostic" as the structural invariant; v7.3.4 ships partial closure (demo hot-path); v7.4.0 ships the structural sweep.
+- **Partially superseded by:** [ADR 0035 (CLI rename: walkthrough + fitting-room)](0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md) (2026-05-14) — the CLI verb name (`tailor demo`) was renamed to `tailor walkthrough` per the recipient-experience-shaped naming principle. The substance of this ADR — researcher first-look against bundled demo cohort fixtures, the operator-vs-researcher framing correction, the `sample_data.py` preservation per ADR 0008 — is fully retained. The CLI alias `tailor demo` survives through v7.1.0 with a deprecation hint; it is removed in v7.2.0.
+- **Partially superseded by:** [ADR 0038 (Vault layer is data-source-agnostic)](0038-vault-layer-is-data-source-agnostic.md) (2026-05-16, Proposed) — ADR 0027 reshaped the *demo data layer* but did not extend to the *vault layer*. The 2026-05-16 first-real-recipient user run + the v7.3.4 cycle's wire / cue-card audits surfaced that vault tool descriptions, orientation fallback prose, and the snapshot regenerator continued to treat the running child as canonical — Strava-shaping the orientation surface a science recipient sees on a demo cohort install. ADR 0038 codifies "vault layer is data-source-agnostic" as the structural invariant; v7.3.4 ships partial closure (demo hot-path); v7.4.0 ships the structural sweep.
 - **Partially superseded by:** [ADR 0040 (Bounded setup-time conductor surface)](0040-bounded-setup-time-conductor-surface.md) (v8.0.0, 2026-05-19) — the `tailor walkthrough` CLI command (renamed from `tailor demo` by ADR 0035) was **hard-removed** in v8.0.0 with no deprecation shim, replaced by the `WalkthroughLayer` MCP tools. The researcher-first-look substance — cohort thesis as the canonical first surface, no Strava data — is retained inside the new MCP layer; only the CLI verb was retired.
 - **Related:** [ADR 0008 (Deterministic-by-construction processing)](0008-deterministic-by-construction-processing.md), [ADR 0015 (Tier-1 cohort surface)](0015-tier-1-cohort-surface-and-metadata-sidecar.md), [ADR 0024 (Wheel-distributed tour and fixture bundling)](0024-wheel-distributed-tour-and-fixture-bundling.md), [ADR 0029 (Token reduction is analytical quality)](0029-token-reduction-as-analytical-quality.md)
 
@@ -47,7 +47,7 @@ this ADR makes the correction explicit. Three structural reasons:
 
 The boss surfaced the framing tension in a 2026-05-06 session:
 *"the demo SHOULD NOT HAVE MY STRAVA DATA OR ANYTHING RELATED,
-the only point of the demo is to show the hip lab use."* That ask
+the only point of the demo is to show the cohort-analysis use."* That ask
 is correcting a long-standing drift, not adding new direction —
 the demo was contradicting CLAUDE.md's framing for the entire v6.x
 cycle.
@@ -68,12 +68,12 @@ match.
 
 Concrete mechanism:
 
-- **The demo loads the bundled HIP Lab realistic fixtures**
-  (`src/tailor/_fixtures/hip_lab_demo_realistic/force/`,
+- **The demo loads the bundled demo cohort realistic fixtures**
+  (`src/tailor/_fixtures/cohort_demo_realistic/force/`,
   same fixtures `tour` scaffolds per ADR 0024). 16 synthetic
   subjects, 8 BU (bilateral) / 8 OE (one-extremity), an isometric
   task to volitional failure with a `metadata.json` sidecar.
-  Rationale: real HIP Lab cohort shape, real metadata-sidecar
+  Rationale: real demo cohort shape, real metadata-sidecar
   pattern (per [ADR 0015](0015-tier-1-cohort-surface-and-metadata-sidecar.md)),
   no PRNG-on-demand-data — what the recipient sees in `demo` is
   what they would see in `tour`.
@@ -142,7 +142,7 @@ warns against treating it as canonical.
 
 - **The demo now depends on bundled fixtures.** A wheel install
   that somehow lacks the
-  `_fixtures/hip_lab_demo_realistic/force/` subtree (corrupted
+  `_fixtures/cohort_demo_realistic/force/` subtree (corrupted
   `pyproject.toml` `package-data` glob, a botched build) silently
   breaks the demo. Mitigated by a regression test that asserts the
   fixtures are loadable via `importlib.resources` — same shape as
@@ -171,8 +171,8 @@ warns against treating it as canonical.
   Listed here as known asset-render-debt; the v6.12.0 cleanup pass
   took the "remove the orphan SVG" branch of the named fork ("a
   future doc-pass may either remove the orphan SVG or replace it
-  with a HIP Lab cohort visualization"). Replacement with a HIP Lab
-  cohort visualization remains an open creative item; the orphan
+  with a demo cohort visualization"). Replacement with a demo cohort
+  visualization remains an open creative item; the orphan
   itself is gone. The `vhs` tape at `docs/guides/demo.tape` that
   produces `docs/assets/demo.gif` was unaffected — it runs
   `tailor demo` directly and is forward-compatible with the
@@ -233,7 +233,7 @@ committing to install state has no other surface — `tour` is for
 the audience walkthrough, `demo` is for the casual first-look.
 Different jobs, different idempotency contracts.
 
-**Synthesize HIP Lab-shaped CSV cohorts on the fly (no fixture
+**Synthesize cohort-shaped CSV cohorts on the fly (no fixture
 dependency).** Rejected. Synthesizing on the fly preserves the
 ADR 0008 deterministic-by-construction property at the demo level
 but breaks the structural adjacency to `tour` — a recipient running
@@ -243,7 +243,7 @@ synthesis-vs-fixture distinction across surfaces and erodes the
 (same fixtures `tour` uses) keep the demo's output predictable
 and aligned with what the recipient sees in their actual install.
 
-**Bundle a smaller HIP Lab cohort fixture (e.g. 4 subjects) for the
+**Bundle a smaller cohort fixture (e.g. 4 subjects) for the
 demo separately from the 16-subject fixture `tour` uses.** Rejected
 on similar grounds. Two fixture sets diverges the demo and tour
 surfaces; one fixture set keeps them aligned. The 16-subject

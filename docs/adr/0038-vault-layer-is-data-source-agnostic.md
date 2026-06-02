@@ -9,9 +9,9 @@
 
 [ADR 0027](0027-demo-as-researcher-first-look.md) (2026-05-06, v6.10.5)
 reframed `tailor demo` from synthetic-Strava operator self-verification
-to a researcher first-look against the bundled HIP Lab fixtures. That
+to a researcher first-look against the bundled demo cohort fixtures. That
 ADR's reshape was complete for the *demo data layer*: `demo/runner.py`
-was rewritten, `_fixtures/hip_lab_demo_realistic/` shipped, the
+was rewritten, `_fixtures/cohort_demo_realistic/` shipped, the
 synthetic-Strava `sample_data.py` was preserved under
 [ADR 0008](0008-deterministic-by-construction-processing.md)
 § Alternatives but no longer fed the demo.
@@ -31,7 +31,7 @@ the boss runs against a Strava-shaped vault every session, and the
 orientation tools produce sensible output for that case.
 
 On 2026-05-16, a first-real-recipient hand-driven run on Windows +
-Claude Desktop against the HIP Lab demo surfaced the drift. The
+Claude Desktop against the demo cohort surfaced the drift. The
 orientation layer leaks Strava-shaped framing at three concrete sites
 that a science recipient with no running child registered would hit
 on first contact:
@@ -40,7 +40,7 @@ on first contact:
    (every fresh deployment except the bundled tour fixture's), the
    tool falls back to `vault_get_fitness_summary`, which counts only
    `domain="running"` notes for `total_notes_in_vault` and emits a
-   remediation hint that names `strava_sync`. A HIP Lab deployment
+   remediation hint that names `strava_sync`. A demo cohort deployment
    with 16 force-CSV subjects and zero running activities sees
    `total_notes_in_vault: 0` and is told to "call strava_sync" — a
    command the deployment cannot run, in a child it has not
@@ -333,7 +333,7 @@ acceptance ratifies this amendment alongside the original
 ### Positive
 
 - The orientation layer matches the project's stated framing. A
-  recipient running the HIP Lab demo for the first time no longer
+  recipient running the demo cohort for the first time no longer
   sees a Strava-shaped fallback that contradicts CLAUDE.md
   § "What This Project Is" — the demo and the orientation layer
   agree on what the framework is for.
@@ -344,7 +344,7 @@ acceptance ratifies this amendment alongside the original
   [ADR 0007](0007-rendering-layers-policy.md)'s plain-markdown rule.
 - The AI-economics claim ([ADR 0029](0029-token-reduction-as-analytical-quality.md))
   is honoured at the orientation surface. A Strava-shaped fallback
-  on a HIP Lab deployment misleads the LLM about what the analyst's
+  on a demo cohort deployment misleads the LLM about what the analyst's
   Wardrobe contains, which costs context budget on every subsequent
   call as the LLM works around the wrong frame.
 - The cue-card-rehearsal-auditor ([ADR 0025](0025-cue-card-rehearsal-as-release-gate.md))
@@ -388,7 +388,7 @@ acceptance ratifies this amendment alongside the original
   subject-keying continues to thread through every vault tool's
   `subject_id` parameter regardless of which biosensor child wrote
   the source note.
-- The seeded snapshot.md bundled with the HIP Lab tour fixtures
+- The seeded snapshot.md bundled with the demo cohort tour fixtures
   ships under [ADR 0007](0007-rendering-layers-policy.md)'s
   source-of-truth-markdown rule (plain markdown, AI-readable, no
   plugin tokens) and is synthetic-by-construction per

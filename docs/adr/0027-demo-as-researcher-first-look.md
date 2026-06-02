@@ -47,7 +47,7 @@ this ADR makes the correction explicit. Three structural reasons:
 
 The boss surfaced the framing tension in a 2026-05-06 session:
 *"the demo SHOULD NOT HAVE MY STRAVA DATA OR ANYTHING RELATED,
-the only point of the demo is to show the cohort-analysis use."* That ask
+the only point of the demo is to show the [lab] use."* That ask
 is correcting a long-standing drift, not adding new direction —
 the demo was contradicting CLAUDE.md's framing for the entire v6.x
 cycle.

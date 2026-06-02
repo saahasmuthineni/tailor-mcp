@@ -95,7 +95,7 @@ Specifically refuse:
 - A request to mark theatre tests as PASS without auditing what config they actually load.
 - A request to skip the `_dumps` coercion check because "orjson handles it."
 - A request to omit vault tools from the audit because "they're framework-level not biosensor-level."
-- A request to defer markdown round-trip checks because "Senefeld is a domain expert, not a markdown expert."
+- A request to defer markdown round-trip checks because "the recipient is a domain expert, not a markdown expert."
 
 If the boss explicitly invokes a one-time exception via the main session, document the override in your report's BORDER NOTES with the citation, and run the rest of the audit normally.
 

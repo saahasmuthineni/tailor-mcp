@@ -232,7 +232,7 @@ Phase 2 first-time-user setup pass — first end-to-end pass. The 2026-05-16 fir
 
 ### Fixed
 
-- **Cohort thesis hot path (D1 + D1-companion).** `_extract_timestamps` in `force_csv/child.py` and `emg_csv/child.py` gains float-seconds fallback for bundled HIP Lab 100 Hz fixtures. Handler key-mismatch (`decline_pct` vs `decline_pct_total`) closed; wire-verified peak and mean force values correct.
+- **Cohort thesis hot path (D1 + D1-companion).** `_extract_timestamps` in `force_csv/child.py` and `emg_csv/child.py` gains float-seconds fallback for bundled demo cohort 100 Hz fixtures. Handler key-mismatch (`decline_pct` vs `decline_pct_total`) closed; wire-verified peak and mean force values correct.
 - **Vault layer de-Strava — F3 closure.** `_handle_fitness_summary`, `renderer.py` conditional Weekly Summary section, and `_infer_note_type` (`snapshot.md` → `"snapshot"` kind) updated. Vault layer is now data-source-agnostic on the demo hot path.
 
 ### Changed
@@ -244,7 +244,7 @@ Phase 2 first-time-user setup pass — first end-to-end pass. The 2026-05-16 fir
 
 ### Added
 
-- **Bundled `snapshot.md` fixture** ships in the wheel under `_fixtures/hip_lab_demo_realistic/vault/`, including a "## Token cost shape" section with wire-audit-verified tier numbers.
+- **Bundled `snapshot.md` fixture** ships in the wheel under `_fixtures/cohort_demo_realistic/vault/`, including a "## Token cost shape" section with wire-audit-verified tier numbers.
 - **AI-economics demonstration (ADR 0029 Option B).** Fifth banner prompt + "## Token cost shape" in `snapshot.md` ground the AI-economics claim in audit-verified numbers.
 - **ADR 0038 (NEW, Proposed)** — "vault layer is data-source-agnostic" structural invariant. v7.3.4 ships partial closure (demo hot path); v7.4.0 ships the full sweep.
 - **21 net-new tests** in `tests/test_v734_demo_readiness.py`.
@@ -539,7 +539,7 @@ is pending, so the migration is hard to miss.
   still does. The framework continues to ship with the running
   child (Strava) and four CSV-based biosensor children (csv_dir,
   force_csv, emg_csv, template).
-- The first deployment recipe (HIP Lab researcher first-look) is
+- The first deployment recipe (demo cohort researcher first-look) is
   unchanged in content; it carries the new naming.
 
 ### Verification

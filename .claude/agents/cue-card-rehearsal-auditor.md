@@ -28,7 +28,7 @@ You are not a unit-test replacement, not a wire-level auditor, and not a behavio
 
 ## Pre-flight
 
-1. **Locate the cue card.** Default: `examples/hip_lab_demo/realistic/CUE_CARD.md`. Caller may pass `--cue-card=<path>` to audit a different variant. If the path doesn't exist, refuse and report.
+1. **Locate the cue card.** Default: `examples/cohort_demo/realistic/CUE_CARD.md`. Caller may pass `--cue-card=<path>` to audit a different variant. If the path doesn't exist, refuse and report.
 2. **Locate the candidate ToolDefinition schemas.** Read `src/tailor/framework/router.py`, `framework/vault/layer.py`, `framework/local_llm/layer.py`, and every `children/*/child.py` for `ToolDefinition` instances and `param_schemas` blocks. The schemas you reason against are the ones in the working tree, **not** the released ones — this is the candidate build. Auditing released schemas defeats the gate.
 3. **Read the cue card's walkthrough table.** Each row in the *Walkthrough* table (typically labelled `# / What you say or paste / Expected key result`) is one prompt. The "Recovery prompts" / "Claude weather" table is a separate fixture; audit only the walkthrough by default. Frame-only rows (no tool call expected, e.g. opening setup or closing summary) are inventoried but skipped from per-prompt simulation.
 

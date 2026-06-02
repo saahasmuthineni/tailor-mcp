@@ -227,7 +227,7 @@ def measure_cohort() -> dict:
         "scenario": "cohort_16_subjects_by_sex",
         "question": (
             "Compare peak force and time-to-50%-drop between male "
-            "and female participants across all 16 HIP-Lab subjects; "
+            "and female participants across all 16 cohort subjects; "
             "include per-subject decline percentages."
         ),
         "dataset": {
@@ -339,7 +339,7 @@ def measure_session_persistence() -> dict:
     return {
         "scenario": "session_resume_S004_cohort_thread",
         "question": (
-            "Resume an analytical thread on the HIP-Lab cohort with "
+            "Resume an analytical thread on the demo cohort with "
             "particular focus on subject S004's atypical EMG/force "
             "decoupling — what's been observed, what should I look "
             "at next?"

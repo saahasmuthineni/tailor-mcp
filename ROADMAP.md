@@ -180,8 +180,7 @@ parallel directions:
 
 **Direction A — land a real research lab using Tailor on real data.**
 **Shelved 2026-05-28** — not being pursued in the current launch push
-(not killed; revisitable). The Senefeld thread (per project memory, the
-off-blueprint detour built realistic-rate child ahead of the meeting)
+(not killed; revisitable). A prospective beachhead-lab partnership
 remains the seed if it reopens. The consequence of shelving: the launch
 narrative (Direction B) can no longer lean on a "real lab uses it"
 testimonial and must stand on the architecture, the trust moat, and the
@@ -277,12 +276,12 @@ across them via the router's existing `dispatch_internal()`
 cross-child seam do. The ChildMCP plurality the framework has
 shipped since v4 is half the claim; the realised combination
 workflow is the other half. One reference workflow ships in this
-direction, likely *"compare my morning run to the HIP Lab cohort
+direction, likely *"compare my morning run to the demo cohort
 distribution"* — pairs the running child (live) with the bundled
-HIP Lab `csv_dir` cohort fixtures (static) through
+demo cohort `csv_dir` cohort fixtures (static) through
 `dispatch_internal()`, exposed as a first-class tool
 (`compare_me_to_cohort` or similar) and as a new section in a
-future demo reshape. The HIP Lab fixtures + Strava are already
+future demo reshape. The demo cohort fixtures + Strava are already
 half-built in the codebase; what is missing is the workflow
 surface that names them as a combination, not as two unrelated
 children.
@@ -506,7 +505,7 @@ snapshot time) into a single archive suitable for attaching to a
 manuscript submission.
 
 **Trigger**: a beachhead lab needs it for an actual submission. Likely
-Phase 3 with the Senefeld partnership. Could ship earlier if a
+Phase 3 with a beachhead-lab partnership. Could ship earlier if a
 different research adopter requests it first.
 
 ### Worked-example notebook v2 against a published analytical question
@@ -730,12 +729,12 @@ convention); this section is the catch-up summary.
 
 ### Shipped in v7.3.4 (2026-05-16)
 
-Phase 2 first-time-user setup pass — first end-to-end pass. The 2026-05-16 first real outside-recipient walkthrough (Windows + Claude Desktop, non-technical friend) produced 5 findings that drove four scope-shape escalations over the session: narrow S004 fix → Senefeld-ready expansion → γ scope-box (meeting flexes, ship-quality binds) → Option B (AI-economics demonstration). Three pre-implementation gates returned non-PASS verdicts; every ship-blocker closed before any code was written. Closes the Phase 2 first-time-user setup pass deliverable first opened at v7.0.13's PyPI publish (2026-05-13) and unblocked at the Phase 0 closure (2026-05-12).
+Phase 2 first-time-user setup pass — first end-to-end pass. The 2026-05-16 first real outside-recipient walkthrough (Windows + Claude Desktop, non-technical friend) produced 5 findings that drove four scope-shape escalations over the session: narrow S004 fix → beachhead-lab-ready expansion → γ scope-box (meeting flexes, ship-quality binds) → Option B (AI-economics demonstration). Three pre-implementation gates returned non-PASS verdicts; every ship-blocker closed before any code was written. Closes the Phase 2 first-time-user setup pass deliverable first opened at v7.0.13's PyPI publish (2026-05-13) and unblocked at the Phase 0 closure (2026-05-12).
 
-- **Cohort thesis hot path (D1 + D1-companion).** `_extract_timestamps` in `force_csv/child.py` + `emg_csv/child.py` gains float-seconds fallback for bundled HIP Lab 100 Hz fixtures. Wire-verified: F=65.3 N / M=87.6 N mean; S004 peak=229 N / `time_to_50pct_drop_s` non-null. Handler key-mismatch (`decline_pct` vs `decline_pct_total`) closed in the same pass; S004 `decline_pct=76.1%`.
+- **Cohort thesis hot path (D1 + D1-companion).** `_extract_timestamps` in `force_csv/child.py` + `emg_csv/child.py` gains float-seconds fallback for bundled demo cohort 100 Hz fixtures. Wire-verified: F=65.3 N / M=87.6 N mean; S004 peak=229 N / `time_to_50pct_drop_s` non-null. Handler key-mismatch (`decline_pct` vs `decline_pct_total`) closed in the same pass; S004 `decline_pct=76.1%`.
 - **API parity (D2).** `force_cohort_summary` + `emg_cohort_summary` parameter renamed `group_field` → `group_by` across ToolDefinition, param_schema, handler, and result-dict key. `value_column` ↔ `column` asymmetry deferred to v7.4.0 (wider refactor).
 - **Vault layer de-Strava — F3 closure.** `_handle_fitness_summary` + `renderer.py` conditional Weekly Summary section + `_infer_note_type` maps `snapshot.md` → `"snapshot"` kind + `_ALLOWED_KINDS` updated. Vault layer is now data-source-agnostic on the demo hot path — structural invariant codified in ADR 0038 Proposed.
-- **Bundled `snapshot.md` fixture.** Pre-seeded orientation document ships in the wheel under `_fixtures/hip_lab_demo_realistic/vault/`. Includes "## Token cost shape" with wire-audit-verified tier numbers (Tier 1 ~310 tokens · Tier 2 ~6,750 · Tier 3 ~50,000 actual / ~24,000 pre-execution estimate). ADR 0024 synthetic-by-construction precondition honored.
+- **Bundled `snapshot.md` fixture.** Pre-seeded orientation document ships in the wheel under `_fixtures/cohort_demo_realistic/vault/`. Includes "## Token cost shape" with wire-audit-verified tier numbers (Tier 1 ~310 tokens · Tier 2 ~6,750 · Tier 3 ~50,000 actual / ~24,000 pre-execution estimate). ADR 0024 synthetic-by-construction precondition honored.
 - **Option B — AI-economics demonstration (ADR 0029).** `cost_threshold` operator-configurable from `user_config.json` (default `35_000` preserved; backwards-compatible). `tailor fitting-room` scaffold writes `cost_threshold: 15000` so the cost gate fires demonstrably on bundled fixtures. Fifth banner prompt + "## Token cost shape" section in `snapshot.md` ground the AI-economics claim in audit-verified numbers. Cost-estimator 2.1× under-estimate queued for v7.4.0 calibration.
 - **Schema description sweeps (D5, D6, D7).** `value_column`, `group_by`, and `SUBJECT_ID_PARAM_DOC` descriptions gain literal examples and semantic distinctions (biosensor-tier audit-only vs vault-tier filter per ADR 0009).
 - **Recipient ergonomics.** README per-OS uv install one-liner table. Fitting-room banner reshaped: single "Next step" leads, three science-shaped prompts, paths demoted to labeled "Files & locations" block. Regenerate-warning added per F3 structural lesson.
@@ -904,7 +903,7 @@ Closes the two remaining v7.3.0 WATCH findings deferred from v7.3.1: (a) `projec
   commands + clone instructions (`README.md`), install command (`CLAUDE.md`,
   `docs/guides/multi-subject-pilot.md`, `docs/diagnosis/phase-0-diagnosis-kit.md`
   A6), issues URL (`docs/external-review.md`), example path
-  (`examples/hip_lab_demo/beta/README.md`), ADR URL + known-debt closeout
+  (`examples/cohort_demo/beta/README.md`), ADR URL + known-debt closeout
   (`docs/adr/0031-rename-to-tailor-and-wardrobe.md`).
 - Phase 1 strikethrough row updated with "landed 2026-05-10" annotation.
 - Vault project-folder cross-link updated out-of-band via Obsidian MCP.
@@ -1018,7 +1017,7 @@ considered, and four reversal conditions.
 
 ### Shipped in v6.12.0 (2026-05-08)
 
-- `tailor demo` reshaped from 3-call cohort first-look into 5-section architectural showcase per ADR 0029 (NEW). Sections 2–5 exercise router pipeline visibility, three-tier resolution model, vault durable persistence, and local-LLM oracle substrate scan — in sequence, using the same bundled HIP Lab S001 fixture throughout.
+- `tailor demo` reshaped from 3-call cohort first-look into 5-section architectural showcase per ADR 0029 (NEW). Sections 2–5 exercise router pipeline visibility, three-tier resolution model, vault durable persistence, and local-LLM oracle substrate scan — in sequence, using the same bundled demo cohort S001 fixture throughout.
 - New `--save-shareable [PATH]` CLI flag: tees demo stdout into a self-contained markdown file (install command + transcript + breadcrumb footer), suitable for emailing or static hosting.
 - ADR 0029 NEW: *"Token reduction is analytical quality, not just cost optimization; the demo demonstrates the architecture, not only the cohort thesis."* Partially supersedes ADR 0027 § Negative consequences.
 - ADR 0024 § 3.1 amended: public release-only mirror at `saahasmuthineni/biosensormcpdemo` (GitHub Pages `https://saahasmuthineni.github.io/biosensormcpdemo/` verified live) codified as a friend-shareable distribution carve-out alongside Drive/email channel.
@@ -1046,13 +1045,13 @@ considered, and four reversal conditions.
 
 ### Shipped in v6.10.5 (2026-05-07)
 
-- `tailor demo` reframed from synthetic-Strava operator self-verification to bundled HIP Lab cohort fixtures researcher first-look per [ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md). Closes the drift between CLAUDE.md's stated framing ("Strava is a worked example, not the canonical use case") and the demo's actual behavior across the entire v6.x cycle.
-- `demo/runner.py` rewritten: instantiates `CSVDirectoryChild`, exercises `csv_cohort_summary` (by sex, by group) + `csv_force_decline` on pinned subject S001 against bundled `_fixtures/hip_lab_demo_realistic/force/`. Output is the real result envelope shape; the router / audit / consent-gate path is explicitly out-of-scope with a pointer to `tailor tour`.
+- `tailor demo` reframed from synthetic-Strava operator self-verification to bundled demo cohort fixtures researcher first-look per [ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md). Closes the drift between CLAUDE.md's stated framing ("Strava is a worked example, not the canonical use case") and the demo's actual behavior across the entire v6.x cycle.
+- `demo/runner.py` rewritten: instantiates `CSVDirectoryChild`, exercises `csv_cohort_summary` (by sex, by group) + `csv_force_decline` on pinned subject S001 against bundled `_fixtures/cohort_demo_realistic/force/`. Output is the real result envelope shape; the router / audit / consent-gate path is explicitly out-of-scope with a pointer to `tailor tour`.
 - `demo/sample_data.py` preserved untouched per ADR 0008 § Alternatives.
 - Deferred `demo` → `verify` rename KILLED: a researcher-first-look surface should not be called `verify`. ROADMAP item rewritten as KILLED with explanation. ADR 0024 deferral paragraph updated to name the kill.
-- Doc-truth drift cleanup (9 sites caught by `red-team-reviewer` adversarial pass per ADR 0010): README.md ×3, CONTRIBUTING.md, tour.py module docstring, ROADMAP.md ×2, docs/guides/claude-desktop-demo.md ×2. Known debt: `docs/assets/demo.svg` orphan asset queued for future doc-pass per ADR 0027 § Negative consequences (resolved in the post-v6.13.0 cleanup pass — orphan removed; replacement HIP Lab cohort visualization remains an open creative item).
+- Doc-truth drift cleanup (9 sites caught by `red-team-reviewer` adversarial pass per ADR 0010): README.md ×3, CONTRIBUTING.md, tour.py module docstring, ROADMAP.md ×2, docs/guides/claude-desktop-demo.md ×2. Known debt: `docs/assets/demo.svg` orphan asset queued for future doc-pass per ADR 0027 § Negative consequences (resolved in the post-v6.13.0 cleanup pass — orphan removed; replacement demo cohort visualization remains an open creative item).
 - ADR 0027 NEW: researcher-first-look framing, trade-off vs RouterMCP path, named negative consequences.
-- +8 tests in `tests/test_demo_runner.py` (890 → 898): end-to-end run, output-mentions-HIP-Lab-not-Strava, balanced-by-sex cohort (F+M n=8, Hunter & Senefeld 2024 sex-differences thesis), cohort-by-group, force-decline-on-S001, deterministic-across-reruns (ADR 0008 surfaced as recipient-checkable property), sample_data importability, bundled-fixture loadability.
+- +8 tests in `tests/test_demo_runner.py` (890 → 898): end-to-end run, output-mentions-cohort-not-Strava, balanced-by-sex cohort (F+M n=8, Hunter & Senefeld 2024 sex-differences thesis), cohort-by-group, force-decline-on-S001, deterministic-across-reruns (ADR 0008 surfaced as recipient-checkable property), sample_data importability, bundled-fixture loadability.
 - Gates: 898/898 pytest, ruff clean, 76/76 probe, CLI smoke PASS. Patch bump.
 
 ### Shipped in v6.10.4 (2026-05-06)
@@ -1112,10 +1111,10 @@ considered, and four reversal conditions.
 
 ### Shipped in v6.9.0 (2026-05-04)
 
-- Wheel-distributed `tailor tour` CLI subcommand ([ADR 0024](docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md)). Scaffolds the HIP Lab realistic demo from bundled wheel fixtures into `~/.tailor/demos/hip-lab/`; copies 48 CSVs + 3 metadata sidecars + 1 seed vault moment via `importlib.resources`; writes `user_config.json` with absolute paths; merges Claude Desktop config — recipient never types an env var. Flags: `--variant`, `--target`, `--no-claude-desktop`, `--force`. Inherits `pilot.py`'s atomic-write + BOM round-trip + deep-merge hardenings.
-- HIP Lab realistic fixtures bundled into the wheel. Migrated from `examples/hip_lab_demo/realistic/` to `src/tailor/_fixtures/hip_lab_demo_realistic/`; `pyproject.toml` package-data globs extended. Distribution: pre-built wheel via Drive/email; no PyPI publish; wheel size 1.26 MB (budget 10 MB).
+- Wheel-distributed `tailor tour` CLI subcommand ([ADR 0024](docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md)). Scaffolds the demo cohort realistic demo from bundled wheel fixtures into `~/.tailor/demos/cohort/`; copies 48 CSVs + 3 metadata sidecars + 1 seed vault moment via `importlib.resources`; writes `user_config.json` with absolute paths; merges Claude Desktop config — recipient never types an env var. Flags: `--variant`, `--target`, `--no-claude-desktop`, `--force`. Inherits `pilot.py`'s atomic-write + BOM round-trip + deep-merge hardenings.
+- Demo cohort realistic fixtures bundled into the wheel. Migrated from `examples/cohort_demo/realistic/` to `src/tailor/_fixtures/cohort_demo_realistic/`; `pyproject.toml` package-data globs extended. Distribution: pre-built wheel via Drive/email; no PyPI publish; wheel size 1.26 MB (budget 10 MB).
 - ADR 0024 codifies synthetic-by-construction precondition — bundling permitted only for bytes that are synthetic by construction; real or de-identified cohort data require a superseding ADR.
-- `examples/hip_lab_demo/realistic/setup.py` preserved as thin shim delegating to `tour_main()`; `rehearse.py` rewritten to rehearse the recipient code path against a temp dir; `WINDOWS_QUICKSTART.md` becomes a fully wheel-driven recipient guide.
+- `examples/cohort_demo/realistic/setup.py` preserved as thin shim delegating to `tour_main()`; `rehearse.py` rewritten to rehearse the recipient code path against a temp dir; `WINDOWS_QUICKSTART.md` becomes a fully wheel-driven recipient guide.
 - Deferred (named in ROADMAP): legacy `tailor demo` → `verify` rename (subsequently *killed* in v6.10.5 per [ADR 0027](docs/adr/0027-demo-as-researcher-first-look.md) — `demo` is now a researcher first-look, not operator self-verification, so the `verify` rename became the wrong move); PyPI publish path when recipient set crosses ~10.
 - 23 new tests (20 `test_tour_subcommand.py` + 3 subprocess `test_serve_mcp_protocol.py`); 818/818 passed. 7-agent release pass clean.
 
@@ -1199,7 +1198,7 @@ widens from 5 to 7 tools.
   0008 / 0009 / 0014. Includes a Criticality classification section
   per ADR 0014: new processing methods are MEDIUM, new child
   handlers are HIGH.
-- **`examples/hip_lab_demo/` walkthrough** — proof-of-concept
+- **`examples/cohort_demo/` walkthrough** — proof-of-concept
   against a synthetic 16-subject (8M / 8F) intermittent isometric task
   to volitional failure. Sized to mimic the active research thread
   of Senefeld + Hunter (*J Physiol* 2024, sex differences in human

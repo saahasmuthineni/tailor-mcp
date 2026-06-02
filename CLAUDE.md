@@ -278,7 +278,7 @@
 >
 > **Bug self-retirement.** The v7.5.0 orphan-cleanup defect Taylor's
 > 2026-05-19 macOS run surfaced (pilot's `_is_orphan_entry_key`
-> wipes fitting-room's `tailor-fitting-room-hip-lab` Claude Desktop
+> wipes fitting-room's `tailor-fitting-room-cohort` Claude Desktop
 > entry as a "stale orphan") becomes structurally moot under A'.
 > Fitting-room is no longer a CLI command writing Claude Desktop
 > config; pilot is the sole CLI writer of Claude Desktop config.
@@ -339,7 +339,7 @@
 > **adr-weigher PASS** on ADR 0040 against all five criteria.
 > **cue-card-rehearsal-auditor NOT TRIGGERED** (no CUE_CARD.md or
 > ToolDefinition schema changes affecting an existing cue card — the
-> 8 new tools are MCP-tool surfaces not yet on the bundled HIP Lab
+> 8 new tools are MCP-tool surfaces not yet on the bundled demo cohort
 > cue card). **recipient-install-validator SKIPPED** per v6.11.x
 > falsification precedent.
 >
@@ -642,7 +642,7 @@ src/tailor/
                            #   (preserved per ADR 0008 § Alternatives;
                            #   no longer the demo's data source — see ADR 0027)
     runner.py              # Researcher-first-look — runs CSV cohort tools
-                           #   against bundled HIP Lab fixtures (ADR 0027)
+                           #   against bundled demo cohort fixtures (ADR 0027)
 
 tests/                     # Mirrors src/ layout
   conftest.py              # Shared fixtures (tmp_data_dir, tmp_vault_dirs)

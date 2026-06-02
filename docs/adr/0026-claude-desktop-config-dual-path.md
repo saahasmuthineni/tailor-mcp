@@ -296,7 +296,7 @@ ADR exists to harden.
   v6.10.3 sibling-biosensor-* cleanup in `_register_with_claude_desktop`
   apply per-path.** A recipient whose classic config has a stale
   `tailor` entry and whose Store config has a stale
-  `biosensor-tour-hip-lab` entry gets both cleaned on the next
+  `biosensor-tour-cohort` entry gets both cleaned on the next
   registration. The cleanup contracts are unchanged in shape; only
   the surface they apply to widens.
 - **The ADR 0024 §5 criticality classification of `tour.py` as HIGH

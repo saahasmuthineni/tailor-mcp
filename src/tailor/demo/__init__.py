@@ -1,10 +1,10 @@
 """
-Walkthrough mode — researcher first-look against bundled HIP Lab
+Walkthrough mode — researcher first-look against bundled demo
 cohort fixtures.
 
 Per ADRs 0027 and 0035, ``tailor walkthrough`` (renamed from
 ``tailor demo`` in v7.1.0) runs CSV cohort tools against the
-bundled ``_fixtures/hip_lab_demo_realistic/force/`` subtree (16
+bundled ``_fixtures/cohort_demo_realistic/force/`` subtree (16
 synthetic subjects + metadata.json sidecar) — the same fixtures
 ``tailor fitting-room`` (renamed from ``tailor tour``) scaffolds.
 No Strava account, OAuth tokens, or network access required.

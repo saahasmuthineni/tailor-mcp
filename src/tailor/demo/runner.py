@@ -1,5 +1,5 @@
 """
-Walkthrough runner — researcher first-look against the bundled HIP Lab
+Walkthrough runner — researcher first-look against the bundled demo
 realistic cohort fixtures.
 
 Renamed from "demo runner" in v7.1.0 per ADR 0035; the module path
@@ -81,13 +81,13 @@ _DEMO_COST_THRESHOLD = 15_000
 
 
 def _stage_force_fixtures(dest: Path) -> int:
-    """Copy bundled HIP Lab ``force/`` subtree into ``dest``.
+    """Copy bundled demo cohort ``force/`` subtree into ``dest``.
 
     Mirrors ``tour.py``'s ``_copy_resource_tree`` shape — file-by-file
     iteration so Python 3.10/3.11 work (``as_file`` on directories
     only landed in 3.12).
     """
-    pkg_root = files("tailor._fixtures.hip_lab_demo_realistic.force")
+    pkg_root = files("tailor._fixtures.cohort_demo_realistic.force")
     dest.mkdir(parents=True, exist_ok=True)
     n = 0
     for child in pkg_root.iterdir():
@@ -556,7 +556,7 @@ def run_demo(
     audience: str = "developer",
 ) -> None:
     """Researcher first-look — five-section walk through the framework's
-    load-bearing architectural claims against bundled HIP Lab fixtures.
+    load-bearing architectural claims against bundled demo cohort fixtures.
     See ADR 0029.
 
     Args:
@@ -628,7 +628,7 @@ def run_demo(
     )
     print()
     print(
-        "HIP Lab realistic cohort fixture: 16 synthetic subjects"
+        "Demo realistic cohort fixture: 16 synthetic subjects"
     )
     print(
         "performing a sustained-grip task to exhaustion (an isometric"
@@ -656,7 +656,7 @@ def run_demo(
         n_csvs = sum(1 for p in force_dir.iterdir() if p.suffix == ".csv")
         print(
             f"Loaded {n_csvs} force CSVs + metadata.json sidecar from "
-            f"tailor._fixtures.hip_lab_demo_realistic.force "
+            f"tailor._fixtures.cohort_demo_realistic.force "
             f"into a tempdir."
         )
 
@@ -943,7 +943,7 @@ def run_demo(
             ))
 
             moment_params = {
-                "title": "Sex-grouped peak force in HIP Lab cohort",
+                "title": "Sex-grouped peak force in demo cohort",
                 "body": (
                     "Section 1 returned per-sex peak-force statistics on "
                     "16 synthetic subjects. Captured as a moment "

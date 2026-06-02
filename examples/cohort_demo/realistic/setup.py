@@ -1,7 +1,7 @@
 """
 Thin shim — delegates to the ``tailor.fitting_room`` library entry point.
 
-Pre-v6.9.0 this script was the in-repo scaffolder for the HIP Lab
+Pre-v6.9.0 this script was the in-repo scaffolder for the demo cohort
 realistic demo. v6.9.0 ([ADR 0024](../../../docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md))
 moved scaffolding into ``tailor.tour`` so non-technical recipients
 could run the demo from a pre-built wheel without GitHub access.
@@ -26,4 +26,4 @@ if __name__ == "__main__":
     # v8.0.0: imports flipped from ``tailor.tour`` (retired shim) to
     # ``tailor.fitting_room`` (canonical library entry point).
     from tailor.fitting_room import main as fitting_room_main
-    sys.exit(fitting_room_main(["--variant=hip-lab", "--no-claude-desktop"]))
+    sys.exit(fitting_room_main(["--variant=cohort", "--no-claude-desktop"]))

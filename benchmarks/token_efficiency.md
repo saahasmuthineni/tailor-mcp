@@ -4,7 +4,7 @@ Two named measurements back the "AI economics" claim from
 [ADR 0029](../docs/adr/0029-token-reduction-as-analytical-quality.md):
 **A. Per-query efficiency** (data → answer in one session) and
 **B. Session persistence efficiency** (cost of resuming across
-sessions). Both run against bundled HIP-Lab realistic fixtures
+sessions). Both run against bundled demo cohort realistic fixtures
 (synthetic-by-construction per [ADR 0024](../docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md);
 data shape mimics 100 Hz isometric force traces from a 16-subject
 sex-differences cohort).
@@ -13,7 +13,7 @@ sex-differences cohort).
 |---|---:|---|
 | A. **Per-query efficiency** (single subject) | **657.6×** | Tier-1 server-side computation vs raw CSV in context |
 | A. **Per-query efficiency** (16-subject cohort) | **938.2×** | Same, scaled to a multi-file cohort question |
-| B. **Session persistence efficiency** (S004 resume) | **318.0×** | Vault retrieval vs naive re-paste of data + accumulated notes |
+| B. **Session persistence efficiency** (S004 resume) | **318.2×** | Vault retrieval vs naive re-paste of data + accumulated notes |
 
 The "at least 100× cheaper" claim in ADR 0029 is a *conservative
 floor*; on this benchmark the actual ratios are **3.2× to 9.4× the
@@ -38,11 +38,11 @@ explicitly excluded under **Limitations** below.
 | **Cross-check tokenizer** | `tailor.framework.cost.estimate_tokens` (chars / 4) | Conservative heuristic; per CLAUDE.md v7.3.4 ~2.1× under-counts vs actual wire-measured |
 | **Model assumed for $$ math** | Claude Sonnet 4.6 input pricing | $3.00 / million input tokens (Anthropic public list price, late 2025) |
 | **Cache pricing assumed** | $0.30 / M cache reads, $3.75 / M cache writes | Anthropic prompt-caching tier — see §"Prompt caching" below |
-| **Dataset (Benchmark A)** | 16 force-CSVs, 60s @ 100 Hz, 8M / 8F, in `src/tailor/_fixtures/hip_lab_demo_realistic/force/` | 6,000 samples per file; ~83.5 KB each; synthetic-by-construction per [ADR 0024](../docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md) |
-| **Dataset (Benchmark B)** | The same 16 force-CSVs *plus* `src/tailor/_fixtures/hip_lab_demo_realistic/vault/snapshot.md` + the S004 EMG/force-decoupling moment | Bundled vault artifacts represent multi-session accumulated analytical memory |
+| **Dataset (Benchmark A)** | 16 force-CSVs, 60s @ 100 Hz, 8M / 8F, in `src/tailor/_fixtures/cohort_demo_realistic/force/` | 6,000 samples per file; ~83.5 KB each; synthetic-by-construction per [ADR 0024](../docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md) |
+| **Dataset (Benchmark B)** | The same 16 force-CSVs *plus* `src/tailor/_fixtures/cohort_demo_realistic/vault/snapshot.md` + the S004 EMG/force-decoupling moment | Bundled vault artifacts represent multi-session accumulated analytical memory |
 | **Question (A.1)** | "Summarize subject S004's fatigue trajectory: peak force, decline percentage, time-to-50%-drop, and decline rate over the 60-second isometric trial." | Verbatim |
-| **Question (A.2)** | "Compare peak force and time-to-50%-drop between male and female participants across all 16 HIP-Lab subjects; include per-subject decline percentages." | Verbatim |
-| **Question (B.1)** | "Resume an analytical thread on the HIP-Lab cohort with particular focus on subject S004's atypical EMG/force decoupling — what's been observed, what should I look at next?" | Verbatim |
+| **Question (A.2)** | "Compare peak force and time-to-50%-drop between male and female participants across all 16 cohort subjects; include per-subject decline percentages." | Verbatim |
+| **Question (B.1)** | "Resume an analytical thread on the demo cohort with particular focus on subject S004's atypical EMG/force decoupling — what's been observed, what should I look at next?" | Verbatim |
 | **What is measured** | Data-payload input tokens only | System prompts / question text / output budget excluded (constant across approaches; ratio unchanged) |
 | **N sessions for Benchmark B compounding** | 5 | Illustrative typical multi-session research thread; ratio is N-invariant |
 
@@ -155,7 +155,7 @@ retrieved selectively by the vault layer for the current question.
 
 This benchmark uses **real vault artifacts** — the bundled
 `snapshot.md` and the S004 EMG/force-decoupling moment shipped with
-the HIP-Lab realistic fixtures. These represent an analyst's
+the demo cohort realistic fixtures. These represent an analyst's
 accumulated thinking across a multi-session investigation; they were
 written by an analyst in a prior session and persist across Claude
 restarts (per the bundled `snapshot.md`'s own claim).
@@ -175,7 +175,7 @@ session to the same analytical state, the researcher must paste:
    researcher's informal notes (Apple Notes, a docx, a lab notebook)
    would likely be longer and less structured.
 
-Combined: 1,349,713 bytes, **771,743 tokens** (tiktoken) / 337,428 (chars/4).
+Combined: 1,349,715 bytes, **771,741 tokens** (tiktoken) / 337,428 (chars/4).
 
 **Tailor (vault retrieval).** When the session starts, the vault
 layer auto-surfaces `snapshot.md` via `vault_get_snapshot`. The LLM
@@ -191,14 +191,14 @@ What the LLM actually sees on resume:
   chars): the S004 wow moment with the EMG envelope observation,
   the hypothesis space, and named follow-up actions
 
-Combined: 9,537 bytes, **2,427 tokens** (tiktoken) / 2,384 (chars/4).
+Combined: 9,539 bytes, **2,425 tokens** (tiktoken) / 2,384 (chars/4).
 
 **The data itself stays on disk.** If the LLM needs to verify a
 claim against fresh data, it calls `force_cohort_summary` or
 `force_decline_summary` and pays the per-query Tier-1 cost (73–820
 tokens per Benchmark A) — not the full ~769K raw-data cost.
 
-**Ratio (tiktoken): 771,743 / 2,427 = 318.0×.**
+**Ratio (tiktoken): 771,741 / 2,425 = 318.2×.**
 
 ### B.2 — Compounding cost across N sessions
 
@@ -215,8 +215,8 @@ hypothesis to candidate finding):
 
 | | Baseline | Tailor | Ratio |
 |---|---:|---:|---:|
-| Tokens per session resume | 771,743 | 2,427 | 318× |
-| Tokens × 5 sessions | **3,858,715** | **12,135** | **318×** |
+| Tokens per session resume | 771,741 | 2,425 | 318× |
+| Tokens × 5 sessions | **3,858,705** | **12,125** | **318×** |
 
 At Claude Sonnet 4.6 input pricing ($3 / million input tokens, no
 caching):
@@ -377,7 +377,7 @@ weigh these honestly before generalizing.
 
 ### Why the synthetic-but-representative dataset is a fair proxy
 
-The HIP-Lab realistic fixtures are synthetic-by-construction
+The demo cohort realistic fixtures are synthetic-by-construction
 ([ADR 0024](../docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md)
 § "Synthetic-by-construction precondition"). The numerical
 behavior of the cohort statistics differs from real data; the
@@ -402,7 +402,7 @@ python benchmarks/token_efficiency.py
 
 The script prints a JSON document with every number used in this
 report under two top-level keys (`per_query_efficiency` and
-`session_persistence_efficiency`). The dataset (HIP-Lab realistic
+`session_persistence_efficiency`). The dataset (demo cohort realistic
 fixtures + bundled vault state) is checked into
 `src/tailor/_fixtures/`; no external download required.
 

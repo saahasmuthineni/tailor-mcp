@@ -1092,10 +1092,10 @@ class TestBomTransparency:
 # ═══════════════════════════════════════════════════════════════
 
 
-# The five channels of a synthetic LabChart recording, in the order
-# Chunyu's workflow uses: torque (anchor) + 4 EMG. The two gastroc
+# The five channels of a synthetic LabChart recording, in a typical
+# multimodal workflow order: torque (anchor) + 4 EMG. The two gastroc
 # channels are the fatiguing target; the two vastus channels are the
-# quad watch-list. See examples/hip_lab_demo/labchart_sync/.
+# quad watch-list.
 _SYNC_CHANNELS = (
     "torque", "gastroc_lat", "gastroc_med", "vastus_lat", "vastus_med",
 )

@@ -16,10 +16,9 @@ analyst query *"show me subject S004's EMG fatigue progression
 alongside their force decline across this trial"* without further
 framework changes.
 
-This child is **NOT registered by ``__main__.py``**.  It ships under
-the off-blueprint Senefeld-meeting detour (project memory
-``project_off_blueprint_detour_2026_05_04``) and resolves back into
-the blueprint after the meeting outcome is known.
+This child is **NOT registered by ``__main__.py``**.  It ships as an
+opt-in worked example of the multimodal-physiology child family;
+configure an ``emg_csv`` block in ``user_config.json`` to enable it.
 
 Architectural decisions baked in:
 
@@ -43,12 +42,12 @@ Architectural decisions baked in:
   materializes, not now — premature abstraction is rejected.
 - **Default sample-rate assumption: 100 Hz** (typical envelope rate
   after rectification + smoothing of raw 1–2 kHz EMG; matches the
-  Wang & Senefeld 2026 lab-hardware-export shape closely enough
-  for demo purposes).
+  typical lab-hardware-export shape closely enough for demo
+  purposes).
 - **Bland-Altman is intentionally absent** from this child.  Force
   device-validation has its own clinical literature (HUMAC vs MR-
-  conditional dyno per Wang Ch 3.4); EMG device-validation has
-  different conventions (cross-talk, electrode-placement
+  conditional dyno); EMG device-validation has different
+  conventions (cross-talk, electrode-placement
   reproducibility) that don't reduce to the same paired-pairs
   shape.  When that question is forced, a dedicated tool — not
   Bland-Altman parameterisation — is the right answer.

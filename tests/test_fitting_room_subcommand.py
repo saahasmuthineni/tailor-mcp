@@ -54,7 +54,7 @@ class TestBundledFixtures:
     def test_force_csvs_present(self):
         from importlib.resources import files
         pkg = files("tailor._fixtures").joinpath(
-            "hip_lab_demo_realistic", "force",
+            "cohort_demo_realistic", "force",
         )
         names = sorted(c.name for c in pkg.iterdir() if c.name.endswith(".csv"))
         assert len(names) == 16
@@ -65,7 +65,7 @@ class TestBundledFixtures:
     def test_emg_csvs_present(self):
         from importlib.resources import files
         pkg = files("tailor._fixtures").joinpath(
-            "hip_lab_demo_realistic", "emg",
+            "cohort_demo_realistic", "emg",
         )
         names = sorted(c.name for c in pkg.iterdir() if c.name.endswith(".csv"))
         assert len(names) == 16
@@ -73,7 +73,7 @@ class TestBundledFixtures:
     def test_mrs_csvs_present(self):
         from importlib.resources import files
         pkg = files("tailor._fixtures").joinpath(
-            "hip_lab_demo_realistic", "mrs",
+            "cohort_demo_realistic", "mrs",
         )
         names = sorted(c.name for c in pkg.iterdir() if c.name.endswith(".csv"))
         assert len(names) == 16
@@ -82,7 +82,7 @@ class TestBundledFixtures:
         from importlib.resources import files
         for sub in ("force", "emg", "mrs"):
             pkg = files("tailor._fixtures").joinpath(
-                "hip_lab_demo_realistic", sub,
+                "cohort_demo_realistic", sub,
             )
             mj = pkg.joinpath("metadata.json")
             assert mj.is_file(), f"metadata.json missing in {sub}/"
@@ -90,7 +90,7 @@ class TestBundledFixtures:
     def test_seed_vault_moment_present(self):
         from importlib.resources import files
         moment = files("tailor._fixtures").joinpath(
-            "hip_lab_demo_realistic", "vault", "moments",
+            "cohort_demo_realistic", "vault", "moments",
             "2026-04-20-s004-emg-force-decoupling-suspected.md",
         )
         assert moment.is_file()
@@ -106,7 +106,7 @@ class TestScaffold:
     def test_scaffold_populates_all_subdirs(self, tmp_path: Path):
         target = tmp_path / "fitting-room"
         rc = main([
-            "--variant=hip-lab",
+            "--variant=cohort",
             "--no-claude-desktop",
             "--target", str(target),
         ])
@@ -134,7 +134,7 @@ class TestScaffold:
     ):
         target = tmp_path / "fitting-room"
         main([
-            "--variant=hip-lab", "--no-claude-desktop",
+            "--variant=cohort", "--no-claude-desktop",
             "--target", str(target),
         ])
         # _resolve_target canonicalises via expanduser+resolve, so the
@@ -165,7 +165,7 @@ class TestScaffold:
     def test_vault_index_has_seed_moment(self, tmp_path: Path):
         target = tmp_path / "fitting-room"
         main([
-            "--variant=hip-lab", "--no-claude-desktop",
+            "--variant=cohort", "--no-claude-desktop",
             "--target", str(target),
         ])
         from tailor.framework.vault.storage import VaultStorage
@@ -184,12 +184,12 @@ class TestScaffold:
     def test_idempotent_rerun(self, tmp_path: Path):
         target = tmp_path / "fitting-room"
         rc1 = main([
-            "--variant=hip-lab", "--no-claude-desktop",
+            "--variant=cohort", "--no-claude-desktop",
             "--target", str(target),
         ])
         assert rc1 == 0
         rc2 = main([
-            "--variant=hip-lab", "--no-claude-desktop",
+            "--variant=cohort", "--no-claude-desktop",
             "--target", str(target),
         ])
         # Second run "refreshes" the existing fitting-room — no error,
@@ -208,7 +208,7 @@ class TestScaffold:
             "don't clobber me", encoding="utf-8",
         )
         rc = main([
-            "--variant=hip-lab", "--no-claude-desktop",
+            "--variant=cohort", "--no-claude-desktop",
             "--target", str(target),
         ])
         assert rc != 0
@@ -222,7 +222,7 @@ class TestScaffold:
         target.mkdir()
         (target / "stranger_file.txt").write_text("clobber me", encoding="utf-8")
         rc = main([
-            "--variant=hip-lab", "--no-claude-desktop", "--force",
+            "--variant=cohort", "--no-claude-desktop", "--force",
             "--target", str(target),
         ])
         assert rc == 0
@@ -241,7 +241,7 @@ class TestScaffold:
         target = tmp_path / "fitting-room"
         # First scaffold (clean fitting-room).
         rc = main([
-            "--variant=hip-lab", "--no-claude-desktop",
+            "--variant=cohort", "--no-claude-desktop",
             "--target", str(target),
         ])
         assert rc == 0
@@ -252,7 +252,7 @@ class TestScaffold:
         assert stale.is_file()
         # Re-run with --force — must wipe the stale file before scaffold.
         rc2 = main([
-            "--variant=hip-lab", "--no-claude-desktop", "--force",
+            "--variant=cohort", "--no-claude-desktop", "--force",
             "--target", str(target),
         ])
         assert rc2 == 0
@@ -283,11 +283,11 @@ class TestClaudeDesktopRegistration:
             lambda: [fake_config],
         )
         target = tmp_path / "fitting-room"
-        rc = main(["--variant=hip-lab", "--target", str(target)])
+        rc = main(["--variant=cohort", "--target", str(target)])
         assert rc == 0
         assert fake_config.exists()
         cfg = json.loads(fake_config.read_text(encoding="utf-8"))
-        entry = cfg["mcpServers"]["tailor-fitting-room-hip-lab"]
+        entry = cfg["mcpServers"]["tailor-fitting-room-cohort"]
         resolved = target.expanduser().resolve()
         assert entry["env"]["TAILOR_CONFIG_DIR"] == str(resolved)
         assert entry["env"]["TAILOR_DATA_DIR"] == str(resolved / "data")
@@ -309,10 +309,10 @@ class TestClaudeDesktopRegistration:
             lambda: [fake_config],
         )
         target = tmp_path / "fitting-room"
-        main(["--variant=hip-lab", "--target", str(target)])
+        main(["--variant=cohort", "--target", str(target)])
         cfg = json.loads(fake_config.read_text(encoding="utf-8"))
         assert "some-other-server" in cfg["mcpServers"]
-        assert "tailor-fitting-room-hip-lab" in cfg["mcpServers"]
+        assert "tailor-fitting-room-cohort" in cfg["mcpServers"]
 
     def test_cleans_stale_biosensor_entries_before_writing(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
@@ -347,7 +347,7 @@ class TestClaudeDesktopRegistration:
             lambda: [fake_config],
         )
         target = tmp_path / "fitting-room"
-        rc = main(["--variant=hip-lab", "--target", str(target)])
+        rc = main(["--variant=cohort", "--target", str(target)])
         assert rc == 0
         cfg = json.loads(fake_config.read_text(encoding="utf-8"))
         servers = cfg["mcpServers"]
@@ -355,7 +355,7 @@ class TestClaudeDesktopRegistration:
         assert "tailor" not in servers
         assert "biosensor-tour-old-variant" not in servers
         # Fresh fitting-room entry is present.
-        assert "tailor-fitting-room-hip-lab" in servers
+        assert "tailor-fitting-room-cohort" in servers
         # Non-biosensor sibling MCP servers are preserved.
         assert "some-other-server" in servers
         assert servers["some-other-server"] == {
@@ -372,7 +372,7 @@ class TestClaudeDesktopRegistration:
         fake_config = tmp_path / "claude_desktop_config.json"
         fake_config.write_text(json.dumps({
             "mcpServers": {
-                "tailor-fitting-room-hip-lab": {
+                "tailor-fitting-room-cohort": {
                     "command": "python",
                     "args": ["-m", "tailor", "serve"],
                     "env": {"TAILOR_CONFIG_DIR": "/old/path"},
@@ -385,13 +385,13 @@ class TestClaudeDesktopRegistration:
         )
         target = tmp_path / "fitting-room"
         rc = main([
-            "--variant=hip-lab", "--target", str(target), "--force",
+            "--variant=cohort", "--target", str(target), "--force",
         ])
         assert rc == 0
         cfg = json.loads(fake_config.read_text(encoding="utf-8"))
         # Entry survives; env was overwritten with the new target.
-        assert "tailor-fitting-room-hip-lab" in cfg["mcpServers"]
-        entry = cfg["mcpServers"]["tailor-fitting-room-hip-lab"]
+        assert "tailor-fitting-room-cohort" in cfg["mcpServers"]
+        entry = cfg["mcpServers"]["tailor-fitting-room-cohort"]
         resolved = target.expanduser().resolve()
         assert entry["env"]["TAILOR_CONFIG_DIR"] == str(resolved)
 
@@ -405,7 +405,7 @@ class TestClaudeDesktopRegistration:
         )
         target = tmp_path / "fitting-room"
         main([
-            "--variant=hip-lab", "--no-claude-desktop",
+            "--variant=cohort", "--no-claude-desktop",
             "--target", str(target),
         ])
         assert not fake_config.exists()
@@ -420,7 +420,7 @@ class TestClaudeDesktopRegistration:
             lambda: [],
         )
         target = tmp_path / "fitting-room"
-        rc = main(["--variant=hip-lab", "--target", str(target)])
+        rc = main(["--variant=cohort", "--target", str(target)])
         assert rc == 0
 
 
@@ -434,19 +434,19 @@ class TestVariantTable:
     def test_default_variant_in_variants(self):
         assert DEFAULT_VARIANT in VARIANTS
 
-    def test_default_variant_is_hip_lab(self):
+    def test_default_variant_is_cohort(self):
         # Named explicitly so a future variant addition that accidentally
         # changes the default is caught here.
-        assert DEFAULT_VARIANT == "hip-lab"
+        assert DEFAULT_VARIANT == "cohort"
 
     def test_resolve_target_default_lives_under_biosensor_demos(self):
-        path = _resolve_target("hip-lab", None)
-        assert path.name == "hip-lab"
+        path = _resolve_target("cohort", None)
+        assert path.name == "cohort"
         assert path.parent.name == "demos"
         assert ".tailor" in str(path)
 
     def test_resolve_target_honors_override(self, tmp_path: Path):
-        path = _resolve_target("hip-lab", str(tmp_path / "custom"))
+        path = _resolve_target("cohort", str(tmp_path / "custom"))
         assert path.resolve() == (tmp_path / "custom").resolve()
 
     def test_write_user_config_rejects_unknown_variant(self, tmp_path: Path):
@@ -563,7 +563,7 @@ class TestSuccessBannerHonestyOnAbsentClaudeDesktop:
             lambda: False,
         )
         target = tmp_path / "fitting-room"
-        rc = main(["--variant=hip-lab", "--target", str(target)])
+        rc = main(["--variant=cohort", "--target", str(target)])
         assert rc == 0
         out = capsys.readouterr().out
         # Banner names the gap explicitly.
@@ -575,13 +575,13 @@ class TestSuccessBannerHonestyOnAbsentClaudeDesktop:
         # The config IS still staged (ADR 0026 stage-for-later benefit).
         assert fake_config.exists()
         cfg = json.loads(fake_config.read_text(encoding="utf-8"))
-        assert "tailor-fitting-room-hip-lab" in cfg["mcpServers"]
+        assert "tailor-fitting-room-cohort" in cfg["mcpServers"]
 
     def test_absent_claude_desktop_uses_staged_verb_not_registered(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys,
     ):
         """A small but load-bearing word change: the absent-Claude case
-        says ``staged as 'tailor-fitting-room-hip-lab'`` rather than
+        says ``staged as 'tailor-fitting-room-cohort'`` rather than
         ``registered as ...`` — registration implies a process picked
         it up, which is the lie this fix exists to close."""
         fake_config = tmp_path / "claude_desktop_config.json"
@@ -594,9 +594,9 @@ class TestSuccessBannerHonestyOnAbsentClaudeDesktop:
             lambda: False,
         )
         target = tmp_path / "fitting-room"
-        main(["--variant=hip-lab", "--target", str(target)])
+        main(["--variant=cohort", "--target", str(target)])
         out = capsys.readouterr().out
-        assert "staged as 'tailor-fitting-room-hip-lab'" in out
+        assert "staged as 'tailor-fitting-room-cohort'" in out
 
     def test_present_claude_desktop_keeps_quit_and_reopen_message(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys,
@@ -614,12 +614,12 @@ class TestSuccessBannerHonestyOnAbsentClaudeDesktop:
             lambda: True,
         )
         target = tmp_path / "fitting-room"
-        rc = main(["--variant=hip-lab", "--target", str(target)])
+        rc = main(["--variant=cohort", "--target", str(target)])
         assert rc == 0
         out = capsys.readouterr().out
         assert "Fitting-room scaffolded successfully" in out
         assert "fully quit Claude Desktop" in out
-        assert "registered as 'tailor-fitting-room-hip-lab'" in out
+        assert "registered as 'tailor-fitting-room-cohort'" in out
         # NOT_DETECTED banner is NOT printed in the present case.
         assert "NOT DETECTED" not in out
 
@@ -644,7 +644,7 @@ class TestConnectorVsServerFraming:
             lambda: True,
         )
         target = tmp_path / "fitting-room"
-        main(["--variant=hip-lab", "--target", str(target)])
+        main(["--variant=cohort", "--target", str(target)])
         out = capsys.readouterr().out
         assert "session-scoped server" in out
         assert "connector card" in out
@@ -665,7 +665,7 @@ class TestConnectorVsServerFraming:
             lambda: False,
         )
         target = tmp_path / "fitting-room"
-        main(["--variant=hip-lab", "--target", str(target)])
+        main(["--variant=cohort", "--target", str(target)])
         out = capsys.readouterr().out
         assert "session-scoped server" not in out
         assert "connector card" not in out
@@ -697,7 +697,7 @@ class TestQuitFirstHeadsUpOnHappyPath:
         )
         target = tmp_path / "fitting-room"
         rc = main([
-            "--variant=hip-lab", "--no-claude-desktop",
+            "--variant=cohort", "--no-claude-desktop",
             "--target", str(target),
         ])
         assert rc == 0

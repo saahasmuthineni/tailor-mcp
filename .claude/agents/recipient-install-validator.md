@@ -108,7 +108,7 @@ Execute the following inside the guest via `vagrant winrm -c "<command>"`. Captu
 | 3 | (parse step 2 stdout banner) | distinguish `"Fitting-room scaffolded successfully"` (all paths) vs `"Fitting-room scaffolded with N of M Claude Desktop registrations succeeded"` (partial) vs `"Fitting-room scaffolded; Claude Desktop registration FAILED"` (all failed). Banner branch matches step 2 exit code. |
 | 4 | (read each path returned by `_claude_desktop_config_paths()` inside the guest) | Per-path: exactly one entry matching the dual-prefix matcher (`tailor` / `tailor-*` / `biosensor-*`) in `mcpServers`. Cross-path: entries identical. |
 | 5 | (read `~\.tailor\user_config.json`) | demo blocks present: `force_csv`, `emg_csv`, `csv_dir` for `mrs/` |
-| 6 | `tailor walkthrough` | exit 0; stdout mentions "HIP Lab" not "Strava"; per ADR 0029 the five-section header line `Section 1 - cohort thesis` AND `Section 5 - local-LLM oracle` BOTH appear in stdout (Sections 2/3/4 implied by their position between) — note: the section-header strings are LOCKED per ADR 0035 § Decision item 7 and are NOT renamed alongside the verb; the closing `Demo complete.` line appears; no Python traceback in stderr |
+| 6 | `tailor walkthrough` | exit 0; stdout mentions "cohort" not "Strava"; per ADR 0029 the five-section header line `Section 1 - cohort thesis` AND `Section 5 - local-LLM oracle` BOTH appear in stdout (Sections 2/3/4 implied by their position between) — note: the section-header strings are LOCKED per ADR 0035 § Decision item 7 and are NOT renamed alongside the verb; the closing `Demo complete.` line appears; no Python traceback in stderr |
 | 7 | `tailor status` | per-path registration with recovery framing; on the v1 default base image (no Claude Desktop installed), expect `"Status: Registered for Claude Desktop."` (single classic-only path). |
 | 8 | spawn `tailor serve` (background) with stdin redirected from NUL, sleep 3s, kill | no Python traceback in stderr |
 
@@ -116,7 +116,7 @@ Assertion semantics:
 
 - **Step 2 exit-code is structural** (per [ADR 0026](docs/adr/0026-claude-desktop-config-dual-path.md) § "Per-path atomic semantics" — exit 0 means "at least one path written," not "everything worked"). A `Fitting-room scaffolded with N of M ...` run with exit 0 is **partial-success**, not pass — render as `WARN`, not `PASS`.
 - **Step 4 cross-path identity** is the v6.10.4 invariant. Catches a regression where dual-write writes different entries to different paths.
-- **Step 6 "HIP Lab not Strava"** is the v6.10.5 / ADR 0027 framing invariant. A demo that surfaces Strava output is a regression to pre-v6.10.5 framing.
+- **Step 6 "cohort not Strava"** is the v6.10.5 / ADR 0027 framing invariant. A demo that surfaces Strava output is a regression to pre-v6.10.5 framing.
 
 ### Phase 2 — L2 in-guest pytest
 
@@ -212,7 +212,7 @@ Step 2 (fitting-room exit code): <PASS | WARN partial | FAIL all-failed>     ela
 Step 3 (banner branch): <PASS — banner matches exit code | FAIL — branch mismatch>     elapsed: <seconds>
 Step 4 (per-path cfg):  <PASS — N paths, identical | FAIL — invariant violation>     elapsed: <seconds>
 Step 5 (scaffold):      <PASS — demo blocks present | FAIL — missing block>     elapsed: <seconds>
-Step 6 (walkthrough):   <PASS — HIP Lab output | FAIL — Strava output or traceback>     elapsed: <seconds>
+Step 6 (walkthrough):   <PASS — cohort output | FAIL — Strava output or traceback>     elapsed: <seconds>
 Step 7 (status):        <PASS — recovery framing | FAIL — wrong status string>     elapsed: <seconds>
 Step 8 (serve):         <PASS — no traceback in 3s | FAIL — traceback>     elapsed: <seconds>
 

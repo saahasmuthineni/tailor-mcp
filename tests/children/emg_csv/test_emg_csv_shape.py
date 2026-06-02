@@ -1,6 +1,6 @@
 """
 Shape + behaviour tests for EmgCsvChild — surface-EMG envelope
-ChildMCP (off-blueprint Senefeld-meeting detour Phase 2, 2026-05-04).
+ChildMCP (multimodal-physiology child family, Phase 2).
 
 Mirrors ``tests/children/force_csv/test_force_csv_shape.py`` for
 the parts that are common (ABC surface, entity_id consistency

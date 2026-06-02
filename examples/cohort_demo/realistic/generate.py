@@ -1,6 +1,6 @@
 """
 Generate synthetic per-subject paired multimodal data for the
-HIP Lab demo (variant *realistic*).
+demo cohort (variant *realistic*).
 
 Sixteen subjects (8 M, 8 F) performing a HYBRID isometric protocol
 designed to surface the multimodal-composition demo argument:
@@ -13,7 +13,7 @@ The protocol shape is informed by Hunter & Senefeld 2024 (*J Physiol*
 to volitional failure) compressed for demo: real 30% MVC sustained
 contractions take 3-5 minutes to fatigue in untrained subjects; this
 demo uses steeper-than-real fatigue rates so visible decline happens
-within 60 s and Senefeld can read one trial in ~30 s.
+within 60 s and a reader can read one trial in ~30 s.
 
 Three paired streams per subject:
 
@@ -48,7 +48,7 @@ exception applies via the ``examples/**/generate.py`` glob — this
 is fixture data, not framework or child processing.
 
 Usage:
-    python examples/hip_lab_demo/realistic/generate.py
+    python examples/cohort_demo/realistic/generate.py
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ HERE = Path(__file__).parent
 # vendor in. Re-running this script overwrites the bundled tree.
 PACKAGE_FIXTURES = (
     HERE.parents[2]
-    / "src" / "tailor" / "_fixtures" / "hip_lab_demo_realistic"
+    / "src" / "tailor" / "_fixtures" / "cohort_demo_realistic"
 )
 FORCE_DIR = PACKAGE_FIXTURES / "force"
 EMG_DIR = PACKAGE_FIXTURES / "emg"

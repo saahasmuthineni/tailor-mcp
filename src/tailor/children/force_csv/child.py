@@ -2,17 +2,16 @@
 Force-CSV Child MCP — Load-Cell Force Traces (20-100 Hz)
 =========================================================
 ChildMCP for force-trace CSV files from a load cell — HUMAC,
-BIOPAC, custom MR-conditional dynamometers per Wang & Senefeld
-2026.  Single-channel force is the typical case at HIP-Lab-shape
-rates (20-100 Hz × 1 channel); multi-channel is supported but not
-canonical.
+BIOPAC, custom MR-conditional dynamometers.  Single-channel force
+is the typical case at physiology-lab rates (20-100 Hz × 1
+channel); multi-channel is supported but not canonical.
 
 This child is the first node in a planned data-source family
 (``force_csv``, future ``emg_csv``, future ``mrs_*``) that
 composes via shared ``entity_id`` (ADR 0009), shared audit log
 (ADR 0001), and the existing ``dispatch_internal`` cross-child
 seam.  Composition is the load-bearing architectural argument
-for the broader Senefeld-meeting demo.
+for the broader multimodal-physiology demo.
 
 Architectural decisions baked in:
 
@@ -35,8 +34,8 @@ Architectural decisions baked in:
 - **Tier-1 ``note`` annotations** on every Tier-1 result —
   LLM-facing affordance making the tier discipline visible
   inside the payload itself.
-- **Bland-Altman as a first-class Tier-1 tool** — directly
-  mirrors the device-validation work HIP Lab publishes.
+- **Bland-Altman as a first-class Tier-1 tool** — mirrors the
+  paired-device validation common in the dynamometry literature.
 - **CSV-iteration helpers mirror ``csv_dir/child.py``.** The
   ``_resolve_file``, ``_read_csv``, ``_load_metadata_sidecar``,
   ``_extract_timestamps`` helpers are intentionally copied (not
@@ -78,8 +77,8 @@ log = logging.getLogger("tailor.force_csv")
 # force_right) for bilateral dynamometers.
 ALL_STREAM_TYPES = ["force", "force_left", "force_right"]
 
-# Controlled vocabulary for protocol-event labels.  The Wang &
-# Senefeld 2026 plantarflexor protocol reference shape:
+# Controlled vocabulary for protocol-event labels.  A typical
+# plantarflexor protocol reference shape:
 #   baseline_mvc → sustained_start → mvc_probe (× N) → task_failure
 # The vocabulary is open by design (analysts can pass other
 # strings) — this constant exists for documentation, not enforcement.
@@ -499,8 +498,8 @@ class ForceCsvChild(ChildMCP):
                 "list of paired (device_a_value, device_b_value) measurements "
                 "on the same subjects, returns mean difference (bias), 95% "
                 "limits of agreement, and per-pair differences for plotting. "
-                "Mirrors the analysis Wang & Senefeld 2026 use for HUMAC vs "
-                "MR-conditional dyno comparison. ~400 tokens.",
+                "Mirrors the standard paired-device validation analysis for "
+                "HUMAC vs MR-conditional dyno comparison. ~400 tokens.",
                 {
                     "device_a_values": {
                         "type": "array",
@@ -826,7 +825,7 @@ class ForceCsvChild(ChildMCP):
         float-seconds offsets via the v7.3.4 fallback below. The float-
         seconds path is the standard biomedical signal shape (``t_s``
         column = elapsed seconds from trial start) that the bundled
-        HIP Lab fixtures use; without it, time-based fatigue metrics
+        demo cohort fixtures use; without it, time-based fatigue metrics
         like ``time_to_50pct_drop_s`` and ``duration_s`` silently
         returned null on the cohort thesis hot path (mcp-protocol-
         auditor D1, v7.3.4)."""

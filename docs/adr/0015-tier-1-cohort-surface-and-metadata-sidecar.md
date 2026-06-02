@@ -30,7 +30,7 @@ N times mid-conversation and contradicting the *"no streams enter
 LLM context"* claim Tier 1 is supposed to demonstrate; (3) refuse
 to answer, exposing the gap as a structural limitation.
 
-The proposal-mode audit on the v6.5.0 HIP-Lab demo plan named this
+The proposal-mode audit on the v6.5.0 cohort demo plan named this
 gap as the highest-leverage decision in the build:
 
 > "*The single highest-leverage decision is whether to ship a
@@ -57,7 +57,7 @@ without leaking parsing logic into either the LLM or the caller?*
 
 Two new Tier-1 tools land on `CSVDirectoryChild`. Group identity
 travels via a sidecar JSON file at `<csv_dir>/metadata.json`. The
-demo walkthrough at `examples/hip_lab_demo/` is the proof-of-concept
+demo walkthrough at `examples/cohort_demo/` is the proof-of-concept
 that demonstrates the surface against a synthetic study.
 
 **`csv_group_summary` (Tier 1, ~300 tokens).** Reduces every CSV in
@@ -187,7 +187,7 @@ classification on subsequent diffs touching these regions.
 
 - The framework's *"no streams enter LLM context"* claim becomes
   load-bearing for cohort questions, not just per-subject ones.
-  Wow Moment 1 of the HIP-Lab demo can ground in the architecture
+  Wow Moment 1 of the cohort demo can ground in the architecture
   rather than dressing up a Tier-2 escalation. Future ChildMCPs
   (CGM, EDF, sleep) inherit the cohort-aggregation pattern at
   Tier 1 by design.
@@ -295,7 +295,7 @@ participant-level metadata with column metadata. The sidecar is
 out-of-band by design.
 
 **Add curve-fitting (exponential, polynomial) to Tier 1.**
-Rejected for v6.5.0 with a named reversal condition. The HIP-Lab
+Rejected for v6.5.0 with a named reversal condition. The cohort
 demo's `time_to_50pct_drop_s` metric is the simplest fatigue
 diagnostic that satisfies the demo's stated cohort question
 without introducing a curve-fitting dependency (numpy, scipy)
@@ -317,7 +317,7 @@ needs. The fail-closed-at-tool-call-time pattern is the right
 grain: tools that need metadata require it; tools that don't,
 ignore it.
 
-**Defer to v6.6.x; ship the HIP-Lab demo as a Tier-2 escalation.**
+**Defer to v6.6.x; ship the cohort demo as a Tier-2 escalation.**
 Rejected. The boss's audit-driven decision (Path B) was explicit:
 the *"real architecture underneath"* pitch is undercut if the
 architecture has to dress up to make the claim land. Deferring

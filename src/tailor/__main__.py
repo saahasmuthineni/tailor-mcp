@@ -96,7 +96,7 @@ def cmd_serve():
     # cost_threshold is operator-configurable from user_config.json (v7.3.4).
     # Default 35,000 tokens preserves pre-v7.3.4 behavior. The fitting-room
     # scaffold sets a lower threshold so the demo's Tier-3 raw-window call
-    # on bundled HIP Lab fixtures trips the cost gate (per ADR 0005
+    # on bundled demo cohort fixtures trips the cost gate (per ADR 0005
     # pre-estimation; ADR 0029 AI-economics demonstration). Coerce to int
     # defensively — a string in user_config.json shouldn't silently break
     # the gate; fall back to default and log if coercion fails.
@@ -135,8 +135,8 @@ def cmd_serve():
         router.register_child(csv_child)
 
     # force_csv child (opt-in — requires force_csv block in user_config.json).
-    # Off-blueprint Senefeld-meeting detour scaffolding; mirrors csv_dir
-    # opt-in shape so unconfigured deployments are behaviourally unchanged.
+    # Mirrors the csv_dir opt-in shape so unconfigured deployments are
+    # behaviourally unchanged.
     force_child = None
     if _ucfg.get("force_csv"):
         from tailor.children.force_csv import ForceCsvChild
@@ -662,7 +662,7 @@ def _clean_claude_desktop_orphan_entries() -> dict[Path, list[str]]:
     for the full match set and ADR 0031 for the migration story.
 
     Without this dual-prefix match, ``tailor uninstall`` would leave stale
-    ``biosensor-tour-hip-lab`` entries from a v6 install pointing at a
+    ``biosensor-tour-*`` entries from a v6 install pointing at a
     removed binary, so Claude Desktop would show a red MCP indicator after
     a clean v7 uninstall (the v6.9.2 bug applied to the v6->v7 transition).
 

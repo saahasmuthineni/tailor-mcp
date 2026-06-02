@@ -33,7 +33,7 @@ _WALKTHROUGH_DESCRIPTION = (
     "me what Tailor can do' / 'walk me through it' / 'how does this "
     "work' / a request to see section N specifically. Each call "
     "returns the section's narrative prose, a worked-example payload "
-    "(constants from a known-good HIP Lab fixture run), the relevant "
+    "(constants from a known-good demo cohort fixture run), the relevant "
     "ADR citations, and a next-step prompt for the recipient. "
     "Replaces v6.10.5 `tailor walkthrough` CLI per ADR 0040."
 )
@@ -50,7 +50,7 @@ _SECTION_PAYLOADS: dict[int, dict] = {
         "narrative": (
             "Tier 1 returns a server-computed answer to a cohort "
             "question. Raw biometric streams never enter the LLM's "
-            "context. On bundled HIP Lab fixtures (16 synthetic "
+            "context. On bundled demo cohort fixtures (16 synthetic "
             "subjects, 8M/8F, intermittent isometric force task to "
             "volitional failure), `force_cohort_summary` reduces "
             "100 Hz force traces to per-group mean/std/min/max in "
@@ -83,7 +83,7 @@ _SECTION_PAYLOADS: dict[int, dict] = {
         "next_step": (
             "Try `force_cohort_summary` with metric='mean', "
             "value_column='force_N', and group_by='sex' against the "
-            "bundled HIP Lab fixtures, or ask Claude to walk through "
+            "bundled demo cohort fixtures, or ask Claude to walk through "
             "section 2 for the router pipeline view."
         ),
     },

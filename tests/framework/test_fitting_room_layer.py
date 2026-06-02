@@ -33,13 +33,13 @@ def test_tool_surface_is_three_tools():
     }
 
 
-def test_variant_allowlist_restricts_to_hip_lab():
-    """ADR 0040 ships hip-lab only; matlab-lab / cgm-lab variants
+def test_variant_allowlist_restricts_to_cohort():
+    """ADR 0040 ships cohort only; matlab-lab / cgm-lab variants
     arrive in future releases under separate ADRs.
     """
     layer = FittingRoomLayer()
     schema = layer.param_schemas["tailor_fitting_room_scaffold"]
-    assert schema["variant"].allowed_values == ["hip-lab"]
+    assert schema["variant"].allowed_values == ["cohort"]
 
 
 def test_status_when_target_missing(monkeypatch, tmp_path):
@@ -52,9 +52,9 @@ def test_status_when_target_missing(monkeypatch, tmp_path):
     )
     layer = FittingRoomLayer()
     result = _run(layer.execute(
-        "tailor_fitting_room_status", {"variant": "hip-lab"},
+        "tailor_fitting_room_status", {"variant": "cohort"},
     ))
-    assert result["variant"] == "hip-lab"
+    assert result["variant"] == "cohort"
     assert result["exists"] is False
     assert result["user_config_exists"] is False
     assert result["vault_dir_exists"] is False
@@ -71,14 +71,14 @@ def test_scaffold_refuses_existing_target_without_force(
         lambda: tmp_path,
     )
     # Pre-create the target so the scaffold sees an existing dir.
-    target = tmp_path / ".tailor" / "demos" / "hip-lab"
+    target = tmp_path / ".tailor" / "demos" / "cohort"
     target.mkdir(parents=True)
     (target / "marker").write_text("pre-existing")
 
     layer = FittingRoomLayer()
     result = _run(layer.execute(
         "tailor_fitting_room_scaffold",
-        {"variant": "hip-lab"},
+        {"variant": "cohort"},
     ))
     assert result["ok"] is False
     assert result["error_class"] == "TargetExists"
@@ -93,7 +93,7 @@ def test_index_vault_refuses_missing_target(monkeypatch, tmp_path):
     )
     layer = FittingRoomLayer()
     result = _run(layer.execute(
-        "tailor_fitting_room_index_vault", {"variant": "hip-lab"},
+        "tailor_fitting_room_index_vault", {"variant": "cohort"},
     ))
     assert result["ok"] is False
     assert result["error_class"] == "TargetMissing"

@@ -8,7 +8,7 @@
 - **Path:** A (README path: `uv tool install` + `tailor tour` + `tailor demo` + Claude Desktop integration check)
 - **Tailor version installed:** `tailor-mcp==7.0.0` from git+URL `@82c18e7`
 - **Recipient state:** fresh local Windows 11 user `tailor-recipient` (post-reset via `takeown` + `icacls` + `Remove-Item` because the SFAP cache had SYSTEM-only ACLs); **Claude Desktop INSTALLED** via Microsoft Store as `Claude_pzs8sxrjxfjjc` UWP package; user signed into Claude Desktop once before starting the install ritual.
-- **Outcome:** **Integration loop closed end-to-end.** All 14 install-ritual steps reached either success or a non-blocking observation. Claude Desktop sees `tailor-tour-hip-lab`, lists the full tool surface when asked, and offers to run tools. The kit's exit signal is met.
+- **Outcome:** **Integration loop closed end-to-end.** All 14 install-ritual steps reached either success or a non-blocking observation. Claude Desktop sees `tailor-tour-cohort`, lists the full tool surface when asked, and offers to run tools. The kit's exit signal is met.
 
 ## Headline finding (positive)
 
@@ -42,7 +42,7 @@ Evidence:
 **What:** When asked *"what MCP servers are connected?"*, Claude Desktop responded:
 
 - **Spotify** — rendered as a structured "Connected" connector card with green status indicator and a "Reconnect" button.
-- **`tailor-tour-hip-lab`** — mentioned only in prose: *"there's also a local 'tailor-tour-hip-lab' (vault, Strava, EMG/force/CSV tools), but that's a session-scoped server rather than a registered connector."*
+- **`tailor-tour-cohort`** — mentioned only in prose: *"there's also a local 'tailor-tour-cohort' (vault, Strava, EMG/force/CSV tools), but that's a session-scoped server rather than a registered connector."*
 
 **Severity:** P1. Non-technical recipient reads "session-scoped server rather than a registered connector" and may interpret as not-fully-connected. They are wrong — Claude Desktop has the entire tool surface and can invoke tools (confirmed by attempt 2's A12 response listing all tools and offering to run one). But the visual surface treats local MCP servers as second-class to OAuth connectors.
 

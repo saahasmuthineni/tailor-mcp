@@ -1,7 +1,7 @@
 """
 Bundled-fixture honesty check.
 
-Verifies the bundled HIP Lab fixtures and the vault-layer code they depend
+Verifies the bundled demo cohort fixtures and the vault-layer code they depend
 on still satisfy the v7.3.4-shipped commitments (snapshot.md indexed as
 note_type=snapshot, S004 moment reachable from "subject four" prose,
 renderer.py weekly-summary conditional, etc.). Standalone runnable — exits
@@ -25,8 +25,8 @@ all_pass = True
 repo_root = Path(__file__).parent.parent.parent
 
 # ---- Verify fixture files exist ----
-snapshot_file = repo_root / "src/tailor/_fixtures/hip_lab_demo_realistic/vault/snapshot.md"
-moment_file = repo_root / "src/tailor/_fixtures/hip_lab_demo_realistic/vault/moments/2026-04-20-s004-emg-force-decoupling-suspected.md"
+snapshot_file = repo_root / "src/tailor/_fixtures/cohort_demo_realistic/vault/snapshot.md"
+moment_file = repo_root / "src/tailor/_fixtures/cohort_demo_realistic/vault/moments/2026-04-20-s004-emg-force-decoupling-suspected.md"
 
 all_pass &= check("Fixture snapshot.md exists", snapshot_file.exists())
 all_pass &= check("Fixture moment file exists", moment_file.exists())

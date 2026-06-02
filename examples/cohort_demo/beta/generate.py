@@ -1,5 +1,5 @@
 """
-Generate synthetic per-subject CSVs for the HIP Lab demo (variant β).
+Generate synthetic per-subject CSVs for the demo cohort (variant β).
 
 Sixteen subjects (8 M, 8 F) performing an intermittent isometric handgrip
 task at 50% MVC (6 s contraction / 4 s rest) to volitional failure.
@@ -31,7 +31,7 @@ data, not framework or child processing. Re-running this script
 overwrites the CSVs deterministically.
 
 Usage:
-    python examples/hip_lab_demo/beta/generate.py
+    python examples/cohort_demo/beta/generate.py
 """
 
 from __future__ import annotations

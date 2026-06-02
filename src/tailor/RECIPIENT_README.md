@@ -15,7 +15,7 @@ tailor fitting-room
 
 This single command:
 
-1. Copies bundled synthetic fixtures into `~/.tailor/demos/hip-lab/`.
+1. Copies bundled synthetic fixtures into `~/.tailor/demos/cohort/`.
 2. Writes `user_config.json` with absolute paths.
 3. Indexes the seed vault into `vault.db`.
 4. Registers the server with Claude Desktop automatically (no manual

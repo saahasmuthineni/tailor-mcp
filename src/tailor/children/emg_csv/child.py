@@ -726,7 +726,7 @@ class EmgCsvChild(ChildMCP):
         # Two-path timestamp extraction mirroring force_csv (v7.3.4 D1
         # closure): ISO-datetime parse first, then float-seconds fallback
         # for ``t_s``-style numeric offset columns used by the bundled
-        # HIP Lab fixtures and standard biomedical signal exports.
+        # demo cohort fixtures and standard biomedical signal exports.
         from datetime import datetime, timedelta, timezone
         ts_col = (
             self._timestamp_column

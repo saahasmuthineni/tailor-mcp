@@ -154,7 +154,7 @@ Concrete mechanism:
   no CLAUDE.md. (2) Bundled bytes stay synthetic by construction per
   ADR 0024 § 4 — the wheel hosted as a release asset on the public
   mirror is the same wheel the Drive/email path ships, with the same
-  HIP Lab realistic fixtures generated from `random.Random(20260504)`
+  demo cohort realistic fixtures generated from `random.Random(20260504)`
   on fictitious subject IDs. (3) Recipient set stays handful-sized
   at the existing ~10-evaluator threshold operationalised in
   [`share-the-demo.md` § "When NOT to share publicly"](../guides/share-the-demo.md) —

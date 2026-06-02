@@ -10,8 +10,8 @@
 
 [ADR 0027](0027-demo-as-researcher-first-look.md) reshaped
 `tailor demo` from synthetic-Strava operator self-verification
-into a researcher first-look against the bundled HIP Lab realistic
-cohort fixtures. The reframe was correct on its central claim — the
+into a researcher first-look against the bundled demo cohort realistic
+fixtures. The reframe was correct on its central claim — the
 cohort-comparison thesis is the canonical use case CLAUDE.md names —
 and it shipped in v6.10.5 with the implementation now at
 [`demo/runner.py`](../../src/tailor/demo/runner.py). The demo's
@@ -111,7 +111,7 @@ leads?*
 
 `tailor demo` is reshaped to demonstrate the framework's
 load-bearing claims via five structured sections, all against the
-bundled HIP Lab realistic fixtures. Section 1 (the cohort thesis) is
+bundled demo cohort realistic fixtures. Section 1 (the cohort thesis) is
 the canonical lead-in; Sections 2 through 5 demonstrate, in order, the
 router pipeline made visible, a three-tier resolution-appropriateness
 walk on the same question, the vault as the second persistence tier,
@@ -445,7 +445,7 @@ is the symmetric risk this clause guards against.
 
 - **ADR 0027's central claim is preserved, not reversed.** The
   cohort thesis as canonical first-look stands; the no-Strava-in-
-  demo invariant stands; the bundled HIP Lab realistic fixtures
+  demo invariant stands; the bundled demo cohort realistic fixtures
   remain the demo's data source. What changes is the demo's
   surface area, not its lead.
 - **ADR 0008's determinism boundary is unchanged.** The demo
@@ -475,7 +475,7 @@ is the symmetric risk this clause guards against.
   That asset depicted the pre-v6.10.5 Strava-shaped demo, was not
   embedded anywhere, and was on no recipient first-look path. The
   cleanup took the "remove the orphan" branch of ADR 0027's named
-  fork; replacement with a HIP Lab cohort visualization remains an
+  fork; replacement with a demo cohort visualization remains an
   open creative item, separate from the v6.12.0 reshape.
 
 ## Alternatives considered

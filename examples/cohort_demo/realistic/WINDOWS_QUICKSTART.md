@@ -118,7 +118,7 @@ You'll see four progress lines:
   (2/4) write user_config.json
   (3/4) index vault.db
   (4/4) register with Claude Desktop
-        wrote entry 'tailor-fitting-room-hip-lab' to ...
+        wrote entry 'tailor-fitting-room-cohort' to ...
 ```
 
 If anything different prints (especially red error text), copy the
@@ -206,12 +206,12 @@ That's the demo.
 Nothing runs in the background after you close Claude Desktop —
 there's no service to stop. To remove everything later:
 
-1. Delete the folder at `%USERPROFILE%\.tailor\demos\hip-lab\`
+1. Delete the folder at `%USERPROFILE%\.tailor\demos\cohort\`
    (paste that path into File Explorer's address bar to find it).
 2. Open `%APPDATA%\Claude\claude_desktop_config.json` in Notepad and
-   delete the `"tailor-fitting-room-hip-lab": { ... }` block (and the
+   delete the `"tailor-fitting-room-cohort": { ... }` block (and the
    comma before it, if any). On installs older than v7.1.0 the key
-   was `"tailor-tour-hip-lab"` — delete that one instead if you see
+   was `"tailor-tour-cohort"` — delete that one instead if you see
    it.
 3. Optionally: `pip uninstall tailor` and uninstall Python
    from **Settings → Apps**.

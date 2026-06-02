@@ -14,10 +14,10 @@
 
 `children/csv_dir/processing.py:97-107` and `:187-195`. See [debugging-discovery-2026-05-01.md § Top 10 finding 1](debugging-discovery-2026-05-01.md#1-time_to_50pct_drop_s-peak-tie-systematic-bias---high-csv-cohort-tool-scientific-validity) for the full description.
 
-The fix is a 3-5 line change in two functions plus a regression test with a synthetic ramp-plateau-decline trace. The fix shifts Tier-1 numbers — the HIP-Lab demo's expected outputs change, and the v6.5.0 vault-smoke-validator seed-moment vault may need re-seeding.
+The fix is a 3-5 line change in two functions plus a regression test with a synthetic ramp-plateau-decline trace. The fix shifts Tier-1 numbers — the cohort demo's expected outputs change, and the v6.5.0 vault-smoke-validator seed-moment vault may need re-seeding.
 
 **Recommended action:**
-1. Read the synthetic data generator at `examples/hip_lab_demo/beta/generate.py` to confirm whether the demo's force traces are trapezoidal (bias bites) or triangular (bias doesn't bite). If triangular, the fix is post-mortem; the demo doesn't currently exhibit the bug.
+1. Read the synthetic data generator at `examples/cohort_demo/beta/generate.py` to confirm whether the demo's force traces are trapezoidal (bias bites) or triangular (bias doesn't bite). If triangular, the fix is post-mortem; the demo doesn't currently exhibit the bug.
 2. Either way, apply the fix. The math is wrong for any real isometric data.
 3. Add a regression test that asserts time_to_50% on a flat-top-trace = (time of first sample below 50% of plateau) − (time of plateau end), not (time of first sample below 50%) − (time of first sample at peak).
 4. If the demo expected outputs shift, update the seed-moment vault and re-run vault-smoke-validator.
@@ -104,7 +104,7 @@ Discovery agent D3 cited `framework/vault/writer.py:1871` and `_merge_theme_fron
 
 ### S1. `vault-smoke-validator` to fire on every coverage-hardening release
 
-`vault-smoke-validator` already exists. The promotion candidate is a *fire-cadence* expansion: it currently fires "after any change to `framework/vault/`," but the v6.5.0 demo seed-moment vault is the load-bearing artifact for the HIP-Lab demo, and any fix that shifts Tier-1 numbers (e.g. B1 above) must re-seed the demo and re-run the smoke validator. Promote the trigger from "any change to `framework/vault/`" to also include "any change to `children/csv_dir/processing.py` Tier-1 math."
+`vault-smoke-validator` already exists. The promotion candidate is a *fire-cadence* expansion: it currently fires "after any change to `framework/vault/`," but the v6.5.0 demo seed-moment vault is the load-bearing artifact for the cohort demo, and any fix that shifts Tier-1 numbers (e.g. B1 above) must re-seed the demo and re-run the smoke validator. Promote the trigger from "any change to `framework/vault/`" to also include "any change to `children/csv_dir/processing.py` Tier-1 math."
 
 **Maintenance estimate:** zero. The agent already exists; only the CLAUDE.md trigger row changes.
 

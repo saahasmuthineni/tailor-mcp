@@ -6,7 +6,7 @@ Two waves of design intent govern this test file:
 
 * **v6.10.5 / [ADR 0027](../docs/adr/0027-demo-as-researcher-first-look.md)** —
   reframed the demo from synthetic-Strava operator self-verification to a
-  researcher first-look against the bundled HIP Lab realistic cohort
+  researcher first-look against the bundled demo realistic cohort
   fixtures.
 * **v6.12.0 / [ADR 0029](../docs/adr/0029-token-reduction-as-analytical-quality.md)** —
   partially supersedes ADR 0027 § Negative consequences ("the demo
@@ -20,7 +20,7 @@ invariant) or router-bypassed cohort-only output (ADR 0029 invariant).
 
 Test surface:
     Section 1 / ADR 0027 (cohort thesis):
-        - HIP Lab framing, no Strava
+        - demo cohort framing, no Strava
         - cohort_summary by sex / by group with balanced n=8
         - force_decline on pinned S001
         - bit-identical Section 1 cohort numbers across runs
@@ -93,11 +93,10 @@ def test_run_demo_executes_end_to_end_without_raising() -> None:
     assert "Demo complete." in output
 
 
-def test_demo_output_names_hip_lab_thesis_not_strava(demo_output: str) -> None:
+def test_demo_output_names_cohort_thesis_not_strava(demo_output: str) -> None:
     """ADR 0027 reframes demo as researcher first-look; output must
-    name the HIP Lab thesis explicitly and must not carry over the
+    name the demo cohort thesis explicitly and must not carry over the
     pre-v6.10.5 Strava framing."""
-    assert "HIP Lab" in demo_output
     assert "cohort" in demo_output.lower()
 
     # Pre-v6.10.5 Strava framing is gone from the demo surface.
@@ -109,8 +108,8 @@ def test_demo_output_names_hip_lab_thesis_not_strava(demo_output: str) -> None:
 def test_demo_output_includes_cohort_by_sex_with_balanced_groups(
     demo_output: str,
 ) -> None:
-    """The HIP Lab realistic fixture is balanced 8 F / 8 M (per
-    examples/hip_lab_demo/realistic/README.md sex-differences thesis).
+    """The demo realistic fixture is balanced 8 F / 8 M (per
+    examples/cohort_demo/realistic/README.md sex-differences thesis).
     The demo's cohort_summary-by-sex call must surface that balance."""
     assert '"group_by": "sex"' in demo_output
     assert '"F":' in demo_output
@@ -449,7 +448,7 @@ def test_bundled_force_fixtures_are_loadable_via_importlib_resources() -> None:
     recipient hits the demo's loading path."""
     from importlib.resources import files
 
-    pkg_root = files("tailor._fixtures.hip_lab_demo_realistic.force")
+    pkg_root = files("tailor._fixtures.cohort_demo_realistic.force")
     csv_count = sum(
         1 for child in pkg_root.iterdir()
         if child.is_file() and child.name.endswith(".csv")
@@ -460,7 +459,7 @@ def test_bundled_force_fixtures_are_loadable_via_importlib_resources() -> None:
     )
 
     assert csv_count == 16, (
-        f"HIP Lab realistic fixture should bundle 16 force CSVs; found {csv_count}"
+        f"Demo realistic fixture should bundle 16 force CSVs; found {csv_count}"
     )
     assert metadata_present, (
         "metadata.json sidecar must be bundled (ADR 0015 cohort-summary contract)"

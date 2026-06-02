@@ -1,9 +1,7 @@
-# HIP Lab demo — *realistic* variant (multimodal)
+# Demo cohort — *realistic* variant (multimodal)
 
-> **Off-blueprint Senefeld-meeting detour.**  Built for a live
-> walkthrough at the next HIP Lab meeting if Dr. Senefeld
-> expresses interest.  See project memory
-> `project_off_blueprint_detour_2026_05_04`.
+> **Beachhead-lab demo.**  Built for a live walkthrough at a
+> prospective beachhead-lab meeting if a PI expresses interest.
 
 This variant ships **paired multimodal fixture data** to demonstrate
 the framework's existing cross-child composition seam — one node
@@ -14,7 +12,7 @@ ChildMCP; framework infrastructure already composes them.*
 
 As of v6.9.0 (per [ADR 0024](../../../docs/adr/0024-wheel-distributed-tour-and-fixture-bundling.md))
 the demo's fixtures live in the package's bundled-fixtures tree
-(`src/tailor/_fixtures/hip_lab_demo_realistic/`) and ship
+(`src/tailor/_fixtures/cohort_demo_realistic/`) and ship
 inside the wheel.  A non-technical recipient (PI, family member,
 collaborator at another institution) can run the entire walkthrough
 from a pre-built wheel sent via Drive or email — no GitHub access,
@@ -29,7 +27,7 @@ no source clone, no env-var-by-hand.  See
 # Non-interactive end-to-end check (no Claude in the loop).
 # Scaffolds a fresh fitting-room into a temp dir and asserts the
 # bridge numbers; cleans up on exit.
-python examples/hip_lab_demo/realistic/rehearse.py
+python examples/cohort_demo/realistic/rehearse.py
 
 # Live demo path: scaffold + register with Claude Desktop in one shot.
 # (Renamed from `tailor tour` in v7.1.0 per ADR 0035; the legacy
@@ -37,7 +35,7 @@ python examples/hip_lab_demo/realistic/rehearse.py
 tailor fitting-room
 ```
 
-Then walk Senefeld through the
+Then walk the recipient through the
 [**Walkthrough script**](#walkthrough-script-meeting-time-510-min)
 below — or for live use, print [`CUE_CARD.md`](CUE_CARD.md), which
 collapses the walkthrough to one page.
@@ -45,11 +43,11 @@ collapses the walkthrough to one page.
 To regenerate the bundled fixtures after a `generate.py` change:
 
 ```bash
-python examples/hip_lab_demo/realistic/generate.py
+python examples/cohort_demo/realistic/generate.py
 ```
 
 `generate.py` writes directly into the package's
-`_fixtures/hip_lab_demo_realistic/` tree, so the next
+`_fixtures/cohort_demo_realistic/` tree, so the next
 `tailor fitting-room` (or `pip install`-built wheel) picks up the
 regenerated fixtures with no further plumbing.
 
@@ -63,7 +61,7 @@ re-run.
 ### 1. Rehearse end-to-end (no Claude in the loop)
 
 ```bash
-python examples/hip_lab_demo/realistic/rehearse.py
+python examples/cohort_demo/realistic/rehearse.py
 ```
 
 Calls each tool the walkthrough exercises and prints PASS / FAIL
@@ -87,7 +85,7 @@ tailor fitting-room
 
 This one command:
 
-- Copies bundled fixtures into `~/.tailor/demos/hip-lab/`
+- Copies bundled fixtures into `~/.tailor/demos/cohort/`
 - Writes `user_config.json` with absolute paths
 - Indexes the seed vault moment into `data/vault.db`
 - **Writes a Claude Desktop entry that bakes
@@ -96,7 +94,7 @@ This one command:
 
 Output ends with a "Fitting-room scaffolded successfully" banner
 naming the target dir, the Claude Desktop config path, and the
-entry name (`tailor-fitting-room-hip-lab`).
+entry name (`tailor-fitting-room-cohort`).
 
 Pass `--force` to refresh after a regen of the bundled fixtures.
 Pass `--no-claude-desktop` for headless / CI use.
@@ -123,7 +121,7 @@ If `force_csv` or `emg_csv` is missing, run `tailor fitting-room
 
 ## Walkthrough script (meeting time — 5–10 min)
 
-Read these prompts to Senefeld out loud or paste them into
+Read these prompts to the recipient out loud or paste them into
 Claude Desktop.  Each step has a "what to point out" line —
 that's what makes the demo land.
 
@@ -176,9 +174,9 @@ Expected response:
 
 **What to point out:** *"The Sánchez-2015 MVC window definition is
 publication-aligned — mean over a 250 ms window centered on the
-peak, not the instantaneous peak.  That's the definition Wang and
-Senefeld 2026 use in the dyno-validation work.  Window math runs
-server-side; the framework hands the LLM one number."*
+peak, not the instantaneous peak.  That's the definition published
+MVC-window methods use in dynamometer-validation work.  Window math
+runs server-side; the framework hands the LLM one number."*
 
 ### Step 4 — Show the EMG envelope summary for S004 (1 min)
 
@@ -237,7 +235,7 @@ the LLM surfaced."*
 
 ### Step 6 — Show the audit log (30 s)
 
-If Senefeld is interested in the IRB story, run:
+If the recipient is interested in the IRB story, run:
 
 > *"How many calls have been logged to the audit log this session,
 > and what subject_ids have been queried?"*
@@ -246,7 +244,7 @@ Claude can answer from its session memory or via a status-style
 inspection.  Or open the audit DB directly:
 
 ```bash
-sqlite3 ~/.tailor/demos/hip-lab/data/audit.db \
+sqlite3 ~/.tailor/demos/cohort/data/audit.db \
   "SELECT tool_name, subject_id, called_at FROM audit_log ORDER BY id DESC LIMIT 10;"
 ```
 
@@ -285,13 +283,13 @@ their data was used for."*
 |---|---|
 | Claude Desktop doesn't see the tools | Restart Claude Desktop fully (system-tray Quit, then re-open). If still missing, run `tailor fitting-room --force` and restart again. |
 | `force_csv` returns "directory not found" | Re-run `tailor fitting-room --force` — re-writes user_config.json with current absolute paths. |
-| Vault search returns nothing | The vault.db wasn't indexed — `tailor fitting-room --force` re-runs the indexing step. The seed moment file lives at `~/.tailor/demos/hip-lab/vault/moments/2026-04-20-s004-emg-force-decoupling-suspected.md` if you want to confirm it exists. |
-| `force_summary.decline_pct` returns null | Known limitation — use `peak` and `mvc_window_mean_250ms` instead.  Don't acknowledge this gap proactively; if Senefeld asks, see [Pre-armed answers](#pre-armed-answers-if-senefeld-asks) below. |
+| Vault search returns nothing | The vault.db wasn't indexed — `tailor fitting-room --force` re-runs the indexing step. The seed moment file lives at `~/.tailor/demos/cohort/vault/moments/2026-04-20-s004-emg-force-decoupling-suspected.md` if you want to confirm it exists. |
+| `force_summary.decline_pct` returns null | Known limitation — use `peak` and `mvc_window_mean_250ms` instead.  Don't acknowledge this gap proactively; if a reviewer asks, see [Pre-armed answers](#pre-armed-answers-if-a-reviewer-asks) below. |
 | You can't remember what to say | Read the **Walkthrough script** above straight off the page — every step has a "what to point out" line. |
 
 ---
 
-## Pre-armed answers if Senefeld asks
+## Pre-armed answers if a reviewer asks
 
 Three follow-up questions are most likely.  Each has a physiologically-
 honest scripted answer below — read it straight off the page, no
@@ -327,8 +325,8 @@ re-architecture."*
 > any sidecar field — sex, age band, training status, intervention
 > arm.  Same call, same shape, real numbers."
 
-**What to point out:** *"This is exactly the call HIP Lab would
-run on a 16-subject pilot once the dyno-validation work
+**What to point out:** *"This is exactly the call a physiology lab
+would run on a 16-subject pilot once the dyno-validation work
 publishes — drop the CSVs in a directory, write a 4-line
 metadata.json sidecar, run one tool call."*
 
@@ -424,7 +422,7 @@ run `tailor fitting-room --force`, restart the demo from step 1.
 ## What's here
 
 ```
-examples/hip_lab_demo/realistic/        # Dev-side scaffolding
+examples/cohort_demo/realistic/        # Dev-side scaffolding
   generate.py             Seeded synthetic generator (random.Random(20260504))
                           — writes into the package's bundled-fixtures
                           tree (see below), not into this directory
@@ -434,9 +432,9 @@ examples/hip_lab_demo/realistic/        # Dev-side scaffolding
   README.md               This file
   CUE_CARD.md             One-page printable cue card for live use
   WINDOWS_QUICKSTART.md   Standalone Windows quickstart for non-technical
-                          recipients (mom, Senefeld) — wheel-install path
+                          recipients — wheel-install path
 
-src/tailor/_fixtures/hip_lab_demo_realistic/   # Bundled fixtures
+src/tailor/_fixtures/cohort_demo_realistic/   # Bundled fixtures
                                                        # (ship in the wheel
                                                        # per ADR 0024)
   force/                  Load-cell force traces, 100 Hz × 60 s
@@ -469,7 +467,7 @@ src/tailor/_fixtures/hip_lab_demo_realistic/   # Bundled fixtures
 
 ## Reproducibility
 
-Every CSV under `_fixtures/hip_lab_demo_realistic/` regenerates
+Every CSV under `_fixtures/cohort_demo_realistic/` regenerates
 deterministically from `generate.py` — `random.Random(20260504)`
 is the seed; re-running overwrites all 48 files in place.  Per
 ADR 0008 the seeded-PRNG-off-the-analytical-path exception applies

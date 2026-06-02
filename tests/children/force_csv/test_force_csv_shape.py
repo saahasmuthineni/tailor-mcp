@@ -1,6 +1,6 @@
 """
 Shape + behaviour tests for ForceCsvChild — the load-cell force
-trace ChildMCP (off-blueprint Senefeld-meeting detour, 2026-05-04).
+trace ChildMCP (multimodal-physiology child family).
 
 Mirrors ``tests/children/csv_dir/test_csv_shape.py`` for the parts
 that are common (ABC surface, entity_id consistency per ADR 0002,
@@ -59,9 +59,9 @@ def _build_force_csv(
     """Build a synthetic isometric force trace.
 
     Shape: 0-0.2s ramp → plateau at ~peak → linear decline to
-    decline_to at end. Reproduces the Wang 2026 / Hunter & Senefeld
-    2024 protocol shape sufficient for time-to-50pct-drop and MVC
-    window math to mean something.
+    decline_to at end. Reproduces the Hunter & Senefeld 2024
+    (*J Physiol*) protocol shape sufficient for time-to-50pct-drop
+    and MVC window math to mean something.
     """
     rows = ["t_s,force"]
     plateau_end_idx = int(plateau_until_s * sample_rate_hz)
@@ -745,7 +745,7 @@ def _build_alias_fixture(
 ) -> dict:
     """Build a fixture where the CSV physical header differs from the
     logical name in ``user_config.value_columns`` — the exact shape of
-    the HIP Lab tour deployment.
+    the demo cohort tour deployment.
     """
     trials = [
         ("S001_trial.csv", "F", 100.0, 60.0),
@@ -781,7 +781,7 @@ class TestCohortSummaryAliasResolution:
     column alias map declared in ``user_config.value_columns`` —
     same contract as ``force_summary`` / ``force_compare_trials``.
 
-    Without this resolver, a recipient running the HIP Lab tour
+    Without this resolver, a recipient running the demo cohort tour
     cue-card prompt got 16 silent ``column not found`` load_errors
     on every file because Claude inferred the logical name
     ``force`` from the prose while the CSV header was ``force_N``.

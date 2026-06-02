@@ -1,5 +1,5 @@
 """
-One-shot scaffolder for the HIP Lab demo (variant β).
+One-shot scaffolder for the demo cohort (variant β).
 
 Resolves absolute paths to this directory's csv/ and vault/ folders,
 writes user_config.json, ensures the synthetic CSVs and metadata
@@ -18,10 +18,10 @@ The framework reads user_config.json from $TAILOR_CONFIG_DIR
 TAILOR_CONFIG_DIR to this directory at runtime — no clobber to
 the operator's real config:
 
-    TAILOR_CONFIG_DIR=examples/hip_lab_demo/beta tailor serve
+    TAILOR_CONFIG_DIR=examples/cohort_demo/beta tailor serve
 
 Usage:
-    python examples/hip_lab_demo/beta/setup.py
+    python examples/cohort_demo/beta/setup.py
 """
 
 from __future__ import annotations
@@ -176,7 +176,7 @@ def _index_vault() -> None:
 
 
 def main() -> None:
-    print(f"Setting up HIP Lab demo (variant beta) at {HERE}")
+    print(f"Setting up demo cohort (variant beta) at {HERE}")
     print()
     print("(1/4) ensure synthetic CSVs + metadata.json exist")
     CSV_DIR.mkdir(parents=True, exist_ok=True)

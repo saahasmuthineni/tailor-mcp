@@ -283,7 +283,7 @@ edits is in measurable conflict with itself and the next
   `audit.db`, `RouterMCP`, `ChildMCP`, `VaultLayer` — no rename.
   Table 1's *Wardrobe* / *Ledger* / *Seam* / *Garment* terminology is
   user-facing aggregate naming, not a refactor of the code.
-- **The first deployment recipe (HIP Lab researcher first-look) is
+- **The first deployment recipe (demo cohort researcher first-look) is
   unchanged.** The bundled fixtures, `tailor tour`, `tailor demo`, and
   the demo runner's output (per [ADR 0027](0027-demo-as-researcher-first-look.md))
   do not change. The vocabulary commitment is about how the project
@@ -300,8 +300,8 @@ conditions:
 
 1. **Onboarding tests reveal recipients still read the project as
    fashion despite the locked vocabulary.** If recipient-install
-   validation, dad-as-recipient testing, or a future Senefeld-meeting-
-   shape interaction surfaces consistent fashion-misread evidence, the
+   validation, dad-as-recipient testing, or a future beachhead-lab-
+   meeting-shape interaction surfaces consistent fashion-misread evidence, the
    runner-up engine words from
    [ADR 0031 § Alternative 3](0031-rename-to-tailor-and-wardrobe.md#alternative-3-different-engine-words-considered)
    reactivate. The fallback path is the same one ADR 0031 named (Trove

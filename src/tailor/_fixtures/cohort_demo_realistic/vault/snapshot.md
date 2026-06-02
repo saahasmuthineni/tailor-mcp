@@ -6,10 +6,10 @@ written_by: "tailor-fitting-room-seed"
 generated_at: "2026-04-20T15:42:00Z"
 tags:
   - snapshot
-  - hip-lab-demo
+  - cohort-demo
 ---
 
-# Vault Snapshot — HIP Lab Realistic Demo
+# Vault Snapshot — Realistic Demo Cohort
 
 You're looking at a bundled walkthrough of Tailor scaffolded by
 `tailor fitting-room`. Sixteen synthetic subjects (S001 – S016, 8 M
@@ -68,7 +68,7 @@ cleanly. Try them in order:
 
 The same question — *"tell me about subject four"* — costs very
 different amounts depending on which tier resolves it. Empirically,
-on the bundled HIP Lab fixtures (60s @ 100 Hz per subject, verified
+on the bundled demo cohort fixtures (60s @ 100 Hz per subject, verified
 via wire audit during v7.3.4):
 
 | Tier | Tool | Wire tokens (approx) | Gate |

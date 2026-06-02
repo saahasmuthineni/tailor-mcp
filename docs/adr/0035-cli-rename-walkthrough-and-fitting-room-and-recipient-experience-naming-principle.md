@@ -4,7 +4,7 @@
 - **Date:** 2026-05-14
 - **Supersedes (in part):**
   - [ADR 0024 (Wheel-distributed tour and fixture bundling)](0024-wheel-distributed-tour-and-fixture-bundling.md) — the `tour` CLI verb retires (`tour` → `fitting-room`). The substance ADR 0024 codified — wheel-distributed scaffolding into Claude Desktop, the synthetic-by-construction precondition for bundled fixtures, the package-data globs — is retained without change.
-  - [ADR 0027 (Demo as researcher first-look)](0027-demo-as-researcher-first-look.md) — the `demo` CLI verb retires (`demo` → `walkthrough`). The substance ADR 0027 codified — five-section architectural showcase, cohort thesis as Section 1, bundled HIP Lab fixtures, no Strava data — is retained without change.
+  - [ADR 0027 (Demo as researcher first-look)](0027-demo-as-researcher-first-look.md) — the `demo` CLI verb retires (`demo` → `walkthrough`). The substance ADR 0027 codified — five-section architectural showcase, cohort thesis as Section 1, bundled demo cohort fixtures, no Strava data — is retained without change.
 - **Partially superseded by:**
   - [ADR 0040 (Bounded setup-time conductor surface)](0040-bounded-setup-time-conductor-surface.md) (v8.0.0, 2026-05-19) — both CLI verbs this ADR introduced (`tailor walkthrough`, `tailor fitting-room`) were **hard-removed** in v8.0.0 with no deprecation shim, replaced by the `WalkthroughLayer` and `FittingRoomLayer` MCP tools. The recipient-experience-shaped naming *principle* this ADR established is retained and applied to the MCP tool names; only the CLI surface was retired.
 - **Related:**
@@ -20,7 +20,7 @@ The CLI surface that recipients touch has, since v6.9.0, included two
 verbs whose colloquial English meanings overlap: `tailor demo` (a
 five-section architectural showcase that prints to the terminal, per
 [ADR 0027](0027-demo-as-researcher-first-look.md)) and `tailor tour`
-(a one-shot scaffold of bundled HIP Lab fixtures into Claude Desktop
+(a one-shot scaffold of bundled demo cohort fixtures into Claude Desktop
 plus the recipient's vault directory, per
 [ADR 0024](0024-wheel-distributed-tour-and-fixture-bundling.md)).
 A friend hearing *"run `tailor demo` then `tailor tour`"* has no
@@ -118,8 +118,8 @@ maintenance cost.
   through v7.1.0:
   `from tailor.fitting_room import fitting_room_main as tour_main`.
   Two callers depend on the old import path —
-  [`examples/hip_lab_demo/realistic/setup.py`](../../examples/hip_lab_demo/realistic/setup.py)
-  and [`examples/hip_lab_demo/realistic/rehearse.py`](../../examples/hip_lab_demo/realistic/rehearse.py).
+  [`examples/cohort_demo/realistic/setup.py`](../../examples/cohort_demo/realistic/setup.py)
+  and [`examples/cohort_demo/realistic/rehearse.py`](../../examples/cohort_demo/realistic/rehearse.py).
   Both are updated to the new import in v7.2.0 alongside the shim's
   removal.
 - The `src/tailor/demo/` Python package directory is **not** renamed
@@ -131,7 +131,7 @@ maintenance cost.
 
 ### 3. Claude Desktop registration key transition
 
-- New key: `tailor-fitting-room-hip-lab` (preserves the existing
+- New key: `tailor-fitting-room-cohort` (preserves the existing
   `tailor-<verb>-<variant>` shape that ADR 0024 set).
 - The `_is_orphan_entry_key` matcher at `src/tailor/__main__.py`
   already strips every `tailor-*` sibling per
@@ -139,9 +139,9 @@ maintenance cost.
   contract. The new key falls under the existing matcher without
   source change.
 - **Transactional per-path semantics are added** on the strip-and-replace
-  path. The strip step (remove the v7.0.x `tailor-tour-hip-lab`
+  path. The strip step (remove the v7.0.x `tailor-tour-cohort`
   entry from a Claude Desktop config) and the write step (add the new
-  `tailor-fitting-room-hip-lab` entry) are wrapped so that either
+  `tailor-fitting-room-cohort` entry) are wrapped so that either
   both happen on a given path or neither does. No half-stripped state
   is allowed. The failure scenario this closes: a running Claude
   Desktop holds the Store sandbox config open, the strip succeeds,
@@ -224,7 +224,7 @@ Three edits:
 - **[ADR 0027](0027-demo-as-researcher-first-look.md)** — same
   treatment. The `demo` verb retires; the substance
   (five-section showcase, cohort thesis as Section 1, no Strava
-  data, bundled HIP Lab fixtures, ADR 0008 deterministic processing
+  data, bundled demo cohort fixtures, ADR 0008 deterministic processing
   invariant) is retained.
 - **[ADR 0026](0026-claude-desktop-config-dual-path.md)** — a
   2026-05-14 amendment footer is appended confirming that the
@@ -319,7 +319,7 @@ because the change-shape invites accidental scope creep:
   `saahasmuthineni/tailor-mcp-landing` (separate repo) needs a
   parallel update. Any prior friend-shared transcripts (Drive links,
   Obsidian moments captured pre-v7.1.0, the in-vault rehearsal
-  artifacts in `examples/hip_lab_demo/beta/`) cite the old verbs;
+  artifacts in `examples/cohort_demo/beta/`) cite the old verbs;
   rewriting them would falsify dated artifacts per
   [ADR 0031](0031-rename-to-tailor-and-wardrobe.md) § Historical
   preservation. The drift is bounded — recipients of stale
@@ -369,7 +369,7 @@ because the change-shape invites accidental scope creep:
 - **No router, security pipeline, ChildMCP, vault, audit, or
   local-LLM changes.** The rename is recipient-CLI-surface and
   vocab-doc only. The framework-tier components are untouched.
-- **The first deployment recipe (HIP Lab researcher first-look)
+- **The first deployment recipe (demo cohort researcher first-look)
   is unchanged.** Bundled fixtures, the five-section showcase
   shape, the cohort thesis as Section 1, the runner's output, the
   tour scaffold — all preserved. Only the verbs change.

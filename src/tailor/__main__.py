@@ -662,7 +662,7 @@ def _clean_claude_desktop_orphan_entries() -> dict[Path, list[str]]:
     for the full match set and ADR 0031 for the migration story.
 
     Without this dual-prefix match, ``tailor uninstall`` would leave stale
-    ``biosensor-tour-cohort`` entries from a v6 install pointing at a
+    ``biosensor-tour-*`` entries from a v6 install pointing at a
     removed binary, so Claude Desktop would show a red MCP indicator after
     a clean v7 uninstall (the v6.9.2 bug applied to the v6->v7 transition).
 

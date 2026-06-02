@@ -25,7 +25,7 @@ log = logging.getLogger("tailor.fitting_room")
 
 
 _STATUS_DESCRIPTION = (
-    "Return whether the bundled HIP Lab fitting-room demo has been "
+    "Return whether the bundled demo cohort fitting-room demo has been "
     "scaffolded on this machine. Call when the user asks 'is the "
     "demo set up?' / 'do I have the practice data?' or as a "
     "diagnostic before suggesting scaffold_demo. Always safe to "
@@ -33,14 +33,14 @@ _STATUS_DESCRIPTION = (
 )
 
 _SCAFFOLD_DESCRIPTION = (
-    "Copy the bundled HIP Lab realistic demo fixtures into "
-    "~/.tailor/demos/hip-lab/, write a demo user_config.json with "
+    "Copy the bundled demo cohort realistic fixtures into "
+    "~/.tailor/demos/cohort/, write a demo user_config.json with "
     "the right paths + cost_threshold tuned to make the cost gate "
     "fire on bundled subjects, and index the seed vault. Call when "
     "the user says 'show me the demo' / 'scaffold the practice "
     "data' / 'set up the bundled fixtures'. Does NOT modify the "
     "user's actual ~/.tailor/user_config.json or Claude Desktop "
-    "config — the scaffold is sandboxed in ~/.tailor/demos/hip-lab/. "
+    "config — the scaffold is sandboxed in ~/.tailor/demos/cohort/. "
     "For Claude Desktop to surface the demo's tool set, the user "
     "needs to run `tailor pilot` to register Tailor (one-time "
     "bootstrap) then restart Claude Desktop."
@@ -55,7 +55,7 @@ _INDEX_DESCRIPTION = (
 )
 
 
-def _demo_target_dir(variant: str = "hip-lab") -> Path:
+def _demo_target_dir(variant: str = "cohort") -> Path:
     return Path.home() / ".tailor" / "demos" / variant
 
 
@@ -83,8 +83,8 @@ class FittingRoomLayer:
                     "variant": {
                         "type": "string",
                         "description": (
-                            "Optional. Currently only 'hip-lab' is "
-                            "shipped; defaults to 'hip-lab'."
+                            "Optional. Currently only 'cohort' is "
+                            "shipped; defaults to 'cohort'."
                         ),
                         "required": False,
                     },
@@ -108,7 +108,7 @@ class FittingRoomLayer:
                     "variant": {
                         "type": "string",
                         "description": (
-                            "Optional. Currently only 'hip-lab'."
+                            "Optional. Currently only 'cohort'."
                         ),
                         "required": False,
                     },
@@ -123,7 +123,7 @@ class FittingRoomLayer:
             required=False,
             min_len=1,
             max_len=32,
-            allowed_values=["hip-lab"],
+            allowed_values=["cohort"],
         )
         return {
             "tailor_fitting_room_status": {},
@@ -138,15 +138,15 @@ class FittingRoomLayer:
 
     async def execute(self, tool_name: str, params: dict) -> dict:
         if tool_name == "tailor_fitting_room_status":
-            return self._tool_status(params.get("variant", "hip-lab"))
+            return self._tool_status(params.get("variant", "cohort"))
         if tool_name == "tailor_fitting_room_scaffold":
             return self._tool_scaffold(
-                params.get("variant", "hip-lab"),
+                params.get("variant", "cohort"),
                 bool(params.get("force", False)),
             )
         if tool_name == "tailor_fitting_room_index_vault":
             return self._tool_index_vault(
-                params.get("variant", "hip-lab"),
+                params.get("variant", "cohort"),
             )
         return {"error": f"Unknown fitting-room tool: {tool_name}"}
 

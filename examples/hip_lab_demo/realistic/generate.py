@@ -69,7 +69,7 @@ HERE = Path(__file__).parent
 # vendor in. Re-running this script overwrites the bundled tree.
 PACKAGE_FIXTURES = (
     HERE.parents[2]
-    / "src" / "tailor" / "_fixtures" / "hip_lab_demo_realistic"
+    / "src" / "tailor" / "_fixtures" / "cohort_demo_realistic"
 )
 FORCE_DIR = PACKAGE_FIXTURES / "force"
 EMG_DIR = PACKAGE_FIXTURES / "emg"

@@ -21,13 +21,13 @@ Renamed from ``tour`` in v7.1.0 per ADR 0035. The CLI alias
 ``tailor tour`` still works for one cycle and prints a deprecation
 hint; the module ``tailor.tour`` is a re-export shim through
 v7.1.0 to preserve ``from tailor.tour import main as tour_main``
-in ``examples/hip_lab_demo/realistic/setup.py`` and
+in ``examples/cohort_demo/realistic/setup.py`` and
 ``rehearse.py``. Both deprecation surfaces are removed in v7.2.0.
 
 Currently-supported variants:
 
-- ``hip-lab`` — multimodal force / EMG / 31P-MRS HIP-Lab realistic
-  demo. 16 synthetic subjects, the S004 cross-session-memory wow
+- ``cohort`` — multimodal force / EMG / 31P-MRS realistic demo
+  cohort. 16 synthetic subjects, the S004 cross-session-memory wow
   moment, the cohort sex-difference comparison.
 
 Future variants (sleep, CGM, etc.) plug into the ``_VARIANT_FIXTURES``
@@ -35,7 +35,7 @@ table.
 
 Usage:
     tailor fitting-room
-    tailor fitting-room --variant=hip-lab
+    tailor fitting-room --variant=cohort
     tailor fitting-room --target=/some/other/path
     tailor fitting-room --no-claude-desktop --force
 """
@@ -71,9 +71,9 @@ DEFAULT_TARGET_BASE = Path.home() / ".tailor" / "demos"
 # Variant table — extend here when adding sleep / CGM / etc.
 # Tuple shape: (fixtures_subpackage, default_target_subdir).
 _VARIANT_FIXTURES: dict[str, tuple[str, str]] = {
-    "hip-lab": ("hip_lab_demo_realistic", "hip-lab"),
+    "cohort": ("cohort_demo_realistic", "cohort"),
 }
-DEFAULT_VARIANT = "hip-lab"
+DEFAULT_VARIANT = "cohort"
 VARIANTS = tuple(_VARIANT_FIXTURES.keys())
 
 
@@ -119,8 +119,8 @@ def _scaffold_fixtures(variant: str, target_dir: Path) -> dict[str, int]:
 # ──────────────────────────────────────────────────────────────────────
 
 
-def _hip_lab_user_config(target_dir: Path) -> dict:
-    """Build the user_config.json payload for the hip-lab variant.
+def _cohort_user_config(target_dir: Path) -> dict:
+    """Build the user_config.json payload for the cohort variant.
 
     Mirrors the shape that the prior ``examples/.../setup.py`` wrote
     so ``ForceCsvChild`` / ``EmgCsvChild`` register identically.
@@ -128,7 +128,7 @@ def _hip_lab_user_config(target_dir: Path) -> dict:
     return {
         "vault_path": str(target_dir / "vault"),
         # cost_threshold is set below the framework default (35,000) so
-        # the bundled HIP Lab fixtures' Tier-3 raw-window call on a 60s
+        # the bundled demo cohort fixtures' Tier-3 raw-window call on a 60s
         # @ 100 Hz subject trace (estimated ~24,000 tokens; actual
         # payload ~50,000 tokens per the v7.3.4 mcp-protocol-auditor
         # wire audit) trips the cost gate — making the AI-economics
@@ -168,8 +168,8 @@ def _hip_lab_user_config(target_dir: Path) -> dict:
 
 def _write_user_config(variant: str, target_dir: Path) -> Path:
     cfg_path = target_dir / "user_config.json"
-    if variant == "hip-lab":
-        cfg = _hip_lab_user_config(target_dir)
+    if variant == "cohort":
+        cfg = _cohort_user_config(target_dir)
     else:
         raise ValueError(f"unknown variant: {variant}")
     cfg_path.parent.mkdir(parents=True, exist_ok=True)
@@ -276,7 +276,7 @@ def _register_with_claude_desktop(
     on a v6.9.x failed-tour install adds a bare ``tailor`` entry
     with no env block to ``claude_desktop_config.json``. A subsequent
     ``tailor tour --force`` previously left that bare entry in
-    place and added a sibling ``tailor-tour-hip-lab`` — Claude
+    place and added a sibling ``tailor-tour-cohort`` — Claude
     Desktop would then launch both, with the bare server's
     SetupHelpLayer (v6.10.2) leaking into the working-demo tool
     surface. Mirrors the v6.9.2 prefix-match cleanup pattern in

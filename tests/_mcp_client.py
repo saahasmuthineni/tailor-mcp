@@ -124,8 +124,8 @@ def seed_tour_config(root: Path) -> dict[str, Path]:
     """
     target_dir = root / "fitting-room"
     from tailor.fitting_room import _scaffold_fixtures, _write_user_config
-    _scaffold_fixtures("hip-lab", target_dir)
-    _write_user_config("hip-lab", target_dir)
+    _scaffold_fixtures("cohort", target_dir)
+    _write_user_config("cohort", target_dir)
     data_dir = target_dir / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     return {"target_dir": target_dir, "data_dir": data_dir}

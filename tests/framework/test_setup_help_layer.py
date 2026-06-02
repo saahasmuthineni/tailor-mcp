@@ -159,8 +159,8 @@ def test_redact_home_collapses_home_to_tilde(monkeypatch, tmp_path):
     fake_home.mkdir()
     monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
     assert _redact_home(str(fake_home)) == "~"
-    assert _redact_home(str(fake_home / "demos" / "hip-lab")) == (
-        "~/demos/hip-lab"
+    assert _redact_home(str(fake_home / "demos" / "cohort")) == (
+        "~/demos/cohort"
     )
     # Identity on non-home paths.
     assert _redact_home("/usr/local/bin/python") == "/usr/local/bin/python"

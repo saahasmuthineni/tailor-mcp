@@ -91,14 +91,14 @@ def test_removes_v7_tour_entry(
     cfg = tmp_path / "claude_desktop_config.json"
     cfg.write_text(json.dumps({
         "mcpServers": {
-            "tailor-tour-hip-lab": {"command": "x"},
+            "tailor-tour-cohort": {"command": "x"},
         },
     }))
     _patch_paths(monkeypatch, [cfg])
     result = _clean_claude_desktop_orphan_entries()
-    assert result == {cfg: ["tailor-tour-hip-lab"]}
+    assert result == {cfg: ["tailor-tour-cohort"]}
     after = json.loads(cfg.read_text())
-    assert "tailor-tour-hip-lab" not in after["mcpServers"]
+    assert "tailor-tour-cohort" not in after["mcpServers"]
 
 
 def test_removes_legacy_v6_tour_entry(
@@ -109,14 +109,14 @@ def test_removes_legacy_v6_tour_entry(
     cfg = tmp_path / "claude_desktop_config.json"
     cfg.write_text(json.dumps({
         "mcpServers": {
-            "biosensor-tour-hip-lab": {"command": "x"},
+            "biosensor-tour-cohort": {"command": "x"},
         },
     }))
     _patch_paths(monkeypatch, [cfg])
     result = _clean_claude_desktop_orphan_entries()
-    assert result == {cfg: ["biosensor-tour-hip-lab"]}
+    assert result == {cfg: ["biosensor-tour-cohort"]}
     after = json.loads(cfg.read_text())
-    assert "biosensor-tour-hip-lab" not in after["mcpServers"]
+    assert "biosensor-tour-cohort" not in after["mcpServers"]
 
 
 def test_removes_both_pilot_and_tour_entries(
@@ -129,7 +129,7 @@ def test_removes_both_pilot_and_tour_entries(
     cfg.write_text(json.dumps({
         "mcpServers": {
             "tailor": {"command": "x"},
-            "tailor-tour-hip-lab": {"command": "y"},
+            "tailor-tour-cohort": {"command": "y"},
             "biosensor-mcp": {"command": "z"},
             "biosensor-tour-old-variant": {"command": "w"},
         },
@@ -138,7 +138,7 @@ def test_removes_both_pilot_and_tour_entries(
     result = _clean_claude_desktop_orphan_entries()
     assert set(result[cfg]) == {
         "tailor",
-        "tailor-tour-hip-lab",
+        "tailor-tour-cohort",
         "biosensor-mcp",
         "biosensor-tour-old-variant",
     }
@@ -154,7 +154,7 @@ def test_preserves_sibling_mcp_servers(
     cfg.write_text(json.dumps({
         "mcpServers": {
             "tailor": {"command": "x"},
-            "biosensor-tour-hip-lab": {"command": "y"},  # legacy v6 entry
+            "biosensor-tour-cohort": {"command": "y"},  # legacy v6 entry
             "obsidian": {"command": "node", "args": ["obsidian.js"]},
             "strava-coaching": {"command": "python"},
         },
@@ -165,7 +165,7 @@ def test_preserves_sibling_mcp_servers(
     assert "obsidian" in after["mcpServers"]
     assert "strava-coaching" in after["mcpServers"]
     assert after["mcpServers"]["obsidian"]["command"] == "node"
-    assert set(result[cfg]) == {"tailor", "biosensor-tour-hip-lab"}
+    assert set(result[cfg]) == {"tailor", "biosensor-tour-cohort"}
 
 
 def test_no_op_when_no_orphan_entries_present(
@@ -232,7 +232,7 @@ def test_iterates_every_detected_config(
     sandbox.parent.mkdir()
     sandbox.write_text(json.dumps({
         "mcpServers": {
-            "biosensor-tour-hip-lab": {"command": "y"},  # legacy v6 entry
+            "biosensor-tour-cohort": {"command": "y"},  # legacy v6 entry
             "raycast": {"command": "raycast"},
         },
     }))
@@ -241,12 +241,12 @@ def test_iterates_every_detected_config(
     result = _clean_claude_desktop_orphan_entries()
 
     assert result[classic] == ["tailor"]
-    assert result[sandbox] == ["biosensor-tour-hip-lab"]
+    assert result[sandbox] == ["biosensor-tour-cohort"]
     after_classic = json.loads(classic.read_text())
     after_sandbox = json.loads(sandbox.read_text())
     assert "tailor" not in after_classic["mcpServers"]
     assert "obsidian" in after_classic["mcpServers"]
-    assert "biosensor-tour-hip-lab" not in after_sandbox["mcpServers"]
+    assert "biosensor-tour-cohort" not in after_sandbox["mcpServers"]
     assert "raycast" in after_sandbox["mcpServers"]
 
 
@@ -264,14 +264,14 @@ class TestOrphanEntryKeyMatcher:
         assert _is_orphan_entry_key("tailor") is True
 
     def test_matches_v7_tour_variant(self) -> None:
-        assert _is_orphan_entry_key("tailor-tour-hip-lab") is True
+        assert _is_orphan_entry_key("tailor-tour-cohort") is True
         assert _is_orphan_entry_key("tailor-tour-sleep") is True
 
     def test_matches_legacy_v6_biosensor_mcp(self) -> None:
         assert _is_orphan_entry_key("biosensor-mcp") is True
 
     def test_matches_legacy_v6_tour_variant(self) -> None:
-        assert _is_orphan_entry_key("biosensor-tour-hip-lab") is True
+        assert _is_orphan_entry_key("biosensor-tour-cohort") is True
         assert _is_orphan_entry_key("biosensor-tour-old-variant") is True
 
     def test_does_not_match_unrelated_keys(self) -> None:

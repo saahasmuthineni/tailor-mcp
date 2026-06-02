@@ -12,7 +12,7 @@ thesis or the wow-moment surface.
 Defect map (each test cites the audit-tier finding it locks):
 
 * D1 — float-seconds timestamp fallback in ``_extract_timestamps`` so
-  ``time_to_50pct_drop_s`` actually computes on the bundled HIP Lab
+  ``time_to_50pct_drop_s`` actually computes on the bundled demo cohort
   fixtures (mcp-protocol-auditor verdict; would have rendered the
   cohort thesis null-on-the-wire on the science-person demo).
 * D2 — ``group_field`` → ``group_by`` rename on
@@ -51,20 +51,20 @@ import pytest
 
 class TestBundledFixtureInvariants:
     """Invariants on what ships in the wheel under
-    ``src/tailor/_fixtures/hip_lab_demo_realistic/``. These guard
+    ``src/tailor/_fixtures/cohort_demo_realistic/``. These guard
     against silent removal or accidental renaming of the seed assets the
     recipient demo depends on."""
 
     def test_snapshot_md_is_bundled_in_wheel(self) -> None:
         """Fix 1: the seeded ``snapshot.md`` must ship inside the wheel
-        under the HIP Lab realistic fixture root, so ``tailor
+        under the demo cohort realistic fixture root, so ``tailor
         fitting-room`` can copy it into the recipient's scaffolded
         target."""
-        bundle_root = files("tailor._fixtures.hip_lab_demo_realistic")
+        bundle_root = files("tailor._fixtures.cohort_demo_realistic")
         snapshot = bundle_root / "vault" / "snapshot.md"
         assert snapshot.is_file(), (
             "Expected bundled snapshot.md at "
-            "_fixtures/hip_lab_demo_realistic/vault/snapshot.md — the "
+            "_fixtures/cohort_demo_realistic/vault/snapshot.md — the "
             "v7.3.4 seed orientation document. If this is missing, the "
             "first-prompt orientation path regresses to the empty-vault "
             "fallback and the wow moment becomes unreachable from natural "
@@ -77,7 +77,7 @@ class TestBundledFixtureInvariants:
         ``vault_search_notes(query='subject four')`` finds it. Without
         this, the recipient's natural-language prompt fails on the
         wow-moment surface even though the moment exists."""
-        bundle_root = files("tailor._fixtures.hip_lab_demo_realistic")
+        bundle_root = files("tailor._fixtures.cohort_demo_realistic")
         snapshot = bundle_root / "vault" / "snapshot.md"
         content = snapshot.read_text(encoding="utf-8")
         assert "subject four" in content.lower(), (
@@ -91,7 +91,7 @@ class TestBundledFixtureInvariants:
         'subject four' so ``vault_search_notes`` finds the moment
         directly (not only via the snapshot). Durable across snapshot
         regenerate."""
-        bundle_root = files("tailor._fixtures.hip_lab_demo_realistic")
+        bundle_root = files("tailor._fixtures.cohort_demo_realistic")
         moment = bundle_root / "vault" / "moments" / (
             "2026-04-20-s004-emg-force-decoupling-suspected.md"
         )
@@ -108,7 +108,7 @@ class TestBundledFixtureInvariants:
         """Fix 1: the seed must declare ``domain: vault`` and
         ``note_type: snapshot`` in frontmatter so the rescan + parser
         classify it coherently."""
-        bundle_root = files("tailor._fixtures.hip_lab_demo_realistic")
+        bundle_root = files("tailor._fixtures.cohort_demo_realistic")
         snapshot = bundle_root / "vault" / "snapshot.md"
         content = snapshot.read_text(encoding="utf-8")
         assert "domain: vault" in content
@@ -166,7 +166,7 @@ def scaffolded_target(tmp_path: Path) -> Path:
     from tailor.fitting_room import main as fitting_room_main
     target = tmp_path / "fr"
     rc = fitting_room_main([
-        "--variant=hip-lab",
+        "--variant=cohort",
         "--target", str(target),
         "--no-claude-desktop",
     ])
@@ -218,12 +218,12 @@ class TestFittingRoomScaffoldsSnapshot:
 
 
 # ──────────────────────────────────────────────────────────────────────
-# D1 — float-seconds timestamp fallback on bundled HIP Lab fixtures
+# D1 — float-seconds timestamp fallback on bundled demo cohort fixtures
 # ──────────────────────────────────────────────────────────────────────
 
 
 class TestD1FloatSecondsTimestampFallback:
-    """The bundled HIP Lab fixtures use ``t_s`` float-second offsets.
+    """The bundled demo cohort fixtures use ``t_s`` float-second offsets.
     Before v7.3.4 ``_extract_timestamps`` only recognised ISO datetime
     strings and silently returned None on these fixtures, which made
     every time-based metric (``time_to_50pct_drop_s``, ``duration_s``,
@@ -313,7 +313,7 @@ class TestD1FloatSecondsTimestampFallback:
     def test_iso_datetime_success_path_still_works(self, tmp_path: Path) -> None:
         """Coverage-criticality regression guard: the v7.3.4 float-seconds
         fallback added an early-exit on the ISO-success path
-        (``for/else: return parsed``). The bundled HIP Lab tests exercise
+        (``for/else: return parsed``). The bundled demo cohort tests exercise
         only the float-seconds branch. A deployment that uses ISO-format
         timestamps (the original ``csv_dir`` shape, the Strava cache
         notes, any real biomedical export with a real datetime column)
@@ -434,7 +434,7 @@ class TestD2GroupByParameterRename:
 
 
 class TestFix2FitnessSummaryNoLongerStravaShapes:
-    """When no running child is registered (HIP Lab demo case),
+    """When no running child is registered (demo cohort demo case),
     _handle_fitness_summary's empty-notes fallback must NOT emit the
     'call strava_sync' remediation. The hint misleads a recipient on
     a non-running deployment into thinking the framework expects Strava
@@ -466,7 +466,7 @@ class TestFix2FitnessSummaryNoLongerStravaShapes:
             return await layer.execute("vault_get_fitness_summary", {})
 
         result = asyncio.run(run())
-        # On a HIP Lab demo scaffold there is no domain="running" data;
+        # On a demo cohort demo scaffold there is no domain="running" data;
         # the fallback path must surface non-Strava remediation.
         note = result.get("note", "")
         assert "strava_sync" not in note, (
@@ -481,8 +481,8 @@ class TestFix2FitnessSummaryNoLongerStravaShapes:
         """Coverage-criticality regression guard: the v7.3.4 rewrite of
         ``_handle_fitness_summary``'s empty-notes fallback added three
         branches — ``total_running > 0`` (legacy Strava path),
-        ``non_running > 0`` (HIP Lab path), ``total_all == 0`` (empty
-        vault). The HIP Lab branch is covered by the test above; this
+        ``non_running > 0`` (demo cohort path), ``total_all == 0`` (empty
+        vault). The demo cohort branch is covered by the test above; this
         test covers the legacy Strava branch so a future regression on
         ``count_notes(domain='running')`` cannot silently break the
         Strava-deployment remediation surface."""
@@ -556,7 +556,7 @@ class TestFix2FitnessSummaryNoLongerStravaShapes:
 
 class TestSnapshotRendererDropsEmptyWeeklySummary:
     """The renderer used to always print '## Weekly Summary (last 4
-    weeks)' followed by '*(No recent run data.)*' on a HIP Lab demo
+    weeks)' followed by '*(No recent run data.)*' on a demo cohort demo
     deployment — Strava-shaping the snapshot of a non-running vault.
     v7.3.4 / Fix 2 drops the whole section when weekly_summary is
     empty."""
@@ -720,7 +720,7 @@ class TestFittingRoomBannerNextStepIsScienceShaped:
         target2 = tmp_path / "fr2"
         capsys.readouterr()
         rc = fitting_room_main([
-            "--variant=hip-lab",
+            "--variant=cohort",
             "--target", str(target2),
         ])
         assert rc == 0
@@ -760,7 +760,7 @@ class TestFittingRoomBannerNextStepIsScienceShaped:
         # The Option B tier-escalation prompt — surfaces the AI-economics
         # claim (ADR 0029) by demonstrating the cost-gate firing at this
         # deployment's 15,000-token threshold. Backed by wire verification
-        # (the gate fires on bundled HIP Lab Tier-3 raw-window calls;
+        # (the gate fires on bundled demo cohort Tier-3 raw-window calls;
         # estimate ~24k tokens vs threshold 15k). v7.3.4 / Option B.
         assert "tier levels" in out.lower(), (
             "Banner must surface the tier-escalation prompt that "
@@ -776,7 +776,7 @@ class TestFittingRoomBannerNextStepIsScienceShaped:
 class TestB2CostThresholdConfigurable:
     """Option B (v7.3.4): cost_threshold becomes operator-configurable
     from user_config.json so the fitting-room scaffold can set a
-    threshold the bundled HIP Lab Tier-3 paths actually trip — making
+    threshold the bundled demo cohort Tier-3 paths actually trip — making
     the AI-economics claim (ADR 0029) empirically demonstrable rather
     than aspirational. Default 35,000 preserves pre-v7.3.4 behavior on
     deployments that don't set the key."""
@@ -789,7 +789,7 @@ class TestB2CostThresholdConfigurable:
         the v7.3.4 mcp-protocol-auditor wire audit) so the cost gate
         fires when a recipient probes the AI-economics tier-escalation
         prompt. If this regresses (e.g. someone restores the default
-        35,000 in fitting_room._hip_lab_user_config), the Option B
+        35,000 in fitting_room._cohort_user_config), the Option B
         demo silently no-ops — exactly the red-team OBJECTION class."""
         ucfg_path = scaffolded_target / "user_config.json"
         ucfg = json.loads(ucfg_path.read_text(encoding="utf-8"))
@@ -798,7 +798,7 @@ class TestB2CostThresholdConfigurable:
             "fitting-room scaffold's user_config.json must declare "
             "cost_threshold — without it the framework default "
             "(35,000) kicks in and the cost gate doesn't fire on "
-            "bundled HIP Lab Tier-3 paths. v7.3.4 / Option B."
+            "bundled demo cohort Tier-3 paths. v7.3.4 / Option B."
         )
         assert isinstance(threshold, int), (
             f"cost_threshold must be an int (int-coerced by __main__); "

@@ -25,8 +25,8 @@ all_pass = True
 repo_root = Path(__file__).parent.parent.parent
 
 # ---- Verify fixture files exist ----
-snapshot_file = repo_root / "src/tailor/_fixtures/hip_lab_demo_realistic/vault/snapshot.md"
-moment_file = repo_root / "src/tailor/_fixtures/hip_lab_demo_realistic/vault/moments/2026-04-20-s004-emg-force-decoupling-suspected.md"
+snapshot_file = repo_root / "src/tailor/_fixtures/cohort_demo_realistic/vault/snapshot.md"
+moment_file = repo_root / "src/tailor/_fixtures/cohort_demo_realistic/vault/moments/2026-04-20-s004-emg-force-decoupling-suspected.md"
 
 all_pass &= check("Fixture snapshot.md exists", snapshot_file.exists())
 all_pass &= check("Fixture moment file exists", moment_file.exists())

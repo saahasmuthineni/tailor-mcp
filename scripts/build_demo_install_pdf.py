@@ -233,7 +233,7 @@ story.append(
         "  (2/4) write user_config.json<br/>"
         "  (3/4) index vault.db<br/>"
         "  (4/4) register with Claude Desktop<br/>"
-        "        wrote entry 'tailor-fitting-room-hip-lab' to ..."
+        "        wrote entry 'tailor-fitting-room-cohort' to ..."
     )
 )
 story.append(
@@ -379,10 +379,10 @@ story.append(
 story.append(
     numbered(
         [
-            "Delete the folder at <font face='Courier'>%USERPROFILE%\\.tailor\\demos\\hip-lab\\</font> "
+            "Delete the folder at <font face='Courier'>%USERPROFILE%\\.tailor\\demos\\cohort\\</font> "
             "(paste that path into File Explorer's address bar to find it).",
             "Open <font face='Courier'>%APPDATA%\\Claude\\claude_desktop_config.json</font> in "
-            "Notepad and delete the <font face='Courier'>&quot;tailor-fitting-room-hip-lab&quot;: { ... }</font> "
+            "Notepad and delete the <font face='Courier'>&quot;tailor-fitting-room-cohort&quot;: { ... }</font> "
             "block (and the comma before it, if any).",
             "Optionally: <font face='Courier'>uv tool uninstall tailor-mcp</font>.",
         ]

@@ -51,7 +51,7 @@ tailor = "tailor.__main__:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-# CSV fixtures: multi_subject_pilot smoke fixtures + hip_lab_demo_realistic
+# CSV fixtures: multi_subject_pilot smoke fixtures + cohort_demo_realistic
 #   tour fixtures (per ADR 0024 — generated artifacts ship; the
 #   examples/**/generate.py generators do not).
 # JSON fixtures: ADR 0015 metadata.json sidecars on each modality dir.

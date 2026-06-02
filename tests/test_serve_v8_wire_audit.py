@@ -472,7 +472,7 @@ class TestA2ToolsCallRoundTrip:
         with spawn_server() as (client, _paths):
             client.initialize()
             resp = client.call_tool("tailor_fitting_room_index_vault",
-                                    {"variant": "hip-lab"})
+                                    {"variant": "cohort"})
             raw = extract_text_result(resp)
             assert_no_repr_artifacts(raw)
             payload = json.loads(raw)

@@ -60,9 +60,9 @@ except ImportError:
     TIKTOKEN_AVAILABLE = False
 
 
-FORCE_DIR = REPO_ROOT / "src" / "tailor" / "_fixtures" / "hip_lab_demo_realistic" / "force"
+FORCE_DIR = REPO_ROOT / "src" / "tailor" / "_fixtures" / "cohort_demo_realistic" / "force"
 METADATA_PATH = FORCE_DIR / "metadata.json"
-VAULT_DIR = REPO_ROOT / "src" / "tailor" / "_fixtures" / "hip_lab_demo_realistic" / "vault"
+VAULT_DIR = REPO_ROOT / "src" / "tailor" / "_fixtures" / "cohort_demo_realistic" / "vault"
 VAULT_SNAPSHOT_PATH = VAULT_DIR / "snapshot.md"
 VAULT_MOMENT_PATH = VAULT_DIR / "moments" / "2026-04-20-s004-emg-force-decoupling-suspected.md"
 

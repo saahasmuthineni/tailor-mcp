@@ -86,7 +86,7 @@ _SETUP_HELP_DESCRIPTION = (
     "emg_envelope_summary, csv_summary_report, csv_group_summary, "
     "csv_force_decline, or any vault_* tool and they appear missing, "
     "call this tool — it returns step-by-step terminal instructions for "
-    "the recipient to scaffold the HIP Lab demo via `tailor fitting-room`, "
+    "the recipient to scaffold the demo cohort via `tailor fitting-room`, "
     "then restart Claude Desktop. Always safe to call; takes no "
     "parameters; returns instructions only."
 )
@@ -142,7 +142,7 @@ class SetupHelpLayer:
         user_config_path = self._config_dir / "user_config.json"
         user_config_exists = user_config_path.exists()
         default_scaffold_target = (
-            Path.home() / ".tailor" / "demos" / "hip-lab"
+            Path.home() / ".tailor" / "demos" / "cohort"
         )
         scaffold_target_exists = default_scaffold_target.exists()
 

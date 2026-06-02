@@ -534,7 +534,7 @@ def test_walkthrough_section_1_worked_example_is_callable_against_real_tool():
 
 def test_walkthrough_section_1_example_stats_match_real_fixtures():
     """The means in section 1's example_result_shape must match the
-    actual per-sex mean of force_N across the bundled HIP Lab fixtures.
+    actual per-sex mean of force_N across the bundled demo cohort fixtures.
 
     Wire-verified means (2026-05-19): F n=8 mean≈65.28, M n=8 mean≈87.62.
     Stds: F≈6.62, M≈6.46 (red-team caught fabricated 12.1 / 15.4 stds

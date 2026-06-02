@@ -56,7 +56,7 @@ where = ["src"]
 #   examples/**/generate.py generators do not).
 # JSON fixtures: ADR 0015 metadata.json sidecars on each modality dir.
 # MD fixtures: pre-seeded vault moments (e.g. the 2026-04-20 S004
-#   cross-session-memory seed for the HIP-Lab tour wow moment).
+#   cross-session-memory seed for the demo cohort tour wow moment).
 tailor = [
     "py.typed",
     "_fixtures/**/*.csv",

@@ -2263,7 +2263,7 @@ class VaultLayer:
         # per ADR 0038 § Amendment 2026-05-19: the running-specific
         # query fires only when a registered child contributes the
         # ``run_report`` kind. On deployments without a running child
-        # (HIP Lab demo, REDCap-only, MATLAB-only), the query short-
+        # (demo cohort, REDCap-only, MATLAB-only), the query short-
         # circuits to empty and the renderer drops the Weekly Summary
         # section per v7.3.4's F3 partial closure.
         if "run_report" in self._kind_to_domain_map:

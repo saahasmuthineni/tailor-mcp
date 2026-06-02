@@ -434,7 +434,7 @@ class TestVariantTable:
     def test_default_variant_in_variants(self):
         assert DEFAULT_VARIANT in VARIANTS
 
-    def test_default_variant_is_hip_lab(self):
+    def test_default_variant_is_cohort(self):
         # Named explicitly so a future variant addition that accidentally
         # changes the default is caught here.
         assert DEFAULT_VARIANT == "cohort"

@@ -864,7 +864,7 @@ def render_snapshot_note(snapshot: dict) -> tuple[str, str]:
     body_parts.append("")
 
     # Weekly summary — only render when we actually have run data.
-    # v7.3.4: a HIP-Lab / cohort-CSV / REDCap deployment has no running
+    # v7.3.4: a cohort-CSV / REDCap deployment has no running
     # child registered and no `run_report` notes; surfacing an empty
     # weekly-runs table would Strava-shape the orientation surface and
     # mislead a recipient on a non-running demo (per ADR 0027 / 0029

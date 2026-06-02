@@ -1,9 +1,9 @@
-# HIP Lab demo — cue card (realistic variant)
+# Demo cohort — cue card (realistic variant)
 
 **One page.  Print it, or keep it on a second monitor.**
 
 > **Before starting:** open a *fresh* Claude Desktop chat — no prior
-> conversation history with HIP Lab, S004, biosensors, or the vault.
+> conversation history with the demo cohort, S004, biosensors, or the vault.
 > Prior history pollutes the demo (snapshot warning under
 > `LLM conversation-history pollution`).
 
@@ -34,7 +34,7 @@ unusually steep" framing.*
 
 | # | What you say or paste | Expected key result + what to point out |
 |---|---|---|
-| **1** | "Synthetic-data demo.  16 subjects, hybrid isometric protocol — 30 % MVC sustained 60 s with MVC probes every 15 s.  Three streams per subject (force, EMG envelope, MRS stub) keyed on shared subject_id." | *(frame only — no tool call)* Multimodal storyline matches HIP Lab's MR-conditional dyno + EMG + 31P-MRS direction. |
+| **1** | "Synthetic-data demo.  16 subjects, hybrid isometric protocol — 30 % MVC sustained 60 s with MVC probes every 15 s.  Three streams per subject (force, EMG envelope, MRS stub) keyed on shared subject_id." | *(frame only — no tool call)* Multimodal storyline matches a physiology lab's MR-conditional dyno + EMG + 31P-MRS direction. |
 | **2** | *"Summarize peak isometric force across the cohort, grouped by sex.  Use force_cohort_summary with metric=max."* | F ≈ 200 N, M ≈ 276 N.  **"96,000 force samples reduced to 2 numbers server-side.  None of the raw samples entered the LLM context."** |
 | **3** | *"Run force_summary on S004's trial."* | peak: 229 N, mvc_window_mean_250ms: 226 N.  **"Sánchez-2015 250 ms window — publication-aligned definition runs server-side; LLM gets one number."** |
 | **4** | *"Now run emg_envelope_summary on S004's EMG trial."* | **peak_envelope_window_mean ≈ 238 µV** (vs cohort 150–205 µV).  fatigue_index_pct 59.4 % is cohort-typical.  **"The peak amplitude is the unusual signal — well above the female cohort.  Hold this peak — we're about to find out it isn't new."** |
@@ -72,9 +72,9 @@ If Claude's behaviour drifts, say or paste one of these.  None require admitting
 
 ---
 
-## Pre-armed answers if Senefeld asks (lead lines only)
+## Pre-armed answers if a reviewer asks (lead lines only)
 
-Full scripts in [README → "Pre-armed answers if Senefeld asks"](README.md#pre-armed-answers-if-senefeld-asks).
+Full scripts in [README → "Pre-armed answers if a reviewer asks"](README.md#pre-armed-answers-if-a-reviewer-asks).
 
 | Question | Lead line |
 |---|---|
@@ -84,6 +84,6 @@ Full scripts in [README → "Pre-armed answers if Senefeld asks"](README.md#pre-
 
 ---
 
-*Last updated: 2026-05-04 (off-blueprint Senefeld-meeting detour).
+*Last updated: 2026-05-04 (multimodal-physiology demo).
 Run `python rehearse.py` for a non-interactive end-to-end check
 that all the numbers above match the current fixture.*

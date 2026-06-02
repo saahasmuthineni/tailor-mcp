@@ -1,5 +1,5 @@
 """
-rehearse.py — non-interactive end-to-end check of the HIP Lab
+rehearse.py — non-interactive end-to-end check of the demo cohort
 fitting-room realistic walkthrough.
 
 Scaffolds a fresh fitting-room into a temp directory, calls each
@@ -9,7 +9,7 @@ lands outside the temp dir — the dev's ~/.tailor/ is
 untouched.
 
 Usage:
-    python examples/hip_lab_demo/realistic/rehearse.py
+    python examples/cohort_demo/realistic/rehearse.py
 
 Exit code 0 = every check green, the fitting-room is rehearsal-ready.
 Non-zero = at least one check failed; the failure mode is named
@@ -28,12 +28,12 @@ mean) so future drift in generate.py can't silently flatten the
 demo's wow.
 
 Per ADR 0024 the fitting-room fixtures live in the bundled package
-tree (``src/tailor/_fixtures/hip_lab_demo_realistic/``); this script
+tree (``src/tailor/_fixtures/cohort_demo_realistic/``); this script
 scaffolds them into a temp dir via ``tailor.fitting_room.main()`` (the
 canonical library entry point; the v6.9.0 ``tailor.tour`` shim retired
 in v8.0.0 per ADR 0040; the ``tailor fitting-room`` CLI verb was
-canonical module is now ``tailor.fitting_room``) the same way mom or
-Senefeld would in a real install. That makes the rehearsal exercise
+canonical module is now ``tailor.fitting_room``) the same way a
+recipient would in a real install. That makes the rehearsal exercise
 the *recipient* code path, not a back-channel.
 """
 
@@ -95,7 +95,7 @@ async def _run_checks(target: Path) -> int:
 
     print()
     print("=" * 64)
-    print(" HIP Lab fitting-room — REHEARSAL (variant=hip-lab)")
+    print(" Demo cohort fitting-room — REHEARSAL (variant=cohort)")
     print(f" Target dir: {target}")
     print("=" * 64)
 
@@ -301,7 +301,7 @@ async def _run_checks(target: Path) -> int:
 
 async def main() -> int:
     with tempfile.TemporaryDirectory(prefix="biosensor_tour_rehearse_") as tmp:
-        target = Path(tmp) / "hip-lab"
+        target = Path(tmp) / "cohort"
 
         # Scaffold a fresh fitting-room into the temp dir.
         # --no-claude-desktop so the dev's Claude Desktop config
@@ -312,7 +312,7 @@ async def main() -> int:
         # library function directly.
         from tailor.fitting_room import main as fitting_room_main
         rc = fitting_room_main([
-            "--variant=hip-lab",
+            "--variant=cohort",
             "--no-claude-desktop",
             "--target", str(target),
         ])

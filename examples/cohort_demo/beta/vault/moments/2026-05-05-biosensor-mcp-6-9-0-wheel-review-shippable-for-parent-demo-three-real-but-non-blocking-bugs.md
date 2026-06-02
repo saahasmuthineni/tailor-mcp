@@ -25,7 +25,7 @@ Sandbox-verified the 6.9.0 wheel end-to-end before sending the Windows quickstar
 
 **Three verified bugs that don't block the parent demo:**
 
-1. **Uninstall orphans the Claude Desktop entry.** `tour.py:273` registers under `biosensor-tour-{variant}`, but `__main__.py:438-439` only deletes `mcpServers['biosensor-mcp']`. After `pip uninstall biosensor-mcp` (which the PDF lists as cleanup), Claude Desktop keeps a `biosensor-tour-hip-lab` entry pointing at a missing binary → red MCP indicator. Fix: delete any key prefixed `biosensor-`.
+1. **Uninstall orphans the Claude Desktop entry.** `tour.py:273` registers under `biosensor-tour-{variant}`, but `__main__.py:438-439` only deletes `mcpServers['biosensor-mcp']`. After `pip uninstall biosensor-mcp` (which the PDF lists as cleanup), Claude Desktop keeps a `biosensor-tour-cohort` entry pointing at a missing binary → red MCP indicator. Fix: delete any key prefixed `biosensor-`.
 
 2. **CSV readers don't strip UTF-8 BOM.** Every `open(...)` in `force_csv/child.py:761,780`, `emg_csv/child.py:673,691`, `csv_dir/child.py:157,532,555` uses `encoding='utf-8'` not `'utf-8-sig'`. Bundled fixtures don't have a BOM so the demo works fine, but any user-provided CSV that's been Excel-touched or PowerShell-redirected has its first column header silently become `﻿t_s`.
 

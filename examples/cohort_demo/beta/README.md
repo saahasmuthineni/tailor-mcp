@@ -1,4 +1,4 @@
-# HIP Lab demo — variant β
+# Demo cohort — variant β
 
 > **Crude prototype, real architecture underneath.**
 > The UI is bare and the data is synthetic. The audit log, the
@@ -49,8 +49,8 @@ credibility depends on being honest about what is and isn't real.
   `_meta.scrubber_warning` field naming this. For the demo, this is
   by design — we are running synthetic data on a development laptop,
   not real participant data.
-- **The hypothetical study is not informed by HIP Lab's actual
-  current studies.** The shape was picked because it fits the
+- **The hypothetical study is not informed by any specific lab's
+  actual current studies.** The shape was picked because it fits the
   framework cleanly and aligns with the lab's most-cited recent
   publication. A real version would mimic an actual lab study; the
   sex-differences-in-fatigue framing is plausible-shape, not
@@ -108,7 +108,7 @@ The next section is the half that does not change.
 From the repo root:
 
 ```bash
-python examples/hip_lab_demo/beta/setup.py
+python examples/cohort_demo/beta/setup.py
 ```
 
 This is idempotent. It (1) generates 16 synthetic per-subject CSVs
@@ -122,13 +122,13 @@ To start the server isolated from your normal `~/.tailor/`
 config:
 
 ```bash
-TAILOR_CONFIG_DIR=$(pwd)/examples/hip_lab_demo/beta tailor serve
+TAILOR_CONFIG_DIR=$(pwd)/examples/cohort_demo/beta tailor serve
 ```
 
 This sets `TAILOR_CONFIG_DIR` to this demo directory, which the
 framework reads for `user_config.json`. `TAILOR_DATA_DIR` defaults
 to `$TAILOR_CONFIG_DIR/data` — so `audit.db` and `vault.db` are
-also isolated to `examples/hip_lab_demo/beta/data/`.
+also isolated to `examples/cohort_demo/beta/data/`.
 
 **This avoids the `tailor pilot` wizard path on purpose** —
 the wizard writes to `~/.tailor/user_config.json`, which
@@ -147,7 +147,7 @@ If running the demo through Claude Desktop, add to
       "command": "/path/to/your/python",
       "args": ["-m", "tailor", "serve"],
       "env": {
-        "TAILOR_CONFIG_DIR": "/path/to/tailor-mcp/examples/hip_lab_demo/beta"
+        "TAILOR_CONFIG_DIR": "/path/to/tailor-mcp/examples/cohort_demo/beta"
       }
     }
   }
@@ -356,7 +356,7 @@ Three things, in order:
    is plain markdown with YAML frontmatter — durable, AI-readable
    without the framework, and the analyst's editor view is the
    same as the LLM's read view. ADR 0007 rendering-layers policy.
-3. **Open `examples/hip_lab_demo/beta/csv/metadata.json`**. The
+3. **Open `examples/cohort_demo/beta/csv/metadata.json`**. The
    sidecar is the cross-file group-identity mechanism (ADR 0015).
    No magic — JSON, schema documented, edit-by-hand. A real study
    replaces this with a generated artifact from the lab's data

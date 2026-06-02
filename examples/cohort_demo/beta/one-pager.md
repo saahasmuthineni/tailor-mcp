@@ -1,4 +1,4 @@
-# Tailor — one-page reference for HIP Lab
+# Tailor — one-page reference for the demo cohort
 
 > Companion to the live walkthrough and the 5-minute video.
 > Written so an IRB coordinator or a non-engineer PI can read
@@ -11,11 +11,11 @@
 A local-first analysis layer that lets an LLM help analyze
 participant biometric data **without the per-second data ever
 entering the LLM's context window**. Built originally around
-the kind of cohort fatigue work HIP Lab does (calibrated to
+the kind of cohort fatigue work physiology labs do (calibrated to
 Hunter & Senefeld 2024 *J Physiol*); generalizes to any
 per-subject CSV / EDF / FHIR data shape.
 
-The demo at `examples/hip_lab_demo/beta/` is synthetic —
+The demo at `examples/cohort_demo/beta/` is synthetic —
 sixteen subjects, deterministic seeded generator, sized to a
 pilot. The architecture underneath is real and unchanged from
 what would run on real data.
@@ -131,9 +131,9 @@ Five items, all in `user_config.json`:
 - **Not a hosted service.** Local-first by architecture,
   not by accident.
 
-## What HIP Lab would need to try this on real data
+## What a lab would need to try this on real data
 
-Conservative estimate, assuming HIP Lab provides one CSV
+Conservative estimate, assuming the lab provides one CSV
 export of one prior study:
 
 1. ~2–3 days to map the lab's CSV schema into the
@@ -161,7 +161,7 @@ using it weekly without prompting."
   questions**: Saahas. The repo also has
   `docs/design/research-framing.md` written for this audience.
 - **Try the demo yourself**: clone the repo, run
-  `TAILOR_CONFIG_DIR=examples/hip_lab_demo/beta
+  `TAILOR_CONFIG_DIR=examples/cohort_demo/beta
   tailor serve`, then point any MCP client at it. The
   `README.md` in the demo directory has the five honest
   caveats up front.

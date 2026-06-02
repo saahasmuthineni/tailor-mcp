@@ -13,7 +13,7 @@ sex-differences cohort).
 |---|---:|---|
 | A. **Per-query efficiency** (single subject) | **657.6×** | Tier-1 server-side computation vs raw CSV in context |
 | A. **Per-query efficiency** (16-subject cohort) | **938.2×** | Same, scaled to a multi-file cohort question |
-| B. **Session persistence efficiency** (S004 resume) | **318.0×** | Vault retrieval vs naive re-paste of data + accumulated notes |
+| B. **Session persistence efficiency** (S004 resume) | **318.2×** | Vault retrieval vs naive re-paste of data + accumulated notes |
 
 The "at least 100× cheaper" claim in ADR 0029 is a *conservative
 floor*; on this benchmark the actual ratios are **3.2× to 9.4× the
@@ -175,7 +175,7 @@ session to the same analytical state, the researcher must paste:
    researcher's informal notes (Apple Notes, a docx, a lab notebook)
    would likely be longer and less structured.
 
-Combined: 1,349,713 bytes, **771,743 tokens** (tiktoken) / 337,428 (chars/4).
+Combined: 1,349,715 bytes, **771,741 tokens** (tiktoken) / 337,428 (chars/4).
 
 **Tailor (vault retrieval).** When the session starts, the vault
 layer auto-surfaces `snapshot.md` via `vault_get_snapshot`. The LLM
@@ -191,14 +191,14 @@ What the LLM actually sees on resume:
   chars): the S004 wow moment with the EMG envelope observation,
   the hypothesis space, and named follow-up actions
 
-Combined: 9,537 bytes, **2,427 tokens** (tiktoken) / 2,384 (chars/4).
+Combined: 9,539 bytes, **2,425 tokens** (tiktoken) / 2,384 (chars/4).
 
 **The data itself stays on disk.** If the LLM needs to verify a
 claim against fresh data, it calls `force_cohort_summary` or
 `force_decline_summary` and pays the per-query Tier-1 cost (73–820
 tokens per Benchmark A) — not the full ~769K raw-data cost.
 
-**Ratio (tiktoken): 771,743 / 2,427 = 318.0×.**
+**Ratio (tiktoken): 771,741 / 2,425 = 318.2×.**
 
 ### B.2 — Compounding cost across N sessions
 
@@ -215,8 +215,8 @@ hypothesis to candidate finding):
 
 | | Baseline | Tailor | Ratio |
 |---|---:|---:|---:|
-| Tokens per session resume | 771,743 | 2,427 | 318× |
-| Tokens × 5 sessions | **3,858,715** | **12,135** | **318×** |
+| Tokens per session resume | 771,741 | 2,425 | 318× |
+| Tokens × 5 sessions | **3,858,705** | **12,125** | **318×** |
 
 At Claude Sonnet 4.6 input pricing ($3 / million input tokens, no
 caching):

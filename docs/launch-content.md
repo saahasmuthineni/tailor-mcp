@@ -67,7 +67,7 @@ I changed the architecture: run the computation locally, pass the LLM a structur
 
 **938× reduction. And that's not the most interesting number.**
 
-The more interesting number is the session-persistence case. Every time you close Claude Desktop and reopen it, you're starting from zero — the model has no memory of what you found last session. Without persistent structured memory, you're re-pasting the data and reconstructing context every time. Over 5 research sessions on the same cohort, that compounds to ~$57.90 just in input costs. With the local vault layer, it's ~$0.04 — the model retrieves structured notes from the prior sessions and calls Tier-1 tools only for fresh data.
+The more interesting number is the session-persistence case. Every time you close Claude Desktop and reopen it, you're starting from zero — the model has no memory of what you found last session. Without persistent structured memory, you're re-pasting the data and reconstructing context every time. Over 5 research sessions on the same cohort, that compounds to ~$11.58 just in input costs. With the local vault layer, it's ~$0.04 — the model retrieves structured notes from the prior sessions and calls Tier-1 tools only for fresh data.
 
 **Benchmark is reproducible:**
 

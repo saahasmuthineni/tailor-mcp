@@ -139,7 +139,7 @@
 > - **Session persistence efficiency (vault retrieval vs naive
 >   reconstruction).** Single S004 thread resume: **318.0×**
 >   (771,743 vs 2,427 tokens). Cumulative across 5 sessions: 318× —
->   ~$57.90 baseline vs ~$0.04 with Tailor at Sonnet 4.6 input
+>   ~$11.58 baseline vs ~$0.04 with Tailor at Sonnet 4.6 input
 >   pricing.
 >
 > All measurements with `tiktoken cl100k_base` (industry-standard

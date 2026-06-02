@@ -677,6 +677,23 @@ prior roadmap revisions per the same historical-preservation principle
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
 
+### Shipped in v9.0.2 (2026-06-02)
+
+- **Public-surface name scrub** — a collaborating lab's name, a co-author's
+  name, and a PI's name (except the allowed "Hunter & Senefeld 2024, J Physiol"
+  citation) removed from the public repo and the shipped wheel. Three internal
+  pitch artifacts git-removed from a lab-named subdirectory of `examples/`.
+  No API or behavior change.
+- **Fixture and variant renames** — bundled `_fixtures` demo directory renamed
+  to `cohort_demo_realistic`; fitting-room demo variant renamed to `cohort`
+  (server id `tailor-fitting-room-cohort`, path `demos/cohort`); `examples/`
+  directory renamed from lab-named to `examples/cohort_demo/`. All generic
+  "demo cohort" / "cohort demo" naming throughout.
+- **Benchmark sync** — `benchmarks/token_efficiency.md` and
+  `benchmarks/token_efficiency.py` updated to current fixture layout;
+  session-resume ratio corrected to **318.2x** (per-query 657.6x / 938.2x
+  unchanged).
+
 ### Shipped in the public-launch burst (2026-05-26 → 2026-05-29)
 
 The § Shipped log previously stopped at v7.6.0; v8.0.0, v9.0.0, and the

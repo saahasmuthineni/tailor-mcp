@@ -2,6 +2,58 @@
 
 > **Note for human contributors:** This file is read automatically by Claude when working in this repo. If you're a human contributor, see [CONTRIBUTING.md](CONTRIBUTING.md) instead.
 
+> **v9.0.2 (2026-06-02)** — Public-surface name scrub. Patch bump. No
+> API or behavior change beyond variant/server-id and fixture-path
+> renames described below.
+>
+> A collaborating research lab was named in the public repo and in the
+> shipped PyPI wheel; this release removes that exposure. Concretely:
+> a co-author's personal name removed entirely from all in-repo
+> occurrences; a PI's name reduced to a single allowed published-paper
+> citation ("Hunter & Senefeld 2024, J Physiol") wherever the
+> scientific reference is load-bearing; the lab's name genericized to
+> "cohort demo" or "demo cohort" throughout comments, docstrings,
+> path names, and documentation. Three internal pitch artifacts were
+> moved out of the repo and git-removed (they existed under a
+> lab-named subdirectory of `examples/` and contained names that were
+> appropriate for internal use but not for a public repo). No scientific content
+> was altered; only the naming changed.
+>
+> **Concrete renames.** The bundled `_fixtures` demo directory
+> (previously named for the lab) is now `cohort_demo_realistic`.
+> The fitting-room demo variant (previously named for the lab) is now
+> `cohort` (`tailor-fitting-room-cohort`); the demo path is
+> `demos/cohort`. The realistic cue card and all related example
+> scripts updated to use generic "cohort demo" / "demo cohort"
+> naming throughout. `examples/cohort_demo/` replaces the
+> lab-named examples directory.
+>
+> **Benchmark sync.** `benchmarks/token_efficiency.md` and
+> `benchmarks/token_efficiency.py` updated to reflect the current
+> fixture layout; the session-resume efficiency ratio is now **318.2x**
+> (was 318.0x in the v9.0.0 artifact — minor numeric refinement from
+> updated fixture token counts). Per-query ratios unchanged:
+> 657.6x / 938.2x.
+>
+> **No router / security / child / CLI architecture changes.** The
+> `child.py` and `framework/vault/layer.py` diffs are comment and
+> docstring rewrites only — no ToolDefinition schema changes, no
+> wire-shape changes. CUE_CARD.md is a path rename (from the
+> lab-named directory to `cohort_demo/realistic/`); the tool
+> mappings and parameter shapes are unchanged.
+>
+> **Gates: 1,509 passed, 2 skipped** (scipy-absent, orthogonal).
+> Subprocess wire-test suite (98 passed, 1 skipped) confirmed clean
+> in a dedicated re-run after flakiness observed in full-suite
+> parallel run (port-contention on Windows). ruff clean. 76/76
+> security probe. CLI smoke: 6 commands discoverable.
+> `cue-card-rehearsal-auditor` / `mcp-protocol-auditor` glob-triggered
+> by the child.py + vault/layer.py comment changes — no ToolDefinition
+> schema or wire-shape changes in those files; gate composition
+> surfaced, not attested. `recipient-install-validator` triggered
+> by `_fixtures/` + `fitting_room.py` + `__main__.py` — opt-in only,
+> not run (name-scrub fixture rename, not an install-path change).
+
 > **v9.0.0 (2026-05-26)** — Public-flip preparation. Major bump.
 > Three domain-specific structural identifiers renamed to domain-
 > agnostic equivalents; license switched Apache-2.0 →

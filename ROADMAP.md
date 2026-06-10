@@ -684,6 +684,19 @@ prior roadmap revisions per the same historical-preservation principle
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
 
+### Shipped in v9.1.0 (2026-06-10)
+
+- **Read-only inspector (`tailor inspect`)** — Phase 4 Direction F first
+  bullet, Stage 1, per [ADR 0043](docs/adr/0043-read-only-inspector-not-application.md).
+  A read-only, localhost-only, stdlib-only HTML page over `audit.db` +
+  the `vault.db` index: gate activity, recent calls, derived consent
+  timeline, scrubber posture, token estimates, vault index counts, and
+  `--export` for static artifacts. The audit log's first
+  non-model-mediated rendered channel. CLI surface 6 → 7 commands.
+  Stages 2–3 of the invocation ladder (ambient opt-in, default-on)
+  designed and trigger-gated, not built; MCP spawner tool rejected
+  with a named reversal condition.
+
 ### Shipped in v9.0.2 (2026-06-02)
 
 - **Public-surface name scrub** — a collaborating lab's name, a co-author's

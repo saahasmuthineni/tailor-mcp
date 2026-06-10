@@ -5,6 +5,46 @@ All notable changes to this project are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims at [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [9.1.0] — 2026-06-10
+
+Read-only inspector. The audit log gains an independent,
+non-model-mediated rendered channel per
+[ADR 0043](docs/adr/0043-read-only-inspector-not-application.md).
+
+### Added
+
+- **`tailor inspect`** — seventh CLI verb (deliberate amendment of the
+  ADR 0040 six-command surface). Serves a read-only, localhost-only
+  (hard-coded `127.0.0.1`), no-controls, stdlib-only HTML page over
+  `audit.db` and the `vault.db` index: gate activity by outcome with
+  plain-language gate explanations, recent calls (collapsed
+  `params`/`error`, home-redacted, HTML-escaped), consent timeline
+  derived from approve/revoke audit rows (labeled derived-not-live),
+  scrubber posture with a prominent no-op-scrubber warning, token
+  estimate sums, vault index counts (titles/slugs only, never note
+  bodies). Flags: `--port`, `--no-browser`, `--export FILE` (static
+  artifact; prints an operator-managed-retention note). Plus a
+  `/health` probe. SQLite opened strictly read-only (URI `mode=ro`,
+  enforced by a grep-class test); any non-GET HTTP verb returns 405.
+- **ADR 0043** — "the inspector is an inspector, not an application":
+  the hard no-write / no-network / no-controls / no-deps boundary, the
+  three-stage invocation ladder (Stage 1 summoned built now; Stage 2
+  ambient opt-in and Stage 3 default-on designed and trigger-gated),
+  the rejected MCP spawner tool with reversal condition, and the named
+  ADR 0039 carve-out (raw `params`/`error` render on the operator
+  surface because it is the custodian's own channel, not the
+  hosted-LLM transcript the column allowlist protects).
+- `docs/design/research-framing.md` gains a sixth retention category:
+  inspector `--export` artifacts are operator-managed retention.
+
+### Fixed (pre-merge, caught by PR review)
+
+- Windows: read-only SQLite URIs are now built with `Path.as_uri()` —
+  the prior hand-built `file:C:/...` form parses as a relative path on
+  Windows and would have failed to open any database.
+- Render guard for NULL `outcome` values in foreign or hand-edited
+  audit databases.
+
 ## [9.0.0] — 2026-05-26
 
 Public-flip preparation. Vocabulary made domain-agnostic to match the

@@ -4,6 +4,19 @@
 ADR 0041 § Reversal condition 4); not itself a decision. The decision
 belongs to the boss.*
 
+> **DECIDED 2026-06-10 — Option 4 adopted (boss call).** DCO required
+> on all commits, enforced by `.github/workflows/dco.yml`; the
+> framework-PR hold is implemented as a contributor-friendly
+> "framework changes start with an issue" policy in CONTRIBUTING.md
+> (standard core-governance practice; achieves the same
+> no-undeliberated-framework-merges guarantee without commercial
+> signaling). Questions 1 and 2 from the recommendation: both yes.
+> Question 3 (superseding ADR for a commercial track): deferred to
+> the month-2 signal review, as recommended. If that review concludes
+> no commercial path, the issue-first policy stays on its own merits
+> and this note is the record that the option was kept open
+> deliberately.
+
 ---
 
 ## The plain-language version (read this part)

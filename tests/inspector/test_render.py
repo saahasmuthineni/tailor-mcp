@@ -118,6 +118,31 @@ def test_empty_states_are_honest(empty_data_dir: Path) -> None:
     assert "Traceback" not in page
 
 
+def test_table_missing_states_render(tmp_path: Path) -> None:
+    """Empty DB files (no tables yet) render honest per-section
+    messages, not errors."""
+    import sqlite3
+
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    sqlite3.connect(str(data_dir / "audit.db")).close()
+    sqlite3.connect(str(data_dir / "vault.db")).close()
+    page = _page(data_dir)
+    assert "audit_log" in page and "has not been created yet" in page
+    assert "no notes" in page
+    assert "Traceback" not in page
+
+
+def test_db_error_renders_honest_errbox(populated_data_dir: Path) -> None:
+    """A captured sqlite error renders the honest error box, never a
+    crash (the Windows mid-checkpoint posture, ADR 0043)."""
+    model = collect_page_model(populated_data_dir, Filters())
+    model["audit"]["error"] = "database is locked"
+    page = render_page(model)
+    assert "Could not read this database right now" in page
+    assert "database is locked" in page
+
+
 def test_auto_refresh_served_not_exported(populated_data_dir: Path) -> None:
     served = _page(populated_data_dir, auto_refresh=True)
     exported = _page(populated_data_dir, auto_refresh=False)
@@ -156,6 +181,23 @@ def test_redact_home_substring_and_identity() -> None:
     assert redact_home("/somewhere/else") == "/somewhere/else"
     assert redact_home("") == ""
     assert redact_home(None) is None  # identity on non-str
+
+
+def test_redact_home_when_home_unresolvable(monkeypatch) -> None:
+    """Path.home() raising must degrade to identity, never crash the
+    page render (the Safe Harbor fallback branch — HIGH per
+    coverage-criticality-mapper)."""
+    def boom() -> Path:
+        raise RuntimeError("no home")
+
+    monkeypatch.setattr(Path, "home", staticmethod(boom))
+    assert redact_home("/home/user/data.csv") == "/home/user/data.csv"
+
+
+def test_redact_home_root_home_is_not_collapsed(monkeypatch) -> None:
+    """A root-like home ("/") must not collapse every path to ~."""
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: Path("/")))
+    assert redact_home("/etc/passwd") == "/etc/passwd"
 
 
 def test_redact_home_mixed_separators() -> None:

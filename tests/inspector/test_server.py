@@ -38,6 +38,22 @@ def test_binds_localhost_only(populated_data_dir: Path) -> None:
         server.server_close()
 
 
+def test_bind_assertion_fires_on_non_loopback(
+    populated_data_dir: Path, monkeypatch,
+) -> None:
+    """The failure side of the ADR 0043 localhost boundary: if the
+    socket ever binds an address other than the hard-coded BIND_HOST,
+    construction raises. Patching BIND_HOST to the hostname form makes
+    the resolved bound address ("127.0.0.1") mismatch it, driving the
+    enforcement branch coverage-criticality-mapper flagged as the
+    untested half of the invariant."""
+    import tailor.inspector.server as srv
+
+    monkeypatch.setattr(srv, "BIND_HOST", "localhost")
+    with pytest.raises(AssertionError, match="must bind"):
+        make_server(populated_data_dir, port=0)
+
+
 def test_get_root_renders_key_sections(live_server: str) -> None:
     with urllib.request.urlopen(f"{live_server}/", timeout=10) as resp:
         assert resp.status == 200

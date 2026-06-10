@@ -70,6 +70,41 @@ def test_collect_audit_filters(populated_data_dir: Path) -> None:
     assert sum(c["count"] for c in limited["outcome_counts"]) == 7
 
 
+def test_collect_audit_since_filter_integration(
+    populated_data_dir: Path,
+) -> None:
+    """The ?since= path threaded through _where into real SQL — not
+    just parse_filters in isolation (coverage-criticality MEDIUM)."""
+    db = populated_data_dir / "audit.db"
+    past = collect_audit(db, Filters(since="2000-01-01"))
+    assert len(past["recent_calls"]) == 7
+    future = collect_audit(db, Filters(since="2999-01-01"))
+    assert future["recent_calls"] == []
+    assert future["outcome_counts"] == []
+
+
+def test_collect_audit_table_missing(tmp_path: Path) -> None:
+    """audit.db exists but carries no audit_log table yet."""
+    import sqlite3
+
+    db = tmp_path / "audit.db"
+    sqlite3.connect(str(db)).close()
+    audit = collect_audit(db, Filters())
+    assert audit["exists"] is True
+    assert audit["table_missing"] is True
+    assert audit["error"] is None
+
+
+def test_collect_vault_table_missing(tmp_path: Path) -> None:
+    import sqlite3
+
+    db = tmp_path / "vault.db"
+    sqlite3.connect(str(db)).close()
+    vault = collect_vault(db)
+    assert vault["exists"] is True
+    assert vault["table_missing"] is True
+
+
 def test_collect_audit_consent_timeline(populated_data_dir: Path) -> None:
     audit = collect_audit(populated_data_dir / "audit.db", Filters())
     events = audit["consent_events"]

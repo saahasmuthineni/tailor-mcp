@@ -53,12 +53,25 @@ An ADR is part of the deliverable (see § 8): "inspector, not
 application," with reversal conditions, drafted via `adr-weigher` →
 `adr-drafter` per repo convention.
 
-## 2. Process model and CLI surface
+## 2. Process model and invocation — the ladder
 
-New CLI verb: **`tailor inspect`** — a standalone process that reads
-the on-disk state and serves one HTML page. It does not touch, embed
-into, or communicate with the running `tailor serve` process (which
-speaks MCP over stdio and must not grow an HTTP listener).
+The inspector engine is a standalone process that reads on-disk state
+and serves one HTML page. It does not embed into or communicate with
+the running `tailor serve` process (which speaks MCP over stdio and
+must not grow an HTTP listener).
+
+Invocation is designed as a three-stage **ladder**. v1 builds Stage 1
+only; Stages 2–3 are designed now, recorded in the ADR with named
+triggers, and NOT built until their triggers fire. This sequencing is
+deliberate (boss-ratified 2026-06-11): the ambient stages' costs are
+front-loaded and land on stranger machines (OS firewall prompts on
+listener spawn, dead-bookmark UX when the server isn't running,
+cross-OS desktop-shortcut plumbing — the v6.10.x patch-quartet bug
+class), while their benefits only accrue once real recipients exist.
+
+### Stage 1 — summoned (BUILD THIS, v1)
+
+New CLI verb: **`tailor inspect`**.
 
 ```
 tailor inspect                  # serve on http://127.0.0.1:8765, open browser
@@ -67,6 +80,41 @@ tailor inspect --no-browser     # don't auto-open
 tailor inspect --export out.html  # render once to a static file, exit
                                   # (CI-friendly; also the screenshot path)
 ```
+
+### Stage 2 — ambient, opt-in (DESIGN ONLY — record in ADR, do not build)
+
+`tailor serve` auto-spawns the inspector subprocess when an
+`"inspector": true` key is present in `user_config.json`;
+`tailor pilot` gains one yes/no prompt offering it and, on yes,
+writes a desktop bookmark ("What is Tailor doing?" →
+`http://127.0.0.1:8765/?k=<per-install token>`). The model is never
+the door — a recipient reaches the receipt by double-click, with no
+terminal and no LLM mediation. **Trigger to build:** first real
+recipient install, or first IRB-adjacent reviewer who needs the page.
+Known costs to engineer around when the trigger fires: OS firewall
+prompts at spawn, dead-bookmark when Claude Desktop is closed,
+three OS-specific shortcut formats, token-in-URL exposure via
+browser history, browser-cache retention of audit metadata
+(needs an ADR 0040-style operator-managed-retention clause).
+
+### Stage 3 — ambient, default-on (DEFERRED — identity decision)
+
+Every install runs the receipts page. Strongest trust story; changes
+the "no services" footprint posture. **Trigger:** demonstrated Stage-2
+usage plus an explicit boss decision; warrants its own ADR section.
+
+### Rejected: an MCP spawner tool (`tailor_open_inspector`)
+
+Considered and rejected for any stage: the inspector is the
+*independent verification channel for the model's behavior*, and its
+availability should not be mediated by the entity being verified — a
+model can deflect ("no need to check"), fail to spawn it, or narrate
+over it. Claude may freely *mention* the URL (docs-level knowledge);
+it does not get a tool that controls the door. **Reversal
+condition:** a real recipient asks Claude to show the receipt and
+hits a dead end that the Stage-2 bookmark does not cover.
+
+### Stage-1 mechanics
 
 - Data locations come from the existing config module
   (`src/tailor/config.py` / `TAILOR_CONFIG_DIR`, `TAILOR_DATA_DIR`
@@ -257,11 +305,15 @@ fixtures where they fit; build tiny audit fixtures by calling the real
 
 - **ADR first**: run `adr-weigher` on "inspector, not application —
   a read-only localhost visibility surface with a hard no-write,
-  no-network, no-controls boundary," then `adr-drafter`. Reversal
-  conditions to include: (a) first institutional adopter requires
-  authenticated multi-user inspection (→ Phase 5C work, separate
-  ADR); (b) evidence the read-only constraint is blocking a
-  load-bearing IRB workflow.
+  no-network, no-controls boundary, and a three-stage invocation
+  ladder (summoned → ambient opt-in → ambient default) with named
+  build triggers," then `adr-drafter`. The ADR must record the full
+  ladder from § 2 — including the rejected MCP-spawner tool and its
+  reversal condition — so Stages 2–3 are decided once, on paper,
+  not re-litigated per release. Reversal conditions to include:
+  (a) first institutional adopter requires authenticated multi-user
+  inspection (→ Phase 5C work, separate ADR); (b) evidence the
+  read-only constraint is blocking a load-bearing IRB workflow.
 - **Pre-implementation audit**: `integration-auditor --proposal-mode`
   on this spec (protocol 2).
 - **Specialists that WILL trigger**: `phi-irb-risk-reviewer` (new
@@ -296,6 +348,13 @@ fixtures where they fit; build tiny audit fixtures by calling the real
   opens an IPC surface for a label upgrade ("live" vs "derived").
   Reversal condition: an IRB reviewer states the derived timeline is
   insufficient in a real inquiry.
+- Stage 2 (ambient opt-in: auto-spawn, pilot prompt, desktop
+  bookmark, URL token) and Stage 3 (default-on) — designed in § 2,
+  trigger-gated, not part of this implementation. Do not build the
+  config key, the pilot prompt, or any shortcut writer in v1.
+- An MCP tool that opens or spawns the inspector — rejected with a
+  named reversal condition (§ 2). The MCP surface is untouched by
+  this work.
 - Rendering vault note bodies or raw Tier-2/3 payloads — the
   inspector shows *that* data moved and under which gate, not the
   data itself. This asymmetry is the design.

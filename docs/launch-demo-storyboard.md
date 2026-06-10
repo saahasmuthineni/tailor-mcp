@@ -40,15 +40,19 @@ flags the mid-quarter collapse (min ≈ $1.1K vs mean ≈ $13.4K).
 **Caption: "Found from a ~400-token summary — Claude never read the
 90 raw rows."**
 
-**Beat 4 — the receipt, 20 s.** Cut to terminal:
+**Beat 4 — the receipt, 20 s.** If `tailor inspect` has shipped
+(see `docs/design/read-only-inspector-spec.md`), cut to the
+inspector page in a browser — gate-activity badges + the recent-calls
+table scrolling. Fallback if recording before it ships, cut to
+terminal:
 
 ```bash
 sqlite3 ~/.tailor/data/audit.db \
   "SELECT tool_name, outcome, called_at FROM audit_log ORDER BY id DESC LIMIT 5;"
 ```
 
-Rows appear. **Caption: "Every call the AI made — tool, params,
-outcome — in a local audit log. Not a chat transcript. A receipt."**
+**Caption: "Every call the AI made — tool, params, outcome — in a
+local audit log. Not a chat transcript. A receipt."**
 
 **Beat 5 — close, 10 s.** Card:
 *"Local-first. Audited. Any MCP client."* →

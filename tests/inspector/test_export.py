@@ -82,5 +82,9 @@ def test_cli_help_lists_inspect(tmp_path: Path) -> None:
         capture_output=True, env=env, timeout=60,
     )
     assert proc.returncode == 0
-    out = proc.stdout.decode()
+    # Windows drives this subprocess with a cp1252 stdout and the help
+    # docstring carries non-ASCII (e.g. the ADR section sign), so a
+    # strict UTF-8 decode raises. The assertion target is ASCII;
+    # replacement-decode is lossless for it.
+    out = proc.stdout.decode("utf-8", errors="replace")
     assert "inspect" in out

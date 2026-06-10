@@ -7,6 +7,7 @@ Usage:
     tailor setup            # Run Strava OAuth setup wizard
     tailor redcap reattest  # Re-attest the REDCap trust-root metadata after legitimate edits to project_metadata.csv (ADR 0003 § Amendment 2026-05-15)
     tailor status           # Diagnostic check
+    tailor inspect          # Read-only localhost page over audit.db + vault.db (ADR 0043)
     tailor uninstall        # Clean removal
 
 Removed in v8.0.0 (per ADR 0040 — recipient-facing surfaces moved to MCP tools):
@@ -921,6 +922,57 @@ def cmd_redcap_reattest():
     )
 
 
+def cmd_inspect():
+    """Serve the read-only inspector page, or export it once.
+
+    Per ADR 0043 ("inspector, not application"): read-only SQLite
+    (URI mode=ro), hard-coded 127.0.0.1, no controls, stdlib only.
+    The page renders gate activity, recent audit rows, a consent
+    timeline derived from audit events, scrubber posture, token
+    estimates, and vault index counts — through a channel the model
+    does not mediate.
+
+    Flags (parsed from sys.argv[2:] — the CLI has no top-level
+    argparse; each verb owns its own flags, same as `tailor pilot`):
+
+        tailor inspect                    # serve on http://127.0.0.1:8765, open browser
+        tailor inspect --port 9000        # alternate port
+        tailor inspect --no-browser       # don't auto-open the browser
+        tailor inspect --export out.html  # render once to a static file, exit
+    """
+    import argparse
+
+    from tailor.inspector import export_page, run_inspector
+
+    parser = argparse.ArgumentParser(
+        prog="tailor inspect",
+        description=(
+            "Read-only localhost view of the Tailor audit log and "
+            "vault index (ADR 0043). Binds 127.0.0.1 only; opens the "
+            "databases read-only; exposes no write or control surface."
+        ),
+    )
+    parser.add_argument(
+        "--port", type=int, default=8765,
+        help="port on 127.0.0.1 to serve on (default: 8765)",
+    )
+    parser.add_argument(
+        "--no-browser", action="store_true",
+        help="do not auto-open the browser",
+    )
+    parser.add_argument(
+        "--export", metavar="FILE", default=None,
+        help="render once to a static HTML file and exit",
+    )
+    args = parser.parse_args(sys.argv[2:])
+
+    if args.export:
+        sys.exit(export_page(DATA_DIR, Path(args.export)))
+    sys.exit(run_inspector(
+        DATA_DIR, port=args.port, open_browser=not args.no_browser,
+    ))
+
+
 def cmd_uninstall():
     """Clean removal."""
     print("Tailor — Uninstall")
@@ -982,6 +1034,10 @@ def main():
         # § Amendment 2026-05-15.
         "redcap": cmd_redcap,
         "status": cmd_status,
+        # Seventh verb per ADR 0043 — deliberate amendment of the
+        # v8.0.0 six-command surface (ADR 0040). Read-only inspector;
+        # the independent, non-model-mediated view of the audit log.
+        "inspect": cmd_inspect,
         "uninstall": cmd_uninstall,
         # NOTE: `tailor walkthrough` / `tailor fitting-room` / `tailor
         # tour` / `tailor demo` were hard-removed in v8.0.0 per ADR 0040.

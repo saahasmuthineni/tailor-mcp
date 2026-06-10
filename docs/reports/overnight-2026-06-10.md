@@ -17,9 +17,13 @@ visitor who asks "is this only for health data?" now gets a
 five-minute walkthrough on revenue data: region comparison computed
 server-side, anomaly (a two-week store closure) found from a
 ~400-token summary, audit-log receipt at the end. Every number in
-the README and cue card is verified by a `rehearse.py` script
-against the real tool output (exit 0 = demo-ready), following the
-cue-card-accuracy lesson from ADR 0025.
+the README and cue card is asserted by a `rehearse.py` script
+against the real tool output — both the qualitative relationships
+(south > north, the anomaly ratio) and the exact dollar values the
+cue card prints (±$2 rounding tolerance); exit 0 = demo-ready.
+Follows the cue-card-accuracy lesson from ADR 0025. (The exact-value
+assertions were added after the boss-report-auditor pass — see
+§ Report audit below.)
 
 **2. The governance-pattern spec** —
 `docs/design/mcp-governance-pattern.md`. The category-position
@@ -62,8 +66,9 @@ recording, built on the business demo so the wire-verified numbers
 are what's on screen. Drafting it surfaced the broken-GIF finding
 below.
 
-**7. Two additive README sentences** linking the pattern doc and the
-business demo. No positioning changes — see the open decision below.
+**7. Two additive README links** (one new sentence + one appended
+clause) pointing at the pattern doc and the business demo. No
+positioning changes — see the open decision below.
 
 ## Decisions you own (in priority order)
 
@@ -87,8 +92,10 @@ business demo. No positioning changes — see the open decision below.
 ## Found while working (not fixed, flagged)
 
 - **Stale recipient-facing docs:** `examples/cohort_demo/realistic/`
-  README + CUE_CARD still instruct `tailor fitting-room` (and
-  reference `tailor tour`), both hard-removed in v8.0.0 per ADR 0040.
+  still instructs `tailor fitting-room` (and references `tailor
+  tour`), both hard-removed in v8.0.0 per ADR 0040 — across README,
+  CUE_CARD, **WINDOWS_QUICKSTART.md** (the recipient-facing
+  quickstart), and comments in `generate.py` / `setup.py`.
   A non-technical recipient following those docs today hits "no such
   command." Not fixed overnight because the correct replacement
   phrasing (FittingRoomLayer MCP tools driven from Claude Desktop
@@ -101,6 +108,28 @@ business demo. No positioning changes — see the open decision below.
   (`docs/launch-demo-storyboard.md`) is the spec for the rebuild;
   flagged rather than fixed because the replacement is a screen
   recording of Claude Desktop, not a tape edit.
+- **Minor doc-truth item:** `benchmarks/token_efficiency.md`'s
+  Assumptions table still says "tailor-mcp 8.0.0 (this commit bumps
+  to 9.0.0)" while the repo is at v9.0.2. A skeptical reader
+  cross-checking the technical piece may notice. One-line fix,
+  queued rather than done (the benchmark doc's numbers are
+  version-stamped artifacts; editing it should re-run the script).
+
+## Report audit
+
+Per protocol 3 / ADR 0010, `boss-report-auditor` reviewed a draft of
+this report against the raw artifacts. Verdict: **REVISE, 3 gaps** —
+all fixed before this version reached you:
+
+1. The draft said rehearse.py verified "every number"; it actually
+   asserted only relationships (south > north), not the exact
+   dollars. Fixed by strengthening rehearse.py to assert the exact
+   cue-card values (the better fix than softening the claim).
+2. The stale `fitting-room` docs finding was under-scoped (README +
+   CUE_CARD); it also spans WINDOWS_QUICKSTART.md and two scripts.
+   Scope corrected above.
+3. The demo storyboard claimed the anomaly was found "not 8,000 raw
+   rows" — a single store is 90 rows. Corrected in the storyboard.
 
 ## Gates
 

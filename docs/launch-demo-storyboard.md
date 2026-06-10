@@ -37,7 +37,8 @@ server-side. No sales data entered the context window."**
 **Beat 3 — the anomaly, 25 s.** Type: *"Anything unusual at any
 individual store?"* Claude runs `csv_summary_report` on store_N03,
 flags the mid-quarter collapse (min ≈ $1.1K vs mean ≈ $13.4K).
-**Caption: "Found from a ~400-token summary, not 8,000 raw rows."**
+**Caption: "Found from a ~400-token summary — Claude never read the
+90 raw rows."**
 
 **Beat 4 — the receipt, 20 s.** Cut to terminal:
 

@@ -32,7 +32,35 @@ from tailor.children.csv_dir import CSVDirectoryChild  # noqa: E402
 
 CSV_DIR = HERE / "csv"
 
+# Exact values quoted in README.md and CUE_CARD.md (rounded to whole
+# dollars). Asserted below with a ±2 tolerance for rounding, so a
+# fixture regen that shifts the dollars fails this script even if the
+# qualitative relationships (south > north, etc.) still hold. If you
+# change generate.py, re-run this script and update BOTH documents and
+# this table from the printed output.
+EXPECTED = {
+    "north_mean": 11700,
+    "south_mean": 15444,
+    "mall_peak_mean": 25644,
+    "street_peak_mean": 13609,
+    "n03_mean": 13449,
+    "n03_min": 1082,
+    "n01_mean": 16894,
+    "n01_min": 13373,
+}
+TOL = 2
+
 FAILURES: list[str] = []
+
+
+def check_value(label: str, actual: float | None, expected_key: str) -> None:
+    expected = EXPECTED[expected_key]
+    ok = actual is not None and abs(actual - expected) <= TOL
+    check(
+        f"cue-card value {expected_key} ≈ {expected}",
+        ok,
+        f"actual={actual if actual is None else f'{actual:.0f}'}",
+    )
 
 
 def check(label: str, ok: bool, detail: str = "") -> None:
@@ -104,6 +132,8 @@ async def main() -> int:
                 f"      cue-card numbers: north mean ≈ {north['mean']:.0f}, "
                 f"south mean ≈ {south['mean']:.0f}"
             )
+            check_value("north mean", north["mean"], "north_mean")
+            check_value("south mean", south["mean"], "south_mean")
 
         # ── Step: peak revenue by format ──
         by_format = await child.execute(
@@ -126,6 +156,8 @@ async def main() -> int:
                 f"      cue-card numbers: mall mean-of-peaks ≈ "
                 f"{mall['mean']:.0f}, street ≈ {street['mean']:.0f}"
             )
+            check_value("mall peak mean", mall["mean"], "mall_peak_mean")
+            check_value("street peak mean", street["mean"], "street_peak_mean")
 
         # ── Step: the anomaly store ──
         report = await child.execute(
@@ -147,6 +179,8 @@ async def main() -> int:
                 f"      cue-card numbers: store_N03 mean ≈ "
                 f"{rev['mean']:.0f}, min ≈ {rev['min']:.0f}"
             )
+            check_value("store_N03 mean", rev["mean"], "n03_mean")
+            check_value("store_N03 min", rev["min"], "n03_min")
 
         # ── Step: comparison store (healthy sibling) ──
         sibling = await child.execute(
@@ -159,6 +193,8 @@ async def main() -> int:
                 srev["min"] > 0.5 * srev["mean"],
                 f"min={srev['min']:.0f}, mean={srev['mean']:.0f}",
             )
+            check_value("store_N01 mean", srev["mean"], "n01_mean")
+            check_value("store_N01 min", srev["min"], "n01_min")
 
     print()
     if FAILURES:

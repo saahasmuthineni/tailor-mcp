@@ -176,6 +176,71 @@ def test_collect_page_model_shape(populated_data_dir: Path) -> None:
     assert model["audit"]["exists"] and model["vault"]["exists"]
 
 
+# ── Error-capture honesty (ADR 0043: "never a 500") ──
+#
+# Forces the sqlite3.Error branches the fixtures can't reach (every
+# fixture closes its writer, so no real lock ever occurs in CI). The
+# red-team pass flagged these as asserted-but-unguarded: a regression
+# turning the honest error state back into a crash would have shipped
+# green.
+
+
+def test_collect_audit_connect_failure_is_captured(
+    populated_data_dir: Path, monkeypatch,
+) -> None:
+    import tailor.inspector.queries as q
+
+    def locked(path):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(q, "connect_ro", locked)
+    audit = q.collect_audit(populated_data_dir / "audit.db", Filters())
+    assert audit["error"] == "database is locked"
+    assert audit["recent_calls"] == []
+
+    vault = q.collect_vault(populated_data_dir / "vault.db")
+    assert vault["error"] == "database is locked"
+
+    # End to end: the page renders the honest errbox, never raises.
+    from tailor.inspector.render import render_page
+    page = render_page(q.collect_page_model(populated_data_dir, Filters()))
+    assert "Could not read this database right now" in page
+    assert "database is locked" in page
+
+
+def test_collect_audit_midquery_lock_is_captured(
+    populated_data_dir: Path, monkeypatch,
+) -> None:
+    """The Windows mid-checkpoint shape: connect succeeds, a later
+    statement raises. The per-section except must capture it."""
+    import tailor.inspector.queries as q
+
+    real_connect = q.connect_ro
+
+    class FlakyConn:
+        def __init__(self, conn):
+            self._conn = conn
+            self._calls = 0
+
+        def execute(self, *args):
+            self._calls += 1
+            if self._calls > 1:
+                raise sqlite3.OperationalError("database is locked")
+            return self._conn.execute(*args)
+
+        def close(self):
+            self._conn.close()
+
+    monkeypatch.setattr(
+        q, "connect_ro", lambda path: FlakyConn(real_connect(path)),
+    )
+    audit = q.collect_audit(populated_data_dir / "audit.db", Filters())
+    assert audit["error"] == "database is locked"
+
+    vault = q.collect_vault(populated_data_dir / "vault.db")
+    assert vault["error"] == "database is locked"
+
+
 # ── Read-only invariant (ADR 0043) ──
 
 

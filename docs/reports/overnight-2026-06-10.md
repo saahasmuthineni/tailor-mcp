@@ -48,7 +48,21 @@ external `framework/` PRs behind an explicit CLA decision. **Nothing
 was changed** — this is your call, and ADR 0041 anticipated it
 (Reversal condition 4).
 
-**5. Two additive README sentences** linking the pattern doc and the
+**5. The "compounding" technical piece, drafted** —
+`docs/launch-technical-piece.md`. The long-shelf-life essay
+`launch-strategy.md` Move 4 called for: the impossibility argument
+(769K tokens > 200K window), compute-to-data as the fifty-year-old
+pattern at a new boundary, the session reconstruction tax, honest
+limitations. Every figure cross-checked against
+`benchmarks/token_efficiency.md`.
+
+**6. The 90-second demo storyboard** —
+`docs/launch-demo-storyboard.md`. Beat-by-beat spec for the launch
+recording, built on the business demo so the wire-verified numbers
+are what's on screen. Drafting it surfaced the broken-GIF finding
+below.
+
+**7. Two additive README sentences** linking the pattern doc and the
 business demo. No positioning changes — see the open decision below.
 
 ## Decisions you own (in priority order)
@@ -80,6 +94,13 @@ business demo. No positioning changes — see the open decision below.
   phrasing (FittingRoomLayer MCP tools driven from Claude Desktop
   chat) deserves a deliberate doc-truth pass with the cue-card
   auditor, not a 3am guess. Recommend queueing it.
+- **Broken demo-GIF pipeline:** `docs/guides/demo.tape` (the VHS
+  script that generates the README GIF) records `tailor walkthrough`
+  — also hard-removed in v8.0.0. Re-running VHS today would record an
+  error message. The new demo storyboard
+  (`docs/launch-demo-storyboard.md`) is the spec for the rebuild;
+  flagged rather than fixed because the replacement is a screen
+  recording of Claude Desktop, not a tape edit.
 
 ## Gates
 

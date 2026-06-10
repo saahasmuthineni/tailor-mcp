@@ -122,7 +122,7 @@ async def main() -> int:
         check("n=6 per region",
               north.get("n") == 6 and south.get("n") == 6,
               f"north n={north.get('n')}, south n={south.get('n')}")
-        if north.get("mean") and south.get("mean"):
+        if north.get("mean") is not None and south.get("mean") is not None:
             check(
                 "south mean daily revenue > north (regional trend visible)",
                 south["mean"] > north["mean"],
@@ -146,7 +146,7 @@ async def main() -> int:
         street = fgroups.get("street", {})
         check("group_summary has mall + street groups",
               bool(mall) and bool(street))
-        if mall.get("mean") and street.get("mean"):
+        if mall.get("mean") is not None and street.get("mean") is not None:
             check(
                 "mall peak revenue > street peak revenue",
                 mall["mean"] > street["mean"],

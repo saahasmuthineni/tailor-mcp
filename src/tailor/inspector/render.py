@@ -209,13 +209,17 @@ def _gate_activity(audit: dict) -> str:
             "grouped by gate outcome.</div>"
         )
     badges = "".join(
-        f'{_badge(c["outcome"])}<span class="muted"> ×{c["count"]}</span> '
+        f'{_badge(c["outcome"] or "")}'
+        f'<span class="muted"> ×{c["count"]}</span> '
         for c in audit["outcome_counts"]
     )
+    # Normalize None defensively — the live schema declares outcome
+    # NOT NULL, but the inspector must not crash on a foreign or
+    # hand-edited database (PR #148 review finding).
+    seen = [(c["outcome"] or "") for c in audit["outcome_counts"]]
     seen_bases = {
-        c["outcome"][:-len("_INTERNAL")]
-        if c["outcome"].endswith("_INTERNAL") else c["outcome"]
-        for c in audit["outcome_counts"]
+        o[:-len("_INTERNAL")] if o.endswith("_INTERNAL") else o
+        for o in seen
     }
     explanations = "".join(
         f"<li><strong>{_e(name)}</strong> — {_e(text)}</li>"

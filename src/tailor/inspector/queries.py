@@ -34,7 +34,6 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import quote
 
 # Outcome classes for the gate-activity section. The vocabulary is
 # open-ended by design (the audit `outcome` column is unconstrained
@@ -92,10 +91,13 @@ def connect_ro(db_path: Path) -> sqlite3.Connection:
     keeps transient Windows checkpoint locks from surfacing as
     immediate failures without ever blocking the writer for long.
     """
-    # SQLite URIs want forward slashes; quote() handles spaces and the
-    # `?`/`#` characters that would otherwise terminate the URI early.
-    posix = str(db_path).replace("\\", "/")
-    uri = "file:" + quote(posix, safe="/:") + "?mode=ro"
+    # Path.as_uri() yields a correctly percent-encoded file:// URI on
+    # every platform (file:///C:/... on Windows). A hand-built
+    # "file:C:/..." form lacks the leading slash, so SQLite's URI
+    # parser treats it as a RELATIVE path and fails to open the
+    # database on Windows (PR #148 review finding). resolve() makes
+    # the path absolute, which as_uri() requires.
+    uri = Path(db_path).resolve().as_uri() + "?mode=ro"
     return sqlite3.connect(uri, uri=True, timeout=2.0)
 
 

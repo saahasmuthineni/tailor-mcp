@@ -133,6 +133,19 @@ def test_table_missing_states_render(tmp_path: Path) -> None:
     assert "Traceback" not in page
 
 
+def test_none_outcome_renders_without_crash(
+    populated_data_dir: Path,
+) -> None:
+    """A NULL outcome (foreign/hand-edited DB — the live schema says
+    NOT NULL) must not crash the gate-activity render."""
+    model = collect_page_model(populated_data_dir, Filters())
+    model["audit"]["outcome_counts"].append(
+        {"outcome": None, "count": 1, "klass": "other"},
+    )
+    page = render_page(model)
+    assert "Gate activity" in page
+
+
 def test_db_error_renders_honest_errbox(populated_data_dir: Path) -> None:
     """A captured sqlite error renders the honest error box, never a
     crash (the Windows mid-checkpoint posture, ADR 0043)."""

@@ -13,4 +13,4 @@ the first worked example (``tailor.children.running``), not the
 platform's identity.
 """
 
-__version__ = "9.0.2"
+__version__ = "9.1.0"

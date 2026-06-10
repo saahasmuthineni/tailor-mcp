@@ -2,6 +2,64 @@
 
 > **Note for human contributors:** This file is read automatically by Claude when working in this repo. If you're a human contributor, see [CONTRIBUTING.md](CONTRIBUTING.md) instead.
 
+> **v9.1.0 (2026-06-10)** — Read-only inspector (`tailor inspect`).
+> Minor bump. New feature, no breaking changes, no schema changes.
+>
+> Implements [ADR 0043](docs/adr/0043-read-only-inspector-not-application.md)
+> ("inspector, not application"): a read-only, localhost-only,
+> stdlib-only HTML visibility surface over `audit.db` and the
+> `vault.db` index, running as a standalone process that never
+> registers with the router. The audit log — previously consumable
+> only via shell `sqlite3`, `tailor status`, or the model-mediated
+> `audit_query` tool (ADR 0039) — gains an independent,
+> **non-model-mediated** rendered channel: gate activity by outcome
+> (refusal badges with plain-language gate explanations), recent
+> calls with collapsed `params`/`error`, a consent timeline derived
+> from approve/revoke audit rows (labeled derived-not-live), scrubber
+> posture (prominent warning when the no-op default appears), token
+> estimate sums, and vault index counts (titles/slugs only — Ledger
+> headline, Wardrobe counts-only per ADR 0033).
+>
+> **New package `src/tailor/inspector/`** (`queries.py` read-only SQL
+> via URI `mode=ro`, `render.py` pure HTML with all escaping +
+> home-redaction, `server.py` GET-only `http.server` on hard-coded
+> `127.0.0.1`). **CLI surface grows 6 → 7 commands** (`tailor
+> inspect`; flags `--port` / `--no-browser` / `--export FILE`) — a
+> deliberate, ADR-documented amendment of the ADR 0040 surface
+> contract. Stage 1 (summoned) of the ADR 0043 invocation ladder
+> only; Stages 2–3 (ambient opt-in, default-on) are designed,
+> trigger-gated, and NOT built; the MCP spawner tool is rejected with
+> a named reversal condition — the verification channel is not
+> mediated by the entity it verifies.
+>
+> **ADR 0039 carve-out, named:** the page renders raw `params`/`error`
+> (collapsed, home-redacted, HTML-escaped) because it is the
+> operator-shell path rendered — the same custodian audience ADR 0039
+> points at `sqlite3 audit.db` — not the hosted-LLM transcript the
+> allowlist protects. Residual documented: foreign-user paths /
+> child-written identifiers in `params` render verbatim under the
+> custodian assumption. `--export` artifacts are operator-managed
+> retention — named as the sixth retention category in
+> `docs/design/research-framing.md`.
+>
+> **Gates: 1,712+ passed, 3 scipy skips.** ci-gate-runner SHIPPABLE;
+> adr-weigher PASS (all five criteria); integration-auditor
+> proposal-mode REVISE → 4 conditions closed; phi-irb-risk-reviewer
+> WATCH → closed (sixth retention category + custodian assumption);
+> coverage-criticality-mapper REGRESSION → closed (localhost-bind
+> failure branch + redact_home fallback guards now tested);
+> red-team-reviewer OBJECTION (medium) → closed (locked-DB honesty
+> paths regression-guarded by forced-failure tests). PR-review bots
+> caught two post-gate defects, both fixed pre-merge: a Windows
+> SQLite URI bug (bare `file:C:/...` parses as relative —
+> `Path.as_uri()` now) and a None-outcome render crash guard.
+> CI matrix green across Ubuntu/Windows/macOS × 3.10–3.12 + DCO.
+> `mcp-protocol-auditor` / `cue-card-rehearsal-auditor` NOT TRIGGERED
+> (no router / wire-shape / ToolDefinition changes);
+> `recipient-install-validator` file-gated on `__main__.py`, flagged,
+> skipped per the v6.11.x falsification precedent. Shipped via
+> PR #148 (built from the spec merged in PR #146).
+
 > **v9.0.2 (2026-06-02)** — Public-surface name scrub. Patch bump. No
 > API or behavior change beyond variant/server-id and fixture-path
 > renames described below.

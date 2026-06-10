@@ -120,4 +120,5 @@ Signed-off-by: Your Name <you@example.com>
 
 CI checks every PR commit for the sign-off and tells you exactly
 which commits are missing it. Forgot one? `git commit --amend -s`
-(or `git rebase --signoff main`) and force-push your branch.
+(or `git rebase --signoff main`), then update your branch with
+`git push --force-with-lease`.

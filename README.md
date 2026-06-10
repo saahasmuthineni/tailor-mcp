@@ -90,7 +90,9 @@ Tailor is middleware, not an application. It does not provide a UI, a database, 
 - **Provenance stamps** — every result carries `_meta` (package version, UTC timestamp, tier, token count)
 - **VaultLayer** — analytical notes written to Obsidian-compatible markdown, surviving session boundaries
 
-The running-data (Strava) child ships as a worked example of the ChildMCP extension pattern, not as the headline use case. The same framework handles any data source you register.
+The running-data (Strava) child ships as a worked example of the ChildMCP extension pattern, not as the headline use case. The same framework handles any data source you register — [`examples/business_demo/`](examples/business_demo/) is the same engine answering retail-sales questions over store CSVs.
+
+The governance layer is documented as an adoptable pattern — tiers, gates, audit schema, refusal shapes — in [A governance pattern for MCP servers](docs/design/mcp-governance-pattern.md), written so you can adopt the pattern even if you don't adopt Tailor.
 
 <p align="center">
   <img src="docs/assets/footprint.svg" alt="No Docker, no databases, no cloud — one install command, ~4 MB on disk" width="100%"/>

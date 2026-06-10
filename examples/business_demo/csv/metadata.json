@@ -1,0 +1,50 @@
+{
+  "store_N01.csv": {
+    "region": "north",
+    "format": "mall"
+  },
+  "store_N02.csv": {
+    "region": "north",
+    "format": "mall"
+  },
+  "store_N03.csv": {
+    "region": "north",
+    "format": "mall"
+  },
+  "store_N04.csv": {
+    "region": "north",
+    "format": "street"
+  },
+  "store_N05.csv": {
+    "region": "north",
+    "format": "street"
+  },
+  "store_N06.csv": {
+    "region": "north",
+    "format": "street"
+  },
+  "store_S01.csv": {
+    "region": "south",
+    "format": "mall"
+  },
+  "store_S02.csv": {
+    "region": "south",
+    "format": "mall"
+  },
+  "store_S03.csv": {
+    "region": "south",
+    "format": "mall"
+  },
+  "store_S04.csv": {
+    "region": "south",
+    "format": "street"
+  },
+  "store_S05.csv": {
+    "region": "south",
+    "format": "street"
+  },
+  "store_S06.csv": {
+    "region": "south",
+    "format": "street"
+  }
+}

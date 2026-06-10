@@ -297,11 +297,18 @@ any MCP-speaking LLM"* gap.
 **Direction F — framework visibility surfaces.** Two interlocking
 pieces:
 
-- **Web UI dashboard / live inspector** — framework visibility. A
-  `localhost:8000` dashboard showing live audit log, current consent
-  state, vault graph, last 10 analyses. Non-technical adopters need a
-  *"what's it doing"* surface; IRB reviewers and co-PIs need
-  inspect-without-querying-SQLite.
+- **Web UI dashboard / live inspector** — framework visibility.
+  **Partially shipped (Stage 1) per [ADR 0043](docs/adr/0043-read-only-inspector-not-application.md):**
+  `tailor inspect` serves a read-only localhost page (gate activity,
+  recent audit rows, consent timeline derived from audit events,
+  scrubber posture, token estimates, vault index counts) plus
+  `--export` for a static artifact. Deliberately *not* shipped from
+  the original sketch: live consent state (in-memory in the server;
+  rendered as derived-from-audit instead), the vault graph, and any
+  ambient always-on surface — Stages 2–3 of the ADR 0043 invocation
+  ladder are designed, trigger-gated, and not built. Non-technical
+  adopters need a *"what's it doing"* surface; IRB reviewers and
+  co-PIs need inspect-without-querying-SQLite.
 - **Data-quality surface for messy real-world data** — real biometric
   data is messier than synthetic. The framework computes statistics on
   whatever loads, with no flag for *"this subject's data is suspect

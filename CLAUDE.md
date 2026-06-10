@@ -613,9 +613,10 @@ Markdown files in the Obsidian vault are the **source of truth** for analytical 
 src/tailor/
   __init__.py              # Package metadata
   __main__.py              # CLI: serve | pilot | setup | redcap | status |
-                           #   uninstall | --help (six-command surface per
-                           #   ADR 0040 / v8.0.0; walkthrough + fitting-room
-                           #   moved to MCP framework layers)
+                           #   inspect | uninstall | --help (seven-command
+                           #   surface per ADR 0043; was six per ADR 0040 /
+                           #   v8.0.0; walkthrough + fitting-room remain MCP
+                           #   framework layers)
   pilot.py                 # Multi-subject CSV pilot wizard (v6.2.1)
   fitting_room.py          # Library module — pure scaffolder/index helpers
                            #   wrapped by FittingRoomLayer MCP tools (CLI verb
@@ -695,6 +696,13 @@ src/tailor/
                            #   no longer the demo's data source — see ADR 0027)
     runner.py              # Researcher-first-look — runs CSV cohort tools
                            #   against bundled demo cohort fixtures (ADR 0027)
+  inspector/               # Read-only trust-visibility surface (ADR 0043) —
+                           #   standalone process, NOT a framework layer;
+                           #   never registers with the router
+    __init__.py            # Exports run_inspector, render_page, export_page
+    queries.py             # Read-only SQL (URI mode=ro) → plain dicts
+    render.py              # Dicts → HTML (all escaping + home-redaction here)
+    server.py              # http.server on hard-coded 127.0.0.1; GET-only
 
 tests/                     # Mirrors src/ layout
   conftest.py              # Shared fixtures (tmp_data_dir, tmp_vault_dirs)
@@ -897,12 +905,14 @@ pytest -v
 # CLI smoke test
 tailor --help
 
-# Subcommands (six-command surface per ADR 0040 / v8.0.0)
+# Subcommands (seven-command surface per ADR 0043; six per ADR 0040 + inspect)
 tailor serve         # Start MCP server (Claude Desktop calls this)
 tailor pilot         # Multi-subject CSV pilot setup wizard (v6.2.1+)
 tailor setup         # Strava OAuth wizard for the worked-example child
 tailor redcap        # REDCap export-directory setup + re-attestation
 tailor status        # Diagnostic check
+tailor inspect       # Read-only localhost page over audit.db + vault.db
+                     #   (--port / --no-browser / --export FILE; ADR 0043)
 tailor uninstall     # Remove Tailor's Claude Desktop registration + state
 # Recipient walkthrough + fitting-room are no longer CLI verbs — they run as
 # WalkthroughLayer / FittingRoomLayer MCP tools driven from Claude Desktop

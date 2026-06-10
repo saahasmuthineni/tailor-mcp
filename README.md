@@ -87,6 +87,7 @@ Tailor is middleware, not an application. It does not provide a UI, a database, 
 - **Tiered consent and cost gates** — the LLM cannot escalate to higher-resolution data without explicit user approval
 - **PHI/sensitive data scrubbing seam** — no-op by default; subclass per child for institutional policy
 - **Audit logging** — every tool call recorded with tool name, tier, outcome, duration, and token count
+- **Read-only inspector** — `tailor inspect` renders the audit log on a localhost page through a channel the model does not mediate: gate refusals, consent timeline, scrubber posture ([ADR 0043](docs/adr/0043-read-only-inspector-not-application.md))
 - **Provenance stamps** — every result carries `_meta` (package version, UTC timestamp, tier, token count)
 - **VaultLayer** — analytical notes written to Obsidian-compatible markdown, surviving session boundaries
 

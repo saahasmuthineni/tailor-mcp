@@ -314,6 +314,31 @@ transcript. Studies whose IRB language requires
 configuration-erasure-on-withdrawal would need a sixth disposition;
 the framework does not pre-empt that decision today.
 
+A sixth retention category, codified by
+[ADR 0043](../adr/0043-read-only-inspector-not-application.md), sits
+alongside the five above: **inspector export artifacts**. The
+`tailor inspect --export <file>` command renders the read-only
+inspector page — gate activity, recent audit rows (including raw
+`params` and `error` text, home-redacted for the *current* operator's
+home path only), the derived consent timeline, scrubber posture,
+token-estimate sums, and vault index counts — to a static HTML file
+at an operator-chosen path. Like the SetupLayer category, this is
+**operator-managed retention**: the export is created only by an
+explicit operator command, lands outside `TAILOR_DATA_DIR`, and is
+not purged by `revoke_consent_<domain>` or any other framework path.
+The export command prints a retention note at write time. Two
+properties an IRB reviewer should weigh: (a) the artifact carries
+audit metadata (tool calls, outcomes, `entity_id` values) frozen at
+export time, so it can outlive a later consent revocation; (b)
+home-redaction collapses only the exporting user's `Path.home()` —
+foreign-user path strings or identifiers a child wrote into `params`
+travel verbatim, so an export shared off the data custodian's machine
+carries whatever the audit `params` carried. The served localhost
+page has neither property (it renders live and never leaves the
+loopback interface). Studies whose IRB language requires
+export-erasure-on-withdrawal would need a seventh disposition; the
+framework does not pre-empt that decision today.
+
 ## Other framings explicitly out of scope today
 
 Two larger framings remain open and will be addressed in a later

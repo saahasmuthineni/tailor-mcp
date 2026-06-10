@@ -39,6 +39,18 @@ CI runs `ruff check` and `ruff format --check`; both must pass.
 - `main` — stable, CI-green.
 - Open PRs from a feature branch named `type/short-description` (e.g. `fix/oauth-port-mismatch`, `feat/notion-child`).
 
+## Framework changes: open an issue first
+
+Bug fixes, new children, examples, docs, and tests can go straight to
+a PR. For changes under `src/tailor/framework/` (the router, security
+pipeline, audit log, vault layer, interfaces), please **open an issue
+describing the change before writing the PR**. The framework's
+load-bearing behavior is governed by the ADRs in `docs/adr/`, and most
+framework changes either interact with one or warrant a new one — a
+short design discussion up front saves everyone a rewrite. This is
+about sequencing, not gatekeeping: framework contributions are
+welcome.
+
 ## Commit messages
 
 Short imperative subject, optional body explaining *why*. Example:
@@ -84,3 +96,28 @@ Open an issue using the bug-report template. Include:
 ## License
 
 By contributing, you agree your contributions are licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later), matching the project license. (Tagged releases through v8.0.0 remain Apache-2.0 in perpetuity for recipients who already received them; v9.0.0 onward is AGPL.)
+
+## Developer Certificate of Origin (DCO)
+
+Every commit must carry a `Signed-off-by` line certifying that you
+have the right to submit the code under the project license — the
+standard [Developer Certificate of Origin](https://developercertificate.org/)
+used by the Linux kernel, GitLab, and many other projects. It is not
+a copyright assignment and grants the project no rights beyond the
+license above; it is a statement of provenance.
+
+Sign off by committing with the `-s` flag:
+
+```bash
+git commit -s -m "Your message"
+```
+
+which appends a line like:
+
+```
+Signed-off-by: Your Name <you@example.com>
+```
+
+CI checks every PR commit for the sign-off and tells you exactly
+which commits are missing it. Forgot one? `git commit --amend -s`
+(or `git rebase --signoff main`) and force-push your branch.

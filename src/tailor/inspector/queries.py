@@ -201,11 +201,15 @@ def _select_expr(present: set[str], name: str) -> str:
     return f"NULL AS {name}"
 
 
-def _where(filters: Filters) -> tuple[str, list]:
+def _where(filters: Filters, present: set[str] | None = None) -> tuple[str, list]:
     """Bound-parameter WHERE clause from the validated filters.
 
     Filter values are NEVER string-interpolated into SQL — everything
-    caller-influenceable travels as a bound parameter.
+    caller-influenceable travels as a bound parameter. ``present`` is
+    the audit_log column set; the entity filter mirrors
+    ``_select_expr``'s legacy tolerance so a pre-v9 file whose rename
+    migration hasn't run yet filters on ``subject_id`` instead of
+    erroring into the zero-row errbox.
     """
     clauses: list[str] = []
     args: list = []
@@ -219,8 +223,16 @@ def _where(filters: Filters) -> tuple[str, list]:
         clauses.append("outcome = ?")
         args.append(filters.outcome)
     if filters.entity_id:
-        clauses.append("entity_id = ?")
-        args.append(filters.entity_id)
+        if present is None or "entity_id" in present:
+            clauses.append("entity_id = ?")
+            args.append(filters.entity_id)
+        elif "subject_id" in present:
+            clauses.append("subject_id = ?")
+            args.append(filters.entity_id)
+        else:
+            # Neither column exists: no row can carry the requested
+            # entity, so an empty (honest) result beats an error.
+            clauses.append("1 = 0")
     if not clauses:
         return "", []
     return " WHERE " + " AND ".join(clauses), args
@@ -269,7 +281,7 @@ def collect_audit(audit_path: Path, filters: Filters) -> dict:
             "subject_id" in cols and "entity_id" not in cols
         )
 
-        where_sql, where_args = _where(filters)
+        where_sql, where_args = _where(filters, cols)
 
         section["row_count"] = conn.execute(
             "SELECT COUNT(*) FROM audit_log"

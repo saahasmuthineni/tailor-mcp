@@ -1,11 +1,11 @@
 """
-Biosensor-to-LLM Framework — Parent Router MCP
+Tailor — Parent Router MCP
 ================================================
 The router sits between the LLM client (Claude Desktop, Claude API,
 any MCP-speaking agent) and all registered child MCPs. It owns the
-cross-cutting concerns that let a research group reason about what
-an LLM analyst saw, when, with what scope, and under what gate —
-without trusting the LLM to enforce those rules itself.
+cross-cutting concerns that let an operator reason about what an LLM
+analyst saw, when, with what scope, and under what gate — without
+trusting the LLM to enforce those rules itself.
 
 Architecture:
     LLM client → Router (validate → circuit break → consent → cost
@@ -498,7 +498,12 @@ class RouterMCP:
 
     def create_server(self) -> Server:
         """Build the MCP Server with unified tool listing and dispatch."""
-        app = Server(self.name)
+        # Pass version so the initialize handshake's serverInfo.version
+        # matches the package_version every tool _meta block carries
+        # (tailor.__version__). Without it the mcp SDK falls back to its
+        # own package version, so a version-checking client reads the SDK
+        # version from initialize but Tailor's version from tool results.
+        app = Server(self.name, version=tailor.__version__)
         router = self  # capture for closures
 
         @app.list_tools()

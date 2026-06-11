@@ -143,12 +143,25 @@ def test_collect_audit_legacy_subject_id(legacy_audit_db: Path) -> None:
     by_id = {c["id"]: c for c in audit["recent_calls"]}
     assert by_id[1]["entity_id"] == "S004"
 
-    # entity_id filtering works through the alias too? It does NOT —
-    # the filter targets the entity_id column name. Pre-migration DBs
-    # surface rows unfiltered rather than erroring; assert the
-    # no-crash contract only.
     filtered = collect_audit(legacy_audit_db, Filters(domain="csv_dir"))
     assert len(filtered["recent_calls"]) == 3
+
+
+def test_collect_audit_legacy_entity_filter(legacy_audit_db: Path) -> None:
+    """Filtering a pre-v9 DB by entity_id targets the legacy
+    subject_id column instead of erroring into the zero-row errbox —
+    the WHERE path mirrors _select_expr's legacy tolerance."""
+    audit = collect_audit(legacy_audit_db, Filters(entity_id="S004"))
+    assert audit["error"] is None
+    assert audit["legacy_subject_id"] is True
+    calls = audit["recent_calls"]
+    assert len(calls) > 0
+    assert all(c["entity_id"] == "S004" for c in calls)
+
+    # An entity nobody logged returns empty honestly, not an error.
+    none = collect_audit(legacy_audit_db, Filters(entity_id="NOBODY"))
+    assert none["error"] is None
+    assert none["recent_calls"] == []
 
 
 def test_collect_vault_stats(populated_data_dir: Path) -> None:

@@ -2429,3 +2429,257 @@ def test_sh7_tailor_setup_help_absent_when_force_csv_configured() -> None:
             except subprocess.TimeoutExpired:
                 proc.kill()
                 proc.wait()
+
+
+# ──────────────────────────────────────────────────────────────────
+# v9.1.x (launch-cleanup-handoff-review) — SH content pin tests
+# SH8–SH11: pin the PR-changed wire content that SH1–SH7 do not
+# cover.
+#
+# The PR changes three wire-visible string fields:
+#   1. ToolDefinition.description (setup_help/__init__.py)
+#      — now routes to tailor_fitting_room_scaffold tool, not the
+#        removed `tailor fitting-room` CLI verb.
+#   2. execute() result["diagnosis"]
+#      — names tailor_fitting_room_scaffold MCP tool; removes the
+#        old CLI verb reference.
+#   3. execute() result["if_scaffold_keeps_failing"]
+#      — names tailor_fitting_room_scaffold; removes old CLI verb.
+# Plus a vault/layer.py change:
+#   4. vault_get_fitness_summary empty-vault branch
+#      result["note"] — names tailor_fitting_room_scaffold; removes
+#      old CLI verb.
+#
+# SH2 already pins recipient_steps for tailor_fitting_room_scaffold.
+# SH2 does NOT pin diagnosis content or if_scaffold_keeps_failing.
+# The tool description is pinned in SH8.
+# ──────────────────────────────────────────────────────────────────
+
+
+def test_sh8_setup_help_tool_description_mentions_scaffold_not_cli() -> None:
+    """SH8: tools/list description for tailor_setup_help names the
+    tailor_fitting_room_scaffold MCP tool, not the removed CLI verb.
+
+    The `tailor fitting-room` CLI verb was hard-removed in v8.0.0
+    per ADR 0040. The ToolDefinition.description is the first thing
+    the LLM sees when deciding whether to call the tool. If it still
+    mentioned the removed CLI verb, Claude might instruct the
+    recipient to run a non-existent terminal command.
+
+    Pins: the description wire-text on tools/list (not just tools/call).
+    """
+    with _spawn_empty_config_server() as (client, _cfg, _data):
+        client.initialize()
+        resp = client.list_tools()
+        assert "error" not in resp, f"tools/list error: {resp}"
+
+        tools_by_name = {t["name"]: t for t in resp["result"]["tools"]}
+        assert "tailor_setup_help" in tools_by_name, (
+            "tailor_setup_help not in tools/list"
+        )
+        desc = tools_by_name["tailor_setup_help"]["description"]
+
+        assert "tailor_fitting_room_scaffold" in desc, (
+            f"tailor_setup_help description does not name "
+            "'tailor_fitting_room_scaffold' — LLM routing hint is stale. "
+            f"Description: {desc!r}"
+        )
+        # The removed CLI verb must not appear in the description.
+        # Checking for the CLI-form substring that would instruct a
+        # terminal invocation ("tailor fitting-room" with a hyphen).
+        assert "tailor fitting-room" not in desc, (
+            "tailor_setup_help description still mentions the removed "
+            "`tailor fitting-room` CLI verb (hard-removed v8.0.0, ADR 0040). "
+            f"Description: {desc!r}"
+        )
+
+
+def test_sh9_setup_help_diagnosis_field_content_on_wire() -> None:
+    """SH9: tools/call result["diagnosis"] on the wire names
+    tailor_fitting_room_scaffold and does not mention the removed
+    CLI verb.
+
+    SH2 pins the presence of the diagnosis key and recipient_steps
+    content but NOT the diagnosis field content. This test closes
+    that gap: the diagnosis prose is what the LLM reads first to
+    understand the server state.
+    """
+    import subprocess
+
+    with _spawn_empty_config_server() as (client, _cfg, _data):
+        client.initialize()
+        resp = client.call_tool("tailor_setup_help", {})
+        assert "error" not in resp, f"tools/call returned error: {resp}"
+
+        text = extract_text_result(resp)
+        assert_no_repr_artifacts(text)
+        body = json.loads(text)
+
+        diagnosis = body.get("diagnosis", "")
+        assert isinstance(diagnosis, str) and diagnosis, (
+            "diagnosis field is absent or empty"
+        )
+        assert "tailor_fitting_room_scaffold" in diagnosis, (
+            "diagnosis does not mention 'tailor_fitting_room_scaffold' — "
+            "the LLM-visible description of the recovery path is stale. "
+            f"diagnosis: {diagnosis!r}"
+        )
+        # The diagnosis may mention `tailor fitting-room` in a historical
+        # context ("the old CLI verb was removed") — that is accurate
+        # informational prose, not an instruction. What must NOT appear
+        # is an instructional form directing the user to run the removed
+        # command. We check for the imperative phrases that would send a
+        # recipient to a non-existent terminal command:
+        instructional_forms = (
+            "run tailor fitting-room",
+            "use tailor fitting-room",
+            "call tailor fitting-room",
+            "type tailor fitting-room",
+        )
+        for bad_phrase in instructional_forms:
+            assert bad_phrase not in diagnosis.lower(), (
+                f"diagnosis contains instructional form {bad_phrase!r} for "
+                "the removed CLI verb (hard-removed v8.0.0, ADR 0040). "
+                f"diagnosis: {diagnosis!r}"
+            )
+
+
+def test_sh10_setup_help_if_scaffold_keeps_failing_field_on_wire() -> None:
+    """SH10: tools/call result["if_scaffold_keeps_failing"] on the wire
+    names tailor_fitting_room_scaffold and does not mention the removed
+    CLI verb.
+
+    This field is the fallback error-path instruction for recipients
+    whose scaffold call fails. If it names the wrong tool or the removed
+    CLI verb, the recipient is stuck with no valid recovery path.
+
+    SH2 does not cover this field at all; this test closes the gap.
+    """
+    with _spawn_empty_config_server() as (client, _cfg, _data):
+        client.initialize()
+        resp = client.call_tool("tailor_setup_help", {})
+        assert "error" not in resp, f"tools/call returned error: {resp}"
+
+        text = extract_text_result(resp)
+        assert_no_repr_artifacts(text)
+        body = json.loads(text)
+
+        assert "if_scaffold_keeps_failing" in body, (
+            "if_scaffold_keeps_failing key is absent from tailor_setup_help "
+            f"response. Keys present: {sorted(body.keys())}"
+        )
+        field = body["if_scaffold_keeps_failing"]
+        assert isinstance(field, str) and field, (
+            "if_scaffold_keeps_failing is not a non-empty string"
+        )
+        assert "tailor_fitting_room_scaffold" in field, (
+            "if_scaffold_keeps_failing does not name 'tailor_fitting_room_scaffold' "
+            "— the error-path instruction is stale. "
+            f"field: {field!r}"
+        )
+        assert "tailor fitting-room" not in field, (
+            "if_scaffold_keeps_failing still mentions the removed "
+            "`tailor fitting-room` CLI verb. "
+            f"field: {field!r}"
+        )
+
+
+def test_sh11_vault_fitness_summary_empty_vault_note_field_on_wire() -> None:
+    """SH11: vault_get_fitness_summary on an empty vault returns a
+    result["note"] field that names tailor_fitting_room_scaffold and
+    does not mention the removed CLI verb.
+
+    This is the vault/layer.py change in the PR. The empty-vault
+    branch's remediation string was updated to point at the MCP tool
+    instead of the removed `tailor fitting-room` CLI verb.
+
+    Drives the full subprocess with a vault_path configured but no
+    notes, confirming the else-branch (total_running==0 and
+    non_running==0) is exercised.
+    """
+    import subprocess
+
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+        config_dir = Path(tmp) / "config"
+        data_dir = Path(tmp) / "data"
+        vault_path = Path(tmp) / "vault"
+        config_dir.mkdir()
+        data_dir.mkdir()
+        vault_path.mkdir()
+        user_config = {
+            "vault_path": str(vault_path),
+            "max_hr": 185,
+            "resting_hr": 55,
+        }
+        (config_dir / "user_config.json").write_text(
+            json.dumps(user_config), encoding="utf-8"
+        )
+        env = {
+            **os.environ,
+            "TAILOR_CONFIG_DIR": str(config_dir),
+            "TAILOR_DATA_DIR": str(data_dir),
+        }
+        proc = subprocess.Popen(
+            [sys.executable, "-m", "tailor", "serve"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+        from tests._mcp_client import MCPClient
+        client = MCPClient(proc)
+        try:
+            client.initialize()
+            resp = client.call_tool("vault_get_fitness_summary", {})
+            assert "error" not in resp, (
+                f"vault_get_fitness_summary returned error envelope: {resp}"
+            )
+
+            text = extract_text_result(resp)
+            assert_no_repr_artifacts(text)
+            body = json.loads(text)
+
+            assert "note" in body, (
+                "vault_get_fitness_summary response missing 'note' field. "
+                f"Keys: {sorted(body.keys())}"
+            )
+            note = body["note"]
+            assert isinstance(note, str) and note, (
+                "vault_get_fitness_summary 'note' field is absent or empty "
+                "in the empty-vault branch"
+            )
+
+            # summary must confirm we hit the empty-vault branch
+            summary = body.get("summary", "")
+            assert "empty" in summary.lower() or note, (
+                f"Expected empty-vault branch; got summary={summary!r}"
+            )
+
+            assert "tailor_fitting_room_scaffold" in note, (
+                "vault_get_fitness_summary empty-vault 'note' does not name "
+                "'tailor_fitting_room_scaffold' — the MCP-tool recovery hint "
+                "is absent from the wire payload. "
+                f"note: {note!r}"
+            )
+            assert "tailor fitting-room" not in note, (
+                "vault_get_fitness_summary empty-vault 'note' still mentions "
+                "the removed `tailor fitting-room` CLI verb "
+                "(hard-removed v8.0.0, ADR 0040). "
+                f"note: {note!r}"
+            )
+
+            # _meta block integrity
+            meta = body["_meta"]
+            assert meta["tool_name"] == "vault_get_fitness_summary"
+            assert meta["domain"] == "vault"
+        finally:
+            try:
+                if proc.stdin is not None:
+                    proc.stdin.close()
+            except (OSError, BrokenPipeError):
+                pass
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()

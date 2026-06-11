@@ -1,8 +1,23 @@
 # Share the demo with a friend (wheel-by-email)
 
-**Audience:** the boss-architect, when they want to send `tailor
-walkthrough` (formerly `tailor demo`; renamed in v7.1.0 per
-[ADR 0035](../adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md))
+> **Status: superseded as the primary channel (2026-06-11).** This
+> guide's own § "When NOT to share" names the retirement condition:
+> once PyPI publication lands and the repo is public, *"friends
+> install via PyPI directly"* — both landed with v9.0.x
+> (`uv tool install tailor-mcp`; public repo). Point friends at the
+> README. The ritual below remains valid for the narrow case of
+> sharing a pre-release build that isn't on PyPI yet. Command
+> surfaces updated for v8.0.0+ (per
+> [ADR 0040](../adr/0040-bounded-setup-time-conductor-surface.md), the
+> `tailor walkthrough` CLI verb is removed; the walkthrough runs as
+> `python -m tailor.demo` from a terminal, or as the
+> `tailor_walkthrough_section` MCP tool from Claude Desktop chat).
+
+**Audience:** the boss-architect, when they want to send Tailor's
+walkthrough (formerly the `tailor walkthrough` / `tailor demo` CLI
+verbs; renamed in v7.1.0 per
+[ADR 0035](../adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md),
+removed as CLI verbs in v8.0.0 per ADR 0040)
 to a technical friend (CS grad, researcher, RSE) for evaluation.
 
 **Why this exists:** [ADR 0024 § 3](../adr/0024-wheel-distributed-tour-and-fixture-bundling.md)
@@ -43,7 +58,7 @@ Always pass `--audience=public` (per [ADR 0030](../adr/0030-public-mirror-narrat
 + [ADR 0032](../adr/0032-retire-public-mirror-distribution.md)):
 
 ```
-tailor walkthrough --audience=public --save-shareable transcript.md
+python -m tailor.demo --audience=public --save-shareable transcript.md
 ```
 
 In `--audience=public` mode the saved markdown gets per-persona reading
@@ -53,7 +68,7 @@ Discord, no contact form per ADR 0030's zero-outbound-affordances
 invariant), and a render-time URL-allowlist check that hard-fails if
 any disallowed outbound URL appears.
 
-If `tailor walkthrough --audience=public --save-shareable` fails with
+If `python -m tailor.demo --audience=public --save-shareable` fails with
 `ValueError: ...rendered output contains disallowed outbound URL...`,
 that is the ADR 0030 render-time allowlist working as designed: a
 contributor accidentally introduced a contact mechanism on the public
@@ -70,7 +85,7 @@ Attach two files to a personal email to the friend:
 
 Body: a one-paragraph note saying *"here's that thing I was telling you
 about — install with `uv tool install ./tailor_mcp-<version>-py3-none-any.whl`,
-then run `tailor walkthrough`, transcript attached for context."*
+then run `python -m tailor.demo`, transcript attached for context."*
 
 The friend's machine prerequisites are the same as for any Tailor
 recipient (per [README.md § Prerequisites](../../README.md)): `uv` (or
@@ -84,7 +99,7 @@ on a different account or VM:
 
 ```
 uv tool install ./tailor_mcp-<version>-py3-none-any.whl
-tailor walkthrough
+python -m tailor.demo
 ```
 
 Should produce the same five-section demo output. The transcript file
@@ -129,7 +144,6 @@ of these is in question, do not send the wheel:
   `tailor-mcp`"* + *"Make the GitHub repo public"* commitments that
   retire wheel-by-email naturally.
 - `src/tailor/demo/runner.py` — the `--save-shareable` implementation.
-- `src/tailor/__main__.py:cmd_walkthrough` — the CLI flag wiring
-  (renamed from `cmd_demo` in v7.1.0 per [ADR 0035](../adr/0035-cli-rename-walkthrough-and-fitting-room-and-recipient-experience-naming-principle.md);
-  the deprecated `cmd_demo` shim remains through v7.1.0 and is
-  removed in v7.2.0).
+- `src/tailor/demo/__main__.py` — the `python -m tailor.demo` flag
+  wiring (the `cmd_walkthrough` CLI dispatch it replaces was
+  hard-removed from `__main__.py` in v8.0.0 per ADR 0040).

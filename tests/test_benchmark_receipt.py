@@ -16,6 +16,10 @@ silently; the receipt cannot.
 tiktoken is in the ``[dev]`` extra precisely so this guard executes in
 the CI matrix rather than skipping. A silent skip would void the whole
 property, so an absent tiktoken is a hard failure here, not a skip.
+The cl100k_base vocabulary is vendored at ``benchmarks/_tiktoken_cache/``
+(the benchmark module points ``TIKTOKEN_CACHE_DIR`` at it), so the
+guard never touches the network — a transient failure to reach
+tiktoken's vocabulary host cannot fail CI.
 """
 
 from __future__ import annotations
@@ -58,9 +62,10 @@ def _fresh_results(bench) -> dict:
 
 @pytest.mark.timeout(120)
 def test_benchmark_receipt_matches_fresh_measurement():
-    # Importing the benchmark module loads the cl100k_base encoder.
-    # In CI (and `pip install -e ".[dev]"`) tiktoken is present and the
-    # vocab is fetched/cached; we assert availability rather than skip.
+    # Importing the benchmark module loads the cl100k_base encoder from
+    # the vendored vocabulary (benchmarks/_tiktoken_cache/ — no network).
+    # tiktoken itself is present via the [dev] extra; we assert
+    # availability rather than skip.
     bench = _load("_benchmark_token_efficiency", "token_efficiency.py")
     assert getattr(bench, "TIKTOKEN_AVAILABLE", False), (
         "tiktoken is not available — the benchmark receipt guard cannot "

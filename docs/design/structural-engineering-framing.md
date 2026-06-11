@@ -361,7 +361,7 @@ tailor --help
 
 # Walk through the bundled demo (synthetic biomedical data — shows you the
 # tier model, the vault, the audit log working end-to-end)
-tailor walkthrough
+python -m tailor.demo
 
 # Set up your own data
 tailor pilot   # three-prompt wizard for a CSV directory

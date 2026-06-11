@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -50,6 +51,13 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from tailor.children.csv_dir.processing import CSVProcessing  # noqa: E402
 from tailor.framework.cost import estimate_tokens  # noqa: E402
+
+# Point tiktoken at the vendored cl100k_base vocabulary so the
+# measurement runs fully offline (see benchmarks/_tiktoken_cache/
+# README.md). setdefault: an operator-set TIKTOKEN_CACHE_DIR wins.
+os.environ.setdefault(
+    "TIKTOKEN_CACHE_DIR", str(REPO_ROOT / "benchmarks" / "_tiktoken_cache")
+)
 
 try:
     import tiktoken

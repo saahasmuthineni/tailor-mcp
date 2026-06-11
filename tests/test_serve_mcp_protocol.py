@@ -2085,12 +2085,18 @@ def test_sh2_tailor_setup_help_call_returns_correct_envelope() -> None:
         assert all(isinstance(s, str) for s in steps), (
             "recipient_steps must contain only strings"
         )
-        # The canonical scaffolding command must be present.
-        # Renamed from `tailor tour` to `tailor fitting-room` in
-        # v7.1.0 per ADR 0035.
-        assert any("tailor fitting-room" in s for s in steps), (
-            "recipient_steps does not mention 'tailor fitting-room' — "
-            "the canonical scaffolding command is absent from the wire payload"
+        # The canonical scaffolding surface must be present: the
+        # tailor_fitting_room_scaffold MCP tool (the `tailor
+        # fitting-room` CLI verb was hard-removed in v8.0.0 per
+        # ADR 0040 — the steps must not instruct it).
+        assert any("tailor_fitting_room_scaffold" in s for s in steps), (
+            "recipient_steps does not mention 'tailor_fitting_room_scaffold'"
+            " — the canonical scaffolding surface is absent from the wire"
+            " payload"
+        )
+        assert not any("tailor fitting-room" in s for s in steps), (
+            "recipient_steps instructs the removed `tailor fitting-room`"
+            " CLI verb (hard-removed v8.0.0 per ADR 0040)"
         )
 
         # diagnostics: dict

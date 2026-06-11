@@ -336,9 +336,11 @@ def test_save_shareable_writes_self_contained_markdown(tmp_path: Path) -> None:
     # Header / title — renamed from "demo" to "walkthrough" in v7.1.0
     # per ADR 0035.
     assert "# Tailor - walkthrough" in content
-    # Install command section with both uvx and pipx
-    assert "uvx --from" in content
-    assert "pipx run --spec" in content
+    # Install command section with both uv and pip forms (the
+    # `tailor walkthrough` verb was hard-removed in v8.0.0 per
+    # ADR 0040; the live invocation is `python -m tailor.demo`)
+    assert "uv run --with tailor-mcp python -m tailor.demo" in content
+    assert "pip install tailor-mcp && python -m tailor.demo" in content
     # Transcript section
     assert "## Walkthrough output" in content
     assert "Section 1" in content
@@ -365,8 +367,11 @@ def test_save_shareable_install_command_points_at_pypi_package(
         run_demo(save_shareable_path=out_path)
 
     content = out_path.read_text(encoding="utf-8")
-    assert "uvx --from tailor-mcp tailor walkthrough" in content
-    assert "pipx run --spec tailor-mcp tailor walkthrough" in content
+    # Reproduce commands must name the live invocation — the `tailor
+    # walkthrough` CLI verb was hard-removed in v8.0.0 per ADR 0040.
+    assert "uv run --with tailor-mcp python -m tailor.demo" in content
+    assert "pip install tailor-mcp && python -m tailor.demo" in content
+    assert "tailor walkthrough" not in content
     # No version-specific wheel filename; PyPI distribution is
     # version-agnostic at install time.
     assert "github.com/saahasmuthineni/tailor-mcp/releases/download" not in content
@@ -399,7 +404,7 @@ def test_save_shareable_emits_pypi_install_no_env_var_override(
         content = out_path.read_text(encoding="utf-8")
         # The env var has no effect: PyPI command appears, the legacy
         # URL forms do not.
-        assert "uvx --from tailor-mcp tailor walkthrough" in content
+        assert "uv run --with tailor-mcp python -m tailor.demo" in content
         assert "malicious.example.com" not in content
         assert "github.com/saahasmuthineni/tailor-mcp/releases/download" not in content
     finally:
@@ -724,8 +729,8 @@ def test_public_mode_strips_developer_terminal_breadcrumbs(
     tmp_path: Path,
 ) -> None:
     """In public mode the captured transcript itself must not contain
-    the developer-tier 'tailor pilot' / 'tailor fitting-room'
-    suggestion block — those reference recipient-facing CLI surfaces
+    the developer-tier 'tailor pilot' / fitting-room-scaffold
+    suggestion block — those reference recipient-facing setup surfaces
     that scaffold private-repo files; not appropriate for a public
     page."""
     from tailor.demo import run_demo
@@ -738,7 +743,7 @@ def test_public_mode_strips_developer_terminal_breadcrumbs(
     content = out_path.read_text(encoding="utf-8")
     assert "If you want to use this with your own data" not in content
     assert "tailor pilot" not in content
-    assert "tailor fitting-room" not in content
+    assert "tailor_fitting_room_scaffold" not in content
 
 
 def test_save_shareable_suppresses_redundant_tip_block(

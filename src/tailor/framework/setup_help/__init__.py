@@ -9,8 +9,10 @@ or ``vault_path`` in ``user_config.json``).
 The trigger condition is exactly the dad-style failure documented in
 the v6.10.2 release notes: the recipient installed the wheel, ran
 ``tailor serve`` directly (via web-Claude-mediated manual
-config rather than the canonical ``tailor fitting-room`` — renamed
-from ``tailor tour`` in v7.1.0 per ADR 0035), and now sits in front
+config rather than the then-canonical ``tailor fitting-room`` CLI —
+renamed from ``tailor tour`` in v7.1.0 per ADR 0035, and replaced by
+the ``tailor_fitting_room_scaffold`` MCP tool in v8.0.0 per ADR
+0040), and now sits in front
 of a server with only ``ask_local_oracle`` and the running child's
 12 strava tools — none of which match the cue-card prompts
 (``force_cohort_summary``, ``emg_cohort_summary``, etc.).
@@ -85,10 +87,11 @@ _SETUP_HELP_DESCRIPTION = (
     "force_cohort_summary, emg_cohort_summary, force_summary, "
     "emg_envelope_summary, csv_summary_report, csv_group_summary, "
     "csv_force_decline, or any vault_* tool and they appear missing, "
-    "call this tool — it returns step-by-step terminal instructions for "
-    "the recipient to scaffold the demo cohort via `tailor fitting-room`, "
-    "then restart Claude Desktop. Always safe to call; takes no "
-    "parameters; returns instructions only."
+    "call this tool — it returns step-by-step recovery instructions: "
+    "scaffold the demo cohort via the tailor_fitting_room_scaffold tool "
+    "(available on this server), then have the recipient restart Claude "
+    "Desktop. Always safe to call; takes no parameters; returns "
+    "instructions only."
 )
 
 
@@ -150,22 +153,24 @@ class SetupHelpLayer:
             "diagnosis": (
                 "This tailor server is running but no demo "
                 "scaffold has been installed. The expected recipient "
-                "path is `tailor fitting-room` (renamed from `tailor "
-                "tour` in v7.1.0 per ADR 0035; the legacy verb still "
-                "works through v7.1.0), which copies bundled synthetic "
-                "fixtures, writes user_config.json, indexes the seed "
-                "vault, and registers a Claude Desktop entry. Without "
-                "it, only the running (Strava) child + the local-LLM "
-                "guardian are loaded — none of the demo tools "
-                "(force_cohort_summary, emg_cohort_summary, vault_*) "
-                "exist on this server."
+                "path (since v8.0.0 per ADR 0040 — the old `tailor "
+                "fitting-room` CLI verb was removed) is the "
+                "tailor_fitting_room_scaffold MCP tool, available on "
+                "this server right now: it copies bundled synthetic "
+                "fixtures, writes a sandboxed demo user_config.json, "
+                "and indexes the seed vault. Without it, only the "
+                "running (Strava) child + the local-LLM guardian are "
+                "loaded — none of the demo tools (force_cohort_summary, "
+                "emg_cohort_summary, vault_*) exist on this server."
             ),
             "recipient_steps": [
-                "Open a terminal (PowerShell on Windows; Terminal on "
-                "macOS).",
-                "Run: tailor fitting-room",
-                "If that errors with 'scaffold already exists', "
-                "run: tailor fitting-room --force",
+                "No terminal needed — in this chat, call the "
+                "tailor_fitting_room_scaffold tool (the recipient can "
+                "just say: 'set up the bundled demo cohort fitting "
+                "room').",
+                "If it errors with 'Target directory already exists', "
+                "call tailor_fitting_room_scaffold again with "
+                "force=true.",
                 "Fully quit Claude Desktop (right-click the system-tray "
                 "icon and choose Quit on Windows; Cmd+Q on macOS — "
                 "closing the window is not enough).",
@@ -196,11 +201,11 @@ class SetupHelpLayer:
                 "python_executable": _redact_home(sys.executable),
             },
             "if_scaffold_keeps_failing": (
-                "Send a screenshot of the terminal output from "
-                "`tailor fitting-room` to the project owner. The most "
-                "common Windows failure mode (cp1252 encoding crashes) "
-                "was patched in v6.10.1; if the wheel installed is "
-                "v6.9.x, upgrading the wheel is the fix."
+                "Send the error returned by tailor_fitting_room_scaffold "
+                "(and a screenshot of the chat) to the project owner. "
+                "The most common Windows failure mode (cp1252 encoding "
+                "crashes) was patched in v6.10.1; if the wheel installed "
+                "is older, upgrading the wheel is the fix."
             ),
         }
 

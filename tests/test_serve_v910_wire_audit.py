@@ -1173,15 +1173,20 @@ class TestC1VaultableToolsHaveRenderers:
                 data_dir=data_dir,
                 vaultable_tools=vaultable,
             )
-            missing = []
-            for tool_name in vaultable:
-                if tool_name not in writer._renderers:
-                    missing.append(tool_name)
-            assert not missing, (
-                f"vaultable_tools with no renderer in VaultWriter._renderers: {missing}. "
-                "These tools would invoke the post-execute hook and fail silently — "
-                "or raise KeyError inside the hook."
-            )
+            try:
+                missing = []
+                for tool_name in vaultable:
+                    if tool_name not in writer._renderers:
+                        missing.append(tool_name)
+                assert not missing, (
+                    f"vaultable_tools with no renderer in VaultWriter._renderers: {missing}. "
+                    "These tools would invoke the post-execute hook and fail silently — "
+                    "or raise KeyError inside the hook."
+                )
+            finally:
+                # Release vault.db before TemporaryDirectory cleanup —
+                # Windows cannot unlink an open SQLite WAL file.
+                writer.close()
 
 
 class TestC2ToolDefinitionParamsHaveDescriptions:

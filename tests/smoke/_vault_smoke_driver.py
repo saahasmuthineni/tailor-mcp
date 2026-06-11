@@ -90,6 +90,30 @@ try:
     dsh = run(layer.execute("vault_list_notes", {"kind": "dashboard"}))
     check("C failure_mode kind filter >=1", fm["count"] >= 1)
     check("C dashboard kind filter >=3",    dsh["count"] >= 3)
+
+    # ---- Block D: Empty-vault fitness-summary remediation (fitting-room CLI removal) ----
+    vault_dir_empty = Path(tempfile.mkdtemp(prefix="bio_vault_smoke_empty_"))
+    data_dir_empty = Path(tempfile.mkdtemp(prefix="bio_data_smoke_empty_"))
+    writer_empty = VaultWriter(vault_path=vault_dir_empty, data_dir=data_dir_empty, vaultable_tools=set())
+    layer_empty = VaultLayer(vault_path=vault_dir_empty, vault_writer=writer_empty)
+    try:
+        res_empty = run(layer_empty.execute("vault_get_fitness_summary", {}))
+        check("D.1 response has 'summary' key", "summary" in res_empty)
+        check("D.2 response has 'note' key", "note" in res_empty)
+        check("D.3 response has 'total_notes_in_vault' key", "total_notes_in_vault" in res_empty)
+        check("D.4 response has 'weeks_back' key", "weeks_back" in res_empty)
+        check("D.5 response has 'open_themes' key", "open_themes" in res_empty)
+        check("D.6 response has 'recent_moments' key", "recent_moments" in res_empty)
+        check("D.7 summary is 'Vault is empty.'", res_empty.get("summary") == "Vault is empty.")
+        remediation = res_empty.get("note", "")
+        check("D.8 remediation mentions tailor_fitting_room_scaffold",
+              "tailor_fitting_room_scaffold" in remediation,
+              f"remediation: {remediation[:80]}...")
+        check("D.9 remediation does NOT mention 'tailor fitting-room'",
+              "tailor fitting-room" not in remediation,
+              f"remediation: {remediation[:80]}...")
+    finally:
+        layer_empty.close()
 finally:
     layer.close()
 

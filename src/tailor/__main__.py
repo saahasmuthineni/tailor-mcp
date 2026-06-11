@@ -269,7 +269,10 @@ def cmd_serve():
             (
                 label
                 for marker, label in _CLOUD_MARKERS
-                if marker in _vault_str
+                # Normalize the marker the same way pilot's detector does,
+                # so the backslash-form Box marker matches the normalized
+                # haystack instead of being dead in this loop.
+                if marker.lower().replace("\\", "/") in _vault_str
             ),
             None,
         )

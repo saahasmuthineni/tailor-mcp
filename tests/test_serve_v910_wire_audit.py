@@ -1136,11 +1136,18 @@ class TestC1VaultableToolsHaveRenderers:
             config_dir = paths["config_dir"]
             data_dir = paths["data_dir"]
             running = RunningChild(config_dir=config_dir, data_dir=data_dir)
-            csv_child = CSVDirectoryChild(config_dir=config_dir, data_dir=data_dir)
-            vaultable: set[str] = set()
-            for child in [running, csv_child]:
-                vaultable.update(getattr(child, "vaultable_tools", []))
-            return vaultable
+            try:
+                csv_child = CSVDirectoryChild(
+                    config_dir=config_dir, data_dir=data_dir
+                )
+                vaultable: set[str] = set()
+                for child in [running, csv_child]:
+                    vaultable.update(getattr(child, "vaultable_tools", []))
+                return vaultable
+            finally:
+                # Release activities.db before TemporaryDirectory cleanup —
+                # Windows cannot unlink an open SQLite WAL file.
+                running.close()
 
     def test_c1a_all_vaultable_tools_have_renderers(self) -> None:
         """
@@ -1217,20 +1224,29 @@ class TestC2ToolDefinitionParamsHaveDescriptions:
             }))
 
             running = RunningChild(config_dir=config_dir, data_dir=data_dir)
-            csv_child = CSVDirectoryChild(config_dir=config_dir, data_dir=data_dir)
+            try:
+                csv_child = CSVDirectoryChild(
+                    config_dir=config_dir, data_dir=data_dir
+                )
 
-            missing: list[str] = []
-            for child in [running, csv_child]:
-                for tool_def in child.tool_definitions:
-                    for pname, pinfo in tool_def.params.items():
-                        if "description" not in pinfo:
-                            missing.append(f"{child.domain}.{tool_def.name}.{pname}")
+                missing: list[str] = []
+                for child in [running, csv_child]:
+                    for tool_def in child.tool_definitions:
+                        for pname, pinfo in tool_def.params.items():
+                            if "description" not in pinfo:
+                                missing.append(
+                                    f"{child.domain}.{tool_def.name}.{pname}"
+                                )
 
-            assert not missing, (
-                f"ToolDefinition params missing 'description' key: {missing}. "
-                "The router's .get('description', '') fallback will silently emit "
-                "an empty description — update the ToolDefinition to add it."
-            )
+                assert not missing, (
+                    f"ToolDefinition params missing 'description' key: {missing}. "
+                    "The router's .get('description', '') fallback will silently emit "
+                    "an empty description — update the ToolDefinition to add it."
+                )
+            finally:
+                # Release activities.db before TemporaryDirectory cleanup —
+                # Windows cannot unlink an open SQLite WAL file.
+                running.close()
 
 
 class TestC3NoToolNameCollisions:
@@ -1353,12 +1369,16 @@ class TestC4EntityIdSchemaNotSubjectId:
                 p.mkdir()
             (config_dir / "user_config.json").write_text(json.dumps({"max_hr": 185}))
             child = RunningChild(config_dir=config_dir, data_dir=data_dir)
-
-            for tool_name, schema_dict in child.param_schemas.items():
-                if "entity_id" in schema_dict:
-                    eid_schema = schema_dict["entity_id"]
-                    if hasattr(eid_schema, "pattern"):
-                        assert eid_schema.pattern == ENTITY_ID_SCHEMA.pattern, (
-                            f"RunningChild.param_schemas[{tool_name!r}]['entity_id'] "
-                            f"pattern mismatch: {eid_schema.pattern!r}"
-                        )
+            try:
+                for tool_name, schema_dict in child.param_schemas.items():
+                    if "entity_id" in schema_dict:
+                        eid_schema = schema_dict["entity_id"]
+                        if hasattr(eid_schema, "pattern"):
+                            assert eid_schema.pattern == ENTITY_ID_SCHEMA.pattern, (
+                                f"RunningChild.param_schemas[{tool_name!r}]['entity_id'] "
+                                f"pattern mismatch: {eid_schema.pattern!r}"
+                            )
+            finally:
+                # Release activities.db before TemporaryDirectory cleanup —
+                # Windows cannot unlink an open SQLite WAL file.
+                child.close()

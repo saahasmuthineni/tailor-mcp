@@ -201,7 +201,7 @@ def _select_expr(present: set[str], name: str) -> str:
     return f"NULL AS {name}"
 
 
-def _where(filters: Filters, present: set[str] | None = None) -> tuple[str, list]:
+def _where(filters: Filters, present: set[str]) -> tuple[str, list]:
     """Bound-parameter WHERE clause from the validated filters.
 
     Filter values are NEVER string-interpolated into SQL — everything
@@ -223,7 +223,7 @@ def _where(filters: Filters, present: set[str] | None = None) -> tuple[str, list
         clauses.append("outcome = ?")
         args.append(filters.outcome)
     if filters.entity_id:
-        if present is None or "entity_id" in present:
+        if "entity_id" in present:
             clauses.append("entity_id = ?")
             args.append(filters.entity_id)
         elif "subject_id" in present:

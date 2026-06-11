@@ -164,6 +164,32 @@ def test_collect_audit_legacy_entity_filter(legacy_audit_db: Path) -> None:
     assert none["recent_calls"] == []
 
 
+def test_collect_audit_entity_filter_no_scoping_column(tmp_path: Path) -> None:
+    """A foreign audit_log with neither entity_id nor subject_id returns
+    an empty (honest) result under an entity filter — never an error."""
+    import sqlite3
+
+    db_path = tmp_path / "audit.db"
+    conn = sqlite3.connect(str(db_path))
+    conn.execute(
+        "CREATE TABLE audit_log ("
+        "id INTEGER PRIMARY KEY, timestamp TEXT, domain TEXT, "
+        "tool_name TEXT, outcome TEXT)"
+    )
+    conn.execute(
+        "INSERT INTO audit_log (timestamp, domain, tool_name, outcome) "
+        "VALUES ('2026-06-11T00:00:00+00:00', 'csv_dir', "
+        "'csv_list_files', 'SUCCESS')"
+    )
+    conn.commit()
+    conn.close()
+
+    audit = collect_audit(db_path, Filters(entity_id="S004"))
+    assert audit["error"] is None
+    assert audit["recent_calls"] == []
+    assert audit["row_count"] == 1  # unfiltered count still reports the row
+
+
 def test_collect_vault_stats(populated_data_dir: Path) -> None:
     vault = collect_vault(populated_data_dir / "vault.db")
     assert vault["exists"] is True

@@ -96,13 +96,16 @@ receipts; the asset should be one.
    no animation in v1.
 3. **Add a pytest freshness guard** (e.g.
    `tests/test_benchmark_receipt.py`): re-run the benchmark
-   measurement (or its number-producing functions; tiktoken absent →
-   the chars/4 cross-check path or a skip with the reason named),
-   parse the numbers out of the checked-in SVG, assert they match.
-   The image must not be able to drift from the script — if a
-   fixture change moves a ratio, CI fails until the receipt is
+   measurement, parse the numbers out of the checked-in SVG, assert
+   they match. The image must not be able to drift from the script —
+   if a fixture change moves a ratio, CI fails until the receipt is
    re-rendered. This is the load-bearing difference from any
-   recording format.
+   recording format. **For the guard to actually run in CI, add
+   `tiktoken` to the `[dev]` extras in `pyproject.toml`** (the SVG's
+   numbers are tiktoken numbers; a skip-when-absent guard would
+   silently never execute in the CI matrix, voiding the property).
+   Keep the runtime sane — the cohort measurement is the slow one;
+   target < 30s or mark it appropriately.
 4. **Embed in README** next to "The numbers" table, with the
    three-command reproduce block adjacent: the image is the
    invitation, the reproduction is the proof. Alt text carries the
@@ -133,10 +136,14 @@ three surfaces must agree.
 - `docs/adr/0043-read-only-inspector-not-application.md` — Status
   reads **Proposed**; it shipped in tagged v9.1.0 (PR #148/#149).
   Flip to Accepted.
-- `docs/launch-demo-storyboard.md` beat 4 — written as "If `tailor
-  inspect` has shipped…"; it has. Make the inspector page the
-  primary beat (keep the sqlite3 fallback text for the pre-render
-  rehearsal note if useful).
+- `docs/launch-demo-storyboard.md` — two edits: (a) beat 4 is
+  written as "If `tailor inspect` has shipped…"; it has — make the
+  inspector page the primary beat (keep the sqlite3 fallback text
+  for the pre-render rehearsal note if useful). (b) The blocker
+  callout at the top links to `docs/guides/demo.tape`, which item 2
+  deletes — rewrite it as resolved (tape deleted; terminal proof is
+  now the CI-verified receipt SVG; the storyboard covers only the
+  chat-beats human recording).
 
 ## Acceptance criteria
 

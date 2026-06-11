@@ -289,21 +289,21 @@ def main():
 
         sid_str = f"S{subject_id:03d}"
         force_metadata[f"{sid_str}_force.csv"] = {
-            "subject_id": sid_str,
+            "entity_id": sid_str,
             "sex": sex,
             "group": group,
             "trial_protocol": "30pct_MVC_sustained_60s_with_4probes",
             "baseline_mvc_N": _round(mvc, 1),
         }
         emg_metadata[f"{sid_str}_emg.csv"] = {
-            "subject_id": sid_str,
+            "entity_id": sid_str,
             "sex": sex,
             "group": group,
             "trial_protocol": "30pct_MVC_sustained_60s_with_4probes",
             "envelope_baseline_uV": _round(emg_baseline, 1),
         }
         mrs_metadata[f"{sid_str}_mrs.csv"] = {
-            "subject_id": sid_str,
+            "entity_id": sid_str,
             "sex": sex,
             "group": group,
             "modality": "31P_MRS_stub",
@@ -334,8 +334,8 @@ def main():
     print(f"    emg/    -> {EMG_DIR}")
     print(f"    mrs/    -> {MRS_DIR}")
     print()
-    print("Re-running 'tailor fitting-room' (or rehearse.py) will pick up")
-    print("the regenerated fixtures from this location.")
+    print("The next tailor_fitting_room_scaffold call (or rehearse.py)")
+    print("will pick up the regenerated fixtures from this location.")
 
 
 if __name__ == "__main__":

@@ -61,14 +61,14 @@ If Claude's behaviour drifts, say or paste one of these.  None require admitting
 | Claude answered without calling a tool | *"Please call the MCP tool — I want to see the numbers come from the framework, not from your prior knowledge."* |
 | Claude was terse, didn't connect step 5 back to step 4 | *"Compare the peak_envelope_window_mean you just returned against the prior vault note from 2026-04-20.  Same number?"* |
 | Claude hallucinated a number | *"What's the exact number the tool returned?  Read it directly from the tool output."* |
-| Claude reached for `csv_cohort_summary` (returns MRS spectra, not force) | *"Wrong child — `csv_cohort_summary` operates on the MRS stream. Re-run with `force_cohort_summary` against the force data."* |
+| Claude reached for `csv_group_summary` (returns MRS spectra, not force) | *"Wrong child — `csv_group_summary` operates on the MRS stream. Re-run with `force_cohort_summary` against the force data."* |
 | `force_cohort_summary` returned 16 `column not found` load_errors | *(v6.9.0 footgun — fixed in v6.9.1; recovery prompt for older builds:)* *"Use `value_column='force_N'` (literal CSV header), not `'force'`. Or call `force_list_files` first to confirm headers."* |
 | Same on `emg_cohort_summary` | *"Use `value_column='envelope_uV'` (literal CSV header), not `'envelope'`. Or call `emg_list_files` first."* |
 | Claude listed S004 as "subject 4" or stripped the prefix | *"The subject_id is the literal string S004 — please use it verbatim in the subject_id parameter."* |
-| Vault search returns nothing | *(operator action — exit chat)* Re-run `tailor fitting-room --force`; vault.db wasn't indexed. |
-| Tool list shows only `ask_local_oracle` + `strava_list_runs` (no force_*, emg_*, vault_*) | *(v6.9.x recipient footgun — fixed structurally in v6.10.2)* The recipient landed at a bare `tailor serve` without scaffolding. Ask Claude to *"call tailor_setup_help"* — it returns terminal-step instructions. Or skip the chat and run `tailor fitting-room` from a terminal, then quit-and-reopen Claude Desktop. |
-| `fitting-room` reports "Fitting-room scaffolded with N of M Claude Desktop registrations succeeded" | *(v6.10.4 partial-write surface)* One config path was written, the other failed. Most likely cause: Claude Desktop is still running and locks the config file. *(operator action — exit chat)* Fully quit Claude Desktop via the system tray (Quit, not close-window), then re-run `tailor fitting-room --force`. |
-| Claude Desktop installed from the Microsoft Store, no Tailor tools after `fitting-room` + restart | *(v6.10.4 — Microsoft Store recipient path)* The Store version of Claude Desktop reads its config from a UWP-sandboxed path. If the recipient's first `fitting-room` run happened before the Store app was ever launched (the sandbox dir doesn't exist until first launch), the entry only landed in the classic config. Have them launch Claude Desktop once, then re-run `python -m tailor fitting-room --force` (or `tailor fitting-room --force` if PATH is configured) from the same terminal. |
+| Vault search returns nothing | vault.db wasn't indexed. Ask Claude to *"re-index the demo vault"* (`tailor_fitting_room_index_vault`), or *"re-scaffold the demo fitting room with force"* (`tailor_fitting_room_scaffold` `force=true`). |
+| Tool list shows only `ask_local_oracle` + `strava_list_runs` (no force_*, emg_*, vault_*) | The recipient landed at a bare `tailor serve` without a scaffolded demo config. Ask Claude to *"check the demo setup status"* (`tailor_setup_status`); if not scaffolded, *"set up the bundled demo cohort fitting room"* (`tailor_fitting_room_scaffold`), then quit-and-reopen Claude Desktop. (Confirm `tailor pilot` registered the server first.) |
+| Demo tools still missing after scaffolding + restart | The scaffold sandboxes config in `~/.tailor/demos/cohort/`; Claude Desktop must boot `tailor serve` against it. Fully quit Claude Desktop via the system tray (Quit, not close-window), then re-open so `serve` re-reads the scaffolded user_config.json. |
+| Claude Desktop installed from the Microsoft Store, no Tailor tools after restart | *(Microsoft Store recipient path)* The Store version reads its config from a UWP-sandboxed path that doesn't exist until first launch. Have them launch Claude Desktop once, re-run `tailor pilot` so registration lands in the sandboxed config too, then restart. |
 
 ---
 
@@ -84,6 +84,6 @@ Full scripts in [README → "Pre-armed answers if a reviewer asks"](README.md#pr
 
 ---
 
-*Last updated: 2026-05-04 (multimodal-physiology demo).
+*Last updated: 2026-06-11 (recovery rows rewritten for the v8.0.0 MCP-tool flow; multimodal-physiology demo).
 Run `python rehearse.py` for a non-interactive end-to-end check
 that all the numbers above match the current fixture.*

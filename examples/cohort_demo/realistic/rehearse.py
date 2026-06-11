@@ -100,9 +100,9 @@ async def _run_checks(target: Path) -> int:
     print("=" * 64)
 
     # --Step 2 — cohort sex difference ────────────────────────────
-    _section("Step 2 — force_cohort_summary group_field=sex metric=max")
+    _section("Step 2 — force_cohort_summary group_by=sex metric=max")
     r = await force.execute("force_cohort_summary", {
-        "group_field": "sex",
+        "group_by": "sex",
         "value_column": "force_N",
         "metric": "max",
     })
@@ -225,10 +225,10 @@ async def _run_checks(target: Path) -> int:
         ))
 
     # --Step 5 — vault search surfaces seed moment ────────────────
-    _section("Step 5 — vault list_notes subject_id=S004")
+    _section("Step 5 — vault list_notes entity_id=S004")
     storage = VaultStorage(target / "data" / "vault.db")
     try:
-        notes = storage.list_notes(subject_id="S004")
+        notes = storage.list_notes(entity_id="S004")
         s004_moments = [
             n for n in notes
             if "s004" in (n.get("filename") or "").lower()

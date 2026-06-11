@@ -13,7 +13,7 @@ sex-differences cohort).
 |---|---:|---|
 | A. **Per-query efficiency** (single subject) | **657.6×** | Tier-1 server-side computation vs raw CSV in context |
 | A. **Per-query efficiency** (16-subject cohort) | **938.2×** | Same, scaled to a multi-file cohort question |
-| B. **Session persistence efficiency** (S004 resume) | **318.2×** | Vault retrieval vs naive re-paste of data + accumulated notes |
+| B. **Session persistence efficiency** (S004 resume) | **317.5×** | Vault retrieval vs naive re-paste of data + accumulated notes |
 
 The "at least 100× cheaper" claim in ADR 0029 is a *conservative
 floor*; on this benchmark the actual ratios are **3.2× to 9.4× the
@@ -31,8 +31,8 @@ explicitly excluded under **Limitations** below.
 
 | Dimension | Value | Notes |
 |---|---|---|
-| **Date of measurement** | 2026-05-26 | Re-run on every release per CI gate (planned) |
-| **Package version** | tailor-mcp 8.0.0 (this commit bumps to 9.0.0) | `CSVProcessing` surface stable since v6.5.0 (ADR 0015) |
+| **Date of measurement** | 2026-06-11 | Re-run on every release per CI gate (planned) |
+| **Package version** | tailor-mcp 9.1.0 | `CSVProcessing` surface stable since v6.5.0 (ADR 0015) |
 | **Python** | 3.10+ (any version that runs the test suite) | No version-dependent behavior in the measured code |
 | **Primary tokenizer** | `tiktoken==0.13.0`, encoding `cl100k_base` | OpenAI BPE; industry-standard proxy for Claude's tokenizer (see *Why tiktoken not Anthropic's API* below) |
 | **Cross-check tokenizer** | `tailor.framework.cost.estimate_tokens` (chars / 4) | Conservative heuristic; per CLAUDE.md v7.3.4 ~2.1× under-counts vs actual wire-measured |
@@ -175,7 +175,7 @@ session to the same analytical state, the researcher must paste:
    researcher's informal notes (Apple Notes, a docx, a lab notebook)
    would likely be longer and less structured.
 
-Combined: 1,349,715 bytes, **771,741 tokens** (tiktoken) / 337,428 (chars/4).
+Combined: 1,349,733 bytes, **771,747 tokens** (tiktoken) / 337,433 (chars/4).
 
 **Tailor (vault retrieval).** When the session starts, the vault
 layer auto-surfaces `snapshot.md` via `vault_get_snapshot`. The LLM
@@ -184,21 +184,21 @@ the S004 EMG/force-decoupling moment.
 
 What the LLM actually sees on resume:
 
-- `snapshot.md` (6,918 chars): cohort overview, suggested prompts,
+- `snapshot.md` (6,938 chars): cohort overview, suggested prompts,
   recent moments index, token-cost table, what the walkthrough
   demonstrates
 - `moments/2026-04-20-s004-emg-force-decoupling-suspected.md` (2,612
   chars): the S004 wow moment with the EMG envelope observation,
   the hypothesis space, and named follow-up actions
 
-Combined: 9,539 bytes, **2,425 tokens** (tiktoken) / 2,384 (chars/4).
+Combined: 9,557 bytes, **2,431 tokens** (tiktoken) / 2,389 (chars/4).
 
 **The data itself stays on disk.** If the LLM needs to verify a
 claim against fresh data, it calls `force_cohort_summary` or
 `force_decline_summary` and pays the per-query Tier-1 cost (73–820
 tokens per Benchmark A) — not the full ~769K raw-data cost.
 
-**Ratio (tiktoken): 771,741 / 2,425 = 318.2×.**
+**Ratio (tiktoken): 771,747 / 2,431 = 317.5×.**
 
 ### B.2 — Compounding cost across N sessions
 
@@ -215,8 +215,8 @@ hypothesis to candidate finding):
 
 | | Baseline | Tailor | Ratio |
 |---|---:|---:|---:|
-| Tokens per session resume | 771,741 | 2,425 | 318× |
-| Tokens × 5 sessions | **3,858,705** | **12,125** | **318×** |
+| Tokens per session resume | 771,747 | 2,431 | 318× |
+| Tokens × 5 sessions | **3,858,735** | **12,155** | **318×** |
 
 At Claude Sonnet 4.6 input pricing ($3 / million input tokens, no
 caching):
@@ -442,9 +442,14 @@ with the same `tiktoken` version. If it doesn't, file an issue.
 
 ## Date
 
-Run 2026-05-26 against package version 8.0.0 (this commit bumps to
-9.0.0 as part of the public-flip rename sweep — see commit message)
-on Python 3.10+ with `tiktoken==0.13.0`. The pure-function
-`CSVProcessing` surface has been behaviorally stable since v6.5.0
-(ADR 0015); the bundled vault fixture has been stable since v7.3.4
-— numbers should reproduce on any version ≥ 7.3.4.
+Run 2026-06-11 against package version 9.1.0 on Python 3.10+ with
+`tiktoken==0.13.0`. The pure-function `CSVProcessing` surface has
+been behaviorally stable since v6.5.0 (ADR 0015). The session-resume
+ratio refined from 318.2× to **317.5×** in this run: the bundled
+`snapshot.md` fixture gained ~20 characters when a stale
+`tailor fitting-room` mention was corrected to the current
+`tailor_fitting_room_scaffold` tool name (the v8.0.0 / ADR 0040 CLI
+removal), and that note is part of the session-resume payload. The
+per-query ratios (657.6× / 938.2×) are unaffected. Numbers reproduce
+on any version whose `cohort_demo_realistic` fixtures match this
+commit.

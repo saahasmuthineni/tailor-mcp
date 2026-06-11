@@ -195,12 +195,32 @@ three surfaces must agree.
 
 ## Acceptance criteria
 
-1. `grep -rn "tailor fitting-room\|tailor tour\|tailor walkthrough" .`
-   **repo-wide** returns only historical mentions in named exclusion
-   zones — `docs/adr/`, `CHANGELOG.md`, ROADMAP "Shipped" sections,
-   `docs/reports/` — zero instructions to *run* removed verbs
-   anywhere recipient-facing (the original `examples/ docs/guides/`
-   scope is what missed the wheel-shipped `RECIPIENT_README.md`).
+1. Across **recipient-facing documentation** — `examples/**`, the
+   wheel-shipped `src/tailor/RECIPIENT_README.md`, and the bundled
+   `_fixtures/**` vault prose — `grep -rn "tailor fitting-room\|tailor
+   tour\|tailor walkthrough"` returns only historical mentions
+   (those that say *renamed / hard-removed / no longer / legacy*).
+   Zero instructions to *run* a removed verb. Named historical
+   exclusion zones where stale verbs are expected and left verbatim:
+   `docs/adr/`, `CHANGELOG.md`, `docs/reports/`, `docs/diagnosis/`,
+   and ROADMAP "Shipped" sections.
+
+   **Out of this brief's scope (flag as follow-on, do NOT fix here —
+   they touch `framework/` / `src/` / `scripts/` / tests, fenced off
+   by the ground rules):** the `tailor_setup_help` framework tool
+   still emits `recipient_steps` that say "Run: tailor fitting-room"
+   (`framework/setup_help/__init__.py`) — the most serious instance,
+   since it instructs the removed verb to exactly the stuck-recipient
+   audience, and it is regression-locked by `test_setup_help_layer.py`
+   so fixing it is a framework + test change; `src/tailor/fitting_room.py`
+   argparse/usage still advertises `tailor fitting-room` (preserved
+   library module, CLI dispatch already removed); `demo/runner.py`
+   + `docs/guides/share-the-demo.md` document the removed
+   `tailor walkthrough --save-shareable` export, which has no shipped
+   MCP equivalent (a rewrite-or-delete decision, not a verb swap —
+   needs boss input); `scripts/build_demo_install_pdf.py` and
+   `__main__.py` status strings. These are real doc-truth defects but
+   a separate, larger pass.
 2. `rehearse.py` (cohort realistic AND business demo) exit 0 before
    and after.
 3. cue-card-rehearsal-auditor returns all-PASS on the revised

@@ -29,6 +29,15 @@
 | 16-subject cohort | exceeds context window | ~800 tokens | **938×** (and it fits) |
 | 5-session thread pickup | ~$11.58 | ~$0.04 | **318×** |
 
+![Token-efficiency receipt: single subject 657.6× (48,006 to 73 tokens), 16-subject cohort 938.2× (769,311 to 820 tokens), 5-session thread 317.5× (771,747 to 2,431 tokens) — measured with tiktoken cl100k_base](docs/assets/benchmark-receipt.svg)
+
+This image is a *receipt*, not a screenshot: its numbers are the benchmark's own output, and a CI test re-runs the measurement and fails if the image drifts. Reproduce it yourself:
+
+```bash
+pip install tiktoken
+python benchmarks/token_efficiency.py | python benchmarks/render_receipt.py
+```
+
 *Measured, reproducible benchmark — [methodology →](benchmarks/token_efficiency.md)*
 
 The 938× reduction is the ratio between a Tier-1 computed report (~800 tokens) and the raw per-second stream for the same data (~750,000 tokens for a 15-mile run). Results are identical — the computation happens server-side.

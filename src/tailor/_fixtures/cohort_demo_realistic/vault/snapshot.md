@@ -11,8 +11,8 @@ tags:
 
 # Vault Snapshot — Realistic Demo Cohort
 
-You're looking at a bundled walkthrough of Tailor scaffolded by
-`tailor fitting-room`. Sixteen synthetic subjects (S001 – S016, 8 M
+You're looking at a bundled walkthrough of Tailor scaffolded by the
+`tailor_fitting_room_scaffold` tool. Sixteen synthetic subjects (S001 – S016, 8 M
 / 8 F, isometric force-to-failure protocol) live in `force/`, with
 matching EMG envelopes in `emg/` and 31P-MRS spectra stubs in `mrs/`.
 The data is synthetic by construction — sized to mimic the

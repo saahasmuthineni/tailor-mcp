@@ -70,31 +70,49 @@ the demo fitting room"); the only CLI touch in the recipient path is
   --cue-card=examples/cohort_demo/realistic/CUE_CARD.md` and close
   any WRONG-TOOL / WRONG-PARAMS verdicts before the PR.
 
-## Item 2 — Replace `docs/guides/demo.tape` (boss-refined scope)
+## Item 2 — Delete `docs/guides/demo.tape`; add a benchmark receipt SVG (boss-refined 2026-06-11, second pass)
 
 **Problem:** the tape records `tailor walkthrough` (removed v8.0.0).
-**Fact that shapes the fix:** its output `docs/assets/demo.gif` does
-not exist and nothing in the repo embeds it — the pipeline is broken
-*and* unconsumed.
+**Facts that shape the fix:** its output `docs/assets/demo.gif` does
+not exist and nothing embeds it — the pipeline is broken *and*
+unconsumed. And the format itself was inherited, not chosen: a
+recording proves the thing ran *once, on the author's machine, at
+render time* — it can go stale silently and a skeptical reader
+trusts it less than text. The repo's brand is deterministic
+receipts; the asset should be one.
 
-**Decided direction (2026-06-11):** rebuild the tape to record the
-**benchmark run** — `pip install tiktoken && python
-benchmarks/token_efficiency.py` — ending on the printed ratios
-(657.6× / 938.2× / 318.2×). It is the launch's load-bearing claim,
-deterministic, and terminal-native. Then embed the rendered GIF in
-README next to "The numbers" table.
+**Decided direction (boss-ratified):**
 
-- Keep the tape's existing cosmetic settings (theme, font, 960×540)
-  as the starting point; trim total runtime to ~30s (use VHS
-  `Sleep`/`Hide` to skip pip-install noise).
-- Rendering needs the `vhs` binary (charmbracelet/vhs single-binary
-  release). Try to install it in-session; **fallback if the
-  environment can't run it:** ship the corrected tape +
-  `docs/guides/` render instructions and note the GIF as a
-  human-render step. Either outcome removes the falsehood.
-- The Claude-Desktop chat beats remain a separate human
-  screen-recording task per `docs/launch-demo-storyboard.md` — out
-  of scope here.
+1. **Delete `docs/guides/demo.tape`.** The falsehood and the format
+   go together. Historical ADR mentions (0027, 0035) stay verbatim
+   per the doc-truth convention.
+2. **Add `benchmarks/render_receipt.py`** — a small, deterministic,
+   stdlib-only generator that takes the benchmark script's JSON
+   output and renders a terminal-styled SVG panel of the final
+   output (the three scenarios, token counts, ratios) to
+   `docs/assets/benchmark-receipt.svg`. Match the visual language of
+   the existing hand-built SVGs (`footprint.svg`,
+   `vault-insights.svg`) — dark panel, same accent palette. Static;
+   no animation in v1.
+3. **Add a pytest freshness guard** (e.g.
+   `tests/test_benchmark_receipt.py`): re-run the benchmark
+   measurement (or its number-producing functions; tiktoken absent →
+   the chars/4 cross-check path or a skip with the reason named),
+   parse the numbers out of the checked-in SVG, assert they match.
+   The image must not be able to drift from the script — if a
+   fixture change moves a ratio, CI fails until the receipt is
+   re-rendered. This is the load-bearing difference from any
+   recording format.
+4. **Embed in README** next to "The numbers" table, with the
+   three-command reproduce block adjacent: the image is the
+   invitation, the reproduction is the proof. Alt text carries the
+   three ratios for accessibility.
+
+Notes: the same SVG is reusable as the repo social-preview card and
+launch-post image — keep the aspect ratio sane for that (roughly
+2:1). The motion job (watching the product work) belongs to the
+human screen recording in `docs/launch-demo-storyboard.md`, not this
+asset; do not add a GIF.
 
 ## Item 3 — Benchmark doc refresh
 
@@ -132,9 +150,10 @@ three surfaces must agree.
    CUE_CARD.md.
 4. Benchmark md / README numbers / technical piece agree with a
    fresh script run; version row current.
-5. demo.tape records only commands that exist on the v9.1.0 surface;
-   GIF rendered and embedded, or render-instructions fallback
-   documented.
+5. `demo.tape` deleted; `docs/assets/benchmark-receipt.svg` exists,
+   is embedded in README, and the freshness test fails if the SVG's
+   numbers are edited away from the benchmark output (prove it once
+   by mutating a digit locally, watching the test fail, reverting).
 6. Full gates green (`ci-gate-runner` scope), commits signed off,
    `boss-report-auditor` pass on the final report before it goes to
    the boss.

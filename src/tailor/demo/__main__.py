@@ -12,6 +12,12 @@ the terminal path for developers, RSEs, and shareable-transcript
 readers reproducing the walkthrough without Claude in the loop. It is
 not a ``tailor`` CLI verb and does not amend the ADR 0040 / ADR 0043
 seven-command surface contract.
+
+Note on the invocation string: ADR 0024-era docs used ``python -m
+tailor.demo`` to name the *CLI subcommand dispatch* that v8.0.0
+removed; this file deliberately re-establishes the same invocation
+string at the module-``__main__`` layer, so ADR 0024's references do
+not govern (and did not anticipate) this entry point.
 """
 
 from __future__ import annotations

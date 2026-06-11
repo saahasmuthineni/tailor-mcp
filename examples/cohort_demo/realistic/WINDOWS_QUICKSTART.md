@@ -39,7 +39,7 @@ synthetic and runs on your laptop.
 
 `uv` is a small Python tool installer. It bundles its own Python
 interpreter, so you do **not** need Python on `PATH` — `uv` handles
-that for you. (This is what `tailor fitting-room` uses behind the
+that for you. (This is what `tailor pilot` uses behind the
 scenes.)
 
 1. Follow the Windows install instructions at
@@ -88,57 +88,52 @@ tailor --help
 ```
 
 You should see a help screen listing subcommands like `serve`,
-`pilot`, `fitting-room`, `walkthrough`. If you see "not
-recognized", close PowerShell and open a fresh one, then try
-again.
+`pilot`, `setup`, `status`. If you see "not recognized", close
+PowerShell and open a fresh one, then try again.
 
 ---
 
-## Step 3 — Run the scaffolder (~1 min)
+## Step 3 — Register Tailor with Claude Desktop (~1 min)
 
 Type:
 
 ```
-tailor fitting-room
+tailor pilot
 ```
 
-This one command does everything:
-
-- Copies 16 synthetic-participant data files into a working folder
-- Writes a configuration file
-- Indexes a small notes database
-- **Adds the demo to Claude Desktop's configuration automatically**
-  — no JSON editing, no copy-pasting paths
-
-You'll see four progress lines:
-
-```
-  (1/4) copy bundled fixtures
-        force/=17, emg/=17, mrs/=17, vault/=1
-  (2/4) write user_config.json
-  (3/4) index vault.db
-  (4/4) register with Claude Desktop
-        wrote entry 'tailor-fitting-room-cohort' to ...
-```
+This is the **only** command you type in the terminal. It connects
+Tailor to Claude Desktop — no JSON editing, no copy-pasting paths.
+Follow its prompts; when it finishes it tells you to restart Claude
+Desktop.
 
 If anything different prints (especially red error text), copy the
 output and send it to me before continuing.
 
 ---
 
-## Step 4 — Restart Claude Desktop and run the demo
+## Step 4 — Restart Claude Desktop, then set up the demo from chat
 
-Restart Claude Desktop so it picks up the new fitting-room entry:
+Restart Claude Desktop so it picks up Tailor:
 
 1. Find Claude Desktop's icon in the **system tray** (near the clock,
    bottom-right). It may be hidden under the small up-arrow `^` —
    click that to expand the tray if you don't see the icon at first.
 2. Right-click the icon → **Quit** — *not* just close the window.
    Closing the window leaves Claude Desktop running in the background,
-   so reopening it won't pick up the new fitting-room entry. The
-   right-click → Quit step is the one most likely to trip people up;
-   do this even if it feels redundant.
+   so reopening it won't pick up Tailor. The right-click → Quit step
+   is the one most likely to trip people up; do this even if it feels
+   redundant.
 3. Re-open Claude Desktop from the Start menu.
+
+Now set up the practice data from chat. In a fresh chat, send:
+
+> Set up the bundled demo cohort fitting room.
+
+Claude copies the 16 synthetic-participant data files into a working
+folder, writes a configuration file, and indexes a small notes
+database. When it says the setup needs a restart, **quit and re-open
+Claude Desktop once more** (same system-tray Quit as above) so the
+demo's tools load. Then continue with the prompts below.
 
 In a fresh chat, send these prompts one at a time, waiting for each
 response before sending the next.
@@ -194,9 +189,9 @@ That's the demo.
 | `uv tool install` fails with a permissions error | Close PowerShell, then re-open it as Administrator (right-click PowerShell in the Start menu → **Run as Administrator**) and try again. |
 | `uv tool install` says "no such file" | Check the path matches where the `.whl` file actually lives. Try `dir $env:USERPROFILE\Downloads\tailor*` to find it. |
 | `tailor --help` is "not recognized" | Open a new PowerShell window so it picks up the new install. If still failing, use `python -m tailor --help`. |
-| Claude Desktop doesn't list any Tailor tools | Fully quit Claude Desktop via the system tray (right-click → Quit), then re-open. If still missing, run `tailor fitting-room --force` to re-write the Claude Desktop config and restart again. |
-| Claude says "the tool errored" on Prompt 2 | Run `tailor fitting-room --force` to re-scaffold the demo data. |
-| Vault search (Prompt 5) returns nothing | Same fix — `tailor fitting-room --force`. |
+| Claude Desktop doesn't list any Tailor tools | Fully quit Claude Desktop via the system tray (right-click → Quit), then re-open. If still missing, confirm `tailor pilot` finished without errors, then re-run it and restart again. |
+| Claude says "the tool errored" on Prompt 2 | Ask Claude: *"Re-scaffold the demo fitting room with force."* It re-copies the demo data. Then restart Claude Desktop. |
+| Vault search (Prompt 5) returns nothing | Ask Claude: *"Re-index the demo vault."* If that doesn't fix it, ask it to re-scaffold with force and restart. |
 | Anything else | Take a screenshot of the PowerShell window or Claude chat and send it to me. |
 
 ---

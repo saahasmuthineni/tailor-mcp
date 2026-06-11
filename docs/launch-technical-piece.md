@@ -113,12 +113,12 @@ log (a transcript, unstructured, client-side, and itself too large to
 re-feed).
 
 Measured on the benchmark's five-session analytical thread: resuming
-by naive reconstruction costs **771,741 tokens per resume** —
+by naive reconstruction costs **771,747 tokens per resume** —
 **~3.86M tokens across five sessions, ~$11.58** of input spend at
 Sonnet pricing, just to keep re-establishing what was already known.
 Resuming from structured, durable notes — themes, observations,
 evidence with provenance, written to disk as the work happens and
-retrieved selectively — costs **2,425 tokens** (**318×** less,
+retrieved selectively — costs **2,431 tokens** (**318×** less,
 **~$0.04** across the five sessions).
 
 The deeper claim isn't the dollar figure. It's that *analytical memory

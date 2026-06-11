@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="360" viewBox="0 0 720 360">
+  <!-- benchmark-receipt-data: {"cards":[{"baseline_tokens":48006,"label":"SINGLE SUBJECT","question":"Summarize subject S004's fatigue trajectory: peak force, decline percentage, time-to-50%-drop, and decline rate over the 60-second isometric trial.","ratio":657.6,"tailor_tokens":73},{"baseline_tokens":769311,"label":"16-SUBJECT COHORT","question":"Compare peak force and time-to-50%-drop between male and female participants across all 16 cohort subjects; include per-subject decline percentages.","ratio":938.2,"tailor_tokens":820},{"baseline_tokens":771747,"label":"5-SESSION THREAD","question":"Resume an analytical thread on the demo cohort with particular focus on subject S004's atypical EMG/force decoupling \u2014 what's been observed, what should I look at next?","ratio":317.5,"tailor_tokens":2431}],"tokenizer":"tiktoken cl100k_base"} -->
+  <rect fill="#0f1117" x="0" y="0" width="720" height="360" rx="8" ry="8"/>
+  <text fill="#e2e8f0" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="15" x="360" y="34" text-anchor="middle" font-weight="600">Token efficiency — measured, not claimed</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="11" x="360" y="54" text-anchor="middle">Raw data to Claude vs. the same answer through Tailor's Tier-1 computed reports.</text>
+  <rect fill="#1a1f2e" stroke="#2d3748" stroke-width="1" x="8" y="80" width="224" height="198" rx="10" ry="10"/>
+  <rect fill="#f97316" x="8" y="80" width="224" height="3" rx="2" ry="2"/>
+  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" x="120" y="106" text-anchor="middle" font-weight="700" letter-spacing="1">SINGLE SUBJECT</text>
+  <line stroke="#2d3748" stroke-width="1" x1="24" y1="113" x2="216" y2="113"/>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="24" y="138" text-anchor="start">Raw to Claude</text>
+  <text fill="#e2e8f0" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="216" y="138" text-anchor="end">48,006 tok</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="24" y="158" text-anchor="start">Through Tailor</text>
+  <text fill="#22c55e" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="216" y="158" text-anchor="end">73 tok</text>
+  <rect fill="#0d1117" x="24" y="172" width="192" height="60" rx="6" ry="6"/>
+  <text fill="#f97316" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="32" x="120" y="212" text-anchor="middle" font-weight="700">657.6×</text>
+  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" x="120" y="252" text-anchor="middle">fewer tokens, identical answer</text>
+  <rect fill="#1a1f2e" stroke="#2d3748" stroke-width="1" x="248" y="80" width="224" height="198" rx="10" ry="10"/>
+  <rect fill="#60a5fa" x="248" y="80" width="224" height="3" rx="2" ry="2"/>
+  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" x="360" y="106" text-anchor="middle" font-weight="700" letter-spacing="1">16-SUBJECT COHORT</text>
+  <line stroke="#2d3748" stroke-width="1" x1="264" y1="113" x2="456" y2="113"/>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="264" y="138" text-anchor="start">Raw to Claude</text>
+  <text fill="#e2e8f0" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="456" y="138" text-anchor="end">769,311 tok</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="264" y="158" text-anchor="start">Through Tailor</text>
+  <text fill="#22c55e" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="456" y="158" text-anchor="end">820 tok</text>
+  <rect fill="#0d1117" x="264" y="172" width="192" height="60" rx="6" ry="6"/>
+  <text fill="#60a5fa" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="32" x="360" y="212" text-anchor="middle" font-weight="700">938.2×</text>
+  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" x="360" y="252" text-anchor="middle">fewer tokens, identical answer</text>
+  <rect fill="#1a1f2e" stroke="#2d3748" stroke-width="1" x="488" y="80" width="224" height="198" rx="10" ry="10"/>
+  <rect fill="#22c55e" x="488" y="80" width="224" height="3" rx="2" ry="2"/>
+  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" x="600" y="106" text-anchor="middle" font-weight="700" letter-spacing="1">5-SESSION THREAD</text>
+  <line stroke="#2d3748" stroke-width="1" x1="504" y1="113" x2="696" y2="113"/>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="504" y="138" text-anchor="start">Raw to Claude</text>
+  <text fill="#e2e8f0" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="696" y="138" text-anchor="end">771,747 tok</text>
+  <text fill="#94a3b8" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="10" x="504" y="158" text-anchor="start">Through Tailor</text>
+  <text fill="#22c55e" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="696" y="158" text-anchor="end">2,431 tok</text>
+  <rect fill="#0d1117" x="504" y="172" width="192" height="60" rx="6" ry="6"/>
+  <text fill="#22c55e" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="32" x="600" y="212" text-anchor="middle" font-weight="700">317.5×</text>
+  <text fill="#64748b" font-family="-apple-system,Segoe UI,system-ui,sans-serif" font-size="9" x="600" y="252" text-anchor="middle">fewer tokens, identical answer</text>
+  <rect fill="#0d1117" x="8" y="290" width="704" height="30" rx="6" ry="6"/>
+  <text fill="#22c55e" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="20" y="310" text-anchor="start">$</text>
+  <text fill="#e2e8f0" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="10" x="34" y="310" text-anchor="start">pip install tiktoken &amp;&amp; python benchmarks/token_efficiency.py | python benchmarks/render_receipt.py</text>
+  <text fill="#64748b" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="9" x="708" y="310" text-anchor="end">tiktoken cl100k_base</text>
+</svg>

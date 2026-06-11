@@ -86,7 +86,11 @@ def test_layer_exposes_single_tool(tmp_path):
     desc = tools[0].description
     assert "force_cohort_summary" in desc
     assert "emg_cohort_summary" in desc
-    assert "tailor fitting-room" in desc
+    # The canonical scaffolding surface is the MCP tool — the
+    # `tailor fitting-room` CLI verb was hard-removed in v8.0.0
+    # per ADR 0040, so the description must not instruct it.
+    assert "tailor_fitting_room_scaffold" in desc
+    assert "tailor fitting-room" not in desc
 
 
 def test_layer_param_schema_is_empty(tmp_path):
@@ -104,9 +108,16 @@ async def test_execute_returns_recipient_steps(tmp_path):
     assert "diagnosis" in result
     assert "recipient_steps" in result
     assert isinstance(result["recipient_steps"], list)
-    # The first command surfaced must be `tailor fitting-room`
-    # (renamed from `tailor tour` in v7.1.0 per ADR 0035).
-    assert any("tailor fitting-room" in s for s in result["recipient_steps"])
+    # The recovery surfaced must be the tailor_fitting_room_scaffold
+    # MCP tool — the `tailor fitting-room` CLI verb was hard-removed
+    # in v8.0.0 per ADR 0040, so the steps must not instruct it.
+    assert any(
+        "tailor_fitting_room_scaffold" in s
+        for s in result["recipient_steps"]
+    )
+    assert not any(
+        "tailor fitting-room" in s for s in result["recipient_steps"]
+    )
     assert "diagnostics" in result
     # Diagnostic paths are home-redacted (phi-irb Lens 1 closure):
     # tmp_path lives under Path.home() on Windows, so the rendered

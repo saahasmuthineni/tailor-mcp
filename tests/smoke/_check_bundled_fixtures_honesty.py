@@ -68,8 +68,11 @@ if layer_file.exists():
         "No biosensor run data is registered in this deployment" in layer_content
     )
     all_pass &= check(
-        "layer.py suggests fitting-room on empty vault",
-        "tailor fitting-room" in layer_content
+        "layer.py suggests the fitting-room scaffold tool on empty vault",
+        # The MCP tool, not the `tailor fitting-room` CLI verb
+        # (hard-removed v8.0.0 per ADR 0040).
+        "tailor_fitting_room_scaffold" in layer_content
+        and "tailor fitting-room" not in layer_content
     )
 
 # Check renderer.py conditional weekly summary

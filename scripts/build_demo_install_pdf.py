@@ -205,35 +205,19 @@ story.append(
     p(
         "You should see a help screen listing subcommands including "
         "<font face='Courier'>serve</font>, <font face='Courier'>pilot</font>, "
-        "<font face='Courier'>fitting-room</font>, <font face='Courier'>walkthrough</font>. "
+        "<font face='Courier'>setup</font>, <font face='Courier'>status</font>. "
         "If &quot;not recognized&quot;, open a fresh PowerShell window and try again."
     )
 )
 
-story.append(Paragraph("Step 3 — Scaffold the demo (~1 min)", h2))
+story.append(Paragraph("Step 3 — Connect Tailor to Claude Desktop (~1 min)", h2))
 story.append(p("Type:"))
-story.append(code_block("tailor fitting-room"))
-story.append(p("This single command does everything:"))
+story.append(code_block("tailor pilot"))
 story.append(
-    bullets(
-        [
-            "Copies 16 synthetic-participant data files into a working folder",
-            "Writes a configuration file",
-            "Indexes a small notes database",
-            "<b>Adds the demo to Claude Desktop's configuration automatically</b> — "
-            "no JSON editing, no copy-pasting paths",
-        ]
-    )
-)
-story.append(p("You'll see four progress lines:"))
-story.append(
-    code_block(
-        "  (1/4) copy bundled fixtures<br/>"
-        "        force/=17, emg/=17, mrs/=17, vault/=1<br/>"
-        "  (2/4) write user_config.json<br/>"
-        "  (3/4) index vault.db<br/>"
-        "  (4/4) register with Claude Desktop<br/>"
-        "        wrote entry 'tailor-fitting-room-cohort' to ..."
+    p(
+        "This is the <b>only</b> command you type in the terminal. It registers "
+        "Tailor with Claude Desktop — no JSON editing, no copy-pasting paths. "
+        "Follow its prompts; when it finishes it tells you to restart Claude Desktop."
     )
 )
 story.append(
@@ -245,7 +229,7 @@ story.append(
 
 story.append(PageBreak())
 
-story.append(Paragraph("Step 4 — Restart Claude Desktop and run the demo", h2))
+story.append(Paragraph("Step 4 — Restart Claude Desktop, then set up the demo from chat", h2))
 story.append(
     Paragraph(
         "<b>Critical step most people miss.</b> Find Claude Desktop's icon in the "
@@ -253,14 +237,24 @@ story.append(
         "small up-arrow <font face='Courier'>^</font> — click that to expand the tray. "
         "<b>Right-click the icon → Quit</b>, not just close the window. Closing the "
         "window leaves Claude Desktop running in the background, so reopening it won't "
-        "pick up the new demo entry. Then re-open Claude Desktop from the Start menu.",
+        "pick up Tailor. Then re-open Claude Desktop from the Start menu.",
         callout,
+    )
+)
+story.append(p("Now set up the practice data from chat. In a fresh chat, send:"))
+story.append(code_block("Set up the bundled demo cohort fitting room."))
+story.append(
+    p(
+        "Claude copies the 16 synthetic-participant data files into a working folder, "
+        "writes a configuration file, and indexes a small notes database. When it says "
+        "the setup needs a restart, <b>quit and re-open Claude Desktop once more</b> "
+        "(same system-tray Quit as above) so the demo's tools load."
     )
 )
 story.append(
     p(
-        "In a fresh chat, send these prompts <b>one at a time</b>, waiting for each "
-        "response before sending the next."
+        "Then, in a fresh chat, send these prompts <b>one at a time</b>, waiting for "
+        "each response before sending the next."
     )
 )
 
@@ -332,16 +326,18 @@ trouble = [
     [
         "Claude Desktop doesn't list any Tailor tools",
         "Fully quit Claude Desktop via the system tray (right-click → Quit), then re-open. "
-        "If still missing, run 'tailor fitting-room --force' to re-write the Claude Desktop "
-        "config and restart again.",
+        "If still missing, confirm 'tailor pilot' finished without errors, then re-run it "
+        "and restart again.",
     ],
     [
         "Claude says 'the tool errored' on Prompt 2",
-        "Run 'tailor fitting-room --force' to re-scaffold the demo data.",
+        "Ask Claude: 'Re-scaffold the demo fitting room with force.' It re-copies the "
+        "demo data. Then restart Claude Desktop.",
     ],
     [
         "Vault search (Prompt 5) returns nothing",
-        "Same fix — 'tailor fitting-room --force'.",
+        "Ask Claude: 'Re-index the demo vault.' If that doesn't fix it, ask it to "
+        "re-scaffold with force and restart.",
     ],
     [
         "Anything else",
@@ -381,8 +377,10 @@ story.append(
         [
             "Delete the folder at <font face='Courier'>%USERPROFILE%\\.tailor\\demos\\cohort\\</font> "
             "(paste that path into File Explorer's address bar to find it).",
-            "Open <font face='Courier'>%APPDATA%\\Claude\\claude_desktop_config.json</font> in "
-            "Notepad and delete the <font face='Courier'>&quot;tailor-fitting-room-cohort&quot;: { ... }</font> "
+            "Run <font face='Courier'>tailor uninstall</font> to remove Tailor's Claude "
+            "Desktop registration (the &quot;tailor&quot; entry) and its state — or open "
+            "<font face='Courier'>%APPDATA%\\Claude\\claude_desktop_config.json</font> in "
+            "Notepad and delete the <font face='Courier'>&quot;tailor&quot;: { ... }</font> "
             "block (and the comma before it, if any).",
             "Optionally: <font face='Courier'>uv tool uninstall tailor-mcp</font>.",
         ]

@@ -1,6 +1,6 @@
 # ADR 0043: The inspector is an inspector, not an application
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-06-10
 - **Amends (in part):**
   - [ADR 0040 (Bounded setup-time conductor surface)](0040-bounded-setup-time-conductor-surface.md) — the v8.0.0 six-command CLI surface (`serve / pilot / setup / redcap / status / uninstall`) grows to seven with `tailor inspect`. This is a deliberate, documented amendment of that surface contract; the operator-managed-retention clause shape ADR 0040 § Amendment introduced is reused for `--export` output.

@@ -598,7 +598,7 @@ def cmd_status():
         # as recovery instructions, not state report".
         print()
         if not registered_paths:
-            print("  Status: NOT registered — run `tailor fitting-room` or `pilot`.")
+            print("  Status: NOT registered — run `tailor pilot`.")
         elif len(registered_paths) == len(paths):
             if len(paths) == 1:
                 print("  Status: Registered for Claude Desktop.")
@@ -618,7 +618,7 @@ def cmd_status():
                 "the unregistered variant,"
             )
             print(
-                "          run `tailor fitting-room --force` to register "
+                "          run `tailor pilot` to register "
                 "in the missing one."
             )
             for p in unregistered:

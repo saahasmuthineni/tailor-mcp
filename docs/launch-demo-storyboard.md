@@ -4,13 +4,17 @@
 showing the loop that makes the project legible in under two minutes:
 ask → server computes → answer + receipt. Draft 2026-06-10.*
 
-> **Blocker found while drafting:** the existing
-> [`docs/guides/demo.tape`](guides/demo.tape) records
-> `tailor walkthrough`, a CLI verb hard-removed in v8.0.0
-> (ADR 0040) — running VHS against it today produces a recording of
-> an error. The tape (and the README GIF it generates) needs a
-> rebuild before launch. This storyboard is the spec for that
-> rebuild.
+> **Resolved (2026-06-11):** the old `docs/guides/demo.tape` recorded
+> `tailor walkthrough`, a CLI verb hard-removed in v8.0.0 (ADR 0040),
+> so running VHS against it produced a recording of an error. Rather
+> than rebuild a terminal recording, the tape was **deleted** and the
+> terminal-proof job moved to a deterministic, CI-verified receipt:
+> [`docs/assets/benchmark-receipt.svg`](assets/benchmark-receipt.svg),
+> rendered from the benchmark output and guarded by
+> `tests/test_benchmark_receipt.py` so it cannot drift. This
+> storyboard now covers only the **chat-beats human screen recording**
+> (the motion job — watching the product work); the static terminal
+> proof is the receipt SVG, not a GIF.
 
 ## Why screen recording, not terminal-only
 
@@ -40,19 +44,19 @@ flags the mid-quarter collapse (min ≈ $1.1K vs mean ≈ $13.4K).
 **Caption: "Found from a ~400-token summary — Claude never read the
 90 raw rows."**
 
-**Beat 4 — the receipt, 20 s.** If `tailor inspect` has shipped
-(see `docs/design/read-only-inspector-spec.md`), cut to the
-inspector page in a browser — gate-activity badges + the recent-calls
-table scrolling. Fallback if recording before it ships, cut to
-terminal:
-
-```bash
-sqlite3 ~/.tailor/data/audit.db \
-  "SELECT tool_name, outcome, called_at FROM audit_log ORDER BY id DESC LIMIT 5;"
-```
+**Beat 4 — the receipt, 20 s.** Run `tailor inspect` (shipped in
+v9.1.0, ADR 0043) and cut to the inspector page in a browser —
+gate-activity badges with plain-language refusal explanations + the
+recent-calls table scrolling. This is the primary beat: a rendered,
+non-model-mediated view of the audit log. (Pre-render rehearsal
+fallback, if you're rehearsing the beat before opening the page:
+`sqlite3 ~/.tailor/data/audit.db "SELECT tool_name, outcome,
+called_at FROM audit_log ORDER BY id DESC LIMIT 5;"` shows the same
+rows the page renders.)
 
 **Caption: "Every call the AI made — tool, params, outcome — in a
-local audit log. Not a chat transcript. A receipt."**
+local audit log Tailor renders for you. Not a chat transcript. A
+receipt."**
 
 **Beat 5 — close, 10 s.** Card:
 *"Local-first. Audited. Any MCP client."* →

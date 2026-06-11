@@ -4,7 +4,12 @@
 Claude Code session on this repo. Branch from current `main` (v9.1.0,
 post-PR #149). Read CLAUDE.md first — all boss-architect protocols
 and the specialist-gate culture apply. Every claim below was verified
-against the tree at the commit this brief lands in.*
+against the tree at the commit this brief lands in. Amended
+2026-06-11 after an independent verification review pass: all
+original claims re-confirmed against the tree; item 1 gains the
+wheel-shipped `RECIPIENT_README.md` (a missed occurrence of the same
+failure class), the bundled-fixture snapshot mention gets an explicit
+decision, and acceptance criterion 1's grep is widened repo-wide.*
 
 ---
 
@@ -22,9 +27,13 @@ against the tree at the commit this brief lands in.*
   twice in one week once). `boss-report-auditor` before the final
   report. `ci-gate-runner` before the PR.
 - **Specialists that do NOT fire:** `mcp-protocol-auditor` (no wire
-  changes), `recipient-install-validator` (do not touch
-  `_fixtures/**`, `pilot.py`, `__main__.py`, `wizard.py`, or
-  pyproject package-data — none of this work needs them).
+  changes). Do not touch `pilot.py`, `__main__.py`, `wizard.py`, or
+  the pyproject package-data *globs* — none of this work needs them.
+- **`recipient-install-validator` file gate WILL fire** (item 1 now
+  includes a one-line doc fix inside `_fixtures/**` — see the
+  snapshot.md decision below). Flag it and skip per the v9.0.2
+  precedent: a doc-text-only fixture change is not an install-path
+  change. Name the flag-and-skip in the final report.
 
 ## Item 1 — De-stale `examples/cohort_demo/realistic/` (the main job)
 
@@ -41,6 +50,36 @@ command." Verified occurrences:
   `fitting-room`)
 - `WINDOWS_QUICKSTART.md:42,102,197-199`
 - `generate.py:337` and `setup.py:11` (comments only)
+- **`src/tailor/RECIPIENT_README.md`** (added on review) — the worst
+  instance of the class, missed by the original scope. This file
+  ships **inside the wheel** via the `*.md` package-data glob,
+  written specifically for an external Claude inspecting the wheel
+  on a confused recipient's machine, and its TL;DR instructs
+  `tailor fitting-room` as "the canonical recipient-onboarding
+  command" (lines 13, 34, 43; the v7.1.x rename-history note at
+  50–61 and line 85 also need a current-state rewrite). Rewrite it
+  around the v8.0.0 recipient path: `tailor pilot` is the only CLI
+  touch; fitting-room runs as the three MCP tools driven from chat.
+  The historical rename note can stay as history but must end at the
+  current truth (v8.0.0 hard-removed the verb). Editing this file
+  does NOT trip the `recipient-install-validator` file gate — the
+  gate names `pilot.py` / `__main__.py` / `wizard.py` /
+  `fitting_room.py` / package-data globs / `_fixtures/**`, not this
+  file.
+- **`pyproject.toml` package-data comment** (added on review) — the
+  comment above the `"*.md"` glob says the readme exists so an
+  external Claude can "discover `tailor tour`". Comment-only fix;
+  do not change the globs themselves.
+- **`src/tailor/_fixtures/cohort_demo_realistic/vault/snapshot.md:15`**
+  (added on review) — the bundled seed-vault snapshot says the demo
+  vault was "scaffolded by `tailor fitting-room`". Descriptive, not
+  instructional, but it lands verbatim in the recipient's vault and
+  is now false (scaffolding happens via `tailor_fitting_room_scaffold`).
+  **Decision: fix it** — one-line wording change — and accept that
+  this touches `_fixtures/**`, firing the `recipient-install-validator`
+  file gate; flag and skip per the v9.0.2 precedent (see ground
+  rules). Leaving a known-false line in recipient-facing content to
+  avoid a flag-and-skip would invert the doc-truth priority.
 
 **The correct current flow to rewrite around** (read these before
 editing): `src/tailor/framework/fitting_room/` exposes three MCP
@@ -58,7 +97,16 @@ the demo fitting room"); the only CLI touch in the recipient path is
   chat-driven recoveries (ask Claude to call
   `tailor_fitting_room_scaffold` with force) — verify the force
   parameter's actual name/shape in the layer source before writing
-  it into a cue card.
+  it into a cue card. (Pre-verified on review: the scaffold tool
+  takes `force: bool`, optional, default false —
+  `framework/fitting_room/layer.py`.)
+- The bare-`serve` recovery row points at `tailor_setup_help`. That
+  tool still exists (`framework/setup_help/__init__.py`), so the row
+  isn't wrong — but v8.0.0's `SetupLayer` tools
+  (`tailor_setup_status` etc.) may now be the better-shaped recovery
+  path. Reconsider which tool the rewritten row points at; the
+  cue-card auditor validates what's written, not whether it's the
+  best choice.
 - `rehearse.py` imports the library module directly and should be
   unaffected — but **run it** (`python
   examples/cohort_demo/realistic/rehearse.py`) before and after to
@@ -147,10 +195,32 @@ three surfaces must agree.
 
 ## Acceptance criteria
 
-1. `grep -rn "tailor fitting-room\|tailor tour\|tailor walkthrough"
-   examples/ docs/guides/` returns only historical-ADR-quoted or
-   changelog-style mentions — zero instructions to *run* removed
-   verbs anywhere recipient-facing.
+1. Across **recipient-facing documentation** — `examples/**`, the
+   wheel-shipped `src/tailor/RECIPIENT_README.md`, and the bundled
+   `_fixtures/**` vault prose — `grep -rn "tailor fitting-room\|tailor
+   tour\|tailor walkthrough"` returns only historical mentions
+   (those that say *renamed / hard-removed / no longer / legacy*).
+   Zero instructions to *run* a removed verb. Named historical
+   exclusion zones where stale verbs are expected and left verbatim:
+   `docs/adr/`, `CHANGELOG.md`, `docs/reports/`, `docs/diagnosis/`,
+   and ROADMAP "Shipped" sections.
+
+   **Out of this brief's scope (flag as follow-on, do NOT fix here —
+   they touch `framework/` / `src/` / `scripts/` / tests, fenced off
+   by the ground rules):** the `tailor_setup_help` framework tool
+   still emits `recipient_steps` that say "Run: tailor fitting-room"
+   (`framework/setup_help/__init__.py`) — the most serious instance,
+   since it instructs the removed verb to exactly the stuck-recipient
+   audience, and it is regression-locked by `test_setup_help_layer.py`
+   so fixing it is a framework + test change; `src/tailor/fitting_room.py`
+   argparse/usage still advertises `tailor fitting-room` (preserved
+   library module, CLI dispatch already removed); `demo/runner.py`
+   + `docs/guides/share-the-demo.md` document the removed
+   `tailor walkthrough --save-shareable` export, which has no shipped
+   MCP equivalent (a rewrite-or-delete decision, not a verb swap —
+   needs boss input); `scripts/build_demo_install_pdf.py` and
+   `__main__.py` status strings. These are real doc-truth defects but
+   a separate, larger pass.
 2. `rehearse.py` (cohort realistic AND business demo) exit 0 before
    and after.
 3. cue-card-rehearsal-auditor returns all-PASS on the revised

@@ -39,6 +39,12 @@ dev = [
     "pytest-timeout>=2.3.0",
     "ruff>=0.15.10",
     "mypy>=1.10",
+    # tiktoken backs the token-efficiency benchmark + its receipt
+    # freshness guard (tests/test_benchmark_receipt.py). It is in [dev]
+    # so the guard runs in the CI matrix; a skip-when-absent guard would
+    # silently never execute, voiding the no-drift property of the
+    # checked-in docs/assets/benchmark-receipt.svg.
+    "tiktoken>=0.13.0",
 ]
 # `tailor-mcp[matlab]` enables MATLABFileChild (`.mat` v≤7.2 via scipy).
 # v7.3 HDF5-based `.mat` is held; see ADR 0036.
@@ -64,8 +70,9 @@ tailor = [
     "_fixtures/**/*.md",
     # Top-level recipient docs shipped at the root of the package so an
     # external Claude session inspecting the wheel zip listing can
-    # discover `tailor tour` without parsing source code (closes
-    # the v6.10.2 web-Claude-mediated-debugging discoverability gap).
+    # discover the `tailor pilot` + chat-driven scaffold flow without
+    # parsing source code (closes the v6.10.2 web-Claude-mediated-
+    # debugging discoverability gap).
     "*.md",
     # Demo persona schema shipped with the package so
     # `tailor demo --audience=public --save-shareable` can render

@@ -1,28 +1,29 @@
 """
-Fitting-room subcommand
-=======================
+Fitting-room library module
+===========================
 Scaffold a guided walkthrough you can drive from Claude Desktop.
 
 In tailoring, a fitting room is where the customer puts on the
 work-in-progress and tests the fit before any final commitment.
-The CLI verb maps onto that: copies bundled synthetic-by-
+The scaffold maps onto that: copies bundled synthetic-by-
 construction fixtures into a target directory, writes
 ``user_config.json`` with absolute paths, indexes the vault, and
 registers with Claude Desktop so a non-technical recipient can
 drive the walkthrough from a fresh chat without ever typing an
 environment variable.
 
-Distinct from ``tailor walkthrough`` (the terminal-only
-architectural showcase you watch, per ADR 0027); fitting-room is
-the active surface where the recipient drives. See ADRs 0024 and
-0035 for the structural decision and the renaming rationale.
+Distinct from the walkthrough (the architectural showcase you
+watch — ``python -m tailor.demo`` / the ``tailor_walkthrough_section``
+MCP tool, per ADRs 0027 and 0040); fitting-room is the active
+surface where the recipient drives. See ADRs 0024 and 0035 for the
+structural decision and the renaming rationale.
 
-Renamed from ``tour`` in v7.1.0 per ADR 0035. The CLI alias
-``tailor tour`` still works for one cycle and prints a deprecation
-hint; the module ``tailor.tour`` is a re-export shim through
-v7.1.0 to preserve ``from tailor.tour import main as tour_main``
-in ``examples/cohort_demo/realistic/setup.py`` and
-``rehearse.py``. Both deprecation surfaces are removed in v7.2.0.
+History: renamed from ``tour`` in v7.1.0 per ADR 0035 (the
+``tailor tour`` alias and the ``tailor.tour`` re-export shim were
+removed in v7.2.0); the ``tailor fitting-room`` CLI verb itself was
+hard-removed in v8.0.0 per ADR 0040, leaving this module as the
+library + ``python -m tailor.fitting_room`` developer path behind
+the ``tailor_fitting_room_*`` MCP tools.
 
 Currently-supported variants:
 
@@ -33,11 +34,14 @@ Currently-supported variants:
 Future variants (sleep, CGM, etc.) plug into the ``_VARIANT_FIXTURES``
 table.
 
-Usage:
-    tailor fitting-room
-    tailor fitting-room --variant=cohort
-    tailor fitting-room --target=/some/other/path
-    tailor fitting-room --no-claude-desktop --force
+Usage (developer/RSE library entry point — the ``tailor
+fitting-room`` CLI verb was hard-removed in v8.0.0 per ADR 0040; the
+recipient path is the ``tailor_fitting_room_scaffold`` MCP tool):
+
+    python -m tailor.fitting_room
+    python -m tailor.fitting_room --variant=cohort
+    python -m tailor.fitting_room --target=/some/other/path
+    python -m tailor.fitting_room --no-claude-desktop --force
 """
 
 from __future__ import annotations
@@ -435,7 +439,8 @@ def _print_next_steps(
             print(f"      {type(r.error).__name__}: {r.error}")
         print()
         print("  Quit Claude Desktop fully (system tray Quit on Windows,")
-        print("  Cmd+Q on macOS) and re-run `tailor fitting-room --force`.")
+        print("  Cmd+Q on macOS) and re-run with --force")
+        print("  (`python -m tailor.fitting_room --force`).")
         print()
 
 
@@ -471,7 +476,7 @@ def _print_fitting_room_paths_block(
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="tailor fitting-room",
+        prog="python -m tailor.fitting_room",
         description=(
             "Scaffold a guided walkthrough of the framework you can drive "
             "from Claude Desktop. Copies bundled synthetic fixtures into "

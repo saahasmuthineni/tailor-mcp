@@ -29,10 +29,16 @@ no source clone, no env-var-by-hand.  See
 # bridge numbers; cleans up on exit.
 python examples/cohort_demo/realistic/rehearse.py
 
-# Live demo path: scaffold + register with Claude Desktop in one shot.
-# (Renamed from `tailor tour` in v7.1.0 per ADR 0035; the legacy
-# verb still works through v7.1.0 with a stderr deprecation hint.)
-tailor fitting-room
+# Live demo path (v8.0.0+): register Tailor with Claude Desktop once
+# from the terminal, then drive the demo setup from chat.
+tailor pilot                      # one-time Claude Desktop registration
+# …restart Claude Desktop, then in a chat say:
+#   "Set up the bundled demo cohort fitting room."
+# Claude calls the tailor_fitting_room_scaffold MCP tool, which copies
+# the fixtures, writes the sandboxed demo user_config.json, and indexes
+# the seed vault — then restart Claude Desktop once more to surface the
+# demo's tools. (The `tailor fitting-room` CLI verb was hard-removed in
+# v8.0.0 per ADR 0040 — scaffolding is an MCP tool now, not a command.)
 ```
 
 Then walk the recipient through the
@@ -48,8 +54,8 @@ python examples/cohort_demo/realistic/generate.py
 
 `generate.py` writes directly into the package's
 `_fixtures/cohort_demo_realistic/` tree, so the next
-`tailor fitting-room` (or `pip install`-built wheel) picks up the
-regenerated fixtures with no further plumbing.
+`tailor_fitting_room_scaffold` call (or `pip install`-built wheel)
+picks up the regenerated fixtures with no further plumbing.
 
 ---
 
@@ -77,34 +83,42 @@ exit, so your `~/.tailor/` directory stays untouched. Re-run any
 time `generate.py`, the seed moment, or the fitting-room module
 changes.
 
-### 2. Scaffold the live fitting-room and register with Claude Desktop
+### 2. Register Tailor with Claude Desktop (one-time terminal touch)
 
 ```bash
-tailor fitting-room
+tailor pilot
 ```
 
-This one command:
-
-- Copies bundled fixtures into `~/.tailor/demos/cohort/`
-- Writes `user_config.json` with absolute paths
-- Indexes the seed vault moment into `data/vault.db`
-- **Writes a Claude Desktop entry that bakes
-  `TAILOR_CONFIG_DIR` and `TAILOR_DATA_DIR` into the
-  `env` block** — the recipient never types an env var by hand
-
-Output ends with a "Fitting-room scaffolded successfully" banner
-naming the target dir, the Claude Desktop config path, and the
-entry name (`tailor-fitting-room-cohort`).
-
-Pass `--force` to refresh after a regen of the bundled fixtures.
-Pass `--no-claude-desktop` for headless / CI use.
+In the v8.0.0 architecture this is the **only** CLI command the
+recipient runs. It registers the Tailor MCP server with Claude
+Desktop (baking `TAILOR_CONFIG_DIR` / `TAILOR_DATA_DIR` into the
+`env` block so the recipient never types an env var by hand).
+Scaffolding the demo fixtures is no longer a CLI step — it happens
+from chat in step 4.
 
 ### 3. Restart Claude Desktop
 
 Fully quit (system-tray → Quit on Windows; ⌘Q on macOS), then
-re-open. The new MCP server appears under the entry name above.
+re-open. The Tailor MCP server appears and its setup + fitting-room
+tools become callable from chat.
 
-### 4. Verify it loaded
+### 4. Scaffold the demo from chat, then restart once more
+
+In a fresh Claude Desktop chat, say:
+
+> *"Set up the bundled demo cohort fitting room."*
+
+Claude calls the `tailor_fitting_room_scaffold` MCP tool, which:
+
+- Copies bundled fixtures into `~/.tailor/demos/cohort/`
+- Writes a sandboxed demo `user_config.json` with absolute paths
+- Indexes the seed vault moment into `data/vault.db`
+
+The tool returns `restart_required: true`. Quit and re-open Claude
+Desktop once more so `tailor serve` boots against the scaffolded
+demo config.
+
+### 5. Verify it loaded
 
 In a fresh Claude Desktop chat, type:
 
@@ -114,8 +128,10 @@ You should see ~55 tools across `force_csv`, `emg_csv`, `vault_*`,
 `strava_*` (Strava is the worked-example child; loads but errors
 without OAuth — ignore for this demo), and `ask_local_oracle`.
 
-If `force_csv` or `emg_csv` is missing, run `tailor fitting-room
---force` to rewrite the user_config and restart Claude Desktop.
+If `force_csv` or `emg_csv` is missing, ask Claude to *"re-scaffold
+the demo fitting room with force"* (it calls
+`tailor_fitting_room_scaffold` with `force=true`) and restart Claude
+Desktop again.
 
 ---
 
@@ -148,7 +164,7 @@ Paste to Claude Desktop:
 > sex.  Use the force_cohort_summary tool with metric=max."*
 
 Expected response (Claude calls `force_cohort_summary` with
-`group_field=sex, value_column=force_N, metric=max`):
+`group_by=sex, value_column=force_N, metric=max`):
 
 > "Cohort summary by sex:
 > - F (n=8): mean peak ≈ 200 N, range ≈ 180–240 N
@@ -281,9 +297,9 @@ their data was used for."*
 
 | What breaks | What to do |
 |---|---|
-| Claude Desktop doesn't see the tools | Restart Claude Desktop fully (system-tray Quit, then re-open). If still missing, run `tailor fitting-room --force` and restart again. |
-| `force_csv` returns "directory not found" | Re-run `tailor fitting-room --force` — re-writes user_config.json with current absolute paths. |
-| Vault search returns nothing | The vault.db wasn't indexed — `tailor fitting-room --force` re-runs the indexing step. The seed moment file lives at `~/.tailor/demos/cohort/vault/moments/2026-04-20-s004-emg-force-decoupling-suspected.md` if you want to confirm it exists. |
+| Claude Desktop doesn't see the tools | Restart Claude Desktop fully (system-tray Quit, then re-open). If still missing, confirm `tailor pilot` registered the server, then ask Claude to *"re-scaffold the demo fitting room with force"* and restart again. |
+| `force_csv` returns "directory not found" | Ask Claude to *"re-scaffold the demo fitting room with force"* (calls `tailor_fitting_room_scaffold` with `force=true`) — rewrites the demo user_config.json with current absolute paths. |
+| Vault search returns nothing | The vault.db wasn't indexed — ask Claude to *"re-index the demo vault"* (calls `tailor_fitting_room_index_vault`), or re-scaffold with force. The seed moment file lives at `~/.tailor/demos/cohort/vault/moments/2026-04-20-s004-emg-force-decoupling-suspected.md` if you want to confirm it exists. |
 | `force_summary.decline_pct` returns null | Known limitation — use `peak` and `mvc_window_mean_250ms` instead.  Don't acknowledge this gap proactively; if a reviewer asks, see [Pre-armed answers](#pre-armed-answers-if-a-reviewer-asks) below. |
 | You can't remember what to say | Read the **Walkthrough script** above straight off the page — every step has a "what to point out" line. |
 
@@ -413,9 +429,11 @@ literal string, so this breaks the wow moment.
 
 ### Symptom: Vault search returns nothing
 
-This is an operator action, not a Claude prompt — `vault.db`
-wasn't indexed when the fitting-room scaffolded.  Exit the chat,
-run `tailor fitting-room --force`, restart the demo from step 1.
+`vault.db` wasn't indexed when the fitting-room scaffolded.  Ask
+Claude to *"re-index the demo vault"* (it calls
+`tailor_fitting_room_index_vault`); if that doesn't recover it, ask
+it to *"re-scaffold the demo fitting room with force"* and restart
+the demo from step 1.
 
 ---
 
@@ -438,13 +456,13 @@ src/tailor/_fixtures/cohort_demo_realistic/   # Bundled fixtures
                                                        # (ship in the wheel
                                                        # per ADR 0024)
   force/                  Load-cell force traces, 100 Hz × 60 s
-    metadata.json         ADR 0015 sidecar (subject_id, sex, group, baseline_mvc_N)
+    metadata.json         ADR 0015 sidecar (entity_id, sex, group, baseline_mvc_N)
     S001_force.csv … S016_force.csv
   emg/                    Surface-EMG envelope, 100 Hz × 60 s
-    metadata.json         ADR 0015 sidecar (subject_id, sex, group, envelope_baseline_uV)
+    metadata.json         ADR 0015 sidecar (entity_id, sex, group, envelope_baseline_uV)
     S001_emg.csv … S016_emg.csv
   mrs/                    31P-MRS PCr/Pi stub, 0.05 Hz × 60 s
-    metadata.json         ADR 0015 sidecar (subject_id, sex, group, modality)
+    metadata.json         ADR 0015 sidecar (entity_id, sex, group, modality)
     S001_mrs.csv … S016_mrs.csv
   vault/moments/          Pre-seeded analytical vault
     2026-04-20-s004-emg-force-decoupling-suspected.md

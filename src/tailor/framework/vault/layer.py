@@ -1237,8 +1237,9 @@ class VaultLayer:
                 summary_msg = "Vault is empty."
                 remediation = (
                     "Capture a moment with vault_capture_moment, open a "
-                    "theme with vault_upsert_theme, or scaffold a guided "
-                    "walkthrough with `tailor fitting-room`."
+                    "theme with vault_upsert_theme, or scaffold the "
+                    "guided demo with the tailor_fitting_room_scaffold "
+                    "tool."
                 )
             return {
                 "summary": summary_msg,

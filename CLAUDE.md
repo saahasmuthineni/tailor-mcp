@@ -716,6 +716,16 @@ src/tailor/
                            #   from resolved_context with no narrative
       backends/ollama.py   # OllamaBackend — talks to Ollama on
                            #   localhost:11434 via JSON-mode HTTP
+    setup/                 # SetupLayer — bounded setup-time conductor
+                           #   surface, 4 MCP tools (ADR 0040)
+    setup_help/            # SetupHelpLayer — conditionally registered
+                           #   when no source is configured (v6.10.2)
+    audit_query/           # AuditQueryLayer — audit_query tool under
+                           #   column allowlist (ADR 0039)
+    walkthrough/           # WalkthroughLayer — 5-section recipient
+                           #   walkthrough as MCP tool (ADR 0040)
+    fitting_room/          # FittingRoomLayer — status/scaffold/index
+                           #   MCP tools wrapping fitting_room.py (ADR 0040)
   children/
     __init__.py            # Docstring framing children as the extension
                            #   point for new data sources
@@ -728,6 +738,18 @@ src/tailor/
       __init__.py          # Exports CSVDirectoryChild, CSVProcessing
       child.py             # CSVDirectoryChild(ChildMCP) — 7 tools, 3 tiers
       processing.py        # CSVProcessing — stateless analytics
+    force_csv/             # Force-trial CSV child (multimodal-physiology
+                           #   family; opt-in via force_csv config key)
+      __init__.py          # Exports ForceCsvChild, ForceCsvProcessing
+      child.py             # ForceCsvChild(ChildMCP) — 9 tools, 3 tiers;
+                           #   Bland-Altman device agreement, event labels
+      processing.py        # ForceCsvProcessing — stateless analytics
+    emg_csv/               # EMG-envelope CSV child (sibling to force_csv;
+                           #   opt-in via emg_csv config key)
+      __init__.py          # Exports EmgCsvChild, EmgCsvProcessing
+      child.py             # EmgCsvChild(ChildMCP) — 8 tools, 3 tiers;
+                           #   fatigue diagnostics, event labels
+      processing.py        # EmgCsvProcessing — stateless analytics
     matlab_file/           # MATLAB `.mat` binary-format child (ADR 0036)
       __init__.py          # Exports MATLABFileChild, MATLABProcessing
       child.py             # MATLABFileChild(ChildMCP) — 6 tools, 3 tiers;
@@ -785,6 +807,12 @@ tests/                     # Mirrors src/ layout
     csv_dir/
       test_csv_shape.py    # Shape contract tests (ported from template)
       test_csv_processing.py  # Pure-function analytics tests
+    force_csv/
+      test_force_csv_shape.py      # Shape + handler tests for ForceCsvChild
+      test_force_csv_processing.py # Pure-function tests (MVC window, Bland-Altman)
+    emg_csv/
+      test_emg_csv_shape.py        # Shape + handler tests for EmgCsvChild
+      test_emg_csv_processing.py   # Pure-function tests (RMS, iEMG, fatigue index)
     matlab_file/
       test_matlab_shape.py     # Shape + handler tests (scipy-required; skip if missing)
       test_matlab_processing.py  # Pure-function tests (no scipy)
@@ -859,6 +887,41 @@ Opt-in via `csv_dir` key in `user_config.json`. Wraps a local directory of per-s
 | `csv_raw_stream` | 3 | Full per-row data with precision reduction |
 
 Optional sidecar for cohort grouping: `<csv_dir.path>/metadata.json` with schema `{"<filename>": {"<field>": <value>, ...}}`. Required by `csv_group_summary`; ignored by every other tool. Schema matches REDCap / DataCite / Frictionless Data conventions. See [ADR 0015](docs/adr/0015-tier-1-cohort-surface-and-metadata-sidecar.md).
+
+## Force CSV Child — 9 Tools
+
+Opt-in via `force_csv` key in `user_config.json`. Wraps a local directory of force-trial CSV files (dynamometry / force-plate traces) — the first member of the multimodal-physiology child family alongside `emg_csv`. Shares `metadata.json` sidecar cohort grouping with `csv_dir` per [ADR 0015](docs/adr/0015-tier-1-cohort-surface-and-metadata-sidecar.md); per-trial analyst event labels persist to SQLite (`force_csv.db`).
+
+| Tool | Tier | Description |
+|------|------|-------------|
+| `force_list_files` | 1 | List force-trial files with sample-rate, channel count, columns |
+| `force_file_detail` | 1 | Per-file metadata + per-column summary statistics |
+| `force_summary` | 1 | Per-file fatigability diagnostic: peak force (Sánchez 250 ms window), decline %, time-to-50%-drop |
+| `force_cohort_summary` | 1 | Cross-file aggregation by metadata-sidecar group |
+| `force_compare_trials` | 1 | Side-by-side comparison of 2–5 trial files |
+| `force_device_agreement` | 1 | Bland-Altman paired-device validation (bias, limits of agreement) |
+| `force_label_event` | 1 | Persist an analyst-authored protocol-event label for a trial |
+| `force_downsampled` | 2 | Decimated force stream at every Nth sample |
+| `force_raw_window` | 3 | Raw per-sample force within a bounded time window (cost-gated) |
+
+Config shape: `force_csv` block with `path` (required), plus optional `timestamp_column`, `timestamp_format`, `sample_rate_hz`, and `value_columns` (e.g. `{"force": "Force (N)"}`). Cohort grouping uses the same `<force_csv.path>/metadata.json` sidecar schema as `csv_dir`.
+
+## EMG CSV Child — 8 Tools
+
+Opt-in via `emg_csv` key in `user_config.json`. Sibling to `force_csv` — wraps a local directory of EMG-envelope trial CSV files with the same off-the-blueprint posture. Fatigue diagnostics (RMS, mean activation, integrated EMG, fatigue index) over rectified/smoothed envelope traces; per-trial analyst event labels persist to SQLite (`emg_csv.db`). Shares `metadata.json` sidecar cohort grouping with `csv_dir` per [ADR 0015](docs/adr/0015-tier-1-cohort-surface-and-metadata-sidecar.md).
+
+| Tool | Tier | Description |
+|------|------|-------------|
+| `emg_list_files` | 1 | List EMG envelope trial files with sample-rate, channel count, columns |
+| `emg_file_detail` | 1 | Per-file metadata + per-column summary statistics |
+| `emg_envelope_summary` | 1 | Per-file fatigue diagnostic: RMS, mean activation, integrated EMG, fatigue index |
+| `emg_cohort_summary` | 1 | Cross-file aggregation by metadata-sidecar group |
+| `emg_compare_trials` | 1 | Side-by-side comparison of 2–5 trial files |
+| `emg_label_event` | 1 | Persist an analyst-authored protocol-event label for a trial |
+| `emg_downsampled` | 2 | Decimated envelope stream at every Nth sample |
+| `emg_raw_window` | 3 | Raw per-sample envelope within a bounded time window (cost-gated) |
+
+Config shape mirrors `force_csv`: an `emg_csv` block with `path` (required) plus the same optional `timestamp_column` / `timestamp_format` / `sample_rate_hz` / `value_columns` keys.
 
 ## MATLAB File Child — 6 Tools
 

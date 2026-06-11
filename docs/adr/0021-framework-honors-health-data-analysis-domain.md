@@ -1,6 +1,17 @@
 # ADR 0021: Project domain is health data analysis; framework must architecturally reflect that
 
-- **Status:** Proposed
+- **Status:** Accepted (status corrected 2026-06-11 — the decision has
+  been operative since it was filed: the renderer-registration seam
+  shipped (`VaultWriter.register_renderer`), [ADR 0033](0033-complete-tailor-metaphor-workshop-side.md)
+  and [ADR 0038](0038-vault-layer-is-data-source-agnostic.md) build on
+  it, and the v9.0.0 vocabulary flip extended it. The *decouple work
+  it prescribes is partially complete*: the framework vault writer
+  still seeds three `strava_*` renderer defaults, framework
+  `renderer.py` still hosts the run/trend/compare renderers, and two
+  `domain="running"` call sites remain in `framework/vault/layer.py`;
+  that remainder is tracked under ADR 0038. This note exists because
+  a Proposed status on a decision the project has been building on
+  for six weeks was itself doc-drift.)
 - **Date:** 2026-05-01
 - **Related:** [ADR 0003 (PHI scrubber as seam)](0003-phi-scrubber-seam.md), [ADR 0007 (Rendering-layers policy)](0007-rendering-layers-policy.md), [ADR 0011 (Promotion policy)](0011-promotion-policy.md), [ADR 0014 (Coverage criticality invariant)](0014-coverage-criticality-invariant.md), [ADR 0017 (ADR weigher and autonomous-session cap)](0017-adr-weigher-and-autonomous-session-cap.md), [CLAUDE.md § What This Project Is](../../CLAUDE.md#what-this-project-is)
 

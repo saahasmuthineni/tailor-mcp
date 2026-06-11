@@ -258,18 +258,23 @@ def cmd_serve():
         _vlog = _log_mod.getLogger("tailor")
 
         # Detect common cloud-sync providers by path components.
-        # "mobile documents" + "clouddocs" cover macOS iCloud canonical
-        # paths (~/Library/Mobile Documents/com~apple~CloudDocs/ and
-        # iCloud~* app containers) which do not contain the literal
-        # substring "icloud". Kept in sync with pilot._CLOUD_MARKERS.
-        _CLOUD_MARKERS = (
-            "onedrive", "icloud", "mobile documents", "clouddocs",
-            "dropbox", "google drive", "googledrive",
-            "box sync", "boxsync", "nextcloud", "mega",
-        )
+        # Single source of truth: pilot._CLOUD_MARKERS — the same list
+        # the pilot wizard warns from, so users see consistent warnings
+        # across both surfaces. (The previous inline copy here had
+        # drifted: it was missing the pCloud and bare /box/ markers.)
+        from tailor.pilot import _CLOUD_MARKERS
+
         _vault_str = str(_vault_path).lower().replace("\\", "/")
         _cloud_provider = next(
-            (m for m in _CLOUD_MARKERS if m in _vault_str), None
+            (
+                label
+                for marker, label in _CLOUD_MARKERS
+                # Normalize the marker the same way pilot's detector does,
+                # so the backslash-form Box marker matches the normalized
+                # haystack instead of being dead in this loop.
+                if marker.lower().replace("\\", "/") in _vault_str
+            ),
+            None,
         )
         if _cloud_provider:
             _vlog.warning(

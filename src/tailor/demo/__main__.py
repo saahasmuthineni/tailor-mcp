@@ -40,9 +40,20 @@ def main(argv: list[str] | None = None) -> int:
     )
     from tailor import __version__
 
-    default_shareable = (
-        Path.home() / ".tailor" / f"shareable-walkthrough-v{__version__}.md"
-    )
+    # Path.home() raises RuntimeError/OSError when the home directory
+    # cannot be resolved (minimal containers, headless runners) — same
+    # guard as framework.setup_help._redact_home. Without it, even
+    # `--help` would crash; fall back to the working directory.
+    try:
+        default_shareable = (
+            Path.home()
+            / ".tailor"
+            / f"shareable-walkthrough-v{__version__}.md"
+        )
+    except (RuntimeError, OSError):
+        default_shareable = (
+            Path.cwd() / f"shareable-walkthrough-v{__version__}.md"
+        )
     parser.add_argument(
         "--save-shareable",
         metavar="PATH",

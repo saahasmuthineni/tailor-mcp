@@ -70,7 +70,12 @@ def build_receipt_data(benchmark: dict) -> dict:
     cards: list[dict] = []
 
     for key, label in _PER_QUERY_LABELS.items():
-        q = by_scenario[key]
+        q = by_scenario.get(key)
+        if q is None:
+            raise ValueError(
+                f"Required scenario {key!r} missing from benchmark data — "
+                "is the input the JSON emitted by token_efficiency.py?"
+            )
         cards.append(
             {
                 "label": label,
@@ -81,7 +86,14 @@ def build_receipt_data(benchmark: dict) -> dict:
             }
         )
 
-    session = benchmark["session_persistence_efficiency"][0]
+    sessions = benchmark.get("session_persistence_efficiency")
+    if not sessions:
+        raise ValueError(
+            "Missing or empty 'session_persistence_efficiency' in "
+            "benchmark data — is the input the JSON emitted by "
+            "token_efficiency.py?"
+        )
+    session = sessions[0]
     cards.append(
         {
             "label": _SESSION_LABEL,

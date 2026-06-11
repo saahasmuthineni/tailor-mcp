@@ -1,5 +1,6 @@
 import asyncio
 import re
+import shutil
 import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
@@ -120,8 +121,15 @@ finally:
 print()
 print(f"=== VAULT SMOKE -- failures: {len(failures)} ===")
 if failures:
+    # Keep temp dirs on failure so the markdown can be inspected.
     print(f"vault: {vault_dir}\ndata:  {data_dir}")
+    print(f"vault (block D): {vault_dir_empty}\ndata (block D):  {data_dir_empty}")
     print("(temp dirs left in place for inspection)")
     for label, detail in failures:
         print(f"  - {label}  {detail}")
+else:
+    # Clean pass: remove temp dirs (layers already closed above, so
+    # SQLite WAL handles are released — safe on Windows too).
+    for d in (vault_dir, data_dir, vault_dir_empty, data_dir_empty):
+        shutil.rmtree(d, ignore_errors=True)
 sys.exit(1 if failures else 0)

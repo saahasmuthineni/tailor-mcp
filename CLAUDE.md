@@ -2,6 +2,43 @@
 
 > **Note for human contributors:** This file is read automatically by Claude when working in this repo. If you're a human contributor, see [CONTRIBUTING.md](CONTRIBUTING.md) instead.
 
+> **v9.2.0 (2026-06-12)** — `tailor inspect --data-dir DIR`. Minor
+> bump. One new flag on the existing inspector verb; no breaking
+> changes, no schema changes, no new commands (CLI surface stays
+> seven per ADR 0043).
+>
+> The v9.1.0 inspector resolved its data directory only via
+> `$TAILOR_DATA_DIR` / the `~/.tailor/data` default, so pointing it
+> at any other `audit.db` + `vault.db` location meant setting an
+> environment variable before launch — `--data-dir` was an operator's
+> reasonable first guess on 2026-06-12 and didn't exist. The flag now
+> overrides the env-var resolution per invocation (precedence: flag >
+> `$TAILOR_DATA_DIR` > default) on both the serve and `--export`
+> paths. Fail-fast posture: an explicitly named directory that does
+> not exist is rejected at the CLI boundary (argparse error, exit 2)
+> — a typo'd path silently rendering the honest-empty "No audit
+> database yet" page is the same confusion class the flag closes. An
+> existing directory without databases keeps the ADR 0043
+> honest-empty contract. Inspector internals untouched:
+> `run_inspector` / `export_page` always took `data_dir` as a
+> parameter; only the CLI boundary changed. No ADR amendment — per
+> the `tailor pilot --source` precedent (v7.5.0), flag additions to
+> an existing verb ship as a minor bump + CHANGELOG; ADR 0043's
+> surface contract governs command count, not per-command flags.
+>
+> **Gates: 1,820 passed, 3 scipy skips.** ruff clean; 76/76 security
+> probe; CLI smoke clean (7 verbs discoverable, new flag in
+> `inspect --help`, exit-2 typo guard verified); end-to-end
+> `--export` provenance check against a populated non-default dir
+> with a decoy `$TAILOR_DATA_DIR` confirmed flag-beats-env. Net-new
+> tests: 3 (flag-overrides-env, nonexistent-dir exit 2,
+> existing-empty-dir honest-empty — `tests/inspector/test_export.py`).
+> `recipient-install-validator` file-gated on `__main__.py` —
+> flagged, skipped per the v6.11.x falsification precedent (not an
+> install-path change). `mcp-protocol-auditor` /
+> `cue-card-rehearsal-auditor` NOT TRIGGERED (no router / wire-shape /
+> ToolDefinition changes).
+
 > **v9.1.0 (2026-06-10)** — Read-only inspector (`tailor inspect`).
 > Minor bump. New feature, no breaking changes, no schema changes.
 >
@@ -1033,7 +1070,8 @@ tailor setup         # Strava OAuth wizard for the worked-example child
 tailor redcap        # REDCap export-directory setup + re-attestation
 tailor status        # Diagnostic check
 tailor inspect       # Read-only localhost page over audit.db + vault.db
-                     #   (--port / --no-browser / --export FILE; ADR 0043)
+                     #   (--port / --no-browser / --export FILE /
+                     #   --data-dir DIR; ADR 0043)
 tailor uninstall     # Remove Tailor's Claude Desktop registration + state
 # Recipient walkthrough + fitting-room are no longer CLI verbs — they run as
 # WalkthroughLayer / FittingRoomLayer MCP tools driven from Claude Desktop

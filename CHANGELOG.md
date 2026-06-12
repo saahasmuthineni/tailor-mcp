@@ -5,6 +5,27 @@ All notable changes to this project are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims at [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [9.2.0] — 2026-06-12
+
+### Added
+
+- **`tailor inspect --data-dir DIR`** — point the inspector at a
+  non-default data directory (one containing `audit.db` and
+  `vault.db`). Precedence: flag > `$TAILOR_DATA_DIR` > the
+  `~/.tailor/data` default. Previously the only override was setting
+  the environment variable before launch — `--data-dir` was the
+  reasonable first guess and didn't exist (the confusion that
+  motivated this release). Fail-fast posture: an explicitly named
+  directory that does not exist is rejected at the CLI boundary
+  (argparse error, exit 2) rather than silently rendering or
+  exporting the "No audit database yet" empty page; an existing
+  directory without databases keeps that honest-empty state per
+  [ADR 0043](docs/adr/0043-read-only-inspector-not-application.md).
+  No ADR amendment: per the `tailor pilot --source` precedent
+  (v7.5.0), flag additions to an existing verb ship as a minor bump;
+  ADR 0043's surface contract governs the command count, not
+  per-command flags.
+
 ## [9.1.0] — 2026-06-10
 
 Read-only inspector. The audit log gains an independent,

@@ -944,6 +944,7 @@ def cmd_inspect():
         tailor inspect --port 9000        # alternate port
         tailor inspect --no-browser       # don't auto-open the browser
         tailor inspect --export out.html  # render once to a static file, exit
+        tailor inspect --data-dir ~/other/data  # inspect a non-default data dir
     """
     import argparse
 
@@ -969,12 +970,29 @@ def cmd_inspect():
         "--export", metavar="FILE", default=None,
         help="render once to a static HTML file and exit",
     )
+    parser.add_argument(
+        "--data-dir", metavar="DIR", default=None,
+        help="directory containing audit.db and vault.db "
+             "(default: $TAILOR_DATA_DIR or ~/.tailor/data)",
+    )
     args = parser.parse_args(sys.argv[2:])
 
+    # Precedence: --data-dir flag > $TAILOR_DATA_DIR > ~/.tailor/data.
+    # An explicitly named directory that does not exist is almost
+    # certainly a typo — fail fast rather than serve the honest-empty
+    # "No audit database yet" page against the wrong place. An existing
+    # directory without databases stays a normal state (ADR 0043).
+    if args.data_dir:
+        data_dir = Path(args.data_dir).expanduser()
+        if not data_dir.is_dir():
+            parser.error(f"--data-dir is not a directory: {data_dir}")
+    else:
+        data_dir = DATA_DIR
+
     if args.export:
-        sys.exit(export_page(DATA_DIR, Path(args.export)))
+        sys.exit(export_page(data_dir, Path(args.export)))
     sys.exit(run_inspector(
-        DATA_DIR, port=args.port, open_browser=not args.no_browser,
+        data_dir, port=args.port, open_browser=not args.no_browser,
     ))
 
 

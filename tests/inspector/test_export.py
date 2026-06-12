@@ -70,6 +70,77 @@ def test_cli_export_empty_data_dir_exit_0(tmp_path: Path) -> None:
     assert "No audit database yet" in out.read_text(encoding="utf-8")
 
 
+def test_cli_export_data_dir_flag_overrides_env(
+    populated_data_dir: Path, tmp_path: Path,
+) -> None:
+    """`--data-dir` wins over `$TAILOR_DATA_DIR` (flag > env > default)."""
+    out = tmp_path / "flagged.html"
+    env_decoy = tmp_path / "env_data"
+    env_decoy.mkdir()
+    env = {
+        **os.environ,
+        "TAILOR_CONFIG_DIR": str(tmp_path / "cfg"),
+        "TAILOR_DATA_DIR": str(env_decoy),  # empty dir the flag must beat
+    }
+    proc = subprocess.run(
+        [sys.executable, "-m", "tailor", "inspect",
+         "--export", str(out), "--data-dir", str(populated_data_dir)],
+        capture_output=True, env=env, timeout=60,
+    )
+    assert proc.returncode == 0, proc.stderr.decode()
+    body = out.read_text(encoding="utf-8")
+    # Rows only the flag-named dir contains — not the env decoy's
+    # honest-empty state.
+    assert "csv_summary_report" in body
+    assert "No audit database yet" not in body
+
+
+def test_cli_data_dir_nonexistent_exits_2(tmp_path: Path) -> None:
+    """An explicit `--data-dir` that does not exist fails fast.
+
+    A typo'd path silently exporting the "No audit database yet" page
+    is the confusion class the flag exists to prevent; argparse
+    `parser.error` exits 2 and names the path. An *existing* directory
+    without databases stays the honest-empty normal state — covered by
+    the test below.
+    """
+    missing = tmp_path / "nope"
+    out = tmp_path / "never.html"
+    env = {
+        **os.environ,
+        "TAILOR_CONFIG_DIR": str(tmp_path / "cfg"),
+    }
+    proc = subprocess.run(
+        [sys.executable, "-m", "tailor", "inspect",
+         "--export", str(out), "--data-dir", str(missing)],
+        capture_output=True, env=env, timeout=60,
+    )
+    assert proc.returncode == 2
+    stderr = proc.stderr.decode("utf-8", errors="replace")
+    assert "--data-dir is not a directory" in stderr
+    assert "nope" in stderr
+    assert not out.exists()
+
+
+def test_cli_export_data_dir_existing_empty_dir_honest_empty(
+    empty_data_dir: Path, tmp_path: Path,
+) -> None:
+    """An existing `--data-dir` without databases keeps ADR 0043's
+    honest-empty contract: exit 0, empty-state page."""
+    out = tmp_path / "empty_flagged.html"
+    env = {
+        **os.environ,
+        "TAILOR_CONFIG_DIR": str(tmp_path / "cfg"),
+    }
+    proc = subprocess.run(
+        [sys.executable, "-m", "tailor", "inspect",
+         "--export", str(out), "--data-dir", str(empty_data_dir)],
+        capture_output=True, env=env, timeout=60,
+    )
+    assert proc.returncode == 0, proc.stderr.decode()
+    assert "No audit database yet" in out.read_text(encoding="utf-8")
+
+
 def test_cli_help_lists_inspect(tmp_path: Path) -> None:
     """The seventh verb is discoverable from `tailor --help`."""
     env = {

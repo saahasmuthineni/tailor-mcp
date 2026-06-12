@@ -684,6 +684,15 @@ prior roadmap revisions per the same historical-preservation principle
 `CHANGELOG.md` — these entries describe past state and rewriting them
 would falsify the historical record.
 
+### Shipped in v9.2.0 (2026-06-12)
+
+- **`tailor inspect --data-dir DIR`** — per-invocation override of the
+  inspector's data-directory resolution (precedence: flag >
+  `$TAILOR_DATA_DIR` > `~/.tailor/data` default), with fail-fast on a
+  nonexistent explicit directory. Closes the operator gap where
+  pointing the v9.1.0 inspector at a non-default `audit.db`/`vault.db`
+  location required setting an environment variable before launch.
+
 ### Shipped in v9.1.0 (2026-06-10)
 
 - **Read-only inspector (`tailor inspect`)** — Phase 4 Direction F first

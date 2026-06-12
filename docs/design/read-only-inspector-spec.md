@@ -79,6 +79,8 @@ tailor inspect --port 9000      # alternate port
 tailor inspect --no-browser     # don't auto-open
 tailor inspect --export out.html  # render once to a static file, exit
                                   # (CI-friendly; also the screenshot path)
+tailor inspect --data-dir DIR   # inspect a non-default data directory
+                                # (added v9.2.0; flag > $TAILOR_DATA_DIR)
 ```
 
 ### Stage 2 — ambient, opt-in (DESIGN ONLY — record in ADR, do not build)
@@ -119,7 +121,13 @@ hits a dead end that the Stage-2 bookmark does not cover.
 - Data locations come from the existing config module
   (`src/tailor/config.py` / `TAILOR_CONFIG_DIR`, `TAILOR_DATA_DIR`
   env vars — same resolution `__main__.py` uses; audit DB is
-  `DATA_DIR / "audit.db"`, see `__main__.py:552`).
+  `DATA_DIR / "audit.db"`, see `__main__.py:552`). Since v9.2.0 the
+  `--data-dir DIR` flag overrides that resolution per invocation
+  (precedence: flag > `$TAILOR_DATA_DIR` > `~/.tailor/data`); an
+  explicitly named directory that does not exist is rejected at the
+  CLI boundary (argparse error, exit 2) rather than rendered as the
+  honest-empty page — the empty state remains the contract only for
+  directories that exist.
 - Missing databases are a normal state, not an error: render the
   page with an honest "no audit database yet — has `tailor serve`
   run?" empty state.

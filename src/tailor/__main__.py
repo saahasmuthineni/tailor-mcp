@@ -983,7 +983,7 @@ def cmd_inspect():
     # "No audit database yet" page against the wrong place. An existing
     # directory without databases stays a normal state (ADR 0043).
     if args.data_dir:
-        data_dir = Path(args.data_dir).expanduser()
+        data_dir = Path(args.data_dir).expanduser().resolve()
         if not data_dir.is_dir():
             parser.error(f"--data-dir is not a directory: {data_dir}")
     else:
